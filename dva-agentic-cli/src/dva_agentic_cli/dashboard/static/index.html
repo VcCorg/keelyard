@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DVA Agentic Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.4/dist/tailwind.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/lucide-static@0.309.0/font/lucide.min.css" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; }
+    .badge-up { background: #065f46; color: #6ee7b7; }
+    .badge-down { background: #7f1d1d; color: #fca5a5; }
+    .badge-warn { background: #78350f; color: #fcd34d; }
+    .tab-active { border-bottom: 2px solid #3b82f6; color: #3b82f6; }
+    .tab-inactive { border-bottom: 2px solid transparent; color: #94a3b8; }
+    .tab-inactive:hover { color: #e2e8f0; }
+    .skill-preview { max-height: 200px; overflow-y: auto; }
+    pre { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; font-size: 13px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, Fragment } = React;
+    const API = '';
+
+    // -----------------------------------------------------------------------
+    // Fetch helpers
+    // -----------------------------------------------------------------------
+    async function fetchJSON(path) {
+      const res = await fetch(API + path);
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      return res.json();
+    }
+
+    // -----------------------------------------------------------------------
+    // Components
+    // -----------------------------------------------------------------------
+    function Badge({ status }) {
+      const cls = status === 'up' ? 'badge-up' : status === 'down' ? 'badge-down' : 'badge-warn';
+      return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>{status}</span>;
+    }
+
+    function Stat({ label, value, sub }) {
+      return (
+        <div className="card p-4">
+          <div className="text-sm text-slate-400">{label}</div>
+          <div className="text-2xl font-bold mt-1">{value}</div>
+          {sub && <div className="text-xs text-slate-500 mt-1">{sub}</div>}
+        </div>
+      );
+    }
+
+    // -----------------------------------------------------------------------
+    // Overview Tab
+    // -----------------------------------------------------------------------
+    function OverviewTab() {
+      const [stats, setStats] = useState(null);
+      const [mcp, setMcp] = useState(null);
+      const [activity, setActivity] = useState([]);
+
+      useEffect(() => {
+        fetchJSON('/api/context').then(setStats);
+        fetchJSON('/api/mcp/health').then(setMcp);
+        fetchJSON('/api/activity?limit=10').then(setActivity);
+      }, []);
+
+      if (!stats) return <div className="text-slate-400 p-8">Loading...</div>;
+
+      const products = stats.products || [];
+      const domains = stats.domains || [];
+      const repos = stats.repos || [];
+      const projects = stats.projects || [];
+
+      return (
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Stat label="Products" value={products.length} />
+            <Stat label="Domains" value={domains.length} />
+            <Stat label="Repos" value={repos.length} />
+            <Stat label="Projects" value={projects.length} />
+          </div>
+
+          {/* MCP Health */}
+          <div className="card p-5">
+            <h3 className="font-semibold text-lg mb-3">MCP Server Health</h3>
+            {mcp ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {Object.entries(mcp).map(([name, info]) => (
+                  <div key={name} className="flex items-center justify-between bg-slate-800 rounded-lg px-4 py-3">
+                    <div>
+                      <div className="font-medium capitalize">{name}</div>
+                      <div className="text-xs text-slate-500">{info.url}</div>
+                    </div>
+                    <Badge status={info.status} />
+                  </div>
+                ))}
+              </div>
+            ) : <div className="text-slate-400">Checking...</div>}
+          </div>
+
+          {/* Recent Activity */}
+          <div className="card p-5">
+            <h3 className="font-semibold text-lg mb-3">Recent Activity</h3>
+            <table className="w-full text-sm">
+              <thead><tr className="text-slate-400 border-b border-slate-700">
+                <th className="text-left py-2">Command</th>
+                <th className="text-left py-2">Sub</th>
+                <th className="text-left py-2">Status</th>
+                <th className="text-left py-2">When</th>
+              </tr></thead>
+              <tbody>
+                {activity.map((a, i) => (
+                  <tr key={i} className="border-b border-slate-800">
+                    <td className="py-2 font-mono text-blue-400">{a.command}</td>
+                    <td className="py-2">{a.subcommand || '—'}</td>
+                    <td className="py-2"><Badge status={a.status === 'success' ? 'up' : 'down'} /></td>
+                    <td className="py-2 text-slate-500">{a.created_at?.slice(0, 19)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    // -----------------------------------------------------------------------
+    // Domains Tab
+    // -----------------------------------------------------------------------
+    function DomainsTab() {
+      const [domains, setDomains] = useState([]);
+      const [selected, setSelected] = useState(null);
+      const [detail, setDetail] = useState(null);
+      const [skills, setSkills] = useState(null);
+
+      useEffect(() => { fetchJSON('/api/domains').then(setDomains); }, []);
+
+      useEffect(() => {
+        if (selected) {
+          fetchJSON(`/api/domains/${selected}`).then(setDetail);
+          fetchJSON(`/api/domains/${selected}/skills`).then(setSkills);
+        }
+      }, [selected]);
+
+      return (
+        <div className="grid grid-cols-3 gap-6">
+          <div className="col-span-1 space-y-2">
+            <h3 className="font-semibold mb-2">Domains ({domains.length})</h3>
+            {domains.map(d => (
+              <div key={d.name}
+                onClick={() => setSelected(d.name)}
+                className={`card p-3 cursor-pointer hover:border-blue-500 transition ${selected === d.name ? 'border-blue-500' : ''}`}>
+                <div className="font-medium">{d.name}</div>
+                <div className="text-xs text-slate-400">{d.product} · {d.domain}</div>
+              </div>
+            ))}
+          </div>
+          <div className="col-span-2">
+            {detail ? (
+              <div className="space-y-4">
+                <div className="card p-5">
+                  <h3 className="font-semibold text-lg">{detail.name}</h3>
+                  <div className="text-sm text-slate-400 mt-1">{detail.description || 'No description'}</div>
+                  <div className="grid grid-cols-2 gap-3 mt-4 text-sm">
+                    <div><span className="text-slate-400">Product:</span> {detail.product}</div>
+                    <div><span className="text-slate-400">Jira:</span> {detail.jira_project || '—'}</div>
+                    <div><span className="text-slate-400">Bitbucket:</span> {detail.bitbucket_project || '—'}</div>
+                    <div><span className="text-slate-400">Confluence:</span> {detail.confluence_space || '—'}</div>
+                  </div>
+                  {detail.jira_dashboard && (
+                    <div className="mt-2 text-sm">
+                      <a href={detail.jira_dashboard} target="_blank" className="text-blue-400 hover:underline">Jira Dashboard ↗</a>
+                    </div>
+                  )}
+                </div>
+
+                {/* Repos */}
+                <div className="card p-5">
+                  <h3 className="font-semibold mb-2">Linked Repos ({(detail.repos || []).length})</h3>
+                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                    {(detail.repos || []).map((r, i) => (
+                      <div key={i} className="flex items-center justify-between text-sm bg-slate-800 rounded px-3 py-2">
+                        <span className="font-mono">{r.repo_slug}</span>
+                        <Badge status={r.onboarded ? 'up' : 'down'} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Persona Skills */}
+                {skills && (
+                  <div className="card p-5">
+                    <h3 className="font-semibold mb-2">Persona Skills</h3>
+                    <div className="grid grid-cols-5 gap-2">
+                      {Object.entries(skills).map(([file, info]) => (
+                        <div key={file} className={`text-center p-3 rounded-lg ${info.exists ? 'bg-green-900/30 border border-green-800' : 'bg-slate-800 border border-slate-700'}`}>
+                          <div className="font-mono text-sm">{file}</div>
+                          {info.exists
+                            ? <div className="text-xs text-green-400 mt-1">{(info.size / 1024).toFixed(1)}KB</div>
+                            : <div className="text-xs text-slate-500 mt-1">Not generated</div>
+                          }
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Docs */}
+                <div className="card p-5">
+                  <h3 className="font-semibold mb-2">Tracked Docs ({(detail.docs || []).length})</h3>
+                  {(detail.docs || []).map((d, i) => (
+                    <div key={i} className="text-sm bg-slate-800 rounded px-3 py-2 mb-1">
+                      {d.title} <span className="text-slate-500">({d.source_space_key})</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="card p-8 text-center text-slate-400">Select a domain to view details</div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // -----------------------------------------------------------------------
+    // Projects / Agents Tab
+    // -----------------------------------------------------------------------
+    function ProjectsTab() {
+      const [projects, setProjects] = useState([]);
+      const [selected, setSelected] = useState(null);
+
+      useEffect(() => { fetchJSON('/api/projects').then(setProjects); }, []);
+
+      const proj = selected ? projects.find(p => p.path === selected) : null;
+
+      return (
+        <div className="grid grid-cols-3 gap-6">
+          <div className="col-span-1 space-y-2">
+            <h3 className="font-semibold mb-2">Agent Projects ({projects.length})</h3>
+            {projects.map(p => {
+              const v = p.validation || {};
+              const pct = v.total ? Math.round((v.score / v.total) * 100) : 0;
+              return (
+                <div key={p.path}
+                  onClick={() => setSelected(p.path)}
+                  className={`card p-3 cursor-pointer hover:border-blue-500 transition ${selected === p.path ? 'border-blue-500' : ''}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="font-medium">{p.name}</div>
+                    <span className={`text-xs font-bold ${pct >= 80 ? 'text-green-400' : pct >= 50 ? 'text-yellow-400' : 'text-red-400'}`}>{pct}%</span>
+                  </div>
+                  <div className="text-xs text-slate-400 mt-1">{p.use_case || 'basic'} · {p.framework || 'adk'}</div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="col-span-2">
+            {proj ? (
+              <div className="space-y-4">
+                <div className="card p-5">
+                  <h3 className="font-semibold text-lg">{proj.name}</h3>
+                  <div className="text-xs text-slate-500 font-mono mt-1">{proj.path}</div>
+                  <div className="grid grid-cols-2 gap-3 mt-4 text-sm">
+                    <div><span className="text-slate-400">Framework:</span> {proj.framework || 'adk'}</div>
+                    <div><span className="text-slate-400">Use Case:</span> {proj.use_case || 'basic'}</div>
+                    <div><span className="text-slate-400">Created:</span> {proj.created_at?.slice(0, 19)}</div>
+                    <div><span className="text-slate-400">Tools:</span> {(proj.tools || []).join(', ') || '—'}</div>
+                  </div>
+                </div>
+
+                {/* Validation */}
+                <div className="card p-5">
+                  <h3 className="font-semibold mb-3">Validation Checks</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    {Object.entries(proj.validation || {}).filter(([k]) => k !== 'score' && k !== 'total').map(([check, passed]) => (
+                      <div key={check} className="flex items-center justify-between bg-slate-800 rounded px-3 py-2 text-sm">
+                        <span className="font-mono">{check.replace(/^has_/, '').replace(/_/g, ' ')}</span>
+                        <span className={passed ? 'text-green-400' : 'text-red-400'}>{passed ? '✓' : '✗'}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 text-sm text-slate-400">
+                    Score: {proj.validation?.score || 0} / {proj.validation?.total || 0}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="card p-8 text-center text-slate-400">Select a project to validate</div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // -----------------------------------------------------------------------
+    // Catalogue Tab
+    // -----------------------------------------------------------------------
+    function CatalogueTab() {
+      const [useCases, setUseCases] = useState([]);
+      const [frameworks, setFrameworks] = useState([]);
+      const [tools, setTools] = useState([]);
+
+      useEffect(() => {
+        fetchJSON('/api/catalogue/use-cases').then(setUseCases);
+        fetchJSON('/api/catalogue/frameworks').then(setFrameworks);
+        fetchJSON('/api/catalogue/tools').then(setTools);
+      }, []);
+
+      return (
+        <div className="space-y-6">
+          <div className="card p-5">
+            <h3 className="font-semibold text-lg mb-3">Use Cases ({useCases.length})</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {useCases.map(uc => (
+                <div key={uc.value} className="bg-slate-800 rounded-lg p-4">
+                  <div className="font-medium text-blue-400">{uc.display_name}</div>
+                  <div className="text-xs text-slate-400 mt-1">{uc.description}</div>
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {uc.tools.map(t => (
+                      <span key={t} className="px-2 py-0.5 bg-slate-700 rounded text-xs">{t}</span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-6">
+            <div className="card p-5">
+              <h3 className="font-semibold text-lg mb-3">Frameworks</h3>
+              {frameworks.map(f => (
+                <div key={f.value} className="bg-slate-800 rounded px-3 py-2 mb-2 text-sm">
+                  <span className="font-mono text-blue-400">{f.value}</span> — {f.display_name}
+                </div>
+              ))}
+            </div>
+            <div className="card p-5">
+              <h3 className="font-semibold text-lg mb-3">Tools ({tools.length})</h3>
+              <div className="space-y-1 max-h-64 overflow-y-auto">
+                {tools.map(t => (
+                  <div key={t.value} className="bg-slate-800 rounded px-3 py-2 text-sm">
+                    <span className="font-mono text-green-400">{t.value}</span>
+                    <span className="text-slate-400 ml-2">{t.display_name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // -----------------------------------------------------------------------
+    // App Shell
+    // -----------------------------------------------------------------------
+    const TABS = [
+      { id: 'overview', label: 'Overview' },
+      { id: 'domains', label: 'Domains' },
+      { id: 'projects', label: 'Agent Projects' },
+      { id: 'catalogue', label: 'Catalogue' },
+    ];
+
+    function App() {
+      const [tab, setTab] = useState('overview');
+
+      return (
+        <div className="min-h-screen">
+          {/* Header */}
+          <header className="bg-slate-900 border-b border-slate-700 px-6 py-4">
+            <div className="max-w-7xl mx-auto flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-sm">D</div>
+                <div>
+                  <h1 className="text-lg font-bold">DVA Agentic Dashboard</h1>
+                  <p className="text-xs text-slate-400">Agent Validation & Monitoring</p>
+                </div>
+              </div>
+              <div className="text-xs text-slate-500">v0.1.0</div>
+            </div>
+          </header>
+
+          {/* Tabs */}
+          <nav className="bg-slate-900 px-6 border-b border-slate-700">
+            <div className="max-w-7xl mx-auto flex gap-6">
+              {TABS.map(t => (
+                <button key={t.id}
+                  onClick={() => setTab(t.id)}
+                  className={`py-3 px-1 text-sm font-medium ${tab === t.id ? 'tab-active' : 'tab-inactive'}`}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </nav>
+
+          {/* Content */}
+          <main className="max-w-7xl mx-auto p-6">
+            {tab === 'overview' && <OverviewTab />}
+            {tab === 'domains' && <DomainsTab />}
+            {tab === 'projects' && <ProjectsTab />}
+            {tab === 'catalogue' && <CatalogueTab />}
+          </main>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+{
+  "name": "Organization Entity Template",
+  "description": "Template for creating Organization entities in the knowledge graph",
+  "label": "Organization",
+  "provider": "neo4j",
+  "template": {
+    "name": "<required: organization name>",
+    "industry": "<optional: industry sector>",
+    "size": "<optional: company size (small/medium/large/enterprise)>",
+    "founded": "<optional: founding year>",
+    "website": "<optional: company website>"
+  },
+  "examples": [
+    {
+      "name": "Acme Corp",
+      "industry": "Technology",
+      "size": "enterprise",
+      "founded": 2010,
+      "website": "https://acme.com"
+    },
+    {
+      "name": "Tech Startup Inc",
+      "industry": "Software",
+      "size": "small",
+      "founded": 2020
+    }
+  ],
+  "cypher_create": "CREATE (o:Organization {name: $name, industry: $industry, size: $size, founded: $founded, website: $website})",
+  "relationships": [
+    {
+      "type": "LOCATED_IN",
+      "to": "Location",
+      "description": "Link organization to its location"
+    },
+    {
+      "type": "CREATED",
+      "from": "Organization",
+      "to": "Product",
+      "description": "Link organization to products it created"
+    }
+  ]
+}

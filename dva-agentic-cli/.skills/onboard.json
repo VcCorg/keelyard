@@ -1,0 +1,77 @@
+{
+  "version": "1.0",
+  "project": "dva-agentic-cli",
+  "analysis": {
+    "languages": [
+      "python"
+    ],
+    "frameworks": [],
+    "build_tools": [
+      "make",
+      "pyproject"
+    ],
+    "test_frameworks": [],
+    "dependencies": [
+      "typer",
+      "click",
+      "rich",
+      "pydantic"
+    ],
+    "ci_cd": [],
+    "databases": [],
+    "api_types": [],
+    "has_docker": false,
+    "project_files": {
+      "pom.xml": false,
+      "build.gradle": false,
+      "build.gradle.kts": false,
+      "settings.gradle": false,
+      "settings.gradle.kts": false,
+      "package.json": false,
+      "yarn.lock": false,
+      "pnpm-lock.yaml": false,
+      "requirements.txt": false,
+      "pyproject.toml": true,
+      "setup.py": false,
+      "setup.cfg": false,
+      "Pipfile": false,
+      "go.mod": false,
+      "Cargo.toml": false,
+      "Gemfile": false,
+      "Makefile": true,
+      "Dockerfile": false,
+      "docker-compose.yml": false,
+      "docker-compose.yaml": false,
+      "compose.yml": false,
+      "compose.yaml": false,
+      "Jenkinsfile": false,
+      ".github/workflows": false,
+      "cloudbuild.yaml": false,
+      ".gitlab-ci.yml": false,
+      ".circleci/config.yml": false,
+      "azure-pipelines.yml": false,
+      ".travis.yml": false
+    },
+    "entry_points": [],
+    "module_structure": [
+      "docs/",
+      "examples/",
+      "scripts/",
+      "src/",
+      "tests/"
+    ],
+    "raw_dependencies": {}
+  },
+  "installed_skills": [
+    "project-context",
+    "python-fastapi",
+    "testing-pytest",
+    "jira",
+    "bitbucket",
+    "pr-reviewer"
+  ],
+  "suggested_skills": [
+    "python-django",
+    "python-flask"
+  ]
+}

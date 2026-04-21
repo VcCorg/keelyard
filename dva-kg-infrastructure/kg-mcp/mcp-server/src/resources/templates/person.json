@@ -1,0 +1,49 @@
+{
+  "name": "Person Entity Template",
+  "description": "Template for creating Person entities in the knowledge graph",
+  "label": "Person",
+  "provider": "neo4j",
+  "template": {
+    "name": "<required: person's full name>",
+    "email": "<optional: email address>",
+    "role": "<optional: job title or role>",
+    "persona": "<optional: 'developer' or 'business'>",
+    "skills": "<optional: list of skills>",
+    "location": "<optional: location name>"
+  },
+  "examples": [
+    {
+      "name": "John Doe",
+      "email": "john.doe@example.com",
+      "role": "Software Engineer",
+      "persona": "developer",
+      "skills": ["Python", "JavaScript", "Docker"],
+      "location": "San Francisco"
+    },
+    {
+      "name": "Jane Smith",
+      "email": "jane.smith@example.com",
+      "role": "Product Manager",
+      "persona": "business",
+      "location": "New York"
+    }
+  ],
+  "cypher_create": "CREATE (p:Person {name: $name, email: $email, role: $role, persona: $persona})",
+  "relationships": [
+    {
+      "type": "WORKS_FOR",
+      "to": "Organization",
+      "description": "Link person to their employer"
+    },
+    {
+      "type": "LOCATED_IN",
+      "to": "Location",
+      "description": "Link person to their location"
+    },
+    {
+      "type": "KNOWS",
+      "to": "Person",
+      "description": "Link person to people they know"
+    }
+  ]
+}

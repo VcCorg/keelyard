@@ -1,0 +1,69 @@
+{
+  "name": "LightRAG Schema",
+  "description": "Schema for LightRAG knowledge graph configuration and capabilities",
+  "provider": "lightrag",
+  "version": "1.0.0",
+  "capabilities": {
+    "search_modes": ["naive", "local", "global", "hybrid"],
+    "embedding_models": ["text-embedding-3-small", "text-embedding-3-large", "text-embedding-ada-002"],
+    "llm_providers": ["openai", "vertex_ai", "gemini", "anthropic"],
+    "vector_stores": ["nano-vectordb", "milvus"],
+    "graph_stores": ["networkx", "neo4j"]
+  },
+  "entity_types": [
+    {
+      "type": "Entity",
+      "description": "Generic entity extracted from text",
+      "properties": [
+        {"name": "name", "type": "string", "required": true},
+        {"name": "type", "type": "string", "required": false},
+        {"name": "description", "type": "string", "required": false},
+        {"name": "embedding", "type": "vector", "required": false}
+      ]
+    },
+    {
+      "type": "Chunk",
+      "description": "Text chunk from documents",
+      "properties": [
+        {"name": "content", "type": "string", "required": true},
+        {"name": "source", "type": "string", "required": false},
+        {"name": "embedding", "type": "vector", "required": true}
+      ]
+    }
+  ],
+  "relationship_types": [
+    {
+      "type": "RELATES_TO",
+      "description": "Generic relationship between entities",
+      "properties": [
+        {"name": "description", "type": "string", "required": false},
+        {"name": "weight", "type": "float", "required": false}
+      ]
+    },
+    {
+      "type": "MENTIONS",
+      "description": "Chunk mentions an entity",
+      "properties": [
+        {"name": "count", "type": "integer", "required": false}
+      ]
+    }
+  ],
+  "query_parameters": {
+    "mode": {
+      "type": "string",
+      "enum": ["naive", "local", "global", "hybrid"],
+      "default": "hybrid",
+      "description": "Search mode for query execution"
+    },
+    "top_k": {
+      "type": "integer",
+      "default": 10,
+      "description": "Number of top results to return"
+    },
+    "max_tokens": {
+      "type": "integer",
+      "default": 4096,
+      "description": "Maximum tokens for LLM response"
+    }
+  }
+}

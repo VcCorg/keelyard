@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "dva-kg": {
+      "url": "http://localhost:8125",
+      "transport": "http",
+      "disabled": false,
+      "alwaysAllow": [],
+      "timeout": 30000,
+      "metadata": {
+        "name": "DVA Knowledge Graph",
+        "description": "Multi-provider knowledge graph with Neo4j and LightRAG support",
+        "version": "0.1.0",
+        "capabilities": {
+          "tools": ["kg_query", "kg_search", "kg_stats", "kg_ingest"],
+          "resources": ["schemas", "templates", "queries"],
+          "providers": ["neo4j", "lightrag"]
+        }
+      }
+    }
+  }
+}

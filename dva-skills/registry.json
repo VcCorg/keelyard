@@ -1,0 +1,1011 @@
+{
+  "version": "1.0",
+  "description": "DVA Skills Registry \u2014 Curated skills for AI code assistants",
+  "skills": [
+    {
+      "name": "java-spring-boot",
+      "description": "Spring Boot 3.x conventions, annotations, dependency injection, REST patterns",
+      "tags": [
+        "java",
+        "spring",
+        "spring-boot",
+        "web",
+        "framework"
+      ],
+      "auto_detect": {
+        "files": [
+          "pom.xml",
+          "build.gradle",
+          "build.gradle.kts"
+        ],
+        "dependencies": [
+          "org.springframework.boot:spring-boot-starter",
+          "spring-boot-starter"
+        ]
+      }
+    },
+    {
+      "name": "java-gradle",
+      "description": "Gradle build system patterns, task configuration, dependency management",
+      "tags": [
+        "java",
+        "gradle",
+        "build"
+      ],
+      "auto_detect": {
+        "files": [
+          "build.gradle",
+          "build.gradle.kts",
+          "settings.gradle",
+          "settings.gradle.kts"
+        ]
+      }
+    },
+    {
+      "name": "java-maven",
+      "description": "Maven build system, POM structure, plugin configuration",
+      "tags": [
+        "java",
+        "maven",
+        "build"
+      ],
+      "auto_detect": {
+        "files": [
+          "pom.xml"
+        ]
+      }
+    },
+    {
+      "name": "python-fastapi",
+      "description": "FastAPI patterns, Pydantic models, async endpoints, dependency injection",
+      "tags": [
+        "python",
+        "fastapi",
+        "web",
+        "framework"
+      ],
+      "auto_detect": {
+        "files": [
+          "requirements.txt",
+          "pyproject.toml",
+          "setup.py"
+        ],
+        "dependencies": [
+          "fastapi"
+        ]
+      }
+    },
+    {
+      "name": "python-django",
+      "description": "Django project structure, ORM patterns, views, templates, migrations",
+      "tags": [
+        "python",
+        "django",
+        "web",
+        "framework"
+      ],
+      "auto_detect": {
+        "files": [
+          "manage.py"
+        ],
+        "dependencies": [
+          "django",
+          "Django"
+        ]
+      }
+    },
+    {
+      "name": "python-flask",
+      "description": "Flask application patterns, blueprints, extensions",
+      "tags": [
+        "python",
+        "flask",
+        "web",
+        "framework"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "flask",
+          "Flask"
+        ]
+      }
+    },
+    {
+      "name": "typescript-react",
+      "description": "React component patterns, hooks, state management, TypeScript types",
+      "tags": [
+        "typescript",
+        "react",
+        "frontend",
+        "framework"
+      ],
+      "auto_detect": {
+        "files": [
+          "package.json",
+          "tsconfig.json"
+        ],
+        "dependencies": [
+          "react",
+          "react-dom"
+        ]
+      }
+    },
+    {
+      "name": "typescript-nextjs",
+      "description": "Next.js app router, server components, API routes, middleware",
+      "tags": [
+        "typescript",
+        "nextjs",
+        "react",
+        "frontend",
+        "framework"
+      ],
+      "auto_detect": {
+        "files": [
+          "next.config.js",
+          "next.config.mjs",
+          "next.config.ts"
+        ],
+        "dependencies": [
+          "next"
+        ]
+      }
+    },
+    {
+      "name": "typescript-node",
+      "description": "Node.js patterns, Express/Fastify, async patterns, module system",
+      "tags": [
+        "typescript",
+        "javascript",
+        "node",
+        "backend"
+      ],
+      "auto_detect": {
+        "files": [
+          "package.json",
+          "tsconfig.json"
+        ],
+        "dependencies": [
+          "express",
+          "fastify",
+          "@types/node"
+        ]
+      }
+    },
+    {
+      "name": "go-standard",
+      "description": "Go project layout, error handling, interfaces, concurrency patterns",
+      "tags": [
+        "go",
+        "golang"
+      ],
+      "auto_detect": {
+        "files": [
+          "go.mod",
+          "go.sum"
+        ]
+      }
+    },
+    {
+      "name": "testing-junit",
+      "description": "JUnit 5 patterns, Mockito mocking, Spring Boot test slices, assertions",
+      "tags": [
+        "java",
+        "testing",
+        "junit"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "org.junit.jupiter:junit-jupiter",
+          "junit-jupiter",
+          "junit",
+          "spring-boot-starter-test"
+        ]
+      }
+    },
+    {
+      "name": "testing-pytest",
+      "description": "pytest patterns, fixtures, parametrize, conftest, coverage",
+      "tags": [
+        "python",
+        "testing",
+        "pytest"
+      ],
+      "auto_detect": {
+        "files": [
+          "pytest.ini",
+          "conftest.py",
+          "pyproject.toml"
+        ],
+        "dependencies": [
+          "pytest"
+        ]
+      }
+    },
+    {
+      "name": "testing-jest",
+      "description": "Jest test patterns, mocking, snapshot testing, React Testing Library",
+      "tags": [
+        "javascript",
+        "typescript",
+        "testing",
+        "jest"
+      ],
+      "auto_detect": {
+        "files": [
+          "jest.config.js",
+          "jest.config.ts"
+        ],
+        "dependencies": [
+          "jest",
+          "@jest/core"
+        ]
+      }
+    },
+    {
+      "name": "database-spanner",
+      "description": "Cloud Spanner schema design, interleaved tables, query patterns, mutations",
+      "tags": [
+        "database",
+        "spanner",
+        "gcp",
+        "sql"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "com.google.cloud:google-cloud-spanner",
+          "google-cloud-spanner",
+          "spring-cloud-gcp-starter-data-spanner",
+          "spanner"
+        ]
+      }
+    },
+    {
+      "name": "database-postgres",
+      "description": "PostgreSQL schema patterns, indexing, query optimization, migrations",
+      "tags": [
+        "database",
+        "postgres",
+        "sql"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "org.postgresql:postgresql",
+          "psycopg2",
+          "psycopg",
+          "asyncpg",
+          "pg"
+        ]
+      }
+    },
+    {
+      "name": "database-mongodb",
+      "description": "MongoDB document design, aggregation pipeline, indexing patterns",
+      "tags": [
+        "database",
+        "mongodb",
+        "nosql"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "pymongo",
+          "motor",
+          "mongoose",
+          "mongodb"
+        ]
+      }
+    },
+    {
+      "name": "docker",
+      "description": "Dockerfile best practices, multi-stage builds, compose patterns",
+      "tags": [
+        "docker",
+        "containers",
+        "devops"
+      ],
+      "auto_detect": {
+        "files": [
+          "Dockerfile",
+          "docker-compose.yml",
+          "docker-compose.yaml",
+          "compose.yml"
+        ]
+      }
+    },
+    {
+      "name": "ci-jenkins",
+      "description": "Jenkinsfile pipeline syntax, stages, agents, shared libraries",
+      "tags": [
+        "ci",
+        "jenkins",
+        "devops"
+      ],
+      "auto_detect": {
+        "files": [
+          "Jenkinsfile"
+        ]
+      }
+    },
+    {
+      "name": "ci-github-actions",
+      "description": "GitHub Actions workflow syntax, jobs, steps, actions marketplace",
+      "tags": [
+        "ci",
+        "github-actions",
+        "devops"
+      ],
+      "auto_detect": {
+        "files": [
+          ".github/workflows"
+        ]
+      }
+    },
+    {
+      "name": "gcp",
+      "description": "Google Cloud Platform patterns, IAM, service accounts, gcloud CLI",
+      "tags": [
+        "gcp",
+        "cloud"
+      ],
+      "auto_detect": {
+        "files": [
+          "cloudbuild.yaml",
+          "app.yaml"
+        ],
+        "dependencies": [
+          "google-cloud-core",
+          "com.google.cloud:google-cloud-core"
+        ]
+      }
+    },
+    {
+      "name": "jira",
+      "description": "Fetch and manage Jira issues, sprints, transitions via MCP",
+      "tags": [
+        "jira",
+        "project-management",
+        "mcp"
+      ],
+      "mcp": {
+        "server": "jira",
+        "required_tools": [
+          "get_issue",
+          "search_issues"
+        ],
+        "config_hint": "Requires Jira MCP server (e.g., http://localhost:8128/sse)"
+      }
+    },
+    {
+      "name": "bitbucket",
+      "description": "Bitbucket PR operations, code review, file browsing via MCP",
+      "tags": [
+        "bitbucket",
+        "code-review",
+        "mcp"
+      ],
+      "mcp": {
+        "server": "bitbucket",
+        "required_tools": [
+          "get_pr_overview",
+          "get_pr_diff"
+        ],
+        "config_hint": "Requires Bitbucket MCP server (e.g., http://localhost:8126/sse)"
+      }
+    },
+    {
+      "name": "pr-reviewer",
+      "description": "AI-powered PR code review with structured findings and inline comments",
+      "tags": [
+        "code-review",
+        "bitbucket",
+        "mcp"
+      ],
+      "mcp": {
+        "server": "bitbucket",
+        "required_tools": [
+          "get_pr_overview",
+          "get_pr_diff",
+          "add_pr_comment"
+        ],
+        "config_hint": "Requires Bitbucket MCP server (e.g., http://localhost:8126/sse)"
+      }
+    },
+    {
+      "name": "security",
+      "description": "Security patterns, secret management, auth flows, OWASP guidelines",
+      "tags": [
+        "security",
+        "auth",
+        "best-practices"
+      ]
+    },
+    {
+      "name": "liquibase-spanner",
+      "description": "Liquibase with Cloud Spanner extensions for DDL, DML, ref data, and change streams",
+      "tags": [
+        "database",
+        "spanner",
+        "liquibase",
+        "migrations"
+      ],
+      "auto_detect": {
+        "dependencies_all": [
+          "org.liquibase:liquibase-core",
+          "liquibase-spanner"
+        ]
+      }
+    },
+    {
+      "name": "api-rest",
+      "description": "RESTful API design, HTTP methods, status codes, error handling, pagination",
+      "tags": [
+        "api",
+        "rest",
+        "web"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "spring-boot-starter-web",
+          "fastapi",
+          "express",
+          "flask",
+          "gin-gonic/gin"
+        ],
+        "source_patterns": [
+          "@RestController",
+          "@Controller",
+          "app.route",
+          "router.get",
+          "router.post"
+        ]
+      }
+    },
+    {
+      "name": "api-grpc",
+      "description": "gRPC service definitions, protobuf, streaming patterns, interceptors",
+      "tags": [
+        "api",
+        "grpc"
+      ],
+      "auto_detect": {
+        "files": [
+          "*.proto"
+        ],
+        "dependencies": [
+          "grpcio",
+          "io.grpc:grpc-core",
+          "@grpc/grpc-js"
+        ]
+      }
+    },
+    {
+      "name": "kafka-streams",
+      "description": "Spring Cloud Stream with Kafka binder \u2014 event-driven messaging, consumer/producer patterns",
+      "tags": [
+        "kafka",
+        "spring-cloud-stream",
+        "messaging",
+        "event-driven"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "spring-cloud-starter-stream-kafka",
+          "spring-cloud-stream-binder-kafka",
+          "org.apache.kafka:kafka-clients",
+          "kafka-clients"
+        ]
+      }
+    },
+    {
+      "name": "apache-beam-dataflow",
+      "description": "Apache Beam pipelines on GCP Dataflow \u2014 PCollections, transforms, IO connectors",
+      "tags": [
+        "apache-beam",
+        "dataflow",
+        "gcp",
+        "batch-processing"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "org.apache.beam:beam-sdks-java-core",
+          "org.apache.beam:beam-runners-google-cloud-dataflow-java",
+          "beam-sdks-java-core"
+        ]
+      }
+    },
+    {
+      "name": "spring-cloud-config",
+      "description": "Spring Cloud Config Server, Eureka service discovery, and Bootstrap context",
+      "tags": [
+        "spring-cloud",
+        "config",
+        "eureka",
+        "service-discovery",
+        "microservices"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "spring-cloud-starter-config",
+          "spring-cloud-starter-netflix-eureka-client",
+          "spring-cloud-starter-bootstrap"
+        ]
+      }
+    },
+    {
+      "name": "database-bigquery",
+      "description": "Google BigQuery table design, query patterns, Java client, Spring Cloud GCP integration",
+      "tags": [
+        "database",
+        "bigquery",
+        "gcp",
+        "analytics"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "com.google.cloud:spring-cloud-gcp-starter-bigquery",
+          "com.google.cloud:google-cloud-bigquery",
+          "google-cloud-bigquery",
+          "bigquery"
+        ]
+      }
+    },
+    {
+      "name": "mapstruct",
+      "description": "MapStruct compile-time DTO mapping \u2014 mapper interfaces, custom mappings, Spring integration",
+      "tags": [
+        "java",
+        "mapstruct",
+        "dto",
+        "mapping"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "org.mapstruct:mapstruct",
+          "mapstruct"
+        ]
+      }
+    },
+    {
+      "name": "spring-cloud-contract",
+      "description": "Consumer-driven contract testing \u2014 contract verifier, stub generation, stub runner",
+      "tags": [
+        "testing",
+        "contract",
+        "spring-cloud",
+        "integration"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "spring-cloud-starter-contract-verifier",
+          "spring-cloud-starter-contract-stub-runner"
+        ]
+      }
+    },
+    {
+      "name": "jooq",
+      "description": "jOOQ type-safe SQL \u2014 DSL query building, code generation, Spring Boot integration",
+      "tags": [
+        "java",
+        "jooq",
+        "sql",
+        "database"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "org.jooq:jooq",
+          "spring-boot-starter-jooq"
+        ]
+      }
+    },
+    {
+      "name": "resilience4j",
+      "description": "Resilience4j circuit breaker, retry, rate limiter, and timeout patterns",
+      "tags": [
+        "java",
+        "resilience4j",
+        "circuit-breaker",
+        "fault-tolerance"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "resilience4j-spring-boot3",
+          "resilience4j-circuitbreaker",
+          "io.github.resilience4j:resilience4j-spring-boot3"
+        ]
+      }
+    },
+    {
+      "name": "openapi-springdoc",
+      "description": "Springdoc OpenAPI 3 documentation \u2014 Swagger UI, API annotations, schema customization",
+      "tags": [
+        "java",
+        "openapi",
+        "swagger",
+        "documentation"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "springdoc-openapi-starter-webmvc-ui",
+          "org.springdoc:springdoc-openapi-starter-webmvc-ui"
+        ]
+      }
+    },
+    {
+      "name": "spanner-change-streams",
+      "description": "Integration with Spanner Change Streams for real-time data event processing.",
+      "tags": [
+        "database",
+        "gcp",
+        "streaming"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "com.google.cloud:spring-cloud-gcp-starter-spanner"
+        ],
+        "source_patterns": [
+          "\\.changeStreams\\("
+        ]
+      }
+    },
+    {
+      "name": "spring-cloud-gcp-logging",
+      "description": "Utilizing Spring Cloud GCP for centralized logging to Google Cloud Logging.",
+      "tags": [
+        "gcp",
+        "logging",
+        "spring-cloud"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "com.google.cloud:spring-cloud-gcp-logging",
+          "com.example.common:example-spring-cloud-gcp-logging"
+        ]
+      }
+    },
+    {
+      "name": "spring-cloud-gcp-observability",
+      "description": "Leveraging Spring Cloud GCP for application observability on Google Cloud Platform.",
+      "tags": [
+        "gcp",
+        "observability",
+        "spring-cloud"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "com.example.common.gcp:example-gcp-observability"
+        ]
+      }
+    },
+    {
+      "name": "spring-cloud-eureka-client",
+      "description": "Integration with Spring Cloud Eureka for service discovery.",
+      "tags": [
+        "spring-cloud",
+        "microservices",
+        "service-discovery"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "org.springframework.cloud:spring-cloud-starter-netflix-eureka-client"
+        ]
+      }
+    },
+    {
+      "name": "spring-cloud-stream-kafka",
+      "description": "Using Spring Cloud Stream with Kafka binders for event-driven microservices.",
+      "tags": [
+        "spring-cloud",
+        "kafka",
+        "event-driven",
+        "messaging"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "org.springframework.cloud:spring-cloud-stream-binder-kafka",
+          "org.springframework.cloud:spring-cloud-starter-stream-kafka"
+        ]
+      }
+    },
+    {
+      "name": "spring-boot-jooq",
+      "description": "Integration with JOOQ for type-safe SQL querying within Spring Boot applications.",
+      "tags": [
+        "spring-boot",
+        "jooq",
+        "sql",
+        "database"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "org.springframework.boot:spring-boot-starter-jooq",
+          "org.jooq:jooq"
+        ]
+      }
+    },
+    {
+      "name": "spring-boot-cache",
+      "description": "Implementing caching strategies within Spring Boot applications.",
+      "tags": [
+        "spring-boot",
+        "caching",
+        "performance"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "org.springframework.boot:spring-boot-starter-cache",
+          "com.github.ben-manes.caffeine:caffeine"
+        ]
+      }
+    },
+    {
+      "name": "spring-boot-validation",
+      "description": "Utilizing Spring Boot's built-in validation mechanisms.",
+      "tags": [
+        "spring-boot",
+        "validation",
+        "api"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "org.springframework.boot:spring-boot-starter-validation"
+        ]
+      }
+    },
+    {
+      "name": "java-jaxb",
+      "description": "Java Architecture for XML Binding (JAXB) for XML serialization/deserialization.",
+      "tags": [
+        "java",
+        "xml",
+        "serialization"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "org.glassfish.jaxb:jaxb-runtime"
+        ]
+      }
+    },
+    {
+      "name": "java-modelmapper",
+      "description": "Using ModelMapper for object-to-object mapping in Java applications.",
+      "tags": [
+        "java",
+        "mapping",
+        "dto"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "org.modelmapper:modelmapper"
+        ]
+      }
+    },
+    {
+      "name": "java-jsonpath",
+      "description": "Parsing and querying JSON data using JsonPath in Java.",
+      "tags": [
+        "java",
+        "json",
+        "testing"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "com.jayway.jsonpath:json-path"
+        ]
+      }
+    },
+    {
+      "name": "java-commons-io",
+      "description": "Utilizing Apache Commons IO for common I/O utility operations.",
+      "tags": [
+        "java",
+        "io",
+        "utilities"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "commons-io:commons-io"
+        ]
+      }
+    },
+    {
+      "name": "java-json",
+      "description": "Using the `org.json` library for JSON manipulation in Java.",
+      "tags": [
+        "java",
+        "json",
+        "utilities"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "org.json:json"
+        ]
+      }
+    },
+    {
+      "name": "java-jsoup",
+      "description": "Web scraping and parsing HTML content using Jsoup in Java.",
+      "tags": [
+        "java",
+        "web-scraping",
+        "html"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "org.jsoup:jsoup"
+        ]
+      }
+    },
+    {
+      "name": "java-javers",
+      "description": "Auditing and versioning object changes using Javers in Java.",
+      "tags": [
+        "java",
+        "auditing",
+        "versioning",
+        "persistence"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "org.javers:javers-core"
+        ]
+      }
+    },
+    {
+      "name": "spring-cloud-bootstrap",
+      "description": "Spring Cloud Bootstrap for externalized configuration in distributed systems.",
+      "tags": [
+        "spring-cloud",
+        "configuration",
+        "distributed-systems"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "org.springframework.cloud:spring-cloud-starter-bootstrap"
+        ]
+      }
+    },
+    {
+      "name": "java-lombok",
+      "description": "Lombok annotations for boilerplate code reduction in Java",
+      "tags": [
+        "java",
+        "library",
+        "boilerplate"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "org.projectlombok:lombok"
+        ]
+      }
+    },
+    {
+      "name": "java-mapstruct",
+      "description": "MapStruct for efficient bean mapping in Java",
+      "tags": [
+        "java",
+        "library",
+        "mapping"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "org.mapstruct:mapstruct"
+        ]
+      }
+    },
+    {
+      "name": "java-jackson",
+      "description": "Jackson library for JSON processing in Java",
+      "tags": [
+        "java",
+        "library",
+        "json"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "com.fasterxml.jackson.core:jackson-databind",
+          "com.fasterxml.jackson.datatype:jackson-datatype-jsr310"
+        ]
+      }
+    },
+    {
+      "name": "spring-boot-actuator",
+      "description": "Spring Boot Actuator for production-ready features",
+      "tags": [
+        "spring-boot",
+        "actuator",
+        "monitoring"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "org.springframework.boot:spring-boot-starter-actuator"
+        ]
+      }
+    },
+    {
+      "name": "spring-boot-devtools",
+      "description": "Spring Boot DevTools for development-time features",
+      "tags": [
+        "spring-boot",
+        "devtools",
+        "development"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "org.springframework.boot:spring-boot-devtools"
+        ]
+      }
+    },
+    {
+      "name": "spring-boot-configuration-processor",
+      "description": "Spring Boot Configuration Processor for metadata generation",
+      "tags": [
+        "spring-boot",
+        "configuration",
+        "metadata"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "org.springframework.boot:spring-boot-configuration-processor"
+        ]
+      }
+    },
+    {
+      "name": "spring-cloud-starter-config",
+      "description": "Spring Cloud Config for externalized configuration",
+      "tags": [
+        "spring-cloud",
+        "config",
+        "externalized"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "org.springframework.cloud:spring-cloud-starter-config"
+        ]
+      }
+    },
+    {
+      "name": "spring-cloud-stream-binder-kafka",
+      "description": "Spring Cloud Stream Kafka Binder for Kafka integration",
+      "tags": [
+        "spring-cloud-stream",
+        "kafka",
+        "messaging"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "org.springframework.cloud:spring-cloud-stream-binder-kafka",
+          "org.springframework.cloud:spring-cloud-starter-stream-kafka"
+        ]
+      }
+    },
+    {
+      "name": "spring-cloud-gcp-starter",
+      "description": "Spring Cloud GCP Starter for Google Cloud integration",
+      "tags": [
+        "spring-cloud",
+        "gcp",
+        "integration"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "com.google.cloud:spring-cloud-gcp-starter"
+        ]
+      }
+    },
+    {
+      "name": "spring-boot-starter-jooq",
+      "description": "Spring Boot Starter for JOOQ integration",
+      "tags": [
+        "spring-boot",
+        "jooq",
+        "database"
+      ],
+      "auto_detect": {
+        "dependencies": [
+          "org.springframework.boot:spring-boot-starter-jooq",
+          "org.jooq:jooq"
+        ]
+      }
+    }
+  ]
+}

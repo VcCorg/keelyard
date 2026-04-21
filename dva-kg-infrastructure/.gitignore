@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+
+# Testing
+.pytest_cache/
+.coverage
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker data volumes
+neo4j/data/
+neo4j/logs/
+lightrag/data/
+lightrag/storage/
+
+# Environment
+.env
+
+# Backups (large)
+lightrag/backups/*.tar.gz

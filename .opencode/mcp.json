@@ -1,0 +1,34 @@
+{
+  "mcp": {
+    "bitbucket": {
+      "type": "remote",
+      "url": "http://localhost:8126/sse",
+      "description": "Bitbucket Server — PR review, diff, approve, merge, comments (15 tools)"
+    },
+    "glean": {
+      "type": "remote",
+      "url": "http://localhost:8127/sse",
+      "description": "Glean — Enterprise search, docs, datasources, agents (6 tools)"
+    },
+    "jira": {
+      "type": "remote",
+      "url": "http://localhost:8128/sse",
+      "description": "Jira Server — Issues, search, comments, transitions, sprints (11 tools)"
+    },
+    "confluence": {
+      "type": "remote",
+      "url": "http://localhost:8129/sse",
+      "description": "Confluence Server — Search, CQL, pages, spaces, comments, labels (10 tools)"
+    },
+    "memory": {
+      "type": "remote",
+      "url": "http://localhost:8130/sse",
+      "description": "Neo4j Agent Memory — Short-term, long-term, reasoning traces (16 tools)"
+    },
+    "kg": {
+      "type": "remote",
+      "url": "http://localhost:8131/sse",
+      "description": "Knowledge Graph — Business context search, entity details, source management (8 tools)"
+    }
+  }
+}

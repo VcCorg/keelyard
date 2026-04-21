@@ -1,0 +1,93 @@
+{
+  "name": "Common Cypher Queries",
+  "description": "Collection of frequently used Cypher queries for Neo4j",
+  "provider": "neo4j",
+  "version": "1.0.0",
+  "queries": [
+    {
+      "name": "list_all_people",
+      "description": "List all people in the knowledge graph",
+      "cypher": "MATCH (p:Person) RETURN p.name, p.email, p.role LIMIT 100",
+      "parameters": [],
+      "returns": ["name", "email", "role"]
+    },
+    {
+      "name": "find_person_by_name",
+      "description": "Find a specific person by name",
+      "cypher": "MATCH (p:Person) WHERE p.name CONTAINS $name RETURN p",
+      "parameters": [
+        {"name": "name", "type": "string", "required": true, "description": "Person's name (partial match)"}
+      ],
+      "returns": ["person_node"]
+    },
+    {
+      "name": "find_relationships",
+      "description": "Find all relationships for a person",
+      "cypher": "MATCH (p:Person {name: $name})-[r]->(n) RETURN type(r) as relationship, n",
+      "parameters": [
+        {"name": "name", "type": "string", "required": true, "description": "Person's exact name"}
+      ],
+      "returns": ["relationship", "connected_node"]
+    },
+    {
+      "name": "find_colleagues",
+      "description": "Find people who work at the same organization",
+      "cypher": "MATCH (p:Person {name: $name})-[:WORKS_FOR]->(o:Organization)<-[:WORKS_FOR]-(colleague:Person) WHERE colleague.name <> $name RETURN colleague.name, colleague.role",
+      "parameters": [
+        {"name": "name", "type": "string", "required": true, "description": "Person's exact name"}
+      ],
+      "returns": ["colleague_name", "colleague_role"]
+    },
+    {
+      "name": "find_by_skill",
+      "description": "Find people with a specific skill",
+      "cypher": "MATCH (p:Person) WHERE $skill IN p.skills RETURN p.name, p.role, p.skills",
+      "parameters": [
+        {"name": "skill", "type": "string", "required": true, "description": "Skill to search for"}
+      ],
+      "returns": ["name", "role", "skills"]
+    },
+    {
+      "name": "organization_employees",
+      "description": "List all employees of an organization",
+      "cypher": "MATCH (o:Organization {name: $org_name})<-[:WORKS_FOR]-(p:Person) RETURN p.name, p.role, p.email",
+      "parameters": [
+        {"name": "org_name", "type": "string", "required": true, "description": "Organization name"}
+      ],
+      "returns": ["name", "role", "email"]
+    },
+    {
+      "name": "shortest_path",
+      "description": "Find shortest path between two people",
+      "cypher": "MATCH path = shortestPath((p1:Person {name: $name1})-[*]-(p2:Person {name: $name2})) RETURN path",
+      "parameters": [
+        {"name": "name1", "type": "string", "required": true, "description": "First person's name"},
+        {"name": "name2", "type": "string", "required": true, "description": "Second person's name"}
+      ],
+      "returns": ["path"]
+    },
+    {
+      "name": "graph_statistics",
+      "description": "Get overall graph statistics",
+      "cypher": "MATCH (n) RETURN labels(n) as label, count(n) as count ORDER BY count DESC",
+      "parameters": [],
+      "returns": ["label", "count"]
+    },
+    {
+      "name": "recent_entities",
+      "description": "Find recently created entities",
+      "cypher": "MATCH (n) WHERE n.created_at IS NOT NULL RETURN labels(n) as type, n.name as name, n.created_at as created ORDER BY n.created_at DESC LIMIT 20",
+      "parameters": [],
+      "returns": ["type", "name", "created"]
+    },
+    {
+      "name": "find_by_persona",
+      "description": "Find people by persona (developer or business)",
+      "cypher": "MATCH (p:Person {persona: $persona}) RETURN p.name, p.role, p.email",
+      "parameters": [
+        {"name": "persona", "type": "string", "required": true, "description": "'developer' or 'business'"}
+      ],
+      "returns": ["name", "role", "email"]
+    }
+  ]
+}
