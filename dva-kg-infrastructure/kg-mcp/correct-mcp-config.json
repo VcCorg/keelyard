@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "dva-kg": {
+      "url": "http://localhost:8125",
+      "transport": "http",
+      "disabled": false,
+      "timeout": 30000
+    }
+  }
+}

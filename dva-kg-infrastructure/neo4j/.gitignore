@@ -1,0 +1,13 @@
+# Environment
+.env
+
+# Backups
+backups/
+*.dump
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

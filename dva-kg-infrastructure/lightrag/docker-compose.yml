@@ -1,0 +1,98 @@
+services:
+  lightrag:
+    image: python:3.11-slim
+    container_name: dva-lightrag
+    working_dir: /app
+    ports:
+      - "8001:8001"  # API port
+    env_file:
+      - .env
+    environment:
+      # LightRAG Configuration
+      - LIGHTRAG_WORKING_DIR=${LIGHTRAG_WORKING_DIR:-/data/lightrag}
+      - LIGHTRAG_LOG_LEVEL=${LIGHTRAG_LOG_LEVEL:-INFO}
+      
+      # LLM Configuration
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-1.5-flash}
+      - GOOGLE_PROJECT_ID=${GOOGLE_PROJECT_ID:-}
+      - GOOGLE_LOCATION=${GOOGLE_LOCATION:-us-central1}
+      - GOOGLE_APPLICATION_CREDENTIALS=/root/.config/gcloud/application_default_credentials.json
+      - VERTEX_AI_MODEL=${VERTEX_AI_MODEL:-gemini-1.5-flash}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-3-sonnet-20240229}
+      
+      # Embedding Configuration
+      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-openai}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-text-embedding-3-small}
+      
+      # Vector Store Configuration
+      - VECTOR_STORE=${VECTOR_STORE:-nano-vectordb}
+      
+      # Graph Store Configuration
+      - GRAPH_STORE=${GRAPH_STORE:-networkx}
+      - NEO4J_URI=${NEO4J_URI:-bolt://localhost:7687}
+      - NEO4J_USER=${NEO4J_USER:-neo4j}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-password}
+      
+      # Performance Settings
+      - MAX_ASYNC_WORKERS=${MAX_ASYNC_WORKERS:-4}
+      - MAX_TOKENS=${MAX_TOKENS:-32768}
+      - MAX_EMBED_TOKENS=${MAX_EMBED_TOKENS:-8192}
+      
+    volumes:
+      - lightrag_data:/data
+      - ./lib:/app/lib
+      - ./config:/app/config
+      - ./scripts:/app/scripts
+      - ~/.config/gcloud:/root/.config/gcloud:ro
+    
+    command: >
+      bash -c "
+        apt-get update && apt-get install -y curl &&
+        pip install --no-cache-dir lightrag-hku fastapi uvicorn httpx google-cloud-aiplatform google-auth &&
+        python /app/scripts/server.py
+      "
+    
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    
+    restart: unless-stopped
+    
+    networks:
+      - dva-network
+
+  # Optional: Milvus vector database for production use
+  milvus:
+    image: milvusdb/milvus:v2.3.3
+    container_name: dva-milvus
+    profiles:
+      - production
+    ports:
+      - "19530:19530"
+      - "9091:9091"
+    environment:
+      - ETCD_USE_EMBED=true
+      - COMMON_STORAGETYPE=local
+    volumes:
+      - milvus_data:/var/lib/milvus
+    networks:
+      - dva-network
+
+volumes:
+  lightrag_data:
+    driver: local
+  milvus_data:
+    driver: local
+
+networks:
+  dva-network:
+    external: true
+    name: dva-network

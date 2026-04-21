@@ -1,0 +1,129 @@
+{
+  "name": "Neo4j Graph Schema",
+  "description": "Schema for Neo4j knowledge graph including node labels, relationships, and properties",
+  "provider": "neo4j",
+  "version": "1.0.0",
+  "nodeLabels": [
+    {
+      "label": "Person",
+      "description": "Represents a person entity",
+      "properties": [
+        {"name": "name", "type": "string", "required": true},
+        {"name": "email", "type": "string", "required": false},
+        {"name": "role", "type": "string", "required": false},
+        {"name": "persona", "type": "string", "enum": ["developer", "business"], "required": false}
+      ]
+    },
+    {
+      "label": "Organization",
+      "description": "Represents an organization or company",
+      "properties": [
+        {"name": "name", "type": "string", "required": true},
+        {"name": "industry", "type": "string", "required": false},
+        {"name": "size", "type": "string", "required": false}
+      ]
+    },
+    {
+      "label": "Location",
+      "description": "Represents a geographical location",
+      "properties": [
+        {"name": "name", "type": "string", "required": true},
+        {"name": "city", "type": "string", "required": false},
+        {"name": "country", "type": "string", "required": false},
+        {"name": "coordinates", "type": "point", "required": false}
+      ]
+    },
+    {
+      "label": "Concept",
+      "description": "Represents an abstract concept or topic",
+      "properties": [
+        {"name": "name", "type": "string", "required": true},
+        {"name": "description", "type": "string", "required": false},
+        {"name": "category", "type": "string", "required": false}
+      ]
+    },
+    {
+      "label": "Product",
+      "description": "Represents a product or service",
+      "properties": [
+        {"name": "name", "type": "string", "required": true},
+        {"name": "description", "type": "string", "required": false},
+        {"name": "price", "type": "float", "required": false}
+      ]
+    },
+    {
+      "label": "Event",
+      "description": "Represents an event or occurrence",
+      "properties": [
+        {"name": "name", "type": "string", "required": true},
+        {"name": "date", "type": "datetime", "required": false},
+        {"name": "location", "type": "string", "required": false}
+      ]
+    }
+  ],
+  "relationshipTypes": [
+    {
+      "type": "WORKS_FOR",
+      "description": "Person works for an Organization",
+      "from": "Person",
+      "to": "Organization",
+      "properties": [
+        {"name": "since", "type": "date", "required": false},
+        {"name": "role", "type": "string", "required": false}
+      ]
+    },
+    {
+      "type": "LOCATED_IN",
+      "description": "Entity is located in a Location",
+      "from": ["Person", "Organization"],
+      "to": "Location",
+      "properties": []
+    },
+    {
+      "type": "RELATED_TO",
+      "description": "Generic relationship between entities",
+      "from": "*",
+      "to": "*",
+      "properties": [
+        {"name": "type", "type": "string", "required": false},
+        {"name": "strength", "type": "float", "required": false}
+      ]
+    },
+    {
+      "type": "KNOWS",
+      "description": "Person knows another Person",
+      "from": "Person",
+      "to": "Person",
+      "properties": [
+        {"name": "since", "type": "date", "required": false}
+      ]
+    },
+    {
+      "type": "CREATED",
+      "description": "Person or Organization created a Product",
+      "from": ["Person", "Organization"],
+      "to": "Product",
+      "properties": [
+        {"name": "date", "type": "date", "required": false}
+      ]
+    },
+    {
+      "type": "ATTENDED",
+      "description": "Person attended an Event",
+      "from": "Person",
+      "to": "Event",
+      "properties": [
+        {"name": "role", "type": "string", "required": false}
+      ]
+    }
+  ],
+  "indexes": [
+    {"label": "Person", "property": "name"},
+    {"label": "Organization", "property": "name"},
+    {"label": "Location", "property": "name"}
+  ],
+  "constraints": [
+    {"label": "Person", "property": "email", "type": "unique"},
+    {"label": "Organization", "property": "name", "type": "unique"}
+  ]
+}

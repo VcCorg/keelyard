@@ -1,0 +1,26 @@
+{
+  "mcpServers": {
+    "bitbucket": {
+      "enabled": true,
+      "timeout": 60,
+      "command": "python",
+      "args": ["-m", "bitbucket_server_mcp.server"],
+      "env": {
+        "BITBUCKET_SERVER_URL": "${BITBUCKET_SERVER_URL}",
+        "BITBUCKET_PERSONAL_ACCESS_TOKEN": "${BITBUCKET_PERSONAL_ACCESS_TOKEN}"
+      },
+      "transportType": "stdio"
+    },
+    "jira": {
+      "enabled": true,
+      "timeout": 60,
+      "command": "python",
+      "args": ["-m", "jira_server_mcp.server"],
+      "env": {
+        "JIRA_SERVER_URL": "${JIRA_SERVER_URL}",
+        "JIRA_PERSONAL_ACCESS_TOKEN": "${JIRA_PERSONAL_ACCESS_TOKEN}"
+      },
+      "transportType": "stdio"
+    }
+  }
+}

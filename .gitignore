@@ -1,0 +1,154 @@
+# DVA Agentic Project - Monorepo Git Ignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.idea/
+.vscode/
+.cursor/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nyc_output
+coverage.xml
+*.cover
+.hypothesis/
+
+# Environment
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Data
+*.db
+*.sqlite
+*.sqlite3
+chroma_db/
+data/
+logs/
+*.log
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn-integrity
+
+# React/Vite
+dist/
+build/
+.eslintcache
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# OS
+.DS_Store
+Thumbs.db
+*.tmp
+*.temp
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Machine Learning
+.ml/
+*.pkl
+*.pickle
+*.joblib
+
+# Neo4j
+neo4j/data/
+neo4j/logs/
+neo4j/plugins/
+neo4j/conf/
+
+# Google Cloud
+service-account.json
+*.key
+*.p12
+
+# MCP related
+.mcp/mcp.json
+.mcp/logs/
+
+# Agent Skills
+.skills/*/scripts/temp/
+.skills/*/reference/temp/
+
+# Infrastructure
+terraform.tfstate
+terraform.tfstate.backup
+*.tfvars
+.tfplan
+
+# Kubernetes
+*.kubeconfig
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Build artifacts
+target/
+out/
+bin/
+obj/
+
+# Package managers
+package-lock.json
+yarn.lock
+poetry.lock
+Pipfile.lock
+
+# Profiling
+*.prof
+*.profile
+
+# Local configuration
+config.local.json
+settings.local.py

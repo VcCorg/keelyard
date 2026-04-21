@@ -1,0 +1,57 @@
+"""Generate .gitignore content."""
+
+
+def get_gitignore_content() -> str:
+    """Generate .gitignore content."""
+    return '''# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Environment
+.env
+.env.local
+
+# Data
+*.db
+chroma_db/
+data/
+
+# OS
+.DS_Store
+Thumbs.db
+'''

@@ -1,0 +1,74 @@
+{
+  "mcpServers": {
+    "bitbucket": {
+      "disabled": false,
+      "timeout": 30000,
+      "url": "http://localhost:8126/sse",
+      "transport": "sse",
+      "metadata": {
+        "name": "Bitbucket Server",
+        "description": "Bitbucket Server PR review, diff, approve, merge, comments (15 tools)"
+      }
+    },
+    "glean": {
+      "disabled": false,
+      "timeout": 30000,
+      "url": "http://localhost:8127/sse",
+      "transport": "sse",
+      "metadata": {
+        "name": "Glean Search",
+        "description": "Glean enterprise search, docs, datasources, agents (6 tools)"
+      }
+    },
+    "jira": {
+      "disabled": false,
+      "timeout": 30000,
+      "url": "http://localhost:8128/sse",
+      "transport": "sse",
+      "metadata": {
+        "name": "Jira Server",
+        "description": "Jira Server issues, search, comments, transitions, sprints (11 tools)"
+      }
+    },
+    "confluence": {
+      "disabled": false,
+      "timeout": 30000,
+      "url": "http://localhost:8129/sse",
+      "transport": "sse",
+      "metadata": {
+        "name": "Confluence Server",
+        "description": "Confluence Server search, CQL, pages, spaces, comments, labels (10 tools)"
+      }
+    },
+    "memory": {
+      "disabled": false,
+      "timeout": 30000,
+      "url": "http://localhost:8130/sse",
+      "transport": "sse",
+      "metadata": {
+        "name": "Agent Memory",
+        "description": "Neo4j agent memory — short-term, long-term, reasoning traces (16 tools)"
+      }
+    },
+    "kg": {
+      "disabled": false,
+      "timeout": 30000,
+      "url": "http://localhost:8131/sse",
+      "transport": "sse",
+      "metadata": {
+        "name": "Knowledge Graph",
+        "description": "Knowledge graph — business context search, entity details, source management (8 tools)"
+      }
+    },
+    "gateway": {
+      "disabled": true,
+      "timeout": 30000,
+      "url": "http://localhost:9090/sse",
+      "transport": "sse",
+      "metadata": {
+        "name": "MCP Gateway",
+        "description": "Unified gateway aggregating all upstream MCP tools (namespaced)"
+      }
+    }
+  }
+}
