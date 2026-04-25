@@ -29,6 +29,21 @@ pip install uv
 
 ## Installation
 
+### Configurable CLI Name
+
+The CLI name is configurable via the `AGENT_CLI_NAME` environment variable. By default it's `dva`, but you can customize it during installation:
+
+```bash
+# Install with default name (dva)
+pip install ./dva-agentic-cli
+
+# Install with custom name
+AGENT_CLI_NAME=raj pip install ./dva-agentic-cli
+AGENT_CLI_NAME=alice pip install ./dva-agentic-cli
+```
+
+All commands, help text, and version output will automatically reflect your chosen name.
+
 ### Development Installation
 
 ```bash
@@ -45,6 +60,9 @@ source .venv/bin/activate  # On macOS/Linux
 
 # Install the package in development mode
 make install-dev
+
+# Or with custom CLI name
+AGENT_CLI_NAME=myagent make install-dev
 ```
 
 ### Quick Installation
@@ -55,6 +73,9 @@ make install-dev
 
 # Or use make
 make install
+
+# Or with custom CLI name
+AGENT_CLI_NAME=myagent ./setup.sh
 ```
 
 ### Installing with Optional Features
@@ -70,9 +91,34 @@ uv pip install -e ".[dev,kg]"
 
 # Install with all features
 uv pip install -e ".[dev,adk,kg]"
+
+# Or with custom CLI name
+AGENT_CLI_NAME=custom uv pip install -e ".[dev,kg]"
 ```
 
 ## Usage
+
+### Help Documentation & Dynamic Naming
+
+The CLI automatically adapts all help text and output to match your configured CLI name:
+
+```bash
+# Get help (shows your configured CLI name)
+dva --help
+
+# Get command-specific help
+dva project --help
+dva kg --help
+dva data --help
+
+# Show version (displays your configured CLI name)
+dva --version
+
+# All help output is dynamic - no hardcoded command names
+# If installed as 'raj', all examples show 'raj' instead of 'dva'
+raj --help
+raj project --help
+```
 
 ### Basic Commands
 
@@ -94,6 +140,8 @@ dva hello "Your Name"
 - `--version, -v`: Display version information
 - `--help`: Show help message
 
+All commands below use `dva` as the CLI name. If you installed with a custom name (e.g., `AGENT_CLI_NAME=raj`), replace `dva` with your chosen name in all examples.
+
 #### Initialization & Authentication
 - `dva init vertex-ai`: Configure Vertex AI settings
 - `dva init show`: Show current configuration
@@ -103,6 +151,8 @@ dva hello "Your Name"
 - `dva project create <name>`: Create a new agentic project from template
 - `dva project list-templates`: List available project templates
 - `dva project info [PATH]`: Show information about a project
+- `dva project list`: List all registered projects
+- `dva project validate [PATH]`: Validate project configuration
 
 #### Knowledge Graph
 - `dva kg check`: Check prerequisites and Neo4j availability
@@ -114,6 +164,7 @@ dva hello "Your Name"
 - `dva kg stats`: Display graph statistics (✅ both providers)
 - `dva kg tool`: Generate ADK tool for knowledge graph operations (Neo4j only)
 - `dva kg visualize`: Create interactive graph visualization (Neo4j only)
+- `dva kg workspace`: Manage workspaces (LightRAG only)
 
 **Note:** See [Provider Support Guide](docs/PROVIDER_SUPPORT.md) for detailed provider compatibility.
 
@@ -124,6 +175,54 @@ dva hello "Your Name"
 - `dva data show <name>`: Show detailed information about a data source
 - `dva data update <name>`: Update an existing data source
 - `dva data delete <name>`: Delete a data source configuration
+
+#### MCP Server Management
+- `dva mcp list`: List available MCP servers
+- `dva mcp test`: Test MCP server connections
+- `dva mcp status`: Show MCP server status
+
+#### Agent Management
+- `dva agent create <name>`: Create a new agent
+- `dva agent list`: List all agents
+- `dva agent info <name>`: Show agent details
+- `dva agent deploy <name>`: Deploy an agent
+- `dva agent test <name>`: Test an agent
+
+#### Code & Repository Management
+- `dva code onboard`: Onboard a code repository
+- `dva code list`: List onboarded repositories
+- `dva code skills`: Show available skills for a repository
+- `dva code analyze`: Analyze code structure
+
+#### Skill Management
+- `dva skill list`: List available skills
+- `dva skill info <name>`: Show skill details
+- `dva skill apply <name>`: Apply a skill to a project
+
+#### Domain Management
+- `dva domain list`: List available domains
+- `dva domain info <name>`: Show domain details
+- `dva domain create <name>`: Create a new domain
+
+#### Product Management
+- `dva product list`: List available products
+- `dva product info <name>`: Show product details
+- `dva product create <name>`: Create a new product
+
+#### History & Execution Tracking
+- `dva history list`: List execution history
+- `dva history show <id>`: Show details of a past execution
+- `dva history clear`: Clear execution history
+
+#### Agent Templates
+- `dva agent-template list`: List available agent templates
+- `dva agent-template info <name>`: Show template details
+- `dva agent-template create`: Create from template
+
+#### Agent Tools
+- `dva agent-tool list`: List available agent tools
+- `dva agent-tool info <name>`: Show tool details
+- `dva agent-tool generate`: Generate tool code
 
 #### Example Commands
 - `dva hello [NAME]`: Simple greeting command (placeholder)
