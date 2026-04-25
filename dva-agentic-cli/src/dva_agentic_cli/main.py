@@ -1,10 +1,14 @@
 """Main CLI entry point for dva-agentic-cli."""
 
+import os
 import typer
 from rich.console import Console
 from typing_extensions import Annotated
 
 from dva_agentic_cli import __version__
+
+# CLI name is configurable via AGENT_CLI_NAME env var (default: dva)
+CLI_NAME = os.getenv("AGENT_CLI_NAME", "dva")
 from dva_agentic_cli.commands.project import project_app
 from dva_agentic_cli.commands.init import init_app
 from dva_agentic_cli.commands.kg import kg_app
@@ -20,7 +24,7 @@ from dva_agentic_cli.commands.agent_template import agent_template_app
 from dva_agentic_cli.commands.agent_tool import agent_tool_app
 
 app = typer.Typer(
-    name="dva",
+    name=CLI_NAME,
     help="DVA Agentic CLI - Command-line interface for agentic workflows using ADK agent platform",
     add_completion=False,
     rich_markup_mode=None,  # Disable rich markup to avoid help rendering issues
@@ -46,7 +50,7 @@ app.add_typer(agent_tool_app, name="agent-tool")
 def version_callback(value: bool) -> None:
     """Display version information."""
     if value:
-        console.print(f"[bold green]dva-agentic-cli[/bold green] version [cyan]{__version__}[/cyan]")
+        console.print(f"[bold green]{CLI_NAME}[/bold green] version [cyan]{__version__}[/cyan]")
         raise typer.Exit()
 
 
