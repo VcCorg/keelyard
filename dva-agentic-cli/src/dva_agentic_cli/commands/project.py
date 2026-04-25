@@ -243,7 +243,7 @@ def create_project(
         domain_data = get_domain(domain)
         if not domain_data:
             console.print(f"[red]✗ Error:[/red] Domain '{domain}' not found.")
-            console.print("[dim]Use 'dva domain list' to see available domains.[/dim]")
+            console.print("[dim]Use f'{CLI_NAME} domain list' to see available domains.[/dim]")
             raise typer.Exit(1)
 
     # Validate framework
@@ -563,7 +563,7 @@ def show_project(
     p = get_project(name)
     if not p:
         console.print(f"[red]✗ Project '{name}' not found.[/red]")
-        console.print("[dim]Run 'dva project list' to see registered projects.[/dim]")
+        console.print("[dim]fRun '{CLI_NAME} project list' to see registered projects.[/dim]")
         raise typer.Exit(1)
 
     tools = p.get("tools") or []
@@ -661,7 +661,7 @@ def configure_project(
     p = get_project(name)
     if not p:
         console.print(f"[red]✗ Project '{name}' not found.[/red]")
-        console.print("[dim]Run 'dva project list' to see registered projects.[/dim]")
+        console.print("[dim]fRun '{CLI_NAME} project list' to see registered projects.[/dim]")
         raise typer.Exit(1)
 
     if show:
@@ -903,6 +903,7 @@ def project_info(
 
 # Import extension commands
 from dva_agentic_cli.commands.project_extensions import (
+from dva_agentic_cli.config import CLI_NAME
     run_project_command,
     list_agents_command,
     agent_info_command,

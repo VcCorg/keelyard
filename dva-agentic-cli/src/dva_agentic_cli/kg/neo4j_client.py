@@ -4,6 +4,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 from dva_agentic_cli.kg.config import KGConfig
+from dva_agentic_cli.config import CLI_NAME
 
 
 def sanitize_label(label: str) -> str:
@@ -33,7 +34,7 @@ class Neo4jClient:
         
         if not self.config.is_neo4j_configured():
             raise ValueError(
-                "Neo4j is not properly configured. Run 'dva kg init' first."
+                "Neo4j is not properly configured. fRun '{CLI_NAME} kg init' first."
             )
     
     def connect(self):

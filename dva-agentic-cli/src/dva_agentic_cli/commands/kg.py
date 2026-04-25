@@ -16,6 +16,7 @@ console = Console()
 
 # Register workspace subcommand
 from dva_agentic_cli.commands.kg_workspace import workspace_app
+from dva_agentic_cli.config import CLI_NAME
 kg_app.add_typer(workspace_app, name="workspace", help="Workspace management (LightRAG only)")
 
 # Configuration file location (shared with data commands)
@@ -36,7 +37,7 @@ def resolve_data_source(source_name: str) -> tuple[str, str, dict]:
     Resolve a data source name to its location, type, and metadata.
     
     Args:
-        source_name: Name of the data source configured via 'dva data create'
+        source_name: Name of the data source configured via f'{CLI_NAME} data create'
     
     Returns:
         (location, source_type, metadata) tuple
@@ -51,7 +52,7 @@ def resolve_data_source(source_name: str) -> tuple[str, str, dict]:
     
     if not data_config.get("sources"):
         console.print("[red]✗ Error:[/red] No data sources configured.")
-        console.print("[dim]Use 'dva data create' to configure data sources first.[/dim]")
+        console.print("[dim]Use f'{CLI_NAME} data create' to configure data sources first.[/dim]")
         raise typer.Exit(1)
     
     # Find the source
@@ -86,7 +87,7 @@ def resolve_data_source(source_name: str) -> tuple[str, str, dict]:
     
     # Source not found
     console.print(f"[red]✗ Error:[/red] Data source '{source_name}' not found.")
-    console.print("[dim]Use 'dva data list' to see available sources.[/dim]")
+    console.print("[dim]Use f'{CLI_NAME} data list' to see available sources.[/dim]")
     raise typer.Exit(1)
 
 
@@ -436,7 +437,7 @@ def init(
         else:
             console.print(f"[bold yellow]⚠[/bold yellow] {message}")
             console.print("\n[dim]Configuration saved, but Neo4j is not accessible.[/dim]")
-            console.print("[dim]Run 'dva kg config --show' to verify settings.[/dim]")
+            console.print("[dim]fRun '{CLI_NAME} kg config --show' to verify settings.[/dim]")
     elif provider == "lightrag":
         console.print("\n[bold]Validating LightRAG connection...[/bold]")
         
@@ -519,7 +520,7 @@ def ingest_submit(
     data_source: str | None = typer.Option(
         None,
         "--source",
-        help="Name of data source configured via 'dva data create'",
+        help=f"Name of data source configured via \'{CLI_NAME} data create'",
     ),
     source: str = typer.Option(
         "",
@@ -585,7 +586,7 @@ def ingest_submit(
     1. Direct path/URL: dva kg ingest submit --path /path/to/file.pdf
     2. Data source name: dva kg ingest submit --source my-dataset
     
-    Data sources are configured using 'dva data create' command.
+    Data sources are configured using f'{CLI_NAME} data create' command.
     
     Supports: PDF, text files, CSV, JSON, Confluence, and directories.
     
@@ -672,7 +673,7 @@ def ingest_submit(
         resolved_source = source
     else:
         console.print("[red]✗ Error:[/red] Must specify either --source (data source name) or --path (direct path).")
-        console.print("[dim]Use 'dva data list' to see configured data sources.[/dim]")
+        console.print("[dim]Use f'{CLI_NAME} data list' to see configured data sources.[/dim]")
         raise typer.Exit(1)
     
     # Handle negation flags
@@ -1280,7 +1281,7 @@ def query(
                 raise typer.Exit(1)
     else:
         console.print(f"[bold red]✗ Unknown provider:[/bold red] {config.provider}")
-        console.print("[dim]Run 'dva kg init' to configure a provider.[/dim]")
+        console.print("[dim]fRun '{CLI_NAME} kg init' to configure a provider.[/dim]")
         raise typer.Exit(1)
     
     # Add persona context to query if specified
@@ -1401,7 +1402,7 @@ def search(
                 raise typer.Exit(1)
     else:
         console.print(f"[bold red]✗ Unknown provider:[/bold red] {config.provider}")
-        console.print("[dim]Run 'dva kg init' to configure a provider.[/dim]")
+        console.print("[dim]fRun '{CLI_NAME} kg init' to configure a provider.[/dim]")
         raise typer.Exit(1)
     
     # Handle exact flag

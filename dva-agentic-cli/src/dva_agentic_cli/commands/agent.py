@@ -15,6 +15,7 @@ from typing_extensions import Annotated
 
 from dva_agentic_cli.commands.project_extensions import discover_agents
 from dva_agentic_cli.tracker import record_activity
+from dva_agentic_cli.config import CLI_NAME
 
 console = Console()
 agent_app = typer.Typer(help="Run and manage agents", rich_markup_mode=None)
@@ -202,7 +203,7 @@ def start_agent(
         pid = state["agents"][instance_name].get("pid")
         if pid and _is_process_running(pid):
             console.print(f"[yellow]⚠ Agent '{instance_name}' is already running (PID {pid})[/yellow]")
-            console.print("[dim]Use 'dva agent stop' to stop it first.[/dim]")
+            console.print("[dim]Use f'{CLI_NAME} agent stop' to stop it first.[/dim]")
             raise typer.Exit(1)
 
     # Determine Python executable
@@ -261,7 +262,7 @@ def start_agent(
         f"[bold]PID:[/bold] {process.pid}\n"
         f"[bold]Log:[/bold] {log_file}\n"
         f"[bold]Project:[/bold] {path}\n\n"
-        f"[dim]Use 'dva agent status' to check or 'dva agent stop --name {instance_name}' to stop[/dim]",
+        f"[dim]Use f'{CLI_NAME} agent status' to check or f'{CLI_NAME} agent stop --name {instance_name}' to stop[/dim]",
         border_style="green",
     ))
 
@@ -531,7 +532,7 @@ def add_agent(
         proj = get_project(project)
         if not proj:
             console.print(f"[red]✗ Error:[/red] Project '{project}' not found in tracker.")
-            console.print("[dim]Use 'dva project list' to see registered projects.[/dim]")
+            console.print("[dim]Use f'{CLI_NAME} project list' to see registered projects.[/dim]")
             raise typer.Exit(1)
         path = Path(proj["path"])
         # Auto-populate domain from tracker if not explicitly provided
@@ -550,7 +551,7 @@ def add_agent(
 
     if not (path / "src").exists():
         console.print(f"[red]✗ Error:[/red] No src/ directory found in {path}.")
-        console.print("[dim]Expected a project created via 'dva project create'.[/dim]")
+        console.print("[dim]Expected a project created via f'{CLI_NAME} project create'.[/dim]")
         raise typer.Exit(1)
 
     if agent_type not in AGENT_TYPES:

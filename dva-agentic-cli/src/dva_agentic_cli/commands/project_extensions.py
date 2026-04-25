@@ -11,6 +11,8 @@ from rich.table import Table
 from typing import List, Dict, Any, Optional
 from typing_extensions import Annotated
 
+from dva_agentic_cli.config import CLI_NAME
+
 console = Console()
 
 
@@ -325,7 +327,7 @@ def list_agents_command(path: Path = Path(".")) -> None:
     
     console.print(table)
     console.print(f"\n[dim]Total agents: {len(agents)}[/dim]")
-    console.print("[dim]Use 'dva project agent info <agent_name>' for more details[/dim]")
+    console.print(f"[dim]Use '{CLI_NAME} project agent info <agent_name>' for more details[/dim]")
 
 
 def agent_info_command(agent_name: str, path: Path = Path(".")) -> None:

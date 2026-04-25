@@ -9,6 +9,7 @@ from typing_extensions import Annotated
 from pathlib import Path
 
 from dva_agentic_cli.kg.async_ingest import (
+from dva_agentic_cli.config import CLI_NAME
     get_manager,
     JobStatus,
     IngestionJob
@@ -26,7 +27,7 @@ def submit_ingestion(
     ] = None,
     data_source: Annotated[
         str | None,
-        typer.Option("--source", help="Data source name (from 'dva data create')"),
+        typer.Option("--source", help=f"Data source name (from \'{CLI_NAME} data create')"),
     ] = None,
     format: Annotated[
         str | None,

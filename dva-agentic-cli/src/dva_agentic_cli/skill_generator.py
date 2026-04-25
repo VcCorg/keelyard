@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import textwrap
+from dva_agentic_cli.config import CLI_NAME
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -170,7 +171,7 @@ def generate_dev_md(ctx: dict) -> str:
 
     # Code conventions placeholder
     lines.append("## Code Conventions\n")
-    lines.append("<!-- Auto-populated when repos are onboarded via 'dva code onboard' -->")
+    lines.append("<!-- Auto-populated when repos are onboarded via f'{CLI_NAME} code onboard' -->")
     lines.append("- Follow existing patterns in each repository")
     lines.append("- Use the project's established build tool and dependency manager")
     lines.append("- Prefer constructor injection over field injection (Spring Boot)")

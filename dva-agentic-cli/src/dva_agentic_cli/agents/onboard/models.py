@@ -5,6 +5,7 @@ override with their own model provider (OpenAI, Anthropic, local, etc.).
 """
 
 import json
+from dva_agentic_cli.config import CLI_NAME
 from typing import Any, Optional, Protocol
 
 
@@ -43,7 +44,7 @@ def init_model(
 
     if not pid or not loc:
         raise ValueError(
-            "Vertex AI is not configured. Run 'dva init vertex-ai' first.\n"
+            "Vertex AI is not configured. fRun '{CLI_NAME} init vertex-ai' first.\n"
             f"Current config: project_id={pid}, location={loc}"
         )
 
