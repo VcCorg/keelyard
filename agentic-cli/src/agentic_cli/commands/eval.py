@@ -11,10 +11,16 @@ from typing_extensions import Annotated
 
 from agentic_cli.config import CLI_NAME
 from agentic_cli.evaluation.validator import SkillValidator
+from agentic_cli.evaluation.datasets import DatasetManager, EvaluationDataset
+from agentic_cli.evaluation.metrics import get_all_metrics, get_metric
 from agentic_cli.tracker import record_activity
 
 console = Console()
 eval_app = typer.Typer(help="Evaluate agents and skills", rich_markup_mode=None)
+
+# Default datasets directory
+DATASETS_DIR = Path.home() / ".agentic-cli" / "datasets"
+dataset_manager = DatasetManager(DATASETS_DIR)
 
 
 @eval_app.command("validate-skill")
@@ -184,3 +190,129 @@ def _output_validation_json(result) -> None:
         "warnings": result.warnings,
     }
     console.print(json.dumps(output, indent=2))
+
+
+@eval_app.command("create-dataset")
+def create_dataset(
+    name: Annotated[
+        str,
+        typer.Argument(help="Dataset name (e.g., customer-qa, bug-triage)"),
+    ],
+    description: Annotated[
+        str,
+        typer.Option("--description", "-d", help="Dataset description"),
+    ] = "Evaluation dataset",
+    tags: Annotated[
+        Optional[str],
+        typer.Option("--tags", "-t", help="Comma-separated tags (e.g., qa,production)"),
+    ] = None,
+) -> None:
+    """
+    Create a new evaluation dataset.
+
+    Datasets are collections of input-output pairs used to evaluate agent performance.
+    They can be created manually and then populated with samples.
+
+    Examples:
+        {CLI_NAME} eval create-dataset customer-qa --description "QA dataset"
+        {CLI_NAME} eval create-dataset bug-triage --tags "qa,backend"
+    """.format(CLI_NAME=CLI_NAME)
+
+    dataset_id = name.lower().replace(" ", "-")
+    tag_list = [t.strip() for t in tags.split(",")] if tags else []
+
+    dataset = dataset_manager.create_dataset(
+        dataset_id=dataset_id,
+        name=name,
+        description=description,
+        tags=tag_list,
+    )
+
+    record_activity(
+        command="eval",
+        subcommand="create-dataset",
+        args={"name": name, "description": description},
+        repo_path=str(Path.cwd()),
+    )
+
+    console.print(
+        Panel.fit(
+            f"[bold green]✓ Dataset Created[/bold green]\n\n"
+            f"[bold]Name:[/bold] {name}\n"
+            f"[bold]ID:[/bold] {dataset_id}\n"
+            f"[bold]Tags:[/bold] {', '.join(tag_list) if tag_list else '(none)'}\n\n"
+            f"[dim]Dataset created. You can now add samples to it.[/dim]",
+            border_style="green",
+        )
+    )
+
+
+@eval_app.command("list-metrics")
+def list_metrics() -> None:
+    """
+    List all available evaluation metrics.
+
+    Shows built-in metrics with their descriptions, types, and thresholds.
+
+    Examples:
+        {CLI_NAME} eval list-metrics
+    """.format(CLI_NAME=CLI_NAME)
+
+    metrics = get_all_metrics()
+
+    if not metrics:
+        console.print("[yellow]No metrics available[/yellow]")
+        return
+
+    # Group by type
+    quantitative = {}
+    qualitative = {}
+    boolean = {}
+
+    for name, metric in metrics.items():
+        if metric.metric_type.value == "qualitative":
+            qualitative[name] = metric
+        elif metric.metric_type.value == "boolean":
+            boolean[name] = metric
+        else:
+            quantitative[name] = metric
+
+    # Display quantitative metrics
+    if quantitative:
+        console.print("\n[bold cyan]Quantitative Metrics[/bold cyan]")
+        table = Table(show_header=True, header_style="bold magenta")
+        table.add_column("Metric", style="cyan")
+        table.add_column("Unit", style="green")
+        table.add_column("Lower Better", justify="center")
+        table.add_column("Description")
+
+        for name, metric in quantitative.items():
+            lower = "✓" if metric.lower_is_better else "✗"
+            table.add_row(name, metric.unit or "—", lower, metric.description[:50] + "...")
+        console.print(table)
+
+    # Display qualitative metrics
+    if qualitative:
+        console.print("\n[bold cyan]Qualitative Metrics (LLM-Judged, 1-5 scale)[/bold cyan]")
+        table = Table(show_header=True, header_style="bold magenta")
+        table.add_column("Metric", style="cyan")
+        table.add_column("Threshold", style="green")
+        table.add_column("Description")
+
+        for name, metric in qualitative.items():
+            threshold = f"{metric.threshold}" if metric.threshold else "—"
+            table.add_row(name, threshold, metric.description[:50] + "...")
+        console.print(table)
+
+    # Display boolean metrics
+    if boolean:
+        console.print("\n[bold cyan]Boolean Metrics[/bold cyan]")
+        table = Table(show_header=True, header_style="bold magenta")
+        table.add_column("Metric", style="cyan")
+        table.add_column("Description")
+
+        for name, metric in boolean.items():
+            table.add_row(name, metric.description[:50] + "...")
+        console.print(table)
+
+    console.print("\n[dim]Use metrics in: {CLI_NAME} eval measure-skill-impact --metrics <names>[/dim]".format(CLI_NAME=CLI_NAME))
