@@ -181,12 +181,15 @@ All commands below use `dva` as the CLI name. If you installed with a custom nam
 - `dva mcp test`: Test MCP server connections
 - `dva mcp status`: Show MCP server status
 
-#### Agent Management
+#### Agent Management & Evaluation
 - `dva agent create <name>`: Create a new agent
 - `dva agent list`: List all agents
 - `dva agent info <name>`: Show agent details
 - `dva agent deploy <name>`: Deploy an agent
 - `dva agent test <name>`: Test an agent
+- `dva eval validate-skill <path>`: Validate a skill file for quality and structure
+- `dva eval validate-skill <path> --output json`: Validate skill and output as JSON
+- `dva eval validate-skill <path> --check structure`: Run specific validation checks
 
 #### Code & Repository Management
 - `dva code onboard`: Onboard a code repository
@@ -195,9 +198,35 @@ All commands below use `dva` as the CLI name. If you installed with a custom nam
 - `dva code analyze`: Analyze code structure
 
 #### Skill Management
+- `dva skill create <name>`: Create a new skill
 - `dva skill list`: List available skills
-- `dva skill info <name>`: Show skill details
-- `dva skill apply <name>`: Apply a skill to a project
+- `dva skill install <source>`: Install a skill from GitHub
+- `dva skill show <name>`: Show skill details
+
+#### Skill Validation & Evaluation
+- `dva eval validate-skill <path>`: Validate a skill file for quality and structure
+- `dva eval validate-skill <path> --output json`: Validate skill with JSON output
+
+**Note:** The skill validation system checks:
+- ✅ YAML frontmatter structure (name, description fields)
+- ✅ Required markdown sections (Instructions, Available Tools, Workflow)
+- ✅ Markdown syntax and formatting
+- ✅ Tool reference documentation
+- ✅ Overall skill completeness and clarity
+
+Example:
+```bash
+# Validate a skill file
+dva eval validate-skill .skills/pr-reviewer/SKILL.md
+
+# Get detailed JSON report
+dva eval validate-skill .skills/pr-reviewer/SKILL.md --output json
+
+# Quality Score: 92/100 = Excellent
+# Includes: Full documentation, examples, clear workflow
+```
+
+For more information on skill evaluation, see [Skill Evaluation Integration](docs/SKILL_EVALUATION_INTEGRATION.md).
 
 #### Domain Management
 - `dva domain list`: List available domains
@@ -478,7 +507,7 @@ dva kg ingest --source local-docs
 ```
 agentic-cli/
 ├── src/
-│   └── dva_agentic_cli/
+│   └── agentic_cli/
 │       ├── __init__.py          # Package version
 │       ├── main.py              # Main CLI entry point
 │       ├── commands/            # Command modules
@@ -543,7 +572,7 @@ make run ARGS="hello World"
 pytest
 
 # Run with coverage
-pytest --cov=dva_agentic_cli --cov-report=html
+pytest --cov=agentic_cli --cov-report=html
 
 # Or use make commands
 make test
@@ -564,10 +593,10 @@ make format
 
 ## Adding New Commands
 
-To add new commands, create a new module in `src/dva_agentic_cli/commands/`:
+To add new commands, create a new module in `src/agentic_cli/commands/`:
 
 ```python
-# src/dva_agentic_cli/commands/my_command.py
+# src/agentic_cli/commands/my_command.py
 import typer
 from rich.console import Console
 
@@ -581,7 +610,7 @@ def my_command():
 Then register it in `main.py`:
 
 ```python
-from dva_agentic_cli.commands import my_command
+from agentic_cli.commands import my_command
 
 app.command()(my_command.my_command)
 ```
