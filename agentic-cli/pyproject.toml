@@ -1,0 +1,70 @@
+[project]
+name = "agentic-cli"
+version = "0.1.0"
+description = "CLI tool for agentic workflows using ADK agent platform"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "typer>=0.12.0,<0.13.0",
+    "click==8.1.7",
+    "rich>=13.7.0",
+    "pydantic>=2.0.0",
+    "httpx>=0.25.0",
+    "mcp>=1.0.0",
+]
+
+[project.scripts]
+# CLI name is configurable via AGENT_CLI_NAME env var (default: dva)
+# Example: AGENT_CLI_NAME=raj pip install . && raj --help
+dva = "agentic_cli.main:app"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.3.0",
+]
+adk = [
+    # ADK agent dependencies - install when available
+    # "adk-agent>=0.1.0",
+]
+agent = [
+    # AI agent dependencies (onboard agent, skill gap detection)
+    "google-cloud-aiplatform>=1.45.0",
+]
+dashboard = [
+    "fastapi>=0.109.0",
+    "uvicorn>=0.27.0",
+]
+kg = [
+    # Knowledge graph dependencies
+    "neo4j>=5.14.0",
+    "pydantic>=2.0.0",
+    "google-cloud-aiplatform>=1.45.0",
+    "PyPDF2>=3.0.0",
+    "pyvis>=0.3.2",
+    "atlassian-python-api>=3.41.0",  # For Confluence integration
+    "httpx>=0.25.0",  # For LightRAG integration
+    "gitpython>=3.1.40",  # For Git repository cloning
+    "gitingest>=0.1.0",  # For parsing Git repositories
+    "graphifyy>=0.4.0",  # For code structure analysis
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+ignore = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --cov=agentic_cli --cov-report=term-missing"
