@@ -1,14 +1,11 @@
 """Main CLI entry point for dva-agentic-cli."""
 
-import os
 import typer
 from rich.console import Console
 from typing_extensions import Annotated
 
 from dva_agentic_cli import __version__
-
-# CLI name is configurable via AGENT_CLI_NAME env var (default: dva)
-CLI_NAME = os.getenv("AGENT_CLI_NAME", "dva")
+from dva_agentic_cli.config import CLI_NAME
 from dva_agentic_cli.commands.project import project_app
 from dva_agentic_cli.commands.init import init_app
 from dva_agentic_cli.commands.kg import kg_app
