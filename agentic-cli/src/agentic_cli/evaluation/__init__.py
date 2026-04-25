@@ -4,6 +4,7 @@ from agentic_cli.evaluation.validator import SkillValidator, ValidationResult
 from agentic_cli.evaluation.datasets import EvaluationDataset, EvaluationSample, DatasetManager
 from agentic_cli.evaluation.metrics import Metric, MetricType, MetricsCalculator, get_metric, get_all_metrics
 from agentic_cli.evaluation.llm_judges import LLMJudge, VertexAIJudge, AnthropicJudge, OpenAIJudge, get_judge, get_available_judges
+from agentic_cli.evaluation.runner import EvaluationResult, EvaluationRunner, SkillImpactEvaluator, SampleResult
 
 __all__ = [
     "SkillValidator",
@@ -22,5 +23,9 @@ __all__ = [
     "OpenAIJudge",
     "get_judge",
     "get_available_judges",
+    "EvaluationResult",
+    "EvaluationRunner",
+    "SkillImpactEvaluator",
+    "SampleResult",
 ]
 
