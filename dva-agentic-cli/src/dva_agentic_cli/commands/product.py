@@ -17,6 +17,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from dva_agentic_cli.tracker import (
+from dva_agentic_cli.config import CLI_NAME
     record_activity,
     register_product,
     get_product,
@@ -136,7 +137,7 @@ def show(
     p = get_product(name)
     if not p:
         console.print(f"[red]✗ Product '{name.upper()}' not found.[/red]")
-        console.print("[dim]Use 'dva product list' to see available products.[/dim]")
+        console.print("[dim]Use f'{CLI_NAME} product list' to see available products.[/dim]")
         raise typer.Exit(1)
 
     lines = [f"[cyan]Name:[/cyan] {p['name']}"]

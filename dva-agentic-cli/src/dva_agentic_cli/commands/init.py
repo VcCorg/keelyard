@@ -10,6 +10,7 @@ from rich.prompt import Prompt, Confirm
 from typing_extensions import Annotated
 
 from dva_agentic_cli.tracker import record_activity
+from dva_agentic_cli.config import CLI_NAME
 
 console = Console()
 init_app = typer.Typer(help="Initialize and configure authentication", rich_markup_mode=None)
@@ -212,7 +213,7 @@ def show_config() -> None:
     
     if not config:
         console.print("[yellow]No configuration found.[/yellow]")
-        console.print("[dim]Run 'dva init vertex-ai' to configure Vertex AI.[/dim]")
+        console.print("[dim]Run f'{CLI_NAME} init vertex-ai' to configure Vertex AI.[/dim]")
         return
 
     console.print(

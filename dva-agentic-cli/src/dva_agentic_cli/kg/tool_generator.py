@@ -135,7 +135,7 @@ class {class_name}:
         
         if not self.config.is_neo4j_configured():
             raise ValueError(
-                "Neo4j is not configured. Run 'dva kg init' first."
+                "Neo4j is not configured. fRun '{CLI_NAME} kg init' first."
             )
 {"".join(methods)}
     def get_stats(self) -> Dict[str, Any]:
@@ -179,6 +179,7 @@ from typing import Any, Dict, List, Optional
 
 from dva_agentic_cli.kg.config import KGConfig
 from dva_agentic_cli.kg.neo4j_client import Neo4jClient
+from dva_agentic_cli.config import CLI_NAME
 
 
 class CustomKGTool:
@@ -190,7 +191,7 @@ class CustomKGTool:
         
         if not self.config.is_neo4j_configured():
             raise ValueError(
-                "Neo4j is not configured. Run 'dva kg init' first."
+                "Neo4j is not configured. fRun '{CLI_NAME} kg init' first."
             )
     
     def custom_operation(self, *args, **kwargs) -> Any:

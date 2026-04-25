@@ -11,6 +11,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from dva_agentic_cli.tracker import record_activity
+from dva_agentic_cli.config import CLI_NAME
 
 console = Console()
 data_app = typer.Typer(help="Manage data source configurations", rich_markup_mode=None)
@@ -552,7 +553,7 @@ def show_data_source(
     
     if not source:
         console.print(f"[red]✗ Error:[/red] Data source '{name}' not found.")
-        console.print("[dim]Use 'dva data list' to see all sources.[/dim]")
+        console.print("[dim]Use f'{CLI_NAME} data list' to see all sources.[/dim]")
         raise typer.Exit(1)
     
     # Display detailed information

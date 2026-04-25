@@ -10,6 +10,7 @@ from rich.table import Table
 from dva_agentic_cli.registry.base import BaseRegistry, RegistryConfig
 from dva_agentic_cli.registry.agent_template import AgentTemplateRegistry
 from dva_agentic_cli.registry.agent_tool import AgentToolRegistry
+from dva_agentic_cli.config import CLI_NAME
 
 console = Console()
 
@@ -199,7 +200,7 @@ class RegistryManager:
         
         if not registry:
             console.print(f"[red]No {registry_type} registry configured[/red]")
-            console.print("[dim]Use 'dva agent-template registry add' or 'dva agent-tool registry add' to configure one[/dim]")
+            console.print("[dim]Use f'{CLI_NAME} agent-template registry add' or f'{CLI_NAME} agent-tool registry add' to configure one[/dim]")
             return None
         
         if not registry.ensure_available():

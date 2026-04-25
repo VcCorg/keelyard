@@ -5,6 +5,7 @@ import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
 from dva_agentic_cli.kg.config import KGConfig
+from dva_agentic_cli.config import CLI_NAME
 
 
 def extract_entities_from_documents(
@@ -25,7 +26,7 @@ def extract_entities_from_documents(
     
     if not config.is_vertex_ai_configured():
         raise ValueError(
-            "Vertex AI is not configured. Run 'dva init vertex-ai' first.\n"
+            "Vertex AI is not configured. Run f'{CLI_NAME} init vertex-ai' first.\n"
             f"Current config: project_id={config.google_project_id}, "
             f"location={config.google_location}"
         )
@@ -239,7 +240,7 @@ def generate_embeddings(texts: List[str], config: Optional[KGConfig] = None) -> 
     
     if not config.is_vertex_ai_configured():
         raise ValueError(
-            "Vertex AI is not configured. Run 'dva init vertex-ai' first."
+            "Vertex AI is not configured. Run f'{CLI_NAME} init vertex-ai' first."
         )
     
     try:

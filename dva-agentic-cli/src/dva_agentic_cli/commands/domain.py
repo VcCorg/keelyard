@@ -39,6 +39,7 @@ from dva_agentic_cli.tracker import (
     mark_domain_repo_onboarded,
 )
 from dva_agentic_cli.skill_generator import (
+from dva_agentic_cli.config import CLI_NAME
     ROLES,
     ROLE_LABELS,
     gather_domain_context,
@@ -77,7 +78,7 @@ def create(
     Register a new domain under a product.
 
     The --product flag is mandatory. The product must already be registered
-    via 'dva product create'. The domain slug is auto-generated as
+    via f'{CLI_NAME} product create'. The domain slug is auto-generated as
     <product>-<domain> (lowercase).
 
     Examples:
@@ -219,7 +220,7 @@ def show(
     d = get_domain(name)
     if not d:
         console.print(f"[red]✗ Domain '{name}' not found.[/red]")
-        console.print("[dim]Use 'dva domain list' to see available domains.[/dim]")
+        console.print("[dim]Use f'{CLI_NAME} domain list' to see available domains.[/dim]")
         raise typer.Exit(1)
 
     # Domain info
@@ -269,7 +270,7 @@ def show(
             )
         console.print(repo_table)
     else:
-        console.print("[dim]No repos linked. Use 'dva domain link-repo' to add repos.[/dim]")
+        console.print("[dim]No repos linked. Use f'{CLI_NAME} domain link-repo' to add repos.[/dim]")
 
     # Docs
     docs = get_domain_docs(name)
@@ -899,7 +900,7 @@ def sync_docs(
 
     docs = get_domain_docs(domain_name)
     if not docs:
-        console.print(f"[yellow]No docs tracked for '{domain_name}'. Run 'dva domain add-docs' first.[/yellow]")
+        console.print(f"[yellow]No docs tracked for '{domain_name}'. fRun '{CLI_NAME} domain add-docs' first.[/yellow]")
         raise typer.Exit(1)
 
     managed_key = d.get("managed_confluence_space") or f"DVA-{domain_name.upper().replace('-', '')}"

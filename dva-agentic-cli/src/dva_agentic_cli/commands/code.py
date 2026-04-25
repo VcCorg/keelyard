@@ -26,6 +26,7 @@ from dva_agentic_cli.analyzer.matcher import (
     remove_proposal,
 )
 from dva_agentic_cli.tracker import ActivityTimer, record_activity, register_repo, get_repos
+from dva_agentic_cli.config import CLI_NAME
 
 console = Console()
 code_app = typer.Typer(help="Onboard repos with AI code assist skills", rich_markup_mode=None)
@@ -303,7 +304,7 @@ def init_workspace(
     """
     Set a default workspace folder for cloning and onboarding repos.
 
-    All repos cloned via 'dva code onboard --repo <url>' will land here
+    All repos cloned via f'{CLI_NAME} code onboard --repo <url>' will land here
     unless --target is explicitly provided.
 
     Examples:
@@ -325,7 +326,7 @@ def init_workspace(
     console.print(Panel.fit(
         f"[bold green]✓ Code workspace configured[/bold green]\n\n"
         f"[bold]Workspace:[/bold] {ws}\n\n"
-        f"[dim]Repos cloned via 'dva code onboard --repo <url>' will\n"
+        f"[dim]Repos cloned via f'{CLI_NAME} code onboard --repo <url>' will\n"
         f"be placed in this folder by default.[/dim]",
         border_style="green",
     ))
@@ -681,7 +682,7 @@ def list_projects(
     """
     List all onboarded projects.
 
-    Shows a summary of every project that has been onboarded via 'dva code onboard',
+    Shows a summary of every project that has been onboarded via f'{CLI_NAME} code onboard',
     including tech stack, skills installed, and last updated time.
 
     Examples:
@@ -1051,7 +1052,7 @@ def _skills_add(name: str, project_path: Path, registry_override: Optional[str])
         console.print(f"[green]✓ Skill '{name}' installed to {project_path / '.skills' / name}[/green]")
     else:
         console.print(f"[red]✗ Skill '{name}' not found in registry[/red]")
-        console.print("[dim]Run 'dva code skills available' to see options[/dim]")
+        console.print("[dim]Run f'{CLI_NAME} code skills available' to see options[/dim]")
         raise typer.Exit(1)
 
 
