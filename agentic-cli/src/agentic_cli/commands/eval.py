@@ -1,5 +1,6 @@
-"""Evaluation commands for validating skills and measuring agent performance."""
+"""Evaluation commands - generalized for skills, agents, models, and comparisons."""
 
+import asyncio
 import json
 import typer
 from pathlib import Path
@@ -13,186 +14,39 @@ from agentic_cli.config import CLI_NAME
 from agentic_cli.evaluation.validator import SkillValidator
 from agentic_cli.evaluation.datasets import DatasetManager, EvaluationDataset
 from agentic_cli.evaluation.metrics import get_all_metrics, get_metric
+from agentic_cli.evaluation.runner import SkillImpactEvaluator
 from agentic_cli.tracker import record_activity
 
 console = Console()
-eval_app = typer.Typer(help="Evaluate agents and skills", rich_markup_mode=None)
+eval_app = typer.Typer(help="Evaluate agents, skills, and performance", rich_markup_mode=None)
+
+# Subcommand apps
+dataset_app = typer.Typer(help="Manage evaluation datasets")
+validate_app = typer.Typer(help="Validate agents, skills, and datasets")
+run_app = typer.Typer(help="Run evaluations (agent, skill, model)")
+metrics_app = typer.Typer(help="View evaluation metrics")
+report_app = typer.Typer(help="View and export evaluation reports")
+
+# Register subcommands
+eval_app.add_typer(dataset_app, name="dataset")
+eval_app.add_typer(validate_app, name="validate")
+eval_app.add_typer(run_app, name="run")
+eval_app.add_typer(metrics_app, name="metrics")
+eval_app.add_typer(report_app, name="report")
 
 # Default datasets directory
 DATASETS_DIR = Path.home() / ".agentic-cli" / "datasets"
+EVALS_DIR = Path.home() / ".agentic-cli" / "evaluations"
+
 dataset_manager = DatasetManager(DATASETS_DIR)
+EVALS_DIR.mkdir(parents=True, exist_ok=True)
 
 
-@eval_app.command("validate-skill")
-def validate_skill(
-    skill_path: Annotated[
-        Path,
-        typer.Argument(help="Path to SKILL.md file to validate"),
-    ],
-    checks: Annotated[
-        Optional[str],
-        typer.Option(
-            "--check",
-            help="Specific checks to run: structure, completeness, clarity (default: all)",
-        ),
-    ] = None,
-    output_format: Annotated[
-        str,
-        typer.Option("--output", "-o", help="Output format: console, json"),
-    ] = "console",
-) -> None:
-    """
-    Validate a skill file for quality, structure, and completeness.
+# ==============================================================================
+# DATASET COMMANDS
+# ==============================================================================
 
-    Performs comprehensive validation including:
-    - YAML frontmatter structure and required fields
-    - Markdown formatting and syntax
-    - Required sections (Instructions, Available Tools, Workflow)
-    - Tool reference documentation
-    - Overall completeness and clarity
-
-    Examples:
-        {CLI_NAME} eval validate-skill .skills/my-skill/SKILL.md
-        {CLI_NAME} eval validate-skill .skills/my-skill/SKILL.md --output json
-        {CLI_NAME} eval validate-skill .skills/pr-reviewer/SKILL.md --check structure
-    """.format(CLI_NAME=CLI_NAME)
-
-    skill_path = Path(skill_path).resolve()
-
-    if not skill_path.exists():
-        console.print(f"[red]✗ Skill file not found: {skill_path}[/red]")
-        raise typer.Exit(1)
-
-    validator = SkillValidator(skill_path)
-    result = validator.validate()
-
-    record_activity(
-        command="eval",
-        subcommand="validate-skill",
-        args={"skill_path": str(skill_path), "output_format": output_format},
-        repo_path=str(skill_path.parent.parent.parent),
-    )
-
-    if output_format == "json":
-        _output_validation_json(result)
-    else:
-        _output_validation_console(result)
-
-    # Exit with error code if validation failed
-    if not result.passed:
-        raise typer.Exit(1)
-
-
-def _output_validation_console(result) -> None:
-    """Output validation results to console with rich formatting."""
-    # Header
-    status_emoji = "✅" if result.passed else "⚠️"
-    status_color = "green" if result.passed else "yellow"
-
-    header = Panel.fit(
-        f"[bold {status_color}]{status_emoji} Skill Validation Results[/bold {status_color}]\n\n"
-        f"[bold]Skill:[/bold] {result.skill_name}\n"
-        f"[bold]Quality Score:[/bold] {result.quality_score}/100\n"
-        f"[bold]Status:[/bold] {'[green]✓ PASSED[/green]' if result.passed else '[yellow]⚠ NEEDS IMPROVEMENT[/yellow]'}",
-        border_style=status_color,
-    )
-    console.print(header)
-
-    # Checks table
-    if result.checks:
-        console.print("\n[bold]Validation Checks:[/bold]\n")
-        table = Table(show_header=True, header_style="bold magenta")
-        table.add_column("Check", style="cyan")
-        table.add_column("Status", justify="center")
-        table.add_column("Message")
-
-        for check in result.checks:
-            status = "✓" if check.passed else "✗"
-            status_style = "green" if check.passed else "yellow" if check.severity == "warning" else "red"
-            table.add_row(
-                check.check_name,
-                f"[{status_style}]{status}[/{status_style}]",
-                check.message,
-            )
-
-        console.print(table)
-
-    # Sections status
-    if result.sections:
-        console.print("\n[bold]Sections Found:[/bold]\n")
-        required_section_table = Table(show_header=True, header_style="bold magenta")
-        required_section_table.add_column("Section", style="cyan")
-        required_section_table.add_column("Status", justify="center")
-
-        required = {"Instructions", "Available Tools", "Workflow"}
-        for section in sorted(result.sections.keys()):
-            found = result.sections[section]
-            status = "✓" if found else "✗"
-            status_style = "green" if found else "red" if section in required else "yellow"
-            required_marker = " [bold red](required)[/bold red]" if section in required else ""
-            required_section_table.add_row(
-                section + required_marker,
-                f"[{status_style}]{status}[/{status_style}]",
-            )
-
-        console.print(required_section_table)
-
-    # Issues
-    if result.errors:
-        console.print("\n[bold red]Errors:[/bold red]")
-        for error in result.errors:
-            console.print(f"  [red]✗[/red] {error}")
-
-    if result.warnings:
-        console.print("\n[bold yellow]Warnings:[/bold yellow]")
-        for warning in result.warnings:
-            console.print(f"  [yellow]⚠[/yellow] {warning}")
-
-    # Recommendations
-    if not result.passed:
-        console.print("\n[bold cyan]Recommendations:[/bold cyan]")
-        if result.quality_score < 50:
-            console.print(f"  • Skill quality score is low ({result.quality_score}/100)")
-            console.print(f"  • Review error messages above and fix critical issues")
-            console.print(f"  • Ensure all required sections are present")
-        elif result.quality_score < 70:
-            console.print(f"  • Skill quality score is acceptable ({result.quality_score}/100)")
-            console.print(f"  • Address warnings to improve score")
-            console.print(f"  • Add more detailed examples and documentation")
-        if result.errors:
-            console.print(f"  • Fix {len(result.errors)} error(s) before publishing")
-        if result.warnings:
-            console.print(f"  • Address {len(result.warnings)} warning(s) for better quality")
-
-    console.print()
-
-
-def _output_validation_json(result) -> None:
-    """Output validation results as JSON."""
-    output = {
-        "skill_name": result.skill_name,
-        "skill_path": str(result.skill_path),
-        "passed": result.passed,
-        "quality_score": result.quality_score,
-        "checks": [
-            {
-                "name": check.check_name,
-                "passed": check.passed,
-                "score": check.score,
-                "message": check.message,
-                "severity": check.severity,
-            }
-            for check in result.checks
-        ],
-        "sections": result.sections,
-        "frontmatter": result.frontmatter,
-        "errors": result.errors,
-        "warnings": result.warnings,
-    }
-    console.print(json.dumps(output, indent=2))
-
-
-@eval_app.command("create-dataset")
+@dataset_app.command("create")
 def create_dataset(
     name: Annotated[
         str,
@@ -204,18 +58,14 @@ def create_dataset(
     ] = "Evaluation dataset",
     tags: Annotated[
         Optional[str],
-        typer.Option("--tags", "-t", help="Comma-separated tags (e.g., qa,production)"),
+        typer.Option("--tags", "-t", help="Comma-separated tags"),
     ] = None,
 ) -> None:
-    """
-    Create a new evaluation dataset.
-
-    Datasets are collections of input-output pairs used to evaluate agent performance.
-    They can be created manually and then populated with samples.
+    """Create a new evaluation dataset.
 
     Examples:
-        {CLI_NAME} eval create-dataset customer-qa --description "QA dataset"
-        {CLI_NAME} eval create-dataset bug-triage --tags "qa,backend"
+        {CLI_NAME} eval dataset create customer-qa
+        {CLI_NAME} eval dataset create bug-triage --tags "qa,backend"
     """.format(CLI_NAME=CLI_NAME)
 
     dataset_id = name.lower().replace(" ", "-")
@@ -230,8 +80,8 @@ def create_dataset(
 
     record_activity(
         command="eval",
-        subcommand="create-dataset",
-        args={"name": name, "description": description},
+        subcommand="dataset-create",
+        args={"name": name},
         repo_path=str(Path.cwd()),
     )
 
@@ -240,22 +90,296 @@ def create_dataset(
             f"[bold green]✓ Dataset Created[/bold green]\n\n"
             f"[bold]Name:[/bold] {name}\n"
             f"[bold]ID:[/bold] {dataset_id}\n"
-            f"[bold]Tags:[/bold] {', '.join(tag_list) if tag_list else '(none)'}\n\n"
-            f"[dim]Dataset created. You can now add samples to it.[/dim]",
+            f"[bold]Location:[/bold] {DATASETS_DIR / dataset_id}.json",
             border_style="green",
         )
     )
 
 
-@eval_app.command("list-metrics")
-def list_metrics() -> None:
-    """
-    List all available evaluation metrics.
-
-    Shows built-in metrics with their descriptions, types, and thresholds.
+@dataset_app.command("list")
+def list_datasets() -> None:
+    """List all evaluation datasets.
 
     Examples:
-        {CLI_NAME} eval list-metrics
+        {CLI_NAME} eval dataset list
+    """.format(CLI_NAME=CLI_NAME)
+
+    datasets = dataset_manager.list_datasets()
+
+    if not datasets:
+        console.print("[yellow]No datasets found[/yellow]")
+        return
+
+    table = Table(show_header=True, header_style="bold magenta", title="Evaluation Datasets")
+    table.add_column("ID", style="cyan")
+    table.add_column("Name", style="green")
+    table.add_column("Samples", justify="right")
+    table.add_column("Tags")
+
+    for ds in datasets:
+        tags = ", ".join(ds.tags) if ds.tags else "—"
+        table.add_row(ds.id, ds.name, str(len(ds.samples)), tags)
+
+    console.print(table)
+
+
+@dataset_app.command("show")
+def show_dataset(
+    dataset_id: Annotated[
+        str,
+        typer.Argument(help="Dataset ID"),
+    ],
+) -> None:
+    """Show dataset details.
+
+    Examples:
+        {CLI_NAME} eval dataset show customer-qa
+    """.format(CLI_NAME=CLI_NAME)
+
+    dataset = dataset_manager.load_dataset(dataset_id)
+    if not dataset:
+        console.print(f"[red]Dataset not found: {dataset_id}[/red]")
+        raise typer.Exit(1)
+
+    console.print(
+        Panel.fit(
+            f"[bold cyan]{dataset.name}[/bold cyan]\n\n"
+            f"[bold]ID:[/bold] {dataset.id}\n"
+            f"[bold]Description:[/bold] {dataset.description}\n"
+            f"[bold]Samples:[/bold] {len(dataset.samples)}\n"
+            f"[bold]Tags:[/bold] {', '.join(dataset.tags) if dataset.tags else '(none)'}\n"
+            f"[bold]Created:[/bold] {dataset.created[:10]}",
+            border_style="cyan",
+        )
+    )
+
+    if dataset.samples:
+        console.print("\n[bold]First 5 Samples:[/bold]\n")
+        table = Table(show_header=True, header_style="bold magenta")
+        table.add_column("ID", style="cyan")
+        table.add_column("Input", style="green", width=40)
+        table.add_column("Expected Output", width=40)
+
+        for sample in dataset.samples[:5]:
+            input_text = sample.input[:37] + "..." if len(sample.input) > 40 else sample.input
+            expected = sample.expected_output[:37] + "..." if len(sample.expected_output) > 40 else sample.expected_output
+            table.add_row(
+                sample.sample_id or "—",
+                input_text,
+                expected,
+            )
+
+        console.print(table)
+
+
+# ==============================================================================
+# VALIDATE COMMANDS
+# ==============================================================================
+
+@validate_app.command("skill")
+def validate_skill(
+    skill_path: Annotated[
+        Path,
+        typer.Argument(help="Path to SKILL.md file"),
+    ],
+    output_format: Annotated[
+        str,
+        typer.Option("--output", "-o", help="Output: console, json"),
+    ] = "console",
+) -> None:
+    """Validate a skill file structure and quality.
+
+    Checks:
+      - YAML frontmatter (name, description)
+      - Required sections (Instructions, Available Tools, Workflow)
+      - Markdown formatting and syntax
+      - Tool documentation
+      - Completeness and clarity
+
+    Examples:
+        {CLI_NAME} eval validate skill .skills/my-skill/SKILL.md
+        {CLI_NAME} eval validate skill .skills/pr-reviewer/SKILL.md --output json
+    """.format(CLI_NAME=CLI_NAME)
+
+    skill_path = Path(skill_path).resolve()
+
+    if not skill_path.exists():
+        console.print(f"[red]✗ Skill file not found: {skill_path}[/red]")
+        raise typer.Exit(1)
+
+    validator = SkillValidator(skill_path)
+    result = validator.validate()
+
+    record_activity(
+        command="eval",
+        subcommand="validate-skill",
+        args={"skill_path": str(skill_path)},
+        repo_path=str(skill_path.parent.parent.parent),
+    )
+
+    if output_format == "json":
+        output = {
+            "skill_name": result.skill_name,
+            "quality_score": result.quality_score,
+            "passed": result.passed,
+            "checks": [
+                {
+                    "name": c.check_name,
+                    "passed": c.passed,
+                    "message": c.message,
+                }
+                for c in result.checks
+            ],
+            "errors": result.errors,
+            "warnings": result.warnings,
+        }
+        console.print(json.dumps(output, indent=2))
+    else:
+        status_color = "green" if result.passed else "yellow"
+        console.print(
+            Panel.fit(
+                f"[bold {status_color}]{'✓' if result.passed else '⚠'} Skill Validation[/bold {status_color}]\n\n"
+                f"[bold]Skill:[/bold] {result.skill_name}\n"
+                f"[bold]Score:[/bold] {result.quality_score}/100\n"
+                f"[bold]Status:[/bold] {'[green]PASSED[/green]' if result.passed else '[yellow]NEEDS IMPROVEMENT[/yellow]}",
+                border_style=status_color,
+            )
+        )
+
+        # Show checks
+        table = Table(show_header=True, header_style="bold magenta")
+        table.add_column("Check", style="cyan")
+        table.add_column("Status", justify="center")
+        table.add_column("Message")
+
+        for check in result.checks:
+            status = "✓" if check.passed else "✗"
+            status_style = "green" if check.passed else "red" if check.severity == "error" else "yellow"
+            table.add_row(
+                check.check_name,
+                f"[{status_style}]{status}[/{status_style}]",
+                check.message[:60] + "..." if len(check.message) > 60 else check.message,
+            )
+
+        console.print("\n")
+        console.print(table)
+
+        if result.errors:
+            console.print(f"\n[bold red]Errors ({len(result.errors)}):[/bold red]")
+            for err in result.errors:
+                console.print(f"  [red]✗[/red] {err}")
+
+    if not result.passed:
+        raise typer.Exit(1)
+
+
+# ==============================================================================
+# RUN COMMANDS
+# ==============================================================================
+
+@run_app.command("skill")
+def run_skill_impact(
+    agent_name: Annotated[
+        str,
+        typer.Option("--agent", help="Agent name/identifier"),
+    ],
+    skill_name: Annotated[
+        str,
+        typer.Option("--skill", help="Skill name/identifier"),
+    ],
+    dataset_id: Annotated[
+        str,
+        typer.Option("--dataset", help="Dataset ID"),
+    ],
+    metrics: Annotated[
+        str,
+        typer.Option("--metrics", "-m", help="Comma-separated metric names"),
+    ] = "accuracy,helpfulness,latency_ms",
+    judge: Annotated[
+        str,
+        typer.Option("--judge", "-j", help="Judge: vertex-ai, anthropic, openai"),
+    ] = "anthropic",
+    parallel: Annotated[
+        int,
+        typer.Option("--parallel", "-p", help="Parallel evaluation workers"),
+    ] = 1,
+) -> None:
+    """Run skill impact evaluation.
+
+    Measures how much a skill improves agent performance:
+      1. Baseline: Run agent WITHOUT skill on dataset
+      2. With Skill: Run agent WITH skill on dataset
+      3. Delta: Calculate performance improvement
+      4. Score: Effectiveness rating (0-10)
+
+    Examples:
+        {CLI_NAME} eval run skill --agent customer-support --skill backend-qa --dataset qa-dataset
+        {CLI_NAME} eval run skill --agent rag-agent --skill research --dataset docs --judge vertex-ai
+        {CLI_NAME} eval run skill --agent dev-bot --skill pr-reviewer --dataset prs --metrics accuracy,helpfulness
+    """.format(CLI_NAME=CLI_NAME)
+
+    # Load dataset
+    dataset = dataset_manager.load_dataset(dataset_id)
+    if not dataset:
+        console.print(f"[red]Dataset not found: {dataset_id}[/red]")
+        raise typer.Exit(1)
+
+    if not dataset.samples:
+        console.print(f"[red]Dataset has no samples[/red]")
+        raise typer.Exit(1)
+
+    # Parse metrics
+    metric_list = [m.strip() for m in metrics.split(",")]
+    for metric_name in metric_list:
+        if not get_metric(metric_name):
+            console.print(f"[yellow]Warning: Unknown metric '{metric_name}'[/yellow]")
+
+    console.print(
+        Panel.fit(
+            f"[bold cyan]Running Skill Impact Evaluation[/bold cyan]\n\n"
+            f"[bold]Agent:[/bold] {agent_name}\n"
+            f"[bold]Skill:[/bold] {skill_name}\n"
+            f"[bold]Dataset:[/bold] {dataset_id} ({len(dataset.samples)} samples)\n"
+            f"[bold]Metrics:[/bold] {', '.join(metric_list)}\n"
+            f"[bold]Judge:[/bold] {judge}\n"
+            f"[bold]Parallel Workers:[/bold] {parallel}",
+            border_style="cyan",
+        )
+    )
+
+    # TODO: Implement actual evaluation
+    console.print("[yellow]⏳ Evaluation in progress...[/yellow]")
+    console.print("[dim]Note: Full evaluation runner integration coming in next phase[/dim]")
+
+    record_activity(
+        command="eval",
+        subcommand="run-skill",
+        args={
+            "agent_name": agent_name,
+            "skill_name": skill_name,
+            "dataset_id": dataset_id,
+            "metrics": metrics,
+            "judge": judge,
+        },
+        repo_path=str(Path.cwd()),
+    )
+
+
+# ==============================================================================
+# METRICS COMMANDS
+# ==============================================================================
+
+@metrics_app.command("list")
+def list_metrics_command() -> None:
+    """List all available evaluation metrics.
+
+    Metrics are organized by type:
+      - Quantitative: accuracy, F1, BLEU, latency, tokens, cost
+      - Qualitative: helpfulness, clarity, relevance, safety (1-5 scale, LLM-judged)
+      - Boolean: contains_hallucination, is_complete
+
+    Examples:
+        {CLI_NAME} eval metrics list
     """.format(CLI_NAME=CLI_NAME)
 
     metrics = get_all_metrics()
@@ -281,38 +405,56 @@ def list_metrics() -> None:
     if quantitative:
         console.print("\n[bold cyan]Quantitative Metrics[/bold cyan]")
         table = Table(show_header=True, header_style="bold magenta")
-        table.add_column("Metric", style="cyan")
+        table.add_column("Name", style="cyan")
         table.add_column("Unit", style="green")
         table.add_column("Lower Better", justify="center")
         table.add_column("Description")
 
-        for name, metric in quantitative.items():
+        for name, metric in sorted(quantitative.items()):
             lower = "✓" if metric.lower_is_better else "✗"
-            table.add_row(name, metric.unit or "—", lower, metric.description[:50] + "...")
+            table.add_row(name, metric.unit or "—", lower, metric.description[:40] + "...")
         console.print(table)
 
     # Display qualitative metrics
     if qualitative:
-        console.print("\n[bold cyan]Qualitative Metrics (LLM-Judged, 1-5 scale)[/bold cyan]")
+        console.print("\n[bold cyan]Qualitative Metrics (1-5 scale, LLM-judged)[/bold cyan]")
         table = Table(show_header=True, header_style="bold magenta")
-        table.add_column("Metric", style="cyan")
+        table.add_column("Name", style="cyan")
         table.add_column("Threshold", style="green")
         table.add_column("Description")
 
-        for name, metric in qualitative.items():
+        for name, metric in sorted(qualitative.items()):
             threshold = f"{metric.threshold}" if metric.threshold else "—"
-            table.add_row(name, threshold, metric.description[:50] + "...")
+            table.add_row(name, threshold, metric.description[:40] + "...")
         console.print(table)
 
     # Display boolean metrics
     if boolean:
         console.print("\n[bold cyan]Boolean Metrics[/bold cyan]")
         table = Table(show_header=True, header_style="bold magenta")
-        table.add_column("Metric", style="cyan")
+        table.add_column("Name", style="cyan")
         table.add_column("Description")
 
-        for name, metric in boolean.items():
-            table.add_row(name, metric.description[:50] + "...")
+        for name, metric in sorted(boolean.items()):
+            table.add_row(name, metric.description[:40] + "...")
         console.print(table)
 
-    console.print("\n[dim]Use metrics in: {CLI_NAME} eval measure-skill-impact --metrics <names>[/dim]".format(CLI_NAME=CLI_NAME))
+
+# ==============================================================================
+# REPORT COMMANDS
+# ==============================================================================
+
+@report_app.command("list")
+def list_reports() -> None:
+    """List evaluation reports.
+
+    Examples:
+        {CLI_NAME} eval report list
+    """.format(CLI_NAME=CLI_NAME)
+
+    eval_files = list(EVALS_DIR.glob("*.json"))
+    if not eval_files:
+        console.print("[yellow]No evaluations found[/yellow]")
+        return
+
+    console.print(f"[dim]Found {len(eval_files)} evaluations in {EVALS_DIR}[/dim]")
