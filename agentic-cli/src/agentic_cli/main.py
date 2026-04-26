@@ -20,6 +20,7 @@ from agentic_cli.commands.history import history_app
 from agentic_cli.commands.agent_template import agent_template_app
 from agentic_cli.commands.agent_tool import agent_tool_app
 from agentic_cli.commands.eval import eval_app
+from agentic_cli.commands.skill_registry import skill_registry_app
 
 app = typer.Typer(
     name=CLI_NAME,
@@ -44,6 +45,7 @@ app.add_typer(history_app, name="history")
 app.add_typer(agent_template_app, name="agent-template")
 app.add_typer(agent_tool_app, name="agent-tool")
 app.add_typer(eval_app, name="eval")
+app.add_typer(skill_registry_app, name="skill-registry")
 
 
 def version_callback(value: bool) -> None:

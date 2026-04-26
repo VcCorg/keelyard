@@ -11,6 +11,12 @@ from agentic_cli.evaluation.skill_evaluator import (
     SkillEvaluationReporter,
 )
 from agentic_cli.evaluation.agent_adapters import AgentAdapter, MockAgents
+from agentic_cli.evaluation.skill_registry import (
+    GitSkillRegistry,
+    SkillMetadata,
+    SkillVersion,
+    RegistryIndex,
+)
 
 __all__ = [
     "SkillValidator",
@@ -38,5 +44,9 @@ __all__ = [
     "SkillEvaluationReporter",
     "AgentAdapter",
     "MockAgents",
+    "GitSkillRegistry",
+    "SkillMetadata",
+    "SkillVersion",
+    "RegistryIndex",
 ]
 
