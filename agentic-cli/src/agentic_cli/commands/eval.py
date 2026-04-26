@@ -303,66 +303,135 @@ def run_skill_impact(
         int,
         typer.Option("--parallel", "-p", help="Parallel evaluation workers"),
     ] = 1,
+    save_report: Annotated[
+        bool,
+        typer.Option("--save", help="Save results to file"),
+    ] = True,
 ) -> None:
-    """Run skill impact evaluation.
+    """Run skill impact evaluation with Vertex AI.
 
     Measures how much a skill improves agent performance:
       1. Baseline: Run agent WITHOUT skill on dataset
       2. With Skill: Run agent WITH skill on dataset
-      3. Delta: Calculate performance improvement
-      4. Score: Effectiveness rating (0-10)
+      3. Evaluate: Use Vertex AI (or Claude/GPT-4) to score responses
+      4. Delta: Calculate performance improvement
+      5. Score: Effectiveness rating (0-10)
+
+    **Judges:**
+      - vertex-ai: Google Cloud Vertex AI (Gemini) - primary
+      - anthropic: Claude API - fallback
+      - openai: GPT-4 - fallback
 
     Examples:
-        {CLI_NAME} eval run skill --agent customer-support --skill backend-qa --dataset qa-dataset
-        {CLI_NAME} eval run skill --agent rag-agent --skill research --dataset docs --judge vertex-ai
-        {CLI_NAME} eval run skill --agent dev-bot --skill pr-reviewer --dataset prs --metrics accuracy,helpfulness
+        {CLI_NAME} eval run skill --agent support --skill faq --dataset qa --judge vertex-ai
+        {CLI_NAME} eval run skill --agent rag --skill research --dataset docs --metrics accuracy,helpfulness
+        {CLI_NAME} eval run skill --agent dev --skill pr-reviewer --dataset prs --parallel 4
     """.format(CLI_NAME=CLI_NAME)
+
+    import asyncio
+    from agentic_cli.evaluation.skill_evaluator import (
+        AsyncSkillEvaluator,
+        SkillEvaluationConfig,
+        SkillEvaluationReporter,
+    )
+    from agentic_cli.evaluation.agent_adapters import MockAgents
 
     # Load dataset
     dataset = dataset_manager.load_dataset(dataset_id)
     if not dataset:
-        console.print(f"[red]Dataset not found: {dataset_id}[/red]")
+        console.print(f"[red]✗ Dataset not found: {dataset_id}[/red]")
         raise typer.Exit(1)
 
     if not dataset.samples:
-        console.print(f"[red]Dataset has no samples[/red]")
+        console.print(f"[red]✗ Dataset has no samples[/red]")
         raise typer.Exit(1)
 
     # Parse metrics
     metric_list = [m.strip() for m in metrics.split(",")]
-    for metric_name in metric_list:
-        if not get_metric(metric_name):
-            console.print(f"[yellow]Warning: Unknown metric '{metric_name}'[/yellow]")
+    invalid_metrics = [m for m in metric_list if not get_metric(m)]
+    if invalid_metrics:
+        console.print(f"[red]✗ Unknown metrics: {', '.join(invalid_metrics)}[/red]")
+        raise typer.Exit(1)
 
+    # Show configuration
     console.print(
         Panel.fit(
-            f"[bold cyan]Running Skill Impact Evaluation[/bold cyan]\n\n"
+            f"[bold cyan]Skill Impact Evaluation[/bold cyan]\n\n"
             f"[bold]Agent:[/bold] {agent_name}\n"
             f"[bold]Skill:[/bold] {skill_name}\n"
             f"[bold]Dataset:[/bold] {dataset_id} ({len(dataset.samples)} samples)\n"
             f"[bold]Metrics:[/bold] {', '.join(metric_list)}\n"
-            f"[bold]Judge:[/bold] {judge}\n"
+            f"[bold]Judge:[/bold] {judge} (Vertex AI with fallback)\n"
             f"[bold]Parallel Workers:[/bold] {parallel}",
             border_style="cyan",
         )
     )
 
-    # TODO: Implement actual evaluation
-    console.print("[yellow]⏳ Evaluation in progress...[/yellow]")
-    console.print("[dim]Note: Full evaluation runner integration coming in next phase[/dim]")
+    try:
+        # Create evaluation config
+        config = SkillEvaluationConfig(
+            agent_name=agent_name,
+            skill_name=skill_name,
+            dataset_id=dataset_id,
+            metrics=metric_list,
+            judge_type=judge,
+            parallel_workers=parallel,
+        )
 
-    record_activity(
-        command="eval",
-        subcommand="run-skill",
-        args={
-            "agent_name": agent_name,
-            "skill_name": skill_name,
-            "dataset_id": dataset_id,
-            "metrics": metrics,
-            "judge": judge,
-        },
-        repo_path=str(Path.cwd()),
-    )
+        # Create async evaluator
+        evaluator = AsyncSkillEvaluator(
+            agent_name=agent_name,
+            skill_name=skill_name,
+            dataset=dataset,
+            metrics=metric_list,
+            judge_type=judge,
+            max_workers=parallel,
+        )
+
+        # Mock agent functions for demo
+        # In production, these would be actual agent implementations
+        agent_fn = MockAgents.get_agent("helpful")
+        baseline_fn = MockAgents.get_agent("simple")
+
+        # Progress callback
+        def on_progress(msg: str) -> None:
+            console.print(f"[dim]→[/dim] {msg}")
+
+        # Run async evaluation
+        console.print("\n[bold]Starting evaluation...[/bold]\n")
+        results = asyncio.run(
+            evaluator.evaluate(
+                agent_fn=agent_fn,
+                baseline_agent_fn=baseline_fn,
+                on_progress=on_progress,
+            )
+        )
+
+        # Display results
+        console.print("\n" + SkillEvaluationReporter.format_console(config, results))
+
+        # Save results
+        if save_report:
+            output_path = evaluator.save_results(results, EVALS_DIR)
+            console.print(f"[green]✓ Results saved:[/green] {output_path}")
+
+        # Record activity
+        record_activity(
+            command="eval",
+            subcommand="run-skill",
+            args={
+                "agent_name": agent_name,
+                "skill_name": skill_name,
+                "dataset_id": dataset_id,
+                "metrics": metrics,
+                "judge": judge,
+            },
+            repo_path=str(Path.cwd()),
+        )
+
+    except Exception as e:
+        console.print(f"[red]✗ Evaluation failed: {e}[/red]")
+        raise typer.Exit(1)
 
 
 # ==============================================================================
