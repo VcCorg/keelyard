@@ -10,6 +10,7 @@ from agentic_cli.evaluation.skill_evaluator import (
     SkillEvaluationConfig,
     SkillEvaluationReporter,
 )
+from agentic_cli.evaluation.agent_adapters import AgentAdapter, MockAgents
 
 __all__ = [
     "SkillValidator",
@@ -35,5 +36,7 @@ __all__ = [
     "AsyncSkillEvaluator",
     "SkillEvaluationConfig",
     "SkillEvaluationReporter",
+    "AgentAdapter",
+    "MockAgents",
 ]
 
