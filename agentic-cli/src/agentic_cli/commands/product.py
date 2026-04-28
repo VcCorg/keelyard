@@ -16,8 +16,8 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from agentic_cli.tracker import (
 from agentic_cli.config import CLI_NAME
+from agentic_cli.tracker import (
     record_activity,
     register_product,
     get_product,
