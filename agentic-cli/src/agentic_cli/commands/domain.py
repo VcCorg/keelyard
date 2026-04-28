@@ -23,6 +23,7 @@ from rich.table import Table
 
 from pathlib import Path
 
+from agentic_cli.config import CLI_NAME
 from agentic_cli.tracker import (
     record_activity,
     get_product,
@@ -38,7 +39,6 @@ from agentic_cli.tracker import (
     add_domain_doc,
     mark_domain_repo_onboarded,
 )
-from agentic_cli.config import CLI_NAME
 from agentic_cli.skill_generator import (
     ROLES,
     ROLE_LABELS,
