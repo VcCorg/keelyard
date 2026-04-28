@@ -82,7 +82,7 @@ fi
 # Test connection
 echo ""
 echo "Testing Neo4j connection..."
-if docker exec dva-neo4j cypher-shell -u neo4j -p password "RETURN 'Connection successful' as status" &> /dev/null; then
+if docker exec neo4j cypher-shell -u neo4j -p password "RETURN 'Connection successful' as status" &> /dev/null; then
     echo -e "${GREEN}✓ Neo4j connection successful${NC}"
 else
     echo -e "${RED}✗ Neo4j connection failed${NC}"

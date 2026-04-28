@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# DVA MCP Servers Management Script
+# Agentic MCP Servers Management Script
 # Usage: ./mcp.sh <command> [service...]
 #
 # Commands:
@@ -69,9 +69,9 @@ docker_compose() {
 }
 
 ensure_network() {
-    if ! docker network inspect dva-network &>/dev/null; then
-        log_info "Creating dva-network..."
-        docker network create dva-network
+    if ! docker network inspect agentic-network &>/dev/null; then
+        log_info "Creating agentic-network..."
+        docker network create agentic-network
     fi
 }
 
@@ -221,7 +221,7 @@ cmd_clean() {
 }
 
 cmd_help() {
-    echo -e "${BOLD}DVA MCP Servers Management${NC}"
+    echo -e "${BOLD}Agentic MCP Servers Management${NC}"
     echo ""
     echo "Usage: ./mcp.sh <command> [service...]"
     echo ""

@@ -27,7 +27,7 @@ NC='\033[0m'
 BACKEND_PORT=8000
 FRONTEND_PORT=5173
 
-log()  { echo -e "${CYAN}[dva]${NC} $1"; }
+log()  { echo -e "${CYAN}[agent]${NC} $1"; }
 ok()   { echo -e "${GREEN}  ✓${NC} $1"; }
 warn() { echo -e "${YELLOW}  ⚠${NC} $1"; }
 err()  { echo -e "${RED}  ✗${NC} $1"; }
@@ -118,7 +118,7 @@ if [ "$SKIP_MCP" = false ]; then
     log "${BOLD}Step 1/3: Starting MCP servers...${NC}"
 
     # Ensure docker network exists
-    docker network create dva-network 2>/dev/null || true
+    docker network create agentic-network 2>/dev/null || true
 
     # Start Neo4j (required by memory-mcp)
     if [ -f "$NEO4J_DIR/docker-compose.yml" ]; then
@@ -126,7 +126,7 @@ if [ "$SKIP_MCP" = false ]; then
         (cd "$NEO4J_DIR" && docker compose up -d 2>&1 | tail -3) || warn "Neo4j may have failed"
         # Wait for Neo4j health before starting MCP servers
         for i in $(seq 1 12); do
-            NEO4J_STATUS=$(docker inspect dva-neo4j --format '{{.State.Health.Status}}' 2>/dev/null || echo "starting")
+            NEO4J_STATUS=$(docker inspect neo4j --format '{{.State.Health.Status}}' 2>/dev/null || echo "starting")
             if [ "$NEO4J_STATUS" = "healthy" ]; then ok "Neo4j healthy"; break; fi
             if [ $i -eq 12 ]; then warn "Neo4j not healthy yet — continuing anyway"; fi
             sleep 5
