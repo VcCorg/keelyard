@@ -1,1 +1,1 @@
-"""Command modules for dva-agentic-cli."""
+"""Command modules for agentic-cli."""

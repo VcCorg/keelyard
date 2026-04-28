@@ -1,4 +1,4 @@
-"""Main CLI entry point for dva-agentic-cli."""
+"""Main CLI entry point for agentic-cli."""
 
 import typer
 from rich.console import Console
@@ -93,7 +93,7 @@ def dashboard(
         import uvicorn
     except ImportError:
         console.print("[red]✗[/red] Dashboard requires extra dependencies.")
-        console.print("[dim]Install with: pip install 'dva-agentic-cli[dashboard]'[/dim]")
+        console.print("[dim]Install with: pip install 'agentic-cli[dashboard]'[/dim]")
         raise typer.Exit(1)
 
     console.print(

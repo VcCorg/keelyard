@@ -1,4 +1,4 @@
-"""Knowledge Graph commands for dva-agentic-cli."""
+"""Knowledge Graph commands for agentic-cli."""
 
 import json
 from pathlib import Path

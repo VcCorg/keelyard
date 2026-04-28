@@ -43,7 +43,7 @@ class Neo4jClient:
             from neo4j import GraphDatabase
         except ImportError:
             raise ImportError(
-                "neo4j package not installed. Install with: uv pip install 'dva-agentic-cli[kg]'"
+                "neo4j package not installed. Install with: uv pip install 'agentic-cli[kg]'"
             )
         
         self._driver = GraphDatabase.driver(

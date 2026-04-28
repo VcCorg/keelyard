@@ -172,7 +172,7 @@ class TemplateConfig:
         # Onboard agent dependencies
         if self.use_case == UseCase.ONBOARD:
             deps.extend([
-                "dva-agentic-cli[agent]",
+                "agentic-cli[agent]",
             ])
         
         # Scrum Master dependencies
