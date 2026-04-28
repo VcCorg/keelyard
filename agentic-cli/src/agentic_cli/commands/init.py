@@ -260,6 +260,227 @@ def reset_config(
         console.print("[yellow]No configuration to reset.[/yellow]")
 
 
+@init_app.command("anthropic")
+def init_anthropic(
+    api_key: Annotated[
+        str,
+        typer.Option(
+            "--api-key",
+            help="Anthropic API key (or use ANTHROPIC_API_KEY env var)",
+        ),
+    ] = "",
+    model: Annotated[
+        str,
+        typer.Option(
+            "--model",
+            help="Claude model to use",
+        ),
+    ] = "",
+) -> None:
+    """
+    Initialize Anthropic (Claude) configuration.
+
+    This command saves your Anthropic API key for use in new projects.
+    """
+    console.print(
+        Panel.fit(
+            "[bold cyan]Anthropic Configuration[/bold cyan]",
+            border_style="cyan",
+        )
+    )
+
+    # Load existing configuration
+    config = load_config()
+    existing_anthropic_config = config.get("anthropic", {})
+
+    # Get API key
+    if not api_key:
+        import os
+        api_key = os.getenv("ANTHROPIC_API_KEY", "")
+        if api_key:
+            console.print(f"[dim]Using ANTHROPIC_API_KEY from environment[/dim]")
+        else:
+            existing_key = existing_anthropic_config.get("api_key", "")
+            if existing_key:
+                console.print(f"[dim]Using existing API key[/dim]")
+                api_key = existing_key
+            else:
+                api_key = Prompt.ask("Enter your Anthropic API key (from https://console.anthropic.com)")
+
+    if not model:
+        model = existing_anthropic_config.get("model", "claude-3-5-sonnet-20241022")
+
+    if not api_key:
+        console.print("[red]✗ Error:[/red] API key is required")
+        raise typer.Exit(1)
+
+    # Save configuration
+    config["anthropic"] = {
+        "provider_type": "anthropic",
+        "api_key": api_key,
+        "model": model,
+    }
+    save_config(config)
+
+    record_activity(
+        command="init",
+        subcommand="anthropic",
+        args={"model": model},
+    )
+
+    console.print(
+        Panel.fit(
+            f"[bold green]✓ Configuration saved![/bold green]\n\n"
+            f"[bold]Anthropic Settings:[/bold]\n"
+            f"  Model: {model}\n"
+            f"  API Key: {'✓ Configured' if api_key else '✗ Not set'}\n\n"
+            f"[dim]Config saved to: {CONFIG_FILE}[/dim]\n\n"
+            f"[bold]Next steps:[/bold]\n"
+            f"  1. Use Claude with skill generation: dva skill generate --model {model}\n"
+            f"  2. Set as default: dva init set-default-provider anthropic",
+            title="Success",
+            border_style="green",
+        )
+    )
+
+
+@init_app.command("openai")
+def init_openai(
+    api_key: Annotated[
+        str,
+        typer.Option(
+            "--api-key",
+            help="OpenAI API key (or use OPENAI_API_KEY env var)",
+        ),
+    ] = "",
+    model: Annotated[
+        str,
+        typer.Option(
+            "--model",
+            help="OpenAI model to use",
+        ),
+    ] = "",
+) -> None:
+    """
+    Initialize OpenAI (GPT) configuration.
+
+    This command saves your OpenAI API key for use in new projects.
+    """
+    console.print(
+        Panel.fit(
+            "[bold cyan]OpenAI Configuration[/bold cyan]",
+            border_style="cyan",
+        )
+    )
+
+    # Load existing configuration
+    config = load_config()
+    existing_openai_config = config.get("openai", {})
+
+    # Get API key
+    if not api_key:
+        import os
+        api_key = os.getenv("OPENAI_API_KEY", "")
+        if api_key:
+            console.print(f"[dim]Using OPENAI_API_KEY from environment[/dim]")
+        else:
+            existing_key = existing_openai_config.get("api_key", "")
+            if existing_key:
+                console.print(f"[dim]Using existing API key[/dim]")
+                api_key = existing_key
+            else:
+                api_key = Prompt.ask("Enter your OpenAI API key (from https://platform.openai.com/api-keys)")
+
+    if not model:
+        model = existing_openai_config.get("model", "gpt-4")
+
+    if not api_key:
+        console.print("[red]✗ Error:[/red] API key is required")
+        raise typer.Exit(1)
+
+    # Save configuration
+    config["openai"] = {
+        "provider_type": "openai",
+        "api_key": api_key,
+        "model": model,
+    }
+    save_config(config)
+
+    record_activity(
+        command="init",
+        subcommand="openai",
+        args={"model": model},
+    )
+
+    console.print(
+        Panel.fit(
+            f"[bold green]✓ Configuration saved![/bold green]\n\n"
+            f"[bold]OpenAI Settings:[/bold]\n"
+            f"  Model: {model}\n"
+            f"  API Key: {'✓ Configured' if api_key else '✗ Not set'}\n\n"
+            f"[dim]Config saved to: {CONFIG_FILE}[/dim]\n\n"
+            f"[bold]Next steps:[/bold]\n"
+            f"  1. Use GPT with skill generation: dva skill generate --model {model}\n"
+            f"  2. Set as default: dva init set-default-provider openai",
+            title="Success",
+            border_style="green",
+        )
+    )
+
+
+@init_app.command("set-default-provider")
+def set_default_provider(
+    provider: Annotated[
+        str,
+        typer.Argument(help="Provider to set as default (google, anthropic, openai)"),
+    ],
+) -> None:
+    """
+    Set the default LLM provider for skill generation and other commands.
+
+    The default provider is used when no --model flag is specified.
+    """
+    valid_providers = ["google", "anthropic", "openai"]
+    if provider not in valid_providers:
+        console.print(f"[red]✗ Invalid provider: {provider}[/red]")
+        console.print(f"[dim]Valid options: {', '.join(valid_providers)}[/dim]")
+        raise typer.Exit(1)
+
+    # Load existing configuration
+    config = load_config()
+
+    # Verify provider is configured
+    provider_config_key = "google" if provider == "google" else provider
+    if provider_config_key not in config:
+        console.print(f"[yellow]⚠ Warning:[/yellow] {provider} is not configured")
+        console.print(f"[dim]Initialize first: dva init {provider}[/dim]")
+        if not Confirm.ask("Continue anyway?", default=False):
+            raise typer.Exit(0)
+
+    # Ensure llm section exists
+    config.setdefault("llm", {})
+    config["llm"]["default_provider"] = provider
+
+    save_config(config)
+
+    record_activity(
+        command="init",
+        subcommand="set-default-provider",
+        args={"provider": provider},
+    )
+
+    console.print()
+    console.print(
+        Panel.fit(
+            f"[bold green]✓ Default provider set![/bold green]\n\n"
+            f"[bold]Default Provider:[/bold] {provider}\n\n"
+            f"[dim]From now on, commands will use {provider} by default[/dim]\n"
+            f"[dim]You can still override with --model flag[/dim]",
+            border_style="green",
+        )
+    )
+
+
 def get_google_config() -> dict:
     """Get Google configuration for use in other commands."""
     config = load_config()
