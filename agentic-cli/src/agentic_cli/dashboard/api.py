@@ -195,8 +195,8 @@ def get_domain_skills(name: str):
     if not d:
         raise HTTPException(404, f"Domain '{name}' not found")
 
-    # Same path logic as domain.py gen-skills: parents[4] from commands/ = dva-agentic-project/
-    skills_base = Path(__file__).resolve().parents[4] / "dva-skills" / "domains" / name
+    # Same path logic as domain.py gen-skills: parents[4] from commands/ = agentic-project/
+    skills_base = Path(__file__).resolve().parents[4] / "skills" / "domains" / name
     skills = {}
     for role_file in ["DOMAIN.md", "DEV.md", "QA.md", "SM.md", "BA.md"]:
         fp = skills_base / role_file
