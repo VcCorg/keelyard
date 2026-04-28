@@ -1,4 +1,4 @@
-"""Product management commands for dva-agentic-cli.
+"""Product management commands for agentic-cli.
 
 A product is the top-level grouping (e.g. CWOW, IMTO) that contains
 one or more domains. Products must be registered before domains can

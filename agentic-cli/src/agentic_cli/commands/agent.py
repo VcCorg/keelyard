@@ -773,7 +773,7 @@ def test_agent(
             results["deps"] = True
         except ImportError:
             console.print("  [red]✗[/red] google-cloud-aiplatform NOT installed")
-            console.print("  [dim]Fix: pip install 'dva-agentic-cli[agent]'[/dim]")
+            console.print("  [dim]Fix: pip install 'agentic-cli[agent]'[/dim]")
             console.print("  [dim]  or: pip install google-cloud-aiplatform[/dim]")
             results["deps"] = False
             if not step:

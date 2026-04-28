@@ -1,4 +1,4 @@
-"""Domain management commands for dva-agentic-cli.
+"""Domain management commands for agentic-cli.
 
 A domain is a scoped area within a product that ties together a Jira project,
 Bitbucket project, Confluence space, and selected repositories.
@@ -1007,15 +1007,15 @@ def sync_docs(
 # dva domain gen-skills
 # ---------------------------------------------------------------------------
 
-# Default output: dva-skills/domains/<slug>/ next to dva-agentic-cli
-_DEFAULT_SKILLS_BASE = Path(__file__).resolve().parents[4] / "dva-skills" / "domains"
+# Default output: skills/domains/<slug>/ next to agentic-cli
+_DEFAULT_SKILLS_BASE = Path(__file__).resolve().parents[4] / "skills" / "domains"
 
 
 @domain_app.command("gen-skills")
 def gen_skills(
     domain_name: Annotated[str, typer.Argument(help="Domain name (slug, e.g. cwow-facility)")],
     role: Annotated[str, typer.Option("--role", "-r", help="Generate only this role (domain, dev, qa, sm, ba)")] = None,
-    output: Annotated[str, typer.Option("--output", "-o", help="Output directory (default: dva-skills/domains/<slug>)")] = None,
+    output: Annotated[str, typer.Option("--output", "-o", help="Output directory (default: skills/domains/<slug>)")] = None,
 ) -> None:
     """
     Generate role-based persona skill files for a domain.

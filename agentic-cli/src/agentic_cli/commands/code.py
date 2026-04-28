@@ -76,8 +76,8 @@ def _ensure_registry(registry_override: Optional[str] = None) -> Path:
     if reg_path.exists() and (reg_path / "registry.json").exists():
         return reg_path
 
-    # Try to find local dva-skills in the workspace
-    workspace_registry = Path.cwd().parent / "dva-skills"
+    # Try to find local skills in the workspace
+    workspace_registry = Path.cwd().parent / "skills"
     if workspace_registry.exists() and (workspace_registry / "registry.json").exists():
         return workspace_registry
 
