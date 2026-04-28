@@ -27,13 +27,13 @@ Implemented comprehensive workspace management for DVA Knowledge Graph with **Li
 
 **Commands**:
 ```bash
-dva kg workspace create <name>      # Create new workspace
-dva kg workspace list                # List all workspaces
-dva kg workspace switch <name>       # Switch active workspace
-dva kg workspace current             # Show current workspace
-dva kg workspace delete <name>       # Delete workspace
-dva kg workspace info <name>         # Show workspace details
-dva kg workspace update <name>       # Update workspace metadata
+`agent kg workspace create <name>      # Create new workspace
+`agent kg workspace list                # List all workspaces
+`agent kg workspace switch <name>       # Switch active workspace
+`agent kg workspace current             # Show current workspace
+`agent kg workspace delete <name>       # Delete workspace
+`agent kg workspace info <name>         # Show workspace details
+`agent kg workspace update <name>       # Update workspace metadata
 ```
 
 ### 3. Configuration Updates
@@ -135,52 +135,52 @@ Stored in `{workspace_base_dir}/workspaces.json`:
 
 ```bash
 # 1. Check current provider
-dva kg config --show
+`agent kg config --show
 
 # 2. Create workspaces (LightRAG only)
-dva kg workspace create production --env production --description "Production KG"
-dva kg workspace create eval-baseline --env evaluation --description "Baseline dataset"
+`agent kg workspace create production --env production --description "Production KG"
+`agent kg workspace create eval-baseline --env evaluation --description "Baseline dataset"
 
 # 3. List workspaces
-dva kg workspace list
+`agent kg workspace list
 
 # 4. Switch workspace
-dva kg workspace switch production
+`agent kg workspace switch production
 
 # 5. Ingest data into active workspace
-dva kg ingest --source cwow-docs
+`agent kg ingest --source cwow-docs
 
 # 6. Or ingest into specific workspace
-dva kg ingest --source cwow-docs --workspace eval-baseline
+`agent kg ingest --source cwow-docs --workspace eval-baseline
 
 # 7. Query from specific workspace
-dva kg query "patient status" --workspace production
+`agent kg query "patient status" --workspace production
 
 # 8. Show current workspace
-dva kg workspace current
+`agent kg workspace current
 
 # 9. Clone workspace for experiments
-dva kg workspace create eval-test-1 --parent production
+`agent kg workspace create eval-test-1 --parent production
 
 # 10. Update workspace metadata
-dva kg workspace update production --description "Updated description" --tags prod,cwow
+`agent kg workspace update production --description "Updated description" --tags prod,cwow
 ```
 
 ### Evaluation Workflow
 
 ```bash
 # Create evaluation workspaces
-dva kg workspace create eval-v1 --env evaluation --description "Baseline evaluation"
-dva kg workspace create eval-v2 --env evaluation --description "Enhanced evaluation"
+`agent kg workspace create eval-v1 --env evaluation --description "Baseline evaluation"
+`agent kg workspace create eval-v2 --env evaluation --description "Enhanced evaluation"
 
 # Ingest different datasets
-dva kg ingest --source cwow-baseline --workspace eval-v1
-dva kg ingest --source cwow-enhanced --workspace eval-v2
+`agent kg ingest --source cwow-baseline --workspace eval-v1
+`agent kg ingest --source cwow-enhanced --workspace eval-v2
 
 # Run evaluation queries
 for ws in eval-v1 eval-v2; do
   echo "Testing workspace: $ws"
-  dva kg query "How to identify active patients?" --workspace $ws > results-$ws.txt
+  agent kg query "How to identify active patients?" --workspace $ws > results-$ws.txt
 done
 
 # Compare results
@@ -191,12 +191,12 @@ diff results-eval-v1.txt results-eval-v2.txt
 
 ```bash
 # Neo4j operations work exactly as before
-dva kg init --provider neo4j --uri bolt://localhost:7687
-dva kg ingest --source cwow-docs  # No workspace parameter
-dva kg query "patient status"      # Works as before
+`agent kg init --provider neo4j --uri bolt://localhost:7687
+`agent kg ingest --source cwow-docs  # No workspace parameter
+`agent kg query "patient status"      # Works as before
 
 # Workspace commands show helpful error
-dva kg workspace list
+`agent kg workspace list
 # Output: ✗ Error: Workspaces are only supported for LightRAG provider.
 ```
 
@@ -217,7 +217,7 @@ if workspace and config.provider != "lightrag":
 # Before ingestion
 if not manager.workspace_exists(workspace):
     console.print(f"[red]✗ Error:[/red] Workspace '{workspace}' does not exist")
-    console.print(f"[dim]Create it with: dva kg workspace create {workspace}[/dim]")
+    console.print(f"[dim]Create it with: agent kg workspace create {workspace}[/dim]")
     raise typer.Exit(1)
 ```
 
@@ -254,7 +254,7 @@ if name == config.workspace:
 
 ### Run Tests
 ```bash
-cd dva-agentic-cli
+cd agentic-cli
 pytest tests/test_workspace.py -v
 ```
 
@@ -297,7 +297,7 @@ No migration needed! Neo4j operations are completely unaffected.
 ### Workspace Not Found
 ```
 ✗ Error: Workspace 'eval-test' does not exist
-Create it with: dva kg workspace create eval-test
+Create it with: agent kg workspace create eval-test
 ```
 
 ### Wrong Provider
@@ -316,7 +316,7 @@ Remove --workspace flag or switch to LightRAG provider
 ```
 ✗ Cannot delete active workspace. Switch to another workspace first.
 Current workspace: production
-Switch with: dva kg workspace switch <name>
+Switch with: agent kg workspace switch <name>
 ```
 
 ---

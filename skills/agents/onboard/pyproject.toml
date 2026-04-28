@@ -1,10 +1,10 @@
 [project]
-name = "dva-onboard-agent"
+name = "onboard-agent"
 version = "0.1.0"
 description = "AI-powered onboard agent for skill gap detection and proposal generation"
 requires-python = ">=3.10"
 dependencies = [
-    "dva-agentic-cli[agent]",
+    "agentic-cli[agent]",
 ]
 
 [project.optional-dependencies]

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Successfully implemented a comprehensive knowledge graph system for the DVA Agentic CLI that combines Neo4j graph database with Vertex AI for intelligent entity extraction and semantic search.
+Successfully implemented a comprehensive knowledge graph system for the Agentic CLI that combines Neo4j graph database with Vertex AI for intelligent entity extraction and semantic search.
 
 ## Implementation Date
 
@@ -141,25 +141,25 @@ docker run --name neo4j -p 7474:7474 -p 7687:7687 \
   -e NEO4J_AUTH=neo4j/password neo4j:latest
 
 # 2. Configure
-dva kg init --provider neo4j \
+`agent kg init --provider neo4j \
   --uri bolt://localhost:7687 \
   --username neo4j \
   --password password
 
 # 3. Ingest data
-dva kg ingest document.pdf --extract-entities --build-relationships
+`agent kg ingest document.pdf --extract-entities --build-relationships
 
 # 4. Query
-dva kg query "Find all people who work at Google"
+`agent kg query "Find all people who work at Google"
 
 # 5. Search
-dva kg search "artificial intelligence" --semantic
+`agent kg search "artificial intelligence" --semantic
 
 # 6. Generate tool
-dva kg tool --name knowledge_graph --output tools/kg_tool.py
+`agent kg tool --name knowledge_graph --output tools/kg_tool.py
 
 # 7. Visualize
-dva kg visualize --output graph.html
+`agent kg visualize --output graph.html
 ```
 
 ### Programmatic Usage
@@ -251,7 +251,7 @@ pytest tests/test_kg.py -v
 ## File Structure
 
 ```
-dva-agentic-cli/
+agentic-cli/
 ├── src/dva_agentic_cli/
 │   ├── commands/
 │   │   └── kg.py                    # CLI commands (350 lines)

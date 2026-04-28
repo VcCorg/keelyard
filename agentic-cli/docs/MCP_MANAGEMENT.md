@@ -15,23 +15,23 @@ The MCP management system provides:
 
 ```bash
 # Initialize MCP in your workspace
-dva mcp init
+`agent mcp init
 
 # Add your existing servers
-dva mcp add kg --type docker --compose ./kg-mcp-infrastructure/docker-compose.yml --port 8125
-dva mcp add glean --type stdio --command python --args "/path/to/glean_server.py"
+`agent mcp add kg --type docker --compose ./kg-mcp-infrastructure/docker-compose.yml --port 8125
+`agent mcp add glean --type stdio --command python --args "/path/to/glean_server.py"
 
 # List configured servers
-dva mcp list
+`agent mcp list
 
 # Start Docker servers
-dva mcp start
+`agent mcp start
 
 # Check health
-dva mcp health
+`agent mcp health
 
 # Sync to your IDE
-dva mcp sync --ide windsurf
+`agent mcp sync --ide windsurf
 ```
 
 ## Configuration
@@ -100,9 +100,9 @@ Project-specific settings in `.mcp/mcp.json`:
 Initialize MCP configuration in the current workspace.
 
 ```bash
-dva mcp init                    # Initialize in current directory
-dva mcp init --workspace /path  # Initialize in specific path
-dva mcp init --force            # Overwrite existing config
+`agent mcp init                    # Initialize in current directory
+`agent mcp init --workspace /path  # Initialize in specific path
+`agent mcp init --force            # Overwrite existing config
 ```
 
 ### `dva mcp add`
@@ -111,7 +111,7 @@ Add a new MCP server to the global registry.
 
 **STDIO Server** (command-line process):
 ```bash
-dva mcp add glean \
+`agent mcp add glean \
   --type stdio \
   --command python \
   --args "/path/to/glean_server.py" \
@@ -123,7 +123,7 @@ dva mcp add glean \
 
 **HTTP Server** (REST endpoint):
 ```bash
-dva mcp add api-server \
+`agent mcp add api-server \
   --type http \
   --url "http://localhost:8000" \
   --tools "query,search"
@@ -131,7 +131,7 @@ dva mcp add api-server \
 
 **Docker Server** (Docker Compose):
 ```bash
-dva mcp add kg \
+`agent mcp add kg \
   --type docker \
   --compose ./kg-mcp-infrastructure/docker-compose.yml \
   --service kg-mcp-server \
@@ -160,9 +160,9 @@ dva mcp add kg \
 Remove an MCP server configuration.
 
 ```bash
-dva mcp remove glean           # Remove with confirmation
-dva mcp remove glean --yes     # Skip confirmation
-dva mcp remove local --project # Remove from project config
+`agent mcp remove glean           # Remove with confirmation
+`agent mcp remove glean --yes     # Skip confirmation
+`agent mcp remove local --project # Remove from project config
 ```
 
 ### `dva mcp list`
@@ -170,9 +170,9 @@ dva mcp remove local --project # Remove from project config
 List all configured MCP servers.
 
 ```bash
-dva mcp list           # List enabled servers
-dva mcp list --all     # Include disabled servers
-dva mcp list --json    # Output as JSON
+`agent mcp list           # List enabled servers
+`agent mcp list --all     # Include disabled servers
+`agent mcp list --json    # Output as JSON
 ```
 
 ### `dva mcp show`
@@ -180,7 +180,7 @@ dva mcp list --json    # Output as JSON
 Show detailed information about a server.
 
 ```bash
-dva mcp show kg
+`agent mcp show kg
 ```
 
 ### `dva mcp start`
@@ -188,8 +188,8 @@ dva mcp show kg
 Start Docker-based MCP server(s).
 
 ```bash
-dva mcp start        # Start all Docker servers
-dva mcp start kg     # Start specific server
+`agent mcp start        # Start all Docker servers
+`agent mcp start kg     # Start specific server
 ```
 
 ### `dva mcp stop`
@@ -197,8 +197,8 @@ dva mcp start kg     # Start specific server
 Stop Docker-based MCP server(s).
 
 ```bash
-dva mcp stop         # Stop all Docker servers
-dva mcp stop kg      # Stop specific server
+`agent mcp stop         # Stop all Docker servers
+`agent mcp stop kg      # Stop specific server
 ```
 
 ### `dva mcp health`
@@ -206,9 +206,9 @@ dva mcp stop kg      # Stop specific server
 Check health of MCP server(s).
 
 ```bash
-dva mcp health           # Check all servers
-dva mcp health kg        # Check specific server
-dva mcp health --json    # Output as JSON
+`agent mcp health           # Check all servers
+`agent mcp health kg        # Check specific server
+`agent mcp health --json    # Output as JSON
 ```
 
 ### `dva mcp sync`
@@ -216,12 +216,12 @@ dva mcp health --json    # Output as JSON
 Sync MCP configuration to IDE-specific format.
 
 ```bash
-dva mcp sync --ide windsurf    # Sync to Windsurf
-dva mcp sync --ide claude      # Sync to Claude Desktop
-dva mcp sync --ide vscode      # Sync to VS Code
-dva mcp sync --ide cursor      # Sync to Cursor
-dva mcp sync --all             # Sync to all IDEs
-dva mcp sync --ide windsurf --global  # Write to global IDE config
+`agent mcp sync --ide windsurf    # Sync to Windsurf
+`agent mcp sync --ide claude      # Sync to Claude Desktop
+`agent mcp sync --ide vscode      # Sync to VS Code
+`agent mcp sync --ide cursor      # Sync to Cursor
+`agent mcp sync --all             # Sync to all IDEs
+`agent mcp sync --ide windsurf --global  # Write to global IDE config
 ```
 
 **Generated files:**
@@ -237,8 +237,8 @@ dva mcp sync --ide windsurf --global  # Write to global IDE config
 Import MCP servers from an existing IDE configuration.
 
 ```bash
-dva mcp import --from ~/.codeium/windsurf/mcp_config.json --ide windsurf
-dva mcp import --from ~/Library/Application\ Support/Claude/claude_desktop_config.json --ide claude
+`agent mcp import --from ~/.codeium/windsurf/mcp_config.json --ide windsurf
+`agent mcp import --from ~/Library/Application\ Support/Claude/claude_desktop_config.json --ide claude
 ```
 
 ### `dva mcp logs`
@@ -246,9 +246,9 @@ dva mcp import --from ~/Library/Application\ Support/Claude/claude_desktop_confi
 Show logs from a Docker-based MCP server.
 
 ```bash
-dva mcp logs kg              # Show last 50 lines
-dva mcp logs kg --lines 100  # Show last 100 lines
-dva mcp logs kg --follow     # Follow log output
+`agent mcp logs kg              # Show last 50 lines
+`agent mcp logs kg --lines 100  # Show last 100 lines
+`agent mcp logs kg --follow     # Follow log output
 ```
 
 ## Server Types
@@ -258,7 +258,7 @@ dva mcp logs kg --follow     # Follow log output
 Command-line processes that communicate via stdin/stdout.
 
 ```bash
-dva mcp add my-tool \
+`agent mcp add my-tool \
   --type stdio \
   --command python \
   --args "server.py,--port,8000" \
@@ -275,7 +275,7 @@ dva mcp add my-tool \
 REST endpoints that implement MCP protocol.
 
 ```bash
-dva mcp add api \
+`agent mcp add api \
   --type http \
   --url "http://localhost:8000/mcp"
 ```
@@ -285,7 +285,7 @@ dva mcp add api \
 Docker Compose services that expose MCP endpoints.
 
 ```bash
-dva mcp add kg \
+`agent mcp add kg \
   --type docker \
   --compose ./docker-compose.yml \
   --service mcp-server \
@@ -303,7 +303,7 @@ dva mcp add kg \
 Server-Sent Events endpoints.
 
 ```bash
-dva mcp add stream \
+`agent mcp add stream \
   --type sse \
   --url "http://localhost:8000/events"
 ```
@@ -313,7 +313,7 @@ dva mcp add stream \
 Environment variables can reference system variables using `${VAR}` syntax:
 
 ```bash
-dva mcp add glean \
+`agent mcp add glean \
   --type stdio \
   --command python \
   --args "glean_server.py" \
@@ -357,25 +357,25 @@ The `dva mcp` commands integrate seamlessly with your existing `kg-mcp-infrastru
 
 ```bash
 # Add KG MCP server
-dva mcp add kg \
+`agent mcp add kg \
   --type docker \
-  --compose /Users/your-user/dva-agentic-project/kg-mcp-infrastructure/docker-compose.yml \
+  --compose /Users/your-user/agentic-project/kg-mcp-infrastructure/docker-compose.yml \
   --service kg-mcp-server \
   --port 8125 \
   --tools "kg_query,kg_search,kg_stats,kg_ingest" \
   --description "DVA Knowledge Graph MCP"
 
 # Start the server
-dva mcp start kg
+`agent mcp start kg
 
 # Check health
-dva mcp health kg
+`agent mcp health kg
 
 # View logs
-dva mcp logs kg --follow
+`agent mcp logs kg --follow
 
 # Sync to Windsurf
-dva mcp sync --ide windsurf
+`agent mcp sync --ide windsurf
 ```
 
 ## Workflow Examples
@@ -385,42 +385,42 @@ dva mcp sync --ide windsurf
 ```bash
 # 1. Initialize MCP config
 cd my-project
-dva mcp init
+`agent mcp init
 
 # 2. Add servers (if not already in global registry)
-dva mcp add kg --type docker --compose ../kg-mcp-infrastructure/docker-compose.yml --port 8125
+`agent mcp add kg --type docker --compose ../kg-mcp-infrastructure/docker-compose.yml --port 8125
 
 # 3. Start Docker servers
-dva mcp start
+`agent mcp start
 
 # 4. Verify health
-dva mcp health
+`agent mcp health
 
 # 5. Sync to IDE
-dva mcp sync --ide windsurf
+`agent mcp sync --ide windsurf
 ```
 
 ### Migrating from IDE-specific Config
 
 ```bash
 # Import existing Windsurf config
-dva mcp import --from ~/.codeium/windsurf/mcp_config.json --ide windsurf
+`agent mcp import --from ~/.codeium/windsurf/mcp_config.json --ide windsurf
 
 # Review imported servers
-dva mcp list
+`agent mcp list
 
-# Now manage with dva mcp commands
-dva mcp health
+# Now manage with agent mcp commands
+`agent mcp health
 ```
 
 ### CI/CD Integration
 
 ```bash
 # In CI pipeline
-dva mcp start kg
-dva mcp health --json | jq '.healthy'
+`agent mcp start kg
+`agent mcp health --json | jq '.healthy'
 # Run tests...
-dva mcp stop kg
+`agent mcp stop kg
 ```
 
 ## Troubleshooting
@@ -432,7 +432,7 @@ dva mcp stop kg
 docker ps
 
 # Check server logs
-dva mcp logs kg
+`agent mcp logs kg
 
 # Verify compose file
 cat ./kg-mcp-infrastructure/docker-compose.yml
@@ -442,7 +442,7 @@ cat ./kg-mcp-infrastructure/docker-compose.yml
 
 ```bash
 # Detailed health check
-dva mcp health kg --json
+`agent mcp health kg --json
 
 # Check if port is in use
 lsof -i :8125
@@ -465,7 +465,7 @@ curl http://localhost:8125/health
 export GLEAN_API_TOKEN="your-token"
 
 # Re-sync to IDE
-dva mcp sync --ide windsurf
+`agent mcp sync --ide windsurf
 ```
 
 ## Best Practices

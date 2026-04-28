@@ -1,6 +1,6 @@
 # Neo4j Infrastructure Quick Start
 
-Get Neo4j up and running in 5 minutes for DVA Agentic CLI.
+Get Neo4j up and running in 5 minutes for Agentic CLI.
 
 ## Prerequisites
 
@@ -27,10 +27,10 @@ That's it! Neo4j is now running.
 - **Username**: neo4j
 - **Password**: password
 
-## Configure DVA CLI
+## Configure Agentic CLI
 
 ```bash
-dva kg init \
+`agent kg init \
   --provider neo4j \
   --uri bolt://localhost:7687 \
   --username neo4j \
@@ -43,9 +43,9 @@ dva kg init \
 # Check if Neo4j is running
 make health
 
-# Or use DVA CLI
-dva kg check
-dva kg stats
+# Or use Agentic CLI
+`agent kg check
+`agent kg stats
 ```
 
 ## Common Commands

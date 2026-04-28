@@ -58,7 +58,7 @@ Successfully created a complete Docker-based MCP (Model Context Protocol) server
 ### 3. KG Module Integration
 
 #### Runtime Volume Mount (Not Copied!):
-**Key Design Decision**: KG modules are **volume-mounted at runtime** from `../dva-agentic-cli/src/dva_agentic_cli/kg/`
+**Key Design Decision**: KG modules are **volume-mounted at runtime** from `../agentic-cli/src/dva_agentic_cli/kg/`
 
 **Benefits**:
 - ✅ Code changes in CLI reflected immediately after container restart
@@ -79,7 +79,7 @@ Successfully created a complete Docker-based MCP (Model Context Protocol) server
 **Volume Configuration**:
 ```yaml
 volumes:
-  - ../dva-agentic-cli/src/dva_agentic_cli/kg:/app/src/kg:ro
+  - ../agentic-cli/src/dva_agentic_cli/kg:/app/src/kg:ro
 ```
 
 #### Adapter Layer:
@@ -126,7 +126,7 @@ make network        # Create Docker network
 - **MCP Server**: Port, log level, transport
 
 #### Docker Volumes:
-- `~/.dva-agentic` - DVA CLI config (read-only)
+- `~/.dva-agentic` - Agentic CLI config (read-only)
 - `~/.config/gcloud` - Google Cloud credentials (read-only)
 
 ### 6. Documentation

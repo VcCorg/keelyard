@@ -4,12 +4,12 @@
 
 ### Check All Jobs
 ```bash
-dva kg async list
+`agent kg async list
 ```
 
 ### Check Specific Job
 ```bash
-dva kg async status <job-id>
+`agent kg async status <job-id>
 ```
 
 ### View Job Logs
@@ -58,10 +58,10 @@ docker exec dva-neo4j cypher-shell -u neo4j -p password \
 ### 6. Query via CLI
 ```bash
 # Natural language query
-dva kg query "show me patient information"
+`agent kg query "show me patient information"
 
 # Direct Cypher query
-dva kg query "MATCH (n:Patient) RETURN n LIMIT 10" --format cypher
+`agent kg query "MATCH (n:Patient) RETURN n LIMIT 10" --format cypher
 ```
 
 ---
@@ -97,16 +97,16 @@ curl -X POST http://localhost:8001/query \
 ### 3. Query via CLI
 ```bash
 # Naive mode (fast, good for testing)
-dva kg query "patient information" --mode naive
+`agent kg query "patient information" --mode naive
 
 # Local mode (entity-focused)
-dva kg query "patient information" --mode local
+`agent kg query "patient information" --mode local
 
 # Global mode (summary-focused)
-dva kg query "patient information" --mode global
+`agent kg query "patient information" --mode global
 
 # Hybrid mode (best results, slower)
-dva kg query "patient information" --mode hybrid
+`agent kg query "patient information" --mode hybrid
 ```
 
 ### 4. Check Storage
@@ -162,10 +162,10 @@ ps aux | grep <worker-pid>
 
 ```bash
 # 1. Check job status
-dva kg async status <job-id>
+`agent kg async status <job-id>
 
 # 2. View job results
-dva kg async status <job-id> --verbose
+`agent kg async status <job-id> --verbose
 
 # 3. Verify data in target system
 # For Neo4j:
@@ -173,7 +173,7 @@ docker exec dva-neo4j cypher-shell -u neo4j -p password \
   "MATCH (n) RETURN count(n)"
 
 # For LightRAG:
-dva kg query "test query" --mode naive
+`agent kg query "test query" --mode naive
 
 # 4. Check job logs for any errors
 tail -100 ~/.dva-agentic/logs/job_<job-id>.log | grep -i error
@@ -183,7 +183,7 @@ tail -100 ~/.dva-agentic/logs/job_<job-id>.log | grep -i error
 
 ```bash
 # 1. Check status
-dva kg async status <job-id>
+`agent kg async status <job-id>
 
 # 2. Follow logs
 tail -f ~/.dva-agentic/logs/job_<job-id>.log
@@ -222,7 +222,7 @@ curl http://localhost:8001/health
 
 ```bash
 # 1. Verify job completed successfully
-dva kg async status <job-id>
+`agent kg async status <job-id>
 
 # 2. Check for errors in logs
 grep -i error ~/.dva-agentic/logs/job_<job-id>.log
@@ -243,7 +243,7 @@ curl http://localhost:8001/health
 ```bash
 # LightRAG queries can be slow on first run
 # Try with faster mode:
-dva kg query "your query" --mode naive
+`agent kg query "your query" --mode naive
 
 # Or increase timeout in config:
 # Edit ~/.dva-agentic/kg-config.json
@@ -256,7 +256,7 @@ dva kg query "your query" --mode naive
 
 ```bash
 # 1. List all jobs
-dva kg async list
+`agent kg async list
 
 # Output:
 # Job ID      | Source              | Provider | Status      | Duration
@@ -264,10 +264,10 @@ dva kg async list
 # 011ae616... | .../patient/docs    | neo4j    | 🔄 Running  | 265.6s
 
 # 2. Check completed LightRAG job
-dva kg async status bdd4a450-4cb1-4ef7-86b1-182098a65443 --verbose
+`agent kg async status bdd4a450-4cb1-4ef7-86b1-182098a65443 --verbose
 
 # 3. Query LightRAG
-dva kg query "patient care" --mode naive
+`agent kg query "patient care" --mode naive
 
 # 4. Check running Neo4j job
 tail -20 ~/.dva-agentic/logs/job_011ae616-1ddc-48bc-ba0e-2dcca4265270.log
@@ -279,10 +279,10 @@ docker exec dva-neo4j cypher-shell -u neo4j -p password \
 # Output: 6759 nodes
 
 # 6. Wait for Neo4j job to complete
-dva kg async status 011ae616-1ddc-48bc-ba0e-2dcca4265270
+`agent kg async status 011ae616-1ddc-48bc-ba0e-2dcca4265270
 
 # 7. Query Neo4j
-dva kg query "MATCH (n:Patient) RETURN n LIMIT 5" --format cypher
+`agent kg query "MATCH (n:Patient) RETURN n LIMIT 5" --format cypher
 ```
 
 ---
@@ -313,8 +313,8 @@ dva kg query "MATCH (n:Patient) RETURN n LIMIT 5" --format cypher
 
 ```bash
 # Status
-dva kg async list
-dva kg async status <job-id>
+`agent kg async list
+`agent kg async status <job-id>
 
 # Logs
 tail -f ~/.dva-agentic/logs/job_<job-id>.log
@@ -324,7 +324,7 @@ docker exec dva-neo4j cypher-shell -u neo4j -p password "MATCH (n) RETURN count(
 
 # LightRAG
 curl http://localhost:8001/health
-dva kg query "test" --mode naive
+`agent kg query "test" --mode naive
 
 # Workers
 ps aux | grep async_worker

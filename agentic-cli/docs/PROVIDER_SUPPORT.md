@@ -2,7 +2,7 @@
 
 ## Overview
 
-DVA CLI supports two knowledge graph providers: **Neo4j** and **LightRAG**. This document outlines which commands work with each provider.
+Agentic CLI supports two knowledge graph providers: **Neo4j** and **LightRAG**. This document outlines which commands work with each provider.
 
 ## Provider Comparison
 
@@ -27,7 +27,7 @@ Configure your knowledge graph provider.
 
 **Neo4j:**
 ```bash
-dva kg init --provider neo4j \
+`agent kg init --provider neo4j \
   --uri bolt://localhost:7687 \
   --username neo4j \
   --password password
@@ -35,7 +35,7 @@ dva kg init --provider neo4j \
 
 **LightRAG:**
 ```bash
-dva kg init --provider lightrag \
+`agent kg init --provider lightrag \
   --lightrag-url http://localhost:8001
 ```
 
@@ -44,10 +44,10 @@ View or reset configuration.
 
 ```bash
 # Show current configuration
-dva kg config --show
+`agent kg config --show
 
 # Reset configuration
-dva kg config --reset
+`agent kg config --reset
 ```
 
 Works identically for both providers.
@@ -58,7 +58,7 @@ Ingest documents into the knowledge graph.
 **Neo4j:**
 ```bash
 # With entity extraction and relationship building
-dva kg ingest --path /data/documents \
+`agent kg ingest --path /data/documents \
   --extract-entities \
   --build-relationships
 ```
@@ -66,7 +66,7 @@ dva kg ingest --path /data/documents \
 **LightRAG:**
 ```bash
 # Automatic entity and relationship extraction
-dva kg ingest --path /data/documents
+`agent kg ingest --path /data/documents
 ```
 
 Both support:
@@ -81,18 +81,18 @@ Query the knowledge graph.
 **Neo4j:**
 ```bash
 # Natural language query (converted to Cypher)
-dva kg query "Find all people who work at Google"
+`agent kg query "Find all people who work at Google"
 
 # Direct Cypher query
-dva kg query "MATCH (n:Person) RETURN n LIMIT 10" --format cypher
+`agent kg query "MATCH (n:Person) RETURN n LIMIT 10" --format cypher
 ```
 
 **LightRAG:**
 ```bash
 # Natural language query with different modes
-dva kg query "What are the main topics?" --mode hybrid
-dva kg query "Find specific information" --mode local
-dva kg query "Get overview" --mode global
+`agent kg query "What are the main topics?" --mode hybrid
+`agent kg query "Find specific information" --mode local
+`agent kg query "Get overview" --mode global
 ```
 
 **LightRAG Modes:**
@@ -107,16 +107,16 @@ Semantic search in the knowledge graph.
 **Neo4j:**
 ```bash
 # Semantic search using embeddings
-dva kg search "artificial intelligence" --semantic
+`agent kg search "artificial intelligence" --semantic
 
 # Exact text matching
-dva kg search "AI" --exact
+`agent kg search "AI" --exact
 ```
 
 **LightRAG:**
 ```bash
 # Semantic search
-dva kg search "machine learning concepts"
+`agent kg search "machine learning concepts"
 ```
 
 #### `dva kg stats`
@@ -158,7 +158,7 @@ Currently focused on Neo4j validation. Shows helpful message for LightRAG users 
 
 ```bash
 # For Neo4j
-dva kg check
+`agent kg check
 
 # For LightRAG, use infrastructure validation
 cd lightrag-infrastructure
@@ -178,10 +178,10 @@ Generate ADK tool classes for knowledge graph operations.
 **Usage:**
 ```bash
 # Switch to Neo4j first
-dva kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
+`agent kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
 
 # Generate tool
-dva kg tool --name knowledge_graph --output tools/kg_tool.py
+`agent kg tool --name knowledge_graph --output tools/kg_tool.py
 ```
 
 **Workaround for LightRAG:**
@@ -204,10 +204,10 @@ Generate interactive graph visualization.
 **Usage:**
 ```bash
 # Switch to Neo4j first
-dva kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
+`agent kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
 
 # Create visualization
-dva kg visualize --output graph.html
+`agent kg visualize --output graph.html
 ```
 
 **Error Message:**
@@ -217,9 +217,9 @@ If you try to visualize with LightRAG:
   Current provider: lightrag
 
 To use visualization:
-  1. Switch to Neo4j: dva kg init --provider neo4j ...
-  2. Ingest your data: dva kg ingest --path /your/data
-  3. Run visualization: dva kg visualize
+  1. Switch to Neo4j: agent kg init --provider neo4j ...
+  2. Ingest your data: agent kg ingest --path /your/data
+  3. Run visualization: agent kg visualize
 ```
 
 ## Switching Between Providers
@@ -228,21 +228,21 @@ You can easily switch between providers without losing data:
 
 ```bash
 # Currently using LightRAG
-dva kg stats
+`agent kg stats
 # Shows LightRAG stats
 
 # Switch to Neo4j
-dva kg init --provider neo4j \
+`agent kg init --provider neo4j \
   --uri bolt://localhost:7687 \
   --username neo4j \
   --password password
 
 # Now using Neo4j
-dva kg stats
+`agent kg stats
 # Shows Neo4j stats
 
 # Switch back to LightRAG
-dva kg init --provider lightrag \
+`agent kg init --provider lightrag \
   --lightrag-url http://localhost:8001
 ```
 
@@ -277,13 +277,13 @@ dva kg init --provider lightrag \
    make start
    make validate
    ```
-3. **Configure DVA CLI**
+3. **Configure Agentic CLI**
    ```bash
-   dva kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
+   agent kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
    ```
 4. **Re-ingest data**
    ```bash
-   dva kg ingest --path /your/data --extract-entities --build-relationships
+   agent kg ingest --path /your/data --extract-entities --build-relationships
    ```
 
 ### From Neo4j to LightRAG
@@ -294,13 +294,13 @@ dva kg init --provider lightrag \
    make start
    make validate
    ```
-2. **Configure DVA CLI**
+2. **Configure Agentic CLI**
    ```bash
-   dva kg init --provider lightrag --lightrag-url http://localhost:8001
+   agent kg init --provider lightrag --lightrag-url http://localhost:8001
    ```
 3. **Re-ingest data**
    ```bash
-   dva kg ingest --path /your/data
+   agent kg ingest --path /your/data
    ```
 
 ## Troubleshooting
@@ -323,16 +323,16 @@ dva kg init --provider lightrag \
 **Error:**
 ```
 ✗ Unknown provider: none
-Run 'dva kg init' to configure a provider.
+Run 'agent kg init' to configure a provider.
 ```
 
 **Solution:**
 ```bash
 # Configure Neo4j
-dva kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
+`agent kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
 
 # Or configure LightRAG
-dva kg init --provider lightrag --lightrag-url http://localhost:8001
+`agent kg init --provider lightrag --lightrag-url http://localhost:8001
 ```
 
 ### Connection Failed
@@ -344,7 +344,7 @@ cd neo4j-infrastructure
 make validate
 
 # Check configuration
-dva kg config --show
+`agent kg config --show
 ```
 
 **LightRAG:**
@@ -354,7 +354,7 @@ cd lightrag-infrastructure
 make validate
 
 # Check configuration
-dva kg config --show
+`agent kg config --show
 ```
 
 ## Future Enhancements

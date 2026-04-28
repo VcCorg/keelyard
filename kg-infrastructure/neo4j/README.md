@@ -1,6 +1,6 @@
-# Neo4j Infrastructure for DVA Agentic CLI
+# Neo4j Infrastructure for Agentic CLI
 
-This project provides a Docker-based Neo4j setup for the DVA Agentic CLI knowledge graph feature.
+This project provides a Docker-based Neo4j setup for the Agentic CLI knowledge graph feature.
 
 ## Prerequisites
 
@@ -98,12 +98,12 @@ make restore
 make clean
 ```
 
-## Integration with DVA CLI
+## Integration with Agentic CLI
 
-### 1. Configure DVA CLI
+### 1. Configure Agentic CLI
 
 ```bash
-dva kg init \
+`agent kg init \
   --provider neo4j \
   --uri bolt://localhost:7687 \
   --username neo4j \
@@ -114,21 +114,21 @@ dva kg init \
 ### 2. Verify Connection
 
 ```bash
-dva kg config --show
-dva kg stats
+`agent kg config --show
+`agent kg stats
 ```
 
 ### 3. Start Using
 
 ```bash
 # Ingest data
-dva kg ingest document.pdf
+`agent kg ingest document.pdf
 
 # Query
-dva kg query "Find all entities"
+`agent kg query "Find all entities"
 
 # Search
-dva kg search "artificial intelligence" --semantic
+`agent kg search "artificial intelligence" --semantic
 ```
 
 ## Docker Compose Details
@@ -380,9 +380,9 @@ make restore
 ## Support
 
 - Neo4j Documentation: https://neo4j.com/docs/
-- DVA CLI Documentation: ../dva-agentic-cli/docs/KNOWLEDGE_GRAPH.md
+- Agentic CLI Documentation: ../agentic-cli/docs/KNOWLEDGE_GRAPH.md
 - Docker Documentation: https://docs.docker.com/
 
 ## License
 
-Same as DVA Agentic CLI project.
+Same as Agentic CLI project.

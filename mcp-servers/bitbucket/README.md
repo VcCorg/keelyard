@@ -70,13 +70,13 @@ Add to `.windsurf/mcp_config.json`:
 }
 ```
 
-Or use the dva CLI:
+Or use the agent CLI:
 
 ```bash
-dva mcp add bitbucket --type stdio \
+`agent mcp add bitbucket --type stdio \
   --command python \
   --args "-m bitbucket_server_mcp.server"
-dva mcp sync --ide windsurf
+`agent mcp sync --ide windsurf
 ```
 
 ## Usage in Windsurf

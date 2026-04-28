@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# DVA Knowledge Graph MCP Server Setup Script
+# Agentic Knowledge Graph MCP Server Setup Script
 # This script sets up and starts the MCP server
 
 set -e
 
 echo "=========================================="
-echo "DVA Knowledge Graph MCP Server Setup"
+echo "Agentic Knowledge Graph MCP Server Setup"
 echo "=========================================="
 echo ""
 
@@ -53,7 +53,7 @@ fi
 
 # Create Docker network if it doesn't exist
 echo "Creating Docker network..."
-docker network inspect dva-network >/dev/null 2>&1 || docker network create dva-network
+docker network inspect agentic-network >/dev/null 2>&1 || docker network create agentic-network
 echo -e "${GREEN}✓ Docker network ready${NC}"
 echo ""
 
@@ -126,7 +126,7 @@ echo ""
 echo "IDE Configuration:"
 echo "  Add to your IDE's MCP config:"
 echo "  {"
-echo "    \"dva-kg\": {"
+echo "    \"kg-mcp\": {"
 echo "      \"url\": \"http://localhost:8125/mcp\","
 echo "      \"transport\": \"http\""
 echo "    }"

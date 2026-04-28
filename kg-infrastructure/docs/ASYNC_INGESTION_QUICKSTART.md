@@ -6,13 +6,13 @@
 
 ```bash
 # Single file
-dva kg async submit --path /path/to/document.pdf --provider lightrag
+`agent kg async submit --path /path/to/document.pdf --provider lightrag
 
 # Directory (recursive)
-dva kg async submit --path /path/to/docs --provider lightrag
+`agent kg async submit --path /path/to/docs --provider lightrag
 
-# Data source (configured via 'dva data create')
-dva kg async submit --source my-dataset --provider lightrag
+# Data source (configured via 'agent data create')
+`agent kg async submit --source my-dataset --provider lightrag
 ```
 
 **Output:**
@@ -21,7 +21,7 @@ dva kg async submit --source my-dataset --provider lightrag
   Job ID: abc123-def456
   Status: pending
 
-Track progress with: dva kg async status abc123-def456
+Track progress with: agent kg async status abc123-def456
 ```
 
 ---
@@ -29,7 +29,7 @@ Track progress with: dva kg async status abc123-def456
 ### 2. Check Job Status
 
 ```bash
-dva kg async status abc123-def456
+`agent kg async status abc123-def456
 ```
 
 **Output:**
@@ -48,7 +48,7 @@ dva kg async status abc123-def456
 ### 3. List All Jobs
 
 ```bash
-dva kg async list
+`agent kg async list
 ```
 
 **Output:**
@@ -70,9 +70,9 @@ dva kg async list
 
 ```bash
 # Submit all repos at once
-dva kg async submit --source backend-repo --provider both
-dva kg async submit --source frontend-repo --provider both
-dva kg async submit --source docs-repo --provider lightrag
+`agent kg async submit --source backend-repo --provider both
+`agent kg async submit --source frontend-repo --provider both
+`agent kg async submit --source docs-repo --provider lightrag
 
 # All run in parallel (up to 4 concurrent)
 ```
@@ -81,20 +81,20 @@ dva kg async submit --source docs-repo --provider lightrag
 
 ```bash
 # Submit and continue working
-dva kg async submit --path /data/medical-records --provider lightrag
+`agent kg async submit --path /data/medical-records --provider lightrag
 
 # Use CLI immediately
-dva kg query "patient information"
+`agent kg query "patient information"
 
 # Check progress anytime
-dva kg async status <job-id>
+`agent kg async status <job-id>
 ```
 
 ### Wait for Completion
 
 ```bash
 # Block until done
-dva kg async submit --path /docs --provider both --wait
+`agent kg async submit --path /docs --provider both --wait
 
 # Shows results when complete
 ```
@@ -145,7 +145,7 @@ dva kg async submit --path /docs --provider both --wait
 Test concurrent ingestion support:
 
 ```bash
-cd dva-agentic-cli
+cd agentic-cli
 python scripts/validate_concurrent_ingestion.py
 ```
 
@@ -169,13 +169,13 @@ See `docs/ASYNC_INGESTION.md` for:
 Start ingesting in the background:
 
 ```bash
-dva kg async submit --source your-dataset --provider lightrag
+`agent kg async submit --source your-dataset --provider lightrag
 ```
 
 Track progress:
 
 ```bash
-dva kg async list
+`agent kg async list
 ```
 
 That's it! 🚀
