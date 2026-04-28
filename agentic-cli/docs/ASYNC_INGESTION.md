@@ -50,19 +50,19 @@ This allows:
 
 ```bash
 # Submit single file
-dva kg async submit --path /path/to/file.pdf
+`agent kg async submit --path /path/to/file.pdf
 
 # Submit directory (recursive)
-dva kg async submit --path /path/to/docs --provider both
+`agent kg async submit --path /path/to/docs --provider both
 
 # Submit data source
-dva kg async submit --source my-dataset --provider lightrag
+`agent kg async submit --source my-dataset --provider lightrag
 
 # Submit and wait for completion
-dva kg async submit --path /docs --wait
+`agent kg async submit --path /docs --wait
 
 # Submit to both providers
-dva kg async submit --source cwow-patient-docs --provider both
+`agent kg async submit --source cwow-patient-docs --provider both
 ```
 
 **Options:**
@@ -79,10 +79,10 @@ dva kg async submit --source cwow-patient-docs --provider both
 
 ```bash
 # Check specific job
-dva kg async status abc123-def456
+`agent kg async status abc123-def456
 
 # Verbose output with full details
-dva kg async status abc123-def456 --verbose
+`agent kg async status abc123-def456 --verbose
 ```
 
 **Output:**
@@ -98,17 +98,17 @@ dva kg async status abc123-def456 --verbose
 
 ```bash
 # List all jobs (last 20)
-dva kg async list
+`agent kg async list
 
 # List only running jobs
-dva kg async list --status running
+`agent kg async list --status running
 
 # List last 50 jobs
-dva kg async list --limit 50
+`agent kg async list --limit 50
 
 # Filter by status
-dva kg async list --status completed
-dva kg async list --status failed
+`agent kg async list --status completed
+`agent kg async list --status failed
 ```
 
 **Status Values:**
@@ -122,7 +122,7 @@ dva kg async list --status failed
 
 ```bash
 # Cancel a job
-dva kg async cancel abc123-def456
+`agent kg async cancel abc123-def456
 ```
 
 **Note:** Running jobs cannot be immediately stopped but will be marked for cancellation.
@@ -131,13 +131,13 @@ dva kg async cancel abc123-def456
 
 ```bash
 # Delete completed/failed jobs older than 30 days
-dva kg async cleanup
+`agent kg async cleanup
 
 # Custom retention period
-dva kg async cleanup --days 7
+`agent kg async cleanup --days 7
 
 # Skip confirmation
-dva kg async cleanup --days 7 --force
+`agent kg async cleanup --days 7 --force
 ```
 
 ---
@@ -148,35 +148,35 @@ dva kg async cleanup --days 7 --force
 
 ```bash
 # Submit multiple repos in parallel
-dva kg async submit --source backend-repo --provider both
-dva kg async submit --source frontend-repo --provider both
-dva kg async submit --source api-docs --provider lightrag
+`agent kg async submit --source backend-repo --provider both
+`agent kg async submit --source frontend-repo --provider both
+`agent kg async submit --source api-docs --provider lightrag
 
 # Check status
-dva kg async list --status running
+`agent kg async list --status running
 
 # Monitor specific job
-dva kg async status <job-id> --verbose
+`agent kg async status <job-id> --verbose
 ```
 
 ### Example 2: Large Document Collection
 
 ```bash
 # Submit large directory for background processing
-dva kg async submit --path /data/medical-records --provider lightrag
+`agent kg async submit --path /data/medical-records --provider lightrag
 
 # Continue working while ingestion runs
-dva kg query "patient information"
+`agent kg query "patient information"
 
 # Check progress later
-dva kg async status <job-id>
+`agent kg async status <job-id>
 ```
 
 ### Example 3: Dual Provider Ingestion
 
 ```bash
 # Ingest to both Neo4j and LightRAG
-dva kg async submit --source cwow-patient-docs --provider both --wait
+`agent kg async submit --source cwow-patient-docs --provider both --wait
 
 # Results will show stats for both providers
 ```
@@ -309,10 +309,10 @@ Currently: **No automatic retry**
 Failed jobs remain in FAILED status. To retry:
 ```bash
 # Check error
-dva kg async status <job-id>
+`agent kg async status <job-id>
 
 # Resubmit with same parameters
-dva kg async submit --source <source> --provider <provider>
+`agent kg async submit --source <source> --provider <provider>
 ```
 
 ### Common Errors
@@ -341,10 +341,10 @@ dva kg async submit --source <source> --provider <provider>
 
 ```bash
 # Watch running jobs
-watch -n 5 'dva kg async list --status running'
+watch -n 5 'agent kg async list --status running'
 
 # Monitor specific job
-watch -n 2 'dva kg async status <job-id>'
+watch -n 2 'agent kg async status <job-id>'
 ```
 
 ### Logs
@@ -366,11 +366,11 @@ Application logs include:
 Configure sources once, reuse many times:
 ```bash
 # Configure
-dva data create --name medical-docs --source-type doc --source-location /data/medical
+`agent data create --name medical-docs --source-type doc --source-location /data/medical
 
 # Use repeatedly
-dva kg async submit --source medical-docs --provider lightrag
-dva kg async submit --source medical-docs --provider neo4j
+`agent kg async submit --source medical-docs --provider lightrag
+`agent kg async submit --source medical-docs --provider neo4j
 ```
 
 ### 2. Batch Related Documents
@@ -408,10 +408,10 @@ docker stats dva-lightrag
 
 ```bash
 # Weekly cleanup
-dva kg async cleanup --days 7
+`agent kg async cleanup --days 7
 
 # Monthly cleanup
-dva kg async cleanup --days 30
+`agent kg async cleanup --days 30
 ```
 
 ---
@@ -425,10 +425,10 @@ dva kg async cleanup --days 30
 **Solution:**
 ```bash
 # Check running jobs
-dva kg async list --status running
+`agent kg async list --status running
 
 # Wait for completion or cancel
-dva kg async cancel <job-id>
+`agent kg async cancel <job-id>
 ```
 
 ### Jobs Failing Immediately
@@ -543,11 +543,11 @@ The async ingestion system provides:
 **Get Started:**
 ```bash
 # Submit your first async job
-dva kg async submit --source my-dataset --provider lightrag
+`agent kg async submit --source my-dataset --provider lightrag
 
 # Track progress
-dva kg async list
+`agent kg async list
 
 # Check results
-dva kg async status <job-id> --verbose
+`agent kg async status <job-id> --verbose
 ```

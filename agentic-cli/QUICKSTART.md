@@ -1,12 +1,12 @@
 # Quick Start Guide
 
-Get up and running with DVA Agentic CLI in 2 minutes!
+Get up and running with Agentic CLI in 2 minutes!
 
 ## 🚀 Fast Setup
 
 ```bash
 # Navigate to the project
-cd dva-agentic-cli
+cd agentic-cli
 
 # Run the setup script
 ./setup.sh
@@ -15,22 +15,22 @@ cd dva-agentic-cli
 source .venv/bin/activate
 
 # Test the CLI
-dva --version
+`agent --version
 ```
 
 ## ✅ Verify Installation
 
 ```bash
 # Check version
-dva --version
-# Output: dva-agentic-cli version 0.1.0
+`agent --version
+# Output: agentic-cli version 0.1.0
 
 # View help
-dva --help
+`agent --help
 
 # Try the hello command
-dva hello
-dva hello "Your Name"
+`agent hello
+`agent hello "Your Name"
 ```
 
 ## 🧪 Run Tests
@@ -69,13 +69,13 @@ make lint
 make test
 
 # Test the CLI
-dva <your-command>
+`agent <your-command>
 ```
 
 ## 📚 Project Structure
 
 ```
-dva-agentic-cli/
+agentic-cli/
 ├── src/dva_agentic_cli/    # Main package
 │   ├── main.py             # CLI entry point
 │   └── commands/           # Command modules

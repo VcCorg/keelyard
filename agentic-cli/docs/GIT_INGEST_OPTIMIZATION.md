@@ -18,9 +18,9 @@ Added `--detailed-analysis` flag to control ingestion depth. **Fast mode is now 
 
 ### Mode 1: Fast Ingestion (gitingest only) - DEFAULT
 ```bash
-dva kg ingest --source my-repo
+`agent kg ingest --source my-repo
 # OR explicitly
-dva kg ingest --source my-repo --no-detailed-analysis
+`agent kg ingest --source my-repo --no-detailed-analysis
 ```
 
 **What happens:**
@@ -39,7 +39,7 @@ dva kg ingest --source my-repo --no-detailed-analysis
 
 ### Mode 2: Detailed Analysis (gitingest + code analysis)
 ```bash
-dva kg ingest --source my-repo --detailed-analysis
+`agent kg ingest --source my-repo --detailed-analysis
 ```
 
 **What happens:**
@@ -102,14 +102,14 @@ def parse_git_repository(..., detailed_analysis: bool = True):
 ### Example 1: Healthcare Documents (Fast)
 ```bash
 # Configure data source
-dva data create \
+`agent data create \
   --name patient-records \
   --source-type git \
   --source-location https://github.com/org/patient-docs.git \
   --git-branch main
 
 # Ingest with gitingest only (fast)
-dva kg ingest --source patient-records --no-detailed-analysis
+`agent kg ingest --source patient-records --no-detailed-analysis
 ```
 
 **Output:**
@@ -132,14 +132,14 @@ dva kg ingest --source patient-records --no-detailed-analysis
 ### Example 2: Backend Codebase (Detailed)
 ```bash
 # Configure data source
-dva data create \
+`agent data create \
   --name backend-api \
   --source-type git \
   --source-location https://github.com/org/backend.git \
   --git-branch main
 
 # Ingest with detailed analysis (default)
-dva kg ingest --source backend-api
+`agent kg ingest --source backend-api
 ```
 
 **Output:**
@@ -163,15 +163,15 @@ dva kg ingest --source backend-api
 ### Example 3: Compare Both Approaches
 ```bash
 # Test 1: Fast ingestion
-time dva kg ingest --source my-repo --no-detailed-analysis
+time agent kg ingest --source my-repo --no-detailed-analysis
 # Time: 15 seconds, 1 document, 45 entities
 
 # Test 2: Detailed ingestion
-time dva kg ingest --source my-repo --detailed-analysis
+time agent kg ingest --source my-repo --detailed-analysis
 # Time: 3 minutes, 450 documents, 1250 entities
 
 # Query comparison
-dva kg query "Find all patient records"
+`agent kg query "Find all patient records"
 # Both work, but detailed has more granular results
 ```
 
@@ -216,16 +216,16 @@ dva kg query "Find all patient records"
 1. **Ingest same repo both ways:**
    ```bash
    # Fast
-   dva kg ingest --source repo1 --no-detailed-analysis
+   agent kg ingest --source repo1 --no-detailed-analysis
    
    # Detailed
-   dva kg ingest --source repo2 --detailed-analysis
+   agent kg ingest --source repo2 --detailed-analysis
    ```
 
 2. **Compare query results:**
    ```bash
-   dva kg query "Find all patient assessments"
-   dva kg search "care plan" --semantic
+   agent kg query "Find all patient assessments"
+   agent kg search "care plan" --semantic
    ```
 
 3. **Measure performance:**

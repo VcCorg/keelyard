@@ -85,17 +85,17 @@ All commands now work correctly:
 
 ```bash
 # List workspaces
-$ dva kg workspace list
+$ agent kg workspace list
 No workspaces found
-Create a workspace: dva kg workspace create <name>
+Create a workspace: agent kg workspace create <name>
 
 # Create workspace
-$ dva kg workspace create test-workspace --description "Test" --env development
+$ agent kg workspace create test-workspace --description "Test" --env development
 ✓ Workspace 'test-workspace' created
 Path: /Users/your-user/.dva-agentic/lightrag-workspaces/test-workspace
 
 # List workspaces
-$ dva kg workspace list
+$ agent kg workspace list
 ┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━┓
 ┃ Name           ┃ Environment ┃ Documents ┃ Entities ┃ Created    ┃ Active ┃
 ┡━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━┩
@@ -103,7 +103,7 @@ $ dva kg workspace list
 └────────────────┴─────────────┴───────────┴──────────┴────────────┴────────┘
 
 # Show current workspace
-$ dva kg workspace current
+$ agent kg workspace current
 ╭─ Current Workspace ──────────────────────────────╮
 │ Name:         default                            │
 │ Environment:  development                        │

@@ -68,26 +68,26 @@ class KGConfig(BaseModel):
 #### 1.2 Workspace Management Commands
 ```bash
 # Create/switch workspaces
-dva kg workspace create production
-dva kg workspace create evaluation-v1
-dva kg workspace create evaluation-v2
-dva kg workspace list
-dva kg workspace switch evaluation-v1
-dva kg workspace delete evaluation-v2
+`agent kg workspace create production
+`agent kg workspace create evaluation-v1
+`agent kg workspace create evaluation-v2
+`agent kg workspace list
+`agent kg workspace switch evaluation-v1
+`agent kg workspace delete evaluation-v2
 
 # Show current workspace
-dva kg workspace current
+`agent kg workspace current
 ```
 
 #### 1.3 Workspace-Aware Ingestion
 ```bash
 # Ingest into specific workspace
-dva kg ingest --source cwow-docs --workspace production
-dva kg ingest --source cwow-docs --workspace evaluation-v1
+`agent kg ingest --source cwow-docs --workspace production
+`agent kg ingest --source cwow-docs --workspace evaluation-v1
 
 # Query from specific workspace
-dva kg query "patient status" --workspace production
-dva kg query "patient status" --workspace evaluation-v1
+`agent kg query "patient status" --workspace production
+`agent kg query "patient status" --workspace evaluation-v1
 ```
 
 #### 1.4 Directory Structure
@@ -192,27 +192,27 @@ MATCH (p:Patient) WHERE p.version IN ['v1', 'v2'] RETURN p
 #### 2.3 Filtered Query Interface
 ```bash
 # Query with filters
-dva kg query "patient status" --workspace production --version v1
-dva kg query "patient status" --segment cwow-census
-dva kg query "patient status" --tags patient,facility
+`agent kg query "patient status" --workspace production --version v1
+`agent kg query "patient status" --segment cwow-census
+`agent kg query "patient status" --tags patient,facility
 
 # Search with filters
-dva kg search "active patient" --workspace evaluation-v1
+`agent kg search "active patient" --workspace evaluation-v1
 ```
 
 #### 2.4 Segment Management
 ```bash
 # Create segment
-dva kg segment create cwow-census --description "CWOW Census List data"
+`agent kg segment create cwow-census --description "CWOW Census List data"
 
 # Ingest into segment
-dva kg ingest --source cwow-docs --segment cwow-census --version v1
+`agent kg ingest --source cwow-docs --segment cwow-census --version v1
 
 # List segments
-dva kg segment list
+`agent kg segment list
 
 # Clear segment
-dva kg segment clear cwow-census --version v1
+`agent kg segment clear cwow-census --version v1
 ```
 
 ### Advantages
@@ -252,17 +252,17 @@ Workspaces (major versions):
 #### 3.2 Usage
 ```bash
 # Create workspace for evaluation
-dva kg workspace create evaluation-baseline
+`agent kg workspace create evaluation-baseline
 
 # Ingest with segment and version
-dva kg ingest --source cwow-docs \
+`agent kg ingest --source cwow-docs \
   --workspace evaluation-baseline \
   --segment cwow-census \
   --version v1.0 \
   --tags baseline,census
 
 # Query specific combination
-dva kg query "patient status" \
+`agent kg query "patient status" \
   --workspace evaluation-baseline \
   --segment cwow-census \
   --version v1.0
@@ -291,16 +291,16 @@ metadata = {
 #### 4.2 Temporal Queries
 ```bash
 # Query as of specific time
-dva kg query "patient status" --as-of "2025-01-15T10:00:00Z"
+`agent kg query "patient status" --as-of "2025-01-15T10:00:00Z"
 
 # Query between time range
-dva kg query "patient status" --from "2025-01-01" --to "2025-01-15"
+`agent kg query "patient status" --from "2025-01-01" --to "2025-01-15"
 
 # Create snapshot
-dva kg snapshot create baseline-2025-01-15
+`agent kg snapshot create baseline-2025-01-15
 
 # Restore from snapshot
-dva kg snapshot restore baseline-2025-01-15
+`agent kg snapshot restore baseline-2025-01-15
 ```
 
 ---
@@ -311,7 +311,7 @@ dva kg snapshot restore baseline-2025-01-15
 
 ```bash
 # Create evaluation dataset from production
-dva kg eval create-dataset \
+`agent kg eval create-dataset \
   --name baseline-v1 \
   --source-workspace production \
   --segment cwow-census \
@@ -319,10 +319,10 @@ dva kg eval create-dataset \
   --stratify-by patient_type
 
 # List evaluation datasets
-dva kg eval list-datasets
+`agent kg eval list-datasets
 
 # Compare agent performance across datasets
-dva kg eval compare \
+`agent kg eval compare \
   --agent agent-v1 \
   --datasets baseline-v1,baseline-v2,experiment-1
 ```
@@ -360,16 +360,16 @@ evaluation_config = {
 
 ```bash
 # Tag dataset version
-dva kg eval tag-dataset baseline-v1 --version 1.0.0
+`agent kg eval tag-dataset baseline-v1 --version 1.0.0
 
 # Create dataset from query results
-dva kg eval create-dataset-from-query \
+`agent kg eval create-dataset-from-query \
   --name patient-status-subset \
   --query "MATCH (p:Patient)-[:HAS_STATUS]->(s:Status) RETURN p, s" \
   --workspace production
 
 # Export dataset for external evaluation
-dva kg eval export-dataset baseline-v1 --format json --output baseline-v1.json
+`agent kg eval export-dataset baseline-v1 --format json --output baseline-v1.json
 ```
 
 ---
@@ -424,30 +424,30 @@ dva kg eval export-dataset baseline-v1 --format json --output baseline-v1.json
 
 ```bash
 # Setup
-dva kg workspace create production
-dva kg workspace create eval-baseline
-dva kg workspace create eval-experiment-1
+`agent kg workspace create production
+`agent kg workspace create eval-baseline
+`agent kg workspace create eval-experiment-1
 
 # Ingest production data
-dva kg workspace switch production
-dva kg ingest --source cwow-docs --segment census --version v1.0
+`agent kg workspace switch production
+`agent kg ingest --source cwow-docs --segment census --version v1.0
 
 # Create evaluation datasets
-dva kg workspace switch eval-baseline
-dva kg ingest --source cwow-docs --segment census --version v1.0 --sample 100
+`agent kg workspace switch eval-baseline
+`agent kg ingest --source cwow-docs --segment census --version v1.0 --sample 100
 
-dva kg workspace switch eval-experiment-1
-dva kg ingest --source cwow-docs-enhanced --segment census --version v1.1 --sample 100
+`agent kg workspace switch eval-experiment-1
+`agent kg ingest --source cwow-docs-enhanced --segment census --version v1.1 --sample 100
 
 # Evaluate agents
-dva kg eval run \
+`agent kg eval run \
   --agent agent-v1 \
   --workspaces eval-baseline,eval-experiment-1 \
   --queries queries.json \
   --output results.json
 
 # Compare results
-dva kg eval compare results.json --metric accuracy
+`agent kg eval compare results.json --metric accuracy
 ```
 
 ---
@@ -467,13 +467,13 @@ dva kg eval compare results.json --metric accuracy
 ### Backup Strategy
 ```bash
 # Backup specific workspace
-dva kg backup --workspace production --output production-backup.tar.gz
+`agent kg backup --workspace production --output production-backup.tar.gz
 
 # Restore workspace
-dva kg restore --workspace production --input production-backup.tar.gz
+`agent kg restore --workspace production --input production-backup.tar.gz
 
 # Clone workspace
-dva kg workspace clone production evaluation-v2
+`agent kg workspace clone production evaluation-v2
 ```
 
 ---

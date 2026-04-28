@@ -1,6 +1,6 @@
 # DVA Dashboard
 
-Web dashboard for the DVA Agentic Platform — manage agents, MCP servers, and interact via chat.
+Web dashboard for the Agentic Platform — manage agents, MCP servers, and interact via chat.
 
 ## Architecture
 
@@ -62,7 +62,7 @@ make frontend  # Terminal 2
 
 ## Tech Stack
 
-- **Backend:** FastAPI + uvicorn, imports dva-agentic-cli as library
+- **Backend:** FastAPI + uvicorn, imports agentic-cli as library
 - **Frontend:** React + Vite + TailwindCSS + shadcn/ui
 - **Real-time:** SSE for log streaming, REST polling for status
 - **Chat (Phase 6-7):** WebSocket + Google ADK AgentRunner

@@ -9,7 +9,7 @@ Skills are markdown files following the [Agent Skills](https://agentskills.io) o
 ## Structure
 
 ```
-dva-skills/
+skills/
 ├── registry.json              # Skill index with auto-detection rules
 └── skills/
     ├── <skill-name>/
@@ -82,28 +82,28 @@ These skills require a running MCP server and are auto-installed when the server
 |-------|-------------|
 | `security` | Secret management, auth patterns, OWASP guidelines |
 
-## Usage with dva CLI
+## Usage with agent CLI
 
 ```bash
 # Configure this registry
-dva code config --registry /path/to/dva-skills
+`agent code config --registry /path/to/skills
 
 # Onboard a project (auto-detects and installs matching skills)
-dva code onboard --path ./my-repo
+`agent code onboard --path ./my-repo
 
 # Browse available skills
-dva code skills available
-dva code skills available --tag database
+`agent code skills available
+`agent code skills available --tag database
 
 # Add/remove skills manually
-dva code skills add security --path ./my-repo
-dva code skills remove testing-jest --path ./my-repo
+`agent code skills add security --path ./my-repo
+`agent code skills remove testing-jest --path ./my-repo
 
 # Update skills from latest registry
-dva code skills update --path ./my-repo
+`agent code skills update --path ./my-repo
 
 # Validate onboarding
-dva code validate --path ./my-repo
+`agent code validate --path ./my-repo
 ```
 
 ## Adding a New Skill

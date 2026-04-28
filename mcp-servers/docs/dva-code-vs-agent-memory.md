@@ -10,13 +10,13 @@ A comparison of our two AI-assist systems and how they complement each other.
 
 **Purpose**: Project onboarding and static skill provisioning for AI code assistants.
 
-The `dva-agentic-cli` provides a **one-time setup** workflow:
+The `agentic-cli` provides a **one-time setup** workflow:
 
 ```
-dva code onboard --path ./my-repo
+`agent code onboard --path ./my-repo
   ↓
   1. Analyze project (languages, frameworks, deps, build tools, CI/CD, Docker, APIs)
-  2. Match skills from dva-skills registry (26 skills, auto-detect via files/deps)
+  2. Match skills from skills registry (26 skills, auto-detect via files/deps)
   3. Install .skills/<name>/SKILL.md files into the repo
   4. Generate project-context skill (auto-generated tech stack summary)
   5. Save onboard manifest (onboard.json)
@@ -42,7 +42,7 @@ dva code onboard --path ./my-repo
 | `dva skill list` | List installed Agent Skills |
 | `dva skill show <name>` | Show skill details and file tree |
 
-**Skills Registry** (`dva-skills/registry.json` — 26 skills):
+**Skills Registry** (`skills/registry.json` — 26 skills):
 
 | Category | Skills |
 |----------|--------|
@@ -148,7 +148,7 @@ AI Assistant (Windsurf/Cascade/Claude)
 
 ### Layer 2 answers: "What do I know about THIS project and THIS user?"
 - "Venkat prefers implementation-first over governance-first"
-- "DVA Agentic Platform has 5 MCP servers on ports 8126-8130"
+- "Agentic Platform has 5 MCP servers on ports 8126-8130"
 - "Last time I reviewed a Spanner PR, I flagged a missing composite index"
 - "AISE Team uses Google ADK framework"
 - "The Bitbucket MCP tool succeeds 98% of the time, avg 340ms"

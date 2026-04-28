@@ -121,48 +121,48 @@ Successfully implemented comprehensive workspace management for DVA Knowledge Gr
 ### Basic Usage
 ```bash
 # Create workspace
-dva kg workspace create production --env production
+`agent kg workspace create production --env production
 
 # Switch workspace
-dva kg workspace switch production
+`agent kg workspace switch production
 
 # Ingest data
-dva kg ingest --source cwow-docs
+`agent kg ingest --source cwow-docs
 
 # Or ingest to specific workspace
-dva kg ingest --source cwow-docs --workspace eval-baseline
+`agent kg ingest --source cwow-docs --workspace eval-baseline
 
 # List workspaces
-dva kg workspace list
+`agent kg workspace list
 
 # Show current
-dva kg workspace current
+`agent kg workspace current
 ```
 
 ### Evaluation Workflow
 ```bash
 # Create evaluation workspaces
-dva kg workspace create eval-v1 --env evaluation
-dva kg workspace create eval-v2 --env evaluation
+`agent kg workspace create eval-v1 --env evaluation
+`agent kg workspace create eval-v2 --env evaluation
 
 # Ingest different datasets
-dva kg ingest --source baseline --workspace eval-v1
-dva kg ingest --source enhanced --workspace eval-v2
+`agent kg ingest --source baseline --workspace eval-v1
+`agent kg ingest --source enhanced --workspace eval-v2
 
 # Query and compare
-dva kg query "patient status" --workspace eval-v1 > v1.txt
-dva kg query "patient status" --workspace eval-v2 > v2.txt
+`agent kg query "patient status" --workspace eval-v1 > v1.txt
+`agent kg query "patient status" --workspace eval-v2 > v2.txt
 diff v1.txt v2.txt
 ```
 
 ### Clone for Experiments
 ```bash
 # Clone production
-dva kg workspace create test-1 --parent production
+`agent kg workspace create test-1 --parent production
 
 # Experiment without affecting production
-dva kg workspace switch test-1
-dva kg ingest --source experimental-data
+`agent kg workspace switch test-1
+`agent kg ingest --source experimental-data
 ```
 
 ---
@@ -196,7 +196,7 @@ if workspace and config.provider != "lightrag":
 ```python
 if not manager.workspace_exists(workspace):
     console.print(f"[red]✗ Error:[/red] Workspace '{workspace}' does not exist")
-    console.print(f"[dim]Create it with: dva kg workspace create {workspace}[/dim]")
+    console.print(f"[dim]Create it with: agent kg workspace create {workspace}[/dim]")
     raise typer.Exit(1)
 ```
 
@@ -233,12 +233,12 @@ if name == config.workspace:
 ### Neo4j Operations (Unchanged)
 ```bash
 # Neo4j works exactly as before
-dva kg init --provider neo4j --uri bolt://localhost:7687
-dva kg ingest --source cwow-docs  # No workspace parameter
-dva kg query "patient status"      # Works as before
+`agent kg init --provider neo4j --uri bolt://localhost:7687
+`agent kg ingest --source cwow-docs  # No workspace parameter
+`agent kg query "patient status"      # Works as before
 
 # Workspace commands show helpful error
-dva kg workspace list
+`agent kg workspace list
 # Output: ✗ Error: Workspaces are only supported for LightRAG provider.
 ```
 

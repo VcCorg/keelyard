@@ -1,24 +1,24 @@
 ---
 name: dva-agentic-platform
 description: >-
-  Complete context for the DVA Agentic Platform — a multi-repo workspace for building
+  Complete context for the Agentic Platform — a multi-repo workspace for building
   AI agent infrastructure. Read this FIRST before any work. Covers all 4 repos,
   9 CLI command groups, 8 MCP servers, knowledge graph, skills registry, and
   Docker infrastructure.
 ---
 
-# DVA Agentic Platform — Full Context
+# Agentic Platform — Full Context
 
-You are working in a **multi-repo workspace** at `/Users/your-user/dva-agentic-project/` that builds an enterprise AI agent platform. This is NOT a single repo — it contains 4 repos plus workspace-level config.
+You are working in a **multi-repo workspace** at `/Users/your-user/agentic-project/` that builds an enterprise AI agent platform. This is NOT a single repo — it contains 4 repos plus workspace-level config.
 
 ## Workspace Structure
 
 ```
-dva-agentic-project/                  ← Workspace root (NOT a repo)
-├── dva-agentic-cli/                  ← Repo 1: CLI tool (Python/Typer)
-├── dva-skills/                       ← Repo 2: Skills registry (62 skills)
-├── dva-mcp-servers/                  ← Repo 3: MCP servers + Docker Compose
-├── dva-kg-infrastructure/            ← Repo 4: KG infra (Neo4j, LightRAG)
+agentic-project/                  ← Workspace root (NOT a repo)
+├── agentic-cli/                  ← Repo 1: CLI tool (Python/Typer)
+├── skills/                       ← Repo 2: Skills registry (62 skills)
+├── mcp-servers/                  ← Repo 3: MCP servers + Docker Compose
+├── kg-infrastructure/            ← Repo 4: KG infra (Neo4j, LightRAG)
 ├── .skills/                          ← THIS context (workspace-level)
 ├── .windsurf/                        ← Windsurf IDE config
 ├── .opencode/                        ← OpenCode IDE config
@@ -30,21 +30,21 @@ dva-agentic-project/                  ← Workspace root (NOT a repo)
 
 | Local Dir | Bitbucket Repo | Branch | Clone Command |
 |-----------|---------------|--------|---------------|
-| `dva-agentic-cli/` | `~your-user/dva-agentic-cli` | develop + feature branches | `git clone https://bitbucket.example.com/scm/~your-user/dva-agentic-cli.git` |
-| `dva-skills/` | `~your-user/dva-agent-skills` | develop + feature branches | `git clone https://bitbucket.example.com/scm/~your-user/dva-agent-skills.git dva-skills` |
-| `dva-mcp-servers/` | `~your-user/dva-agent-mcp-servers` | develop | `git clone https://bitbucket.example.com/scm/~your-user/dva-agent-mcp-servers.git dva-mcp-servers` |
-| `dva-kg-infrastructure/` | `~your-user/dva-agent-kg-infra` | develop | `git clone https://bitbucket.example.com/scm/~your-user/dva-agent-kg-infra.git dva-kg-infrastructure` |
+| `agentic-cli/` | `~your-user/agentic-cli` | develop + feature branches | `git clone https://bitbucket.example.com/scm/~your-user/agentic-cli.git` |
+| `skills/` | `~your-user/dva-agent-skills` | develop + feature branches | `git clone https://bitbucket.example.com/scm/~your-user/dva-agent-skills.git skills` |
+| `mcp-servers/` | `~your-user/dva-agent-mcp-servers` | develop | `git clone https://bitbucket.example.com/scm/~your-user/dva-agent-mcp-servers.git mcp-servers` |
+| `kg-infrastructure/` | `~your-user/dva-agent-kg-infra` | develop | `git clone https://bitbucket.example.com/scm/~your-user/dva-agent-kg-infra.git kg-infrastructure` |
 
 > **Note:** Local dir names differ from Bitbucket slugs. Clone commands use `git clone <url> <local-name>`.
 
 ---
 
-## Repo 1: dva-agentic-cli (The CLI)
+## Repo 1: agentic-cli (The CLI)
 
 **Tech stack:** Python 3.10+, Typer, Rich, Pydantic, uv
 **Entry point:** `src/dva_agentic_cli/main.py` → registers all Typer sub-apps
-**Package:** `dva-agentic-cli`, installed as `dva` command
-**Install:** `uv tool install --editable ./dva-agentic-cli` (global) or `uv pip install -e '.'` (venv)
+**Package:** `agentic-cli`, installed as `dva` command
+**Install:** `uv tool install --editable ./agentic-cli` (global) or `uv pip install -e '.'` (venv)
 
 ### 9 Command Groups
 
@@ -76,7 +76,7 @@ dva-agentic-project/                  ← Workspace root (NOT a repo)
 The crown jewel: `dva code onboard --path <project>`
 
 1. Analyze project (scan files, parse deps)
-2. Match against skills registry (`dva-skills/registry.json`)
+2. Match against skills registry (`skills/registry.json`)
 3. Detect MCP servers from IDE config
 4. Generate `.skills/project-context/SKILL.md` (project-specific context)
 5. Install matched skills from registry → `.skills/<name>/`
@@ -87,15 +87,15 @@ The crown jewel: `dva code onboard --path <project>`
 ### Optional Dependencies
 
 ```bash
-uv tool install --force ./dva-agentic-cli                              # Core only
-uv tool install --force ./dva-agentic-cli --with "dva-agentic-cli[kg]" # + KG support
-uv tool install --force ./dva-agentic-cli --with "dva-agentic-cli[agent]" # + AI agent
+uv tool install --force ./agentic-cli                              # Core only
+uv tool install --force ./agentic-cli --with "agentic-cli[kg]" # + KG support
+uv tool install --force ./agentic-cli --with "agentic-cli[agent]" # + AI agent
 ```
 
 ### Testing
 
 ```bash
-cd dva-agentic-cli
+cd agentic-cli
 make test          # Unit tests with coverage
 make lint          # Ruff linting
 make format        # Auto-format
@@ -103,7 +103,7 @@ make format        # Auto-format
 
 ---
 
-## Repo 2: dva-skills (Skills Registry)
+## Repo 2: skills (Skills Registry)
 
 **62 skills** in `registry.json`, each with `auto_detect` rules and a `skills/<name>/SKILL.md`.
 
@@ -113,12 +113,12 @@ Skills cover: Java (Spring Boot, Gradle, Maven), Python (FastAPI, Django, Flask)
 
 ### Configure
 ```bash
-dva code config --registry /Users/your-user/dva-agentic-project/dva-skills
+`agent code config --registry /Users/your-user/agentic-project/skills
 ```
 
 ---
 
-## Repo 3: dva-mcp-servers (MCP Servers)
+## Repo 3: mcp-servers (MCP Servers)
 
 **8 Docker services** in `docker-compose.yml`, all on shared `dva-network`:
 
@@ -152,7 +152,7 @@ Dockerfile           ← python:3.12-slim
 ### Start/Stop
 
 ```bash
-cd dva-mcp-servers
+cd mcp-servers
 cp .env.example .env      # Fill in tokens
 docker network create dva-network  # One-time
 docker compose up -d       # Start all
@@ -169,10 +169,10 @@ docker compose down        # Stop all
 
 ---
 
-## Repo 4: dva-kg-infrastructure (Knowledge Graph)
+## Repo 4: kg-infrastructure (Knowledge Graph)
 
 ```
-dva-kg-infrastructure/
+kg-infrastructure/
 ├── kg-mcp/       ← Original KG MCP (FastAPI HTTP, port 8125) — legacy
 ├── neo4j/        ← Neo4j 5.14 with APOC, docker-compose
 ├── lightrag/     ← LightRAG server, docker-compose
@@ -182,12 +182,12 @@ dva-kg-infrastructure/
 
 ### Start Infrastructure
 ```bash
-cd dva-kg-infrastructure/neo4j && docker compose up -d    # Neo4j on 7474/7687
-cd dva-kg-infrastructure/lightrag && docker compose up -d  # LightRAG on 8001
+cd kg-infrastructure/neo4j && docker compose up -d    # Neo4j on 7474/7687
+cd kg-infrastructure/lightrag && docker compose up -d  # LightRAG on 8001
 ```
 
 ### Important: Namespace Scoping
-Neo4j is shared between `memory-mcp` and `kg` commands. All KG data is scoped with `_source='dva_kg'` property to avoid collisions. The `dva kg clear` command only deletes KG-scoped nodes.
+Neo4j is shared between `memory-mcp` and `kg` commands. All KG data is scoped with `_source='agent_kg'` property to avoid collisions. The `dva kg clear` command only deletes KG-scoped nodes.
 
 ---
 
@@ -224,7 +224,7 @@ http://localhost:9090/sse   ← Gateway (all tools aggregated)
 | `~/.dva-agentic/config.json` | CLI config (Vertex AI, data sources) |
 | `~/.dva-agentic/kg-config.json` | KG provider config (Neo4j URI, LightRAG URL) |
 | `~/.dva-agentic/mcp/registry.json` | MCP server registry |
-| `dva-mcp-servers/.env` | Docker environment (tokens, URLs) |
+| `mcp-servers/.env` | Docker environment (tokens, URLs) |
 | `.windsurf/mcp_config.json` | Windsurf MCP connections |
 | `.opencode/mcp.json` | OpenCode MCP connections |
 
@@ -254,36 +254,36 @@ http://localhost:9090/sse   ← Gateway (all tools aggregated)
 ### Full Environment Startup
 ```bash
 # 1. Start infrastructure
-cd dva-kg-infrastructure/neo4j && docker compose up -d && cd ../..
-cd dva-mcp-servers && docker compose up -d && cd ..
+cd kg-infrastructure/neo4j && docker compose up -d && cd ../..
+cd mcp-servers && docker compose up -d && cd ..
 
 # 2. Verify
-dva --version
-dva kg check
-docker compose -f dva-mcp-servers/docker-compose.yml ps
+`agent --version
+`agent kg check
+docker compose -f mcp-servers/docker-compose.yml ps
 ```
 
 ### Onboard a New Project
 ```bash
-dva code config --registry ./dva-skills
-dva code onboard --path /path/to/project
-dva code onboard --path /path/to/project --agent      # With AI gap detection
-dva code onboard --path /path/to/project --kg          # With KG context
+`agent code config --registry ./skills
+`agent code onboard --path /path/to/project
+`agent code onboard --path /path/to/project --agent      # With AI gap detection
+`agent code onboard --path /path/to/project --kg          # With KG context
 ```
 
 ### Ingest Data into Knowledge Graph
 ```bash
-dva data create --name my-docs --source-type doc --source-location /path/to/docs
-dva kg ingest --source my-docs
-dva kg ingest --path /path/to/file.pdf
-dva kg query "Find all entities related to patient care"
+`agent data create --name my-docs --source-type doc --source-location /path/to/docs
+`agent kg ingest --source my-docs
+`agent kg ingest --path /path/to/file.pdf
+`agent kg query "Find all entities related to patient care"
 ```
 
 ### Create a New Agent Project
 ```bash
-dva project create my-agent --use-case pr-reviewer --jira-mcp
-dva project create my-rag --use-case rag
-dva project create my-kg --use-case knowledge-graph
+`agent project create my-agent --use-case pr-reviewer --jira-mcp
+`agent project create my-rag --use-case rag
+`agent project create my-kg --use-case knowledge-graph
 ```
 
 ---
@@ -293,8 +293,8 @@ dva project create my-kg --use-case knowledge-graph
 1. **Multi-repo workspace** — Each concern in its own repo for independent versioning
 2. **Skills as portable files** — `.skills/<name>/SKILL.md` works across all AI tools (agentskills.io standard)
 3. **MCP servers as Docker services** — Dual transport (stdio/sse), shared `dva-network`
-4. **Neo4j namespace scoping** — `_source='dva_kg'` prevents collision with memory-mcp
-5. **KG MCP rebuilt** — Moved from custom FastAPI (port 8125) to proper FastMCP SSE (port 8131) in dva-mcp-servers
+4. **Neo4j namespace scoping** — `_source='agent_kg'` prevents collision with memory-mcp
+5. **KG MCP rebuilt** — Moved from custom FastAPI (port 8125) to proper FastMCP SSE (port 8131) in mcp-servers
 6. **Onboard agent decoupled** — Library (in CLI) + standalone agent (in skills registry) + template (via `dva project create`)
 7. **uv tool install** — CLI runs globally from any directory, independent of venv
 
@@ -303,25 +303,25 @@ dva project create my-kg --use-case knowledge-graph
 ## Files to Read First (by area)
 
 ### CLI Development
-1. `dva-agentic-cli/docs/AGENT_DEVELOPMENT.md`
-2. `dva-agentic-cli/src/dva_agentic_cli/main.py`
-3. `dva-agentic-cli/pyproject.toml`
+1. `agentic-cli/docs/AGENT_DEVELOPMENT.md`
+2. `agentic-cli/src/dva_agentic_cli/main.py`
+3. `agentic-cli/pyproject.toml`
 
 ### Code Onboarding
-1. `dva-agentic-cli/src/dva_agentic_cli/commands/code.py`
-2. `dva-agentic-cli/src/dva_agentic_cli/analyzer/detector.py`
-3. `dva-agentic-cli/src/dva_agentic_cli/analyzer/matcher.py`
-4. `dva-skills/registry.json`
+1. `agentic-cli/src/dva_agentic_cli/commands/code.py`
+2. `agentic-cli/src/dva_agentic_cli/analyzer/detector.py`
+3. `agentic-cli/src/dva_agentic_cli/analyzer/matcher.py`
+4. `skills/registry.json`
 
 ### MCP Servers
-1. `dva-mcp-servers/docker-compose.yml`
-2. `dva-mcp-servers/.env.example`
-3. Any `dva-mcp-servers/<service>/src/*/server.py`
+1. `mcp-servers/docker-compose.yml`
+2. `mcp-servers/.env.example`
+3. Any `mcp-servers/<service>/src/*/server.py`
 
 ### Knowledge Graph
-1. `dva-agentic-cli/src/dva_agentic_cli/commands/kg.py`
-2. `dva-agentic-cli/src/dva_agentic_cli/kg/ingest.py`
-3. `dva-kg-infrastructure/docs/CLEANUP_AUDIT.md`
+1. `agentic-cli/src/dva_agentic_cli/commands/kg.py`
+2. `agentic-cli/src/dva_agentic_cli/kg/ingest.py`
+3. `kg-infrastructure/docs/CLEANUP_AUDIT.md`
 
 ### Operations
 1. `docs/LOCAL_DEV_OPS_GUIDE.md` (comprehensive setup + troubleshooting)

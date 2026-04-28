@@ -10,21 +10,21 @@ Refactored `dva kg check` command to support both Neo4j and LightRAG providers, 
 
 ### Before
 ```bash
-dva kg check
+`agent kg check
 # Only checked Neo4j prerequisites
 # Always showed Docker, Neo4j container, Neo4j connection
 ```
 
 ### After
 ```bash
-dva kg check
+`agent kg check
 # Checks configured provider (or defaults to LightRAG)
 # Shows provider-specific prerequisites
 
-dva kg check --provider neo4j
+`agent kg check --provider neo4j
 # Explicitly check Neo4j
 
-dva kg check --provider lightrag
+`agent kg check --provider lightrag
 # Explicitly check LightRAG
 ```
 
@@ -51,7 +51,7 @@ Check prerequisites and provider availability.
 ### Default Check (LightRAG)
 
 ```bash
-$ dva kg check
+$ agent kg check
 
 Using configured provider: lightrag
 
@@ -71,17 +71,17 @@ LightRAG Prerequisites Check
 ✓ All prerequisites are met!
 
 You can now use LightRAG knowledge graph commands:
-  dva kg ingest submit --path <source>
-  dva kg ingest submit --path <source> --async
-  dva kg query <query>
-  dva kg search <text>
-  dva kg workspace list
+  agent kg ingest submit --path <source>
+  agent kg ingest submit --path <source> --async
+  agent kg query <query>
+  agent kg search <text>
+  agent kg workspace list
 ```
 
 ### Check Neo4j
 
 ```bash
-$ dva kg check --provider neo4j
+$ agent kg check --provider neo4j
 
 Checking NEO4J Prerequisites...
 
@@ -91,22 +91,22 @@ Neo4j Prerequisites Check
 ┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
 │ Docker Installed  │ ✓      │ Docker is available: Docker version...   │
 │ Docker Running    │ ✓      │ Docker daemon is running                 │
-│ Neo4j Container   │ ✓      │ Neo4j container 'dva-neo4j' is running   │
+│ Neo4j Container   │ ✓      │ Neo4j container 'agent-neo4j' is running   │
 │ Neo4j Connection  │ ✓      │ Neo4j is available and accessible        │
 └───────────────────┴────────┴──────────────────────────────────────────┘
 
 ✓ All prerequisites are met!
 
 You can now use Neo4j knowledge graph commands:
-  dva kg ingest submit --path <source>
-  dva kg query <query>
-  dva kg visualize
+  agent kg ingest submit --path <source>
+  agent kg query <query>
+  agent kg visualize
 ```
 
 ### Check LightRAG (Explicit)
 
 ```bash
-$ dva kg check --provider lightrag
+$ agent kg check --provider lightrag
 
 Checking LIGHTRAG Prerequisites...
 ...
@@ -138,7 +138,7 @@ Checking LIGHTRAG Prerequisites...
 ### LightRAG Not Available
 
 ```bash
-$ dva kg check
+$ agent kg check
 
 No configuration found, checking default provider: lightrag
 
@@ -159,16 +159,16 @@ Setup Instructions:
    cd lightrag-infrastructure && ./scripts/start.sh
 
 2. Initialize configuration:
-   dva kg init --provider lightrag --lightrag-url http://localhost:8001
+   agent kg init --provider lightrag --lightrag-url http://localhost:8001
 
 3. Create a workspace:
-   dva kg workspace create default
+   agent kg workspace create default
 ```
 
 ### Neo4j Not Available
 
 ```bash
-$ dva kg check --provider neo4j
+$ agent kg check --provider neo4j
 
 Checking NEO4J Prerequisites...
 
@@ -242,10 +242,10 @@ def _check_lightrag():
 Checks the right prerequisites for the configured provider:
 ```bash
 # If configured for LightRAG
-dva kg check  # Checks LightRAG
+`agent kg check  # Checks LightRAG
 
 # If configured for Neo4j
-dva kg check  # Checks Neo4j
+`agent kg check  # Checks Neo4j
 ```
 
 ### 2. **LightRAG as Default**
@@ -253,15 +253,15 @@ dva kg check  # Checks Neo4j
 Makes LightRAG the default when no configuration exists:
 ```bash
 # No config file
-dva kg check  # Checks LightRAG (default)
+`agent kg check  # Checks LightRAG (default)
 ```
 
 ### 3. **Explicit Override**
 
 Can explicitly check any provider:
 ```bash
-dva kg check --provider neo4j     # Force Neo4j check
-dva kg check --provider lightrag  # Force LightRAG check
+`agent kg check --provider neo4j     # Force Neo4j check
+`agent kg check --provider lightrag  # Force LightRAG check
 ```
 
 ### 4. **Provider-Specific Guidance**
@@ -284,20 +284,20 @@ Provider-specific setup instructions:
 
 ```bash
 # 1. Check prerequisites
-dva kg check
+`agent kg check
 # Shows LightRAG not available
 
 # 2. Start LightRAG server
 cd lightrag-infrastructure && ./scripts/start.sh
 
 # 3. Initialize configuration
-dva kg init --provider lightrag
+`agent kg init --provider lightrag
 
 # 4. Create workspace
-dva kg workspace create default
+`agent kg workspace create default
 
 # 5. Verify
-dva kg check
+`agent kg check
 # ✓ All prerequisites are met!
 ```
 
@@ -305,17 +305,17 @@ dva kg check
 
 ```bash
 # 1. Check prerequisites
-dva kg check --provider neo4j
+`agent kg check --provider neo4j
 # Shows Neo4j not available
 
 # 2. Start Neo4j
 cd neo4j-infrastructure && ./setup.sh
 
 # 3. Initialize configuration
-dva kg init --provider neo4j --uri bolt://localhost:7687
+`agent kg init --provider neo4j --uri bolt://localhost:7687
 
 # 4. Verify
-dva kg check --provider neo4j
+`agent kg check --provider neo4j
 # ✓ All prerequisites are met!
 ```
 
@@ -323,18 +323,18 @@ dva kg check --provider neo4j
 
 ```bash
 # Currently using LightRAG
-dva kg check
+`agent kg check
 # Checks LightRAG
 
 # Switch to Neo4j
-dva kg init --provider neo4j --uri bolt://localhost:7687
+`agent kg init --provider neo4j --uri bolt://localhost:7687
 
 # Now checks Neo4j
-dva kg check
+`agent kg check
 # Checks Neo4j
 
 # Explicitly check LightRAG
-dva kg check --provider lightrag
+`agent kg check --provider lightrag
 # Checks LightRAG
 ```
 
@@ -347,7 +347,7 @@ dva kg check --provider lightrag
 ```bash
 # No config
 rm ~/.dva-agentic/kg-config.json
-dva kg check
+`agent kg check
 # Should check LightRAG (default)
 ```
 
@@ -355,13 +355,13 @@ dva kg check
 
 ```bash
 # Configure LightRAG
-dva kg init --provider lightrag
-dva kg check
+`agent kg init --provider lightrag
+`agent kg check
 # Should check LightRAG
 
 # Configure Neo4j
-dva kg init --provider neo4j --uri bolt://localhost:7687
-dva kg check
+`agent kg init --provider neo4j --uri bolt://localhost:7687
+`agent kg check
 # Should check Neo4j
 ```
 
@@ -369,10 +369,10 @@ dva kg check
 
 ```bash
 # Force Neo4j check
-dva kg check --provider neo4j
+`agent kg check --provider neo4j
 
 # Force LightRAG check
-dva kg check --provider lightrag
+`agent kg check --provider lightrag
 ```
 
 ---

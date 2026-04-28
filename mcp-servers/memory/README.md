@@ -43,7 +43,7 @@ This service wraps the open-source `neo4j-agent-memory` package as an MCP server
 ### Docker (with existing Neo4j)
 
 ```bash
-# Requires Neo4j running on dva-network (from dva-kg-infrastructure)
+# Requires Neo4j running on dva-network (from kg-infrastructure)
 docker compose up -d memory-mcp
 ```
 

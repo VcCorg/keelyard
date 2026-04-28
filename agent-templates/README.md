@@ -1,10 +1,10 @@
 # DVA Agent Templates
 
-A comprehensive collection of agent templates for the DVA Agentic CLI, supporting multiple frameworks and use cases.
+A comprehensive collection of agent templates for the Agentic CLI, supporting multiple frameworks and use cases.
 
 ## Overview
 
-This repository contains agent templates that can be used with the DVA Agentic CLI to quickly scaffold new agent projects. Templates are organized by framework and use case, making it easy to find the right starting point for your project.
+This repository contains agent templates that can be used with the Agentic CLI to quickly scaffold new agent projects. Templates are organized by framework and use case, making it easy to find the right starting point for your project.
 
 ## Available Templates
 
@@ -71,46 +71,46 @@ template-name/
 
 ### Prerequisites
 
-1. Install the DVA Agentic CLI:
+1. Install the Agentic CLI:
    ```bash
-   pip install dva-agentic-cli
+   pip install agentic-cli
    ```
 
 2. Configure the registry:
    ```bash
-   dva agent-template registry add https://bitbucket.example.com/scm/~your-user/dva-agent-templates.git
+   agent agent-template registry add https://bitbucket.example.com/scm/~your-user/agent-templates.git
    ```
 
 ### Using Templates
 
 #### List Available Templates
 ```bash
-dva agent-template list
-dva agent-template list --framework adk
-dva agent-template list --use-case pr-reviewer
-dva agent-template list --category code-review
+`agent agent-template list
+`agent agent-template list --framework adk
+`agent agent-template list --use-case pr-reviewer
+`agent agent-template list --category code-review
 ```
 
 #### Show Template Details
 ```bash
-dva agent-template show adk-pr-reviewer
+`agent agent-template show adk-pr-reviewer
 ```
 
 #### Create Project from Template
 ```bash
 # Basic usage
-dva project create my-agent --agent-template adk-basic-agent
+`agent project create my-agent --agent-template adk-basic-agent
 
 # With additional tools
-dva project create my-pr-agent --agent-template adk-pr-reviewer --agent-tools jira-integration,slack-integration
+`agent project create my-pr-agent --agent-template adk-pr-reviewer --agent-tools jira-integration,slack-integration
 
 # With domain context
-dva project create my-scrum-agent --agent-template adk-scrum-master --domain cwow-facility
+`agent project create my-scrum-agent --agent-template adk-scrum-master --domain cwow-facility
 ```
 
 #### Install Template Directly
 ```bash
-dva agent-template install adk-basic-agent --target ./my-agent
+`agent agent-template install adk-basic-agent --target ./my-agent
 ```
 
 ### Template Categories
@@ -191,9 +191,9 @@ LOG_LEVEL=INFO
 
 ## Support
 
-- **Documentation**: [DVA Agentic CLI Documentation](https://docs.dva.com)
-- **Issues**: [GitHub Issues](https://github.com/dva/dva-agent-templates/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/dva/dva-agent-templates/discussions)
+- **Documentation**: [Agentic CLI Documentation](https://docs.dva.com)
+- **Issues**: [GitHub Issues](https://github.com/dva/agent-templates/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/dva/agent-templates/discussions)
 
 ## License
 

@@ -52,7 +52,7 @@ EMBEDDING_MODEL=text-embedding-3-small
 ### Step 3: Restart LightRAG
 
 ```bash
-cd /Users/your-user/dva-agentic-project/lightrag-infrastructure
+cd /Users/your-user/agentic-project/lightrag-infrastructure
 make restart
 ```
 
@@ -109,7 +109,7 @@ Make sure `~/.config/gcloud/application_default_credentials.json` exists.
 ### Step 4: Restart LightRAG
 
 ```bash
-cd /Users/your-user/dva-agentic-project/lightrag-infrastructure
+cd /Users/your-user/agentic-project/lightrag-infrastructure
 make restart
 ```
 
@@ -199,14 +199,14 @@ Added GEMINI_API_KEY environment variable:
 
 ```bash
 # View your current .env settings
-cat /Users/your-user/dva-agentic-project/lightrag-infrastructure/.env | grep -E "(LLM_PROVIDER|GEMINI|VERTEX|GOOGLE)"
+cat /Users/your-user/agentic-project/lightrag-infrastructure/.env | grep -E "(LLM_PROVIDER|GEMINI|VERTEX|GOOGLE)"
 ```
 
 ### Test the Fix
 
 ```bash
 # Restart the service
-cd /Users/your-user/dva-agentic-project/lightrag-infrastructure
+cd /Users/your-user/agentic-project/lightrag-infrastructure
 make restart
 
 # Check logs for successful initialization

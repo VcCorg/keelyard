@@ -4,7 +4,7 @@
 
 ### ✅ What's Working
 - PDF content extraction (477,191 characters from 3 PDFs)
-- File ingestion via DVA CLI
+- File ingestion via Agentic CLI
 - LightRAG API endpoints (health, stats, insert)
 - Container infrastructure
 
@@ -138,7 +138,7 @@ Error code: 401 - You didn't provide an API key
 
 4. **Re-ingest Data**
    ```bash
-   dva kg ingest --source cwow-patient-docs
+   agent kg ingest --source cwow-patient-docs
    ```
 
 5. **Validate Processing**
@@ -159,21 +159,21 @@ cd neo4j-infrastructure
 make start
 make validate
 
-# 2. Configure DVA CLI
-dva kg init --provider neo4j \
+# 2. Configure Agentic CLI
+`agent kg init --provider neo4j \
   --uri bolt://localhost:7687 \
   --username neo4j \
   --password password
 
 # 3. Ingest data (will use Vertex AI for entity extraction)
-dva kg ingest --source cwow-patient-docs \
+`agent kg ingest --source cwow-patient-docs \
   --extract-entities \
   --build-relationships
 
 # 4. Validate
-dva kg stats
-dva kg query "What are the main topics?"
-dva kg visualize
+`agent kg stats
+`agent kg query "What are the main topics?"
+`agent kg visualize
 ```
 
 ### Option 3: Update LightRAG Server (Advanced)
@@ -190,7 +190,7 @@ Update the server to support Vertex AI (requires code changes):
 ## Validation Checklist
 
 ### ✅ Ingestion Successful If:
-- [x] Files show in DVA CLI output
+- [x] Files show in Agentic CLI output
 - [x] Character count matches file sizes
 - [x] `kv_store_full_docs.json` contains document content
 - [x] `kv_store_doc_status.json` shows documents
@@ -206,7 +206,7 @@ Update the server to support Vertex AI (requires code changes):
 
 ```bash
 # 1. Check if data was ingested
-dva kg stats
+`agent kg stats
 
 # 2. Check document status
 docker exec dva-lightrag cat /data/lightrag/kv_store_doc_status.json | python3 -m json.tool | grep -A 3 "status"
@@ -215,7 +215,7 @@ docker exec dva-lightrag cat /data/lightrag/kv_store_doc_status.json | python3 -
 docker exec dva-lightrag ls -lh /data/lightrag/
 
 # 4. Try a query (will fail if processing failed)
-dva kg query "What is this about?"
+`agent kg query "What is this about?"
 
 # 5. Check logs for errors
 docker logs dva-lightrag --tail 30 | grep -i error
@@ -226,7 +226,7 @@ docker logs dva-lightrag --tail 30 | grep -i error
 ```
 PDF Files
    ↓
-DVA CLI (extract text with PyPDF2)
+Agentic CLI (extract text with PyPDF2)
    ↓
 LightRAG API (/insert endpoint)
    ↓

@@ -1,6 +1,6 @@
 # Confluence Integration Setup
 
-This guide explains how to configure Confluence integration for the DVA Agentic CLI knowledge graph feature.
+This guide explains how to configure Confluence integration for the Agentic CLI knowledge graph feature.
 
 ## Prerequisites
 
@@ -14,7 +14,7 @@ This guide explains how to configure Confluence integration for the DVA Agentic 
 
 1. Go to https://id.atlassian.com/manage-profile/security/api-tokens
 2. Click **"Create API token"**
-3. Give it a name (e.g., "DVA CLI")
+3. Give it a name (e.g., "Agentic CLI")
 4. Copy the token (you won't be able to see it again!)
 
 ### For Confluence Server
@@ -26,7 +26,7 @@ Use your regular Confluence password.
 ### Option 1: Configure via CLI
 
 ```bash
-dva kg init \
+`agent kg init \
   --confluence-url https://confluence.company.com \
   --confluence-username your.email@company.com \
   --confluence-token YOUR_API_TOKEN
@@ -36,10 +36,10 @@ dva kg init \
 
 ```bash
 # First configure Neo4j and embeddings
-dva kg init --provider neo4j --uri bolt://localhost:7687
+`agent kg init --provider neo4j --uri bolt://localhost:7687
 
 # Then add Confluence credentials
-dva kg init \
+`agent kg init \
   --confluence-url https://confluence.example.com \
   --confluence-username your.email@example.com \
   --confluence-token YOUR_API_TOKEN
@@ -48,7 +48,7 @@ dva kg init \
 ## Verify Configuration
 
 ```bash
-dva kg config --show
+`agent kg config --show
 ```
 
 You should see:
@@ -73,19 +73,19 @@ You should see:
 ### Ingest a Single Page
 
 ```bash
-dva kg ingest https://confluence.example.com/pages/177118522/APOC+Knowledge+Base
+`agent kg ingest https://confluence.example.com/pages/177118522/APOC+Knowledge+Base
 ```
 
 ### Ingest an Entire Space
 
 ```bash
-dva kg ingest https://confluence.example.com/spaces/CWHE
+`agent kg ingest https://confluence.example.com/spaces/CWHE
 ```
 
 ### With Entity Extraction
 
 ```bash
-dva kg ingest https://confluence.example.com/pages/177118522/APOC+Knowledge+Base \
+`agent kg ingest https://confluence.example.com/pages/177118522/APOC+Knowledge+Base \
   --extract-entities \
   --build-relationships
 ```
@@ -171,31 +171,31 @@ The Confluence account needs:
 ### Basic Ingestion
 ```bash
 # Configure once
-dva kg init \
+`agent kg init \
   --confluence-url https://confluence.example.com \
   --confluence-username john.doe@example.com \
   --confluence-token abc123...
 
 # Ingest pages
-dva kg ingest https://confluence.example.com/pages/177118522/APOC+Knowledge+Base
-dva kg ingest https://confluence.example.com/spaces/CWHE
+`agent kg ingest https://confluence.example.com/pages/177118522/APOC+Knowledge+Base
+`agent kg ingest https://confluence.example.com/spaces/CWHE
 ```
 
 ### With Full Knowledge Graph Features
 ```bash
 # Ingest with entity extraction and relationship building
-dva kg ingest https://confluence.example.com/pages/177118522/APOC+Knowledge+Base \
+`agent kg ingest https://confluence.example.com/pages/177118522/APOC+Knowledge+Base \
   --extract-entities \
   --build-relationships
 
 # Query the ingested data
-dva kg query "Find all concepts related to APOC"
+`agent kg query "Find all concepts related to APOC"
 
 # Search semantically
-dva kg search "knowledge base" --semantic
+`agent kg search "knowledge base" --semantic
 
 # Visualize
-dva kg visualize --output confluence-graph.html
+`agent kg visualize --output confluence-graph.html
 ```
 
 ## Advanced Configuration
@@ -205,7 +205,7 @@ dva kg visualize --output confluence-graph.html
 For Confluence Server installations:
 
 ```bash
-dva kg init \
+`agent kg init \
   --confluence-url https://confluence-server.company.local \
   --confluence-username your_username \
   --confluence-token your_password
@@ -218,7 +218,7 @@ Note: The parser defaults to `cloud=True`. For Server installations, you may nee
 If your Confluence instance uses a custom base URL:
 
 ```bash
-dva kg init \
+`agent kg init \
   --confluence-url https://wiki.company.com \
   --confluence-username your.email@company.com \
   --confluence-token YOUR_API_TOKEN
