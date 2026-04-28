@@ -63,7 +63,7 @@ def check_neo4j_availability(
     try:
         from neo4j import GraphDatabase
     except ImportError as e:
-        return False, f"neo4j package not installed. Install with: uv pip install 'dva-agentic-cli\[kg]' (Error: {str(e)})"
+        return False, f"neo4j package not installed. Install with: uv pip install 'agentic-cli\[kg]' (Error: {str(e)})"
     
     try:
         driver = GraphDatabase.driver(uri, auth=(username, password))
@@ -78,7 +78,7 @@ def check_neo4j_availability(
     
     except ImportError as e:
         # Catch import errors that might occur during driver initialization
-        return False, f"neo4j package import failed. Install with: uv pip install 'dva-agentic-cli\[kg]' (Error: {str(e)})"
+        return False, f"neo4j package import failed. Install with: uv pip install 'agentic-cli\[kg]' (Error: {str(e)})"
     except Exception as e:
         error_msg = str(e)
         
@@ -266,7 +266,7 @@ def get_setup_instructions(results: Optional[Dict[str, Tuple[bool, str]]] = None
 Neo4j container is running but the Python driver is not installed.
 
 Install the KG dependencies:
-   uv pip install "dva-agentic-cli\[kg]"
+   uv pip install "agentic-cli\[kg]"
 
 Then verify the connection:
    dva kg stats
@@ -278,16 +278,16 @@ Then verify the connection:
     if not container_ok:
         sections.append(
             "1. Start the Neo4j container:\n"
-            "   docker compose -f dva-mcp-servers/docker-compose.yml up -d dva-neo4j\n\n"
+            "   docker compose -f mcp-servers/docker-compose.yml up -d dva-neo4j\n\n"
             "   Or, from the infrastructure directory:\n"
-            "   cd ../dva-kg-infrastructure && make start\n\n"
+            "   cd ../kg-infrastructure && make start\n\n"
             "2. Wait for Neo4j to be ready (30-60 seconds)\n"
         )
 
     if package_missing:
         sections.append(
             "3. Install the KG Python dependencies:\n"
-            '   uv pip install "dva-agentic-cli\[kg]"\n'
+            '   uv pip install "agentic-cli\[kg]"\n'
         )
 
     sections.append(
