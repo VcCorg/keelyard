@@ -902,8 +902,8 @@ def project_info(
 
 
 # Import extension commands
-from agentic_cli.commands.project_extensions import (
 from agentic_cli.config import CLI_NAME
+from agentic_cli.commands.project_extensions import (
     run_project_command,
     list_agents_command,
     agent_info_command,

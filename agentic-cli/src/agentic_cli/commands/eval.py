@@ -241,7 +241,7 @@ def validate_skill(
                 f"[bold {status_color}]{'✓' if result.passed else '⚠'} Skill Validation[/bold {status_color}]\n\n"
                 f"[bold]Skill:[/bold] {result.skill_name}\n"
                 f"[bold]Score:[/bold] {result.quality_score}/100\n"
-                f"[bold]Status:[/bold] {'[green]PASSED[/green]' if result.passed else '[yellow]NEEDS IMPROVEMENT[/yellow]}",
+                f"[bold]Status:[/bold] {'[green]PASSED[/green]' if result.passed else '[yellow]NEEDS IMPROVEMENT[/yellow]'}",
                 border_style=status_color,
             )
         )

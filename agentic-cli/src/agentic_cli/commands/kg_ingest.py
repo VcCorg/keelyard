@@ -9,8 +9,8 @@ from typing_extensions import Annotated
 from pathlib import Path
 
 # Import async management functions
-from agentic_cli.kg.async_ingest import (
 from agentic_cli.config import CLI_NAME
+from agentic_cli.kg.async_ingest import (
     get_manager,
     JobStatus,
     IngestionJob
