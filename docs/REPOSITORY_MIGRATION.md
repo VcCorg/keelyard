@@ -2,13 +2,13 @@
 
 ## Overview
 
-On April 21, 2026, the DVA Agentic Platform underwent a major repository consolidation to improve development workflow, dependency management, and version control.
+On April 21, 2026, the Agentic Platform underwent a major repository consolidation to improve development workflow, dependency management, and version control.
 
 ## Migration Details
 
 ### From (4 separate repositories)
-- **dva-agentic-cli** - CLI tool for agent management
-  - URL: `https://bitbucket.example.com/scm/~your-user/dva-agentic-cli.git`
+- **agentic-cli** - CLI tool for agent management
+  - URL: `https://bitbucket.example.com/scm/~your-user/agentic-cli.git`
   - Status: **ARCHIVED** - Migration notice added
 
 - **dva-agent-kg-infra** - Knowledge graph infrastructure  
@@ -24,8 +24,8 @@ On April 21, 2026, the DVA Agentic Platform underwent a major repository consoli
   - Status: **ARCHIVED** - Migration notice added
 
 ### To (single monorepo)
-- **dva-agentic-project** - Complete DVA Agentic Platform
-  - URL: `https://bitbucket.example.com/scm/~your-user/dva-agentic-project.git`
+- **agentic-project** - Complete Agentic Platform
+  - URL: `https://bitbucket.example.com/scm/~your-user/agentic-project.git`
   - Status: **ACTIVE** - New development location
 
 ## Repository Structure
@@ -33,14 +33,14 @@ On April 21, 2026, the DVA Agentic Platform underwent a major repository consoli
 The new monorepo maintains the same structure as the individual repositories:
 
 ```
-dva-agentic-project/
+agentic-project/
 |
-|--- dva-agentic-cli/          # CLI tool (from dva-agentic-cli)
-|--- dva-kg-infrastructure/    # KG infrastructure (from dva-agent-kg-infra)  
-|--- dva-mcp-servers/          # MCP servers (from dva-agent-mcp-servers)
-|--- dva-skills/               # Skills registry (from dva-agent-skills)
-|--- dva-dashboard/            # Dashboard application
-|--- dva-agent-templates/     # Agent development templates
+|--- agentic-cli/          # CLI tool (from agentic-cli)
+|--- kg-infrastructure/    # KG infrastructure (from dva-agent-kg-infra)  
+|--- mcp-servers/          # MCP servers (from dva-agent-mcp-servers)
+|--- skills/               # Skills registry (from dva-agent-skills)
+|--- dashboard/            # Dashboard application
+|--- agent-templates/     # Agent development templates
 |--- docs/                    # Consolidated documentation
 |--- scripts/                 # Utility scripts
 ```
@@ -76,11 +76,11 @@ dva-agentic-project/
 1. **Update local repositories:**
    ```bash
    # Remove old repositories
-   rm -rf dva-agentic-cli dva-agent-kg-infra dva-agent-skills dva-agent-mcp-servers
+   rm -rf agentic-cli dva-agent-kg-infra dva-agent-skills dva-agent-mcp-servers
    
    # Clone new monorepo
-   git clone https://bitbucket.example.com/scm/~your-user/dva-agentic-project.git
-   cd dva-agentic-project
+   git clone https://bitbucket.example.com/scm/~your-user/agentic-project.git
+   cd agentic-project
    ```
 
 2. **Update scripts and documentation** to reference new repository structure
@@ -117,7 +117,7 @@ However, this is not recommended as the consolidation provides significant benef
 
 For questions or issues related to the migration:
 - **Contact:** Your Name (your-user)
-- **New Repository:** [dva-agentic-project](https://bitbucket.example.com/users/your-user/repos/dva-agentic-project/browse)
+- **New Repository:** [agentic-project](https://bitbucket.example.com/users/your-user/repos/agentic-project/browse)
 
 ## Timeline
 
@@ -127,4 +127,4 @@ For questions or issues related to the migration:
 
 ---
 
-**This migration represents a significant improvement in the DVA Agentic Platform development workflow and sets the foundation for future growth.**
+**This migration represents a significant improvement in the Agentic Platform development workflow and sets the foundation for future growth.**

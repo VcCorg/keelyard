@@ -240,13 +240,13 @@ async with MemoryClient(settings) as memory:
     venkat, _ = await memory.long_term.add_entity(
         name="Your Name",
         entity_type="PERSON",
-        description="AI Platform Engineer, DVA Agentic Platform developer",
+        description="AI Platform Engineer, Agentic Platform developer",
         attributes={"team": "Engineering", "role": "Senior Engineer"},
         **opts,
     )
 
     platform, _ = await memory.long_term.add_entity(
-        name="DVA Agentic Platform",
+        name="Agentic Platform",
         entity_type="OBJECT",
         subtype="SOFTWARE",
         description="Developer-first AI tooling platform with MCP servers, skills registry, and CLI",
@@ -256,7 +256,7 @@ async with MemoryClient(settings) as memory:
     demo_event, _ = await memory.long_term.add_entity(
         name="AISE Demo April 2026",
         entity_type="EVENT",
-        description="Presentation of DVA Agentic Platform to AISE governance team",
+        description="Presentation of Agentic Platform to AISE governance team",
         attributes={"date": "2026-04-15", "audience": "AISE Team"},
         **opts,
     )
@@ -278,7 +278,7 @@ async with MemoryClient(settings) as memory:
         source=venkat,
         target=platform,
         relationship_type="CREATED",
-        description="Built the DVA Agentic Platform",
+        description="Built the Agentic Platform",
         confidence=1.0,
     )
 
@@ -304,7 +304,7 @@ async with MemoryClient(settings) as memory:
     )
 
     # Query relationships
-    relationships = await memory.long_term.get_entity_relationships("DVA Agentic Platform")
+    relationships = await memory.long_term.get_entity_relationships("Agentic Platform")
     for entity, rel in relationships:
         print(f"  {rel.relationship_type} -> {entity.display_name}")
 
@@ -363,7 +363,7 @@ async with MemoryClient(settings) as memory:
     from datetime import datetime
 
     f1 = await memory.long_term.add_fact(
-        subject="DVA Agentic Platform",
+        subject="Agentic Platform",
         predicate="has_mcp_servers",
         obj="5 (Bitbucket:8126, Glean:8127, Jira:8128, Confluence:8129, Memory:8130)",
         confidence=1.0,
@@ -371,7 +371,7 @@ async with MemoryClient(settings) as memory:
     )
 
     f2 = await memory.long_term.add_fact(
-        subject="DVA Agentic Platform",
+        subject="Agentic Platform",
         predicate="total_tools",
         obj="58+ tools across all MCP servers",
         generate_embedding=False,
@@ -393,7 +393,7 @@ async with MemoryClient(settings) as memory:
     )
 
     # Query facts about a subject
-    facts = await memory.long_term.get_facts_about("DVA Agentic Platform")
+    facts = await memory.long_term.get_facts_about("Agentic Platform")
     for fact in facts:
         print(f"  {fact.subject} —{fact.predicate}→ {fact.obj}")
 
@@ -656,11 +656,11 @@ async with MemoryClient(settings) as memory:
     #
     # ## Relevant Knowledge
     # ### Entities
-    # - DVA Agentic Platform (OBJECT): Developer-first AI tooling platform...
+    # - Agentic Platform (OBJECT): Developer-first AI tooling platform...
     # ### Preferences
     # - [technology] Uses FastMCP with SSE transport for Docker deployments
     # ### Facts
-    # - DVA Agentic Platform has_mcp_servers: 5 servers...
+    # - Agentic Platform has_mcp_servers: 5 servers...
     #
     # ## Similar Past Tasks
     # **Task**: Deploy Confluence MCP server

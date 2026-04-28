@@ -4,7 +4,7 @@ A comprehensive collection of reusable tools for DVA agents, supporting integrat
 
 ## Overview
 
-This repository contains agent tools that can be used with the DVA Agentic CLI to extend agent capabilities. Tools are organized by category and designed to be easily integrated into any agent project.
+This repository contains agent tools that can be used with the Agentic CLI to extend agent capabilities. Tools are organized by category and designed to be easily integrated into any agent project.
 
 ## Available Tools
 
@@ -108,46 +108,46 @@ This repository contains agent tools that can be used with the DVA Agentic CLI t
 
 ### Prerequisites
 
-1. Install the DVA Agentic CLI:
+1. Install the Agentic CLI:
    ```bash
-   pip install dva-agentic-cli
+   pip install agentic-cli
    ```
 
 2. Configure the registry:
    ```bash
-   dva agent-tool registry add https://bitbucket.example.com/scm/~your-user/dva-agent-tools.git
+   agent agent-tool registry add https://bitbucket.example.com/scm/~your-user/agent-tools.git
    ```
 
 ### Using Tools
 
 #### List Available Tools
 ```bash
-dva agent-tool list
-dva agent-tool list --category integrations
-dva agent-tool list --tag jira
+`agent agent-tool list
+`agent agent-tool list --category integrations
+`agent agent-tool list --tag jira
 ```
 
 #### Show Tool Details
 ```bash
-dva agent-tool show jira-integration
+`agent agent-tool show jira-integration
 ```
 
 #### Install Tools in Project
 ```bash
 # Install single tool
-dva agent-tool install jira-integration --target ./my-agent/src/tools
+`agent agent-tool install jira-integration --target ./my-agent/src/tools
 
 # Install multiple tools
-dva agent-tool install jira-integration --target ./my-agent/src/tools
-dva agent-tool install slack-integration --target ./my-agent/src/tools
+`agent agent-tool install jira-integration --target ./my-agent/src/tools
+`agent agent-tool install slack-integration --target ./my-agent/src/tools
 
 # Install tools during project creation
-dva project create my-agent --agent-tools jira-integration,slack-integration
+`agent project create my-agent --agent-tools jira-integration,slack-integration
 ```
 
 #### Show Tool Dependencies
 ```bash
-dva agent-tool dependencies jira-integration
+`agent agent-tool dependencies jira-integration
 ```
 
 ### Tool Categories
@@ -329,8 +329,8 @@ OPENAI_API_KEY=your-openai-key
 
 1. Clone the repository:
    ```bash
-   git clone https://bitbucket.example.com/scm/~your-user/dva-agent-tools.git
-   cd dva-agent-tools
+   git clone https://bitbucket.example.com/scm/~your-user/agent-tools.git
+   cd agent-tools
    ```
 
 2. Install dependencies:
@@ -373,9 +373,9 @@ class TestJiraIntegrationTool:
 
 ## Support
 
-- **Documentation**: [DVA Agentic CLI Documentation](https://docs.dva.com)
-- **Issues**: [GitHub Issues](https://github.com/dva/dva-agent-tools/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/dva/dva-agent-tools/discussions)
+- **Documentation**: [Agentic CLI Documentation](https://docs.dva.com)
+- **Issues**: [GitHub Issues](https://github.com/dva/agent-tools/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/dva/agent-tools/discussions)
 
 ## License
 

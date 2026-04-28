@@ -2,7 +2,7 @@
 
 ## Overview
 
-The KG MCP Server uses a **runtime volume mount** architecture for KG modules. This means the KG code is NOT copied into the Docker image, but instead mounted at runtime from the DVA CLI source.
+The KG MCP Server uses a **runtime volume mount** architecture for KG modules. This means the KG code is NOT copied into the Docker image, but instead mounted at runtime from the Agentic CLI source.
 
 ## Architecture
 
@@ -10,7 +10,7 @@ The KG MCP Server uses a **runtime volume mount** architecture for KG modules. T
 Host Machine                          Docker Container
 ─────────────────                     ────────────────
 
-dva-agentic-cli/                      /app/
+agentic-cli/                      /app/
 ├── src/                              ├── src/
 │   └── dva_agentic_cli/              │   ├── mcp_server.py (copied)
 │       └── kg/                       │   └── kg/ (volume mounted ↓)
@@ -28,7 +28,7 @@ dva-agentic-cli/                      /app/
 - Changes are live (no rebuild!)
 
 ### 2. **Single Source of Truth**
-- KG code lives in `dva-agentic-cli` only
+- KG code lives in `agentic-cli` only
 - No duplicate copies to maintain
 - No sync issues
 
@@ -52,7 +52,7 @@ services:
   kg-mcp-server:
     volumes:
       # Runtime mount - KG modules from CLI
-      - ../dva-agentic-cli/src/dva_agentic_cli/kg:/app/src/kg:ro
+      - ../agentic-cli/src/dva_agentic_cli/kg:/app/src/kg:ro
 ```
 
 ### Dockerfile
@@ -80,7 +80,7 @@ RUN mkdir -p /app/src/kg
 
 ```bash
 # 1. Edit the code
-cd dva-agentic-cli/src/dva_agentic_cli/kg
+cd agentic-cli/src/dva_agentic_cli/kg
 nano query.py
 # Make changes to execute_query()
 
@@ -120,7 +120,7 @@ make test
 
 ```bash
 # 1. Create new module in CLI
-cd dva-agentic-cli/src/dva_agentic_cli/kg
+cd agentic-cli/src/dva_agentic_cli/kg
 nano new_feature.py
 # Create new functionality
 
@@ -157,7 +157,7 @@ make restart
 **Solution**:
 ```bash
 # Check if CLI exists at expected location
-ls ../dva-agentic-cli/src/dva_agentic_cli/kg
+ls ../agentic-cli/src/dva_agentic_cli/kg
 
 # Check container mount
 docker exec dva-kg-mcp ls -la /app/src/kg
@@ -189,7 +189,7 @@ docker exec dva-kg-mcp cat /app/src/kg/query.py
 **Solution**:
 ```bash
 # Check host permissions
-ls -la ../dva-agentic-cli/src/dva_agentic_cli/kg
+ls -la ../agentic-cli/src/dva_agentic_cli/kg
 
 # Mount is read-only (:ro) which is correct
 # If issues persist, remove :ro flag temporarily
@@ -205,7 +205,7 @@ make restart && make test
 ### 2. **Use Version Control**
 ```bash
 # Commit changes to CLI repo
-cd ../dva-agentic-cli
+cd ../agentic-cli
 git add src/dva_agentic_cli/kg/query.py
 git commit -m "Fix query logic"
 
@@ -223,13 +223,13 @@ If KG module changes break MCP server compatibility:
 ### 4. **Keep Paths Relative**
 Docker compose uses relative path:
 ```yaml
-- ../dva-agentic-cli/src/dva_agentic_cli/kg:/app/src/kg:ro
+- ../agentic-cli/src/dva_agentic_cli/kg:/app/src/kg:ro
 ```
 
 This works if directory structure is:
 ```
-dva-agentic-project/
-├── dva-agentic-cli/
+agentic-project/
+├── agentic-cli/
 └── kg-mcp-infrastructure/
 ```
 

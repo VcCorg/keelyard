@@ -188,20 +188,20 @@ Check credentials or wait for Neo4j to fully start
 1. Update `docker-compose.yml` to include APOC plugin
 2. Restart container: `make restart`
 
-## Integration with DVA CLI
+## Integration with Agentic CLI
 
-The validation commands work seamlessly with DVA CLI:
+The validation commands work seamlessly with Agentic CLI:
 
 ```bash
 # Validate Neo4j infrastructure
 cd neo4j-infrastructure
 make validate
 
-# Configure DVA CLI to use Neo4j
-dva kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
+# Configure Agentic CLI to use Neo4j
+`agent kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
 
-# Test DVA CLI connection
-dva kg stats
+# Test Agentic CLI connection
+`agent kg stats
 ```
 
 ## Automated Validation
@@ -255,7 +255,7 @@ Use validation in CI/CD pipelines:
 
 2. **Validate before important operations**
    ```bash
-   make validate && dva kg ingest --path /data
+   make validate && agent kg ingest --path /data
    ```
 
 3. **Regular health checks**
@@ -304,4 +304,4 @@ For issues or questions:
 1. Check logs: `make logs`
 2. Run validation: `make validate`
 3. Review [Neo4j documentation](https://neo4j.com/docs/)
-4. Check [DVA CLI documentation](../dva-agentic-cli/README.md)
+4. Check [Agentic CLI documentation](../agentic-cli/README.md)

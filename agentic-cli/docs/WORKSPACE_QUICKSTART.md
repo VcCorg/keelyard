@@ -16,7 +16,7 @@ Workspaces allow you to maintain **multiple isolated knowledge graphs** for diff
 
 1. **LightRAG provider configured**:
    ```bash
-   dva kg init --provider lightrag --lightrag-url http://localhost:8001
+   agent kg init --provider lightrag --lightrag-url http://localhost:8001
    ```
 
 2. **LightRAG server running**:
@@ -33,7 +33,7 @@ Workspaces allow you to maintain **multiple isolated knowledge graphs** for diff
 
 ```bash
 # Create a production workspace
-dva kg workspace create production \
+`agent kg workspace create production \
   --env production \
   --description "Production knowledge graph" \
   --tags prod,cwow
@@ -51,19 +51,19 @@ dva kg workspace create production \
 │ Path:        /data/lightrag/production      │
 ╰─────────────────────────────────────────────╯
 
-To switch to this workspace: dva kg workspace switch production
+To switch to this workspace: agent kg workspace switch production
 ```
 
 ### 2. Create Evaluation Workspaces
 
 ```bash
 # Baseline evaluation dataset
-dva kg workspace create eval-baseline \
+`agent kg workspace create eval-baseline \
   --env evaluation \
   --description "Baseline evaluation dataset"
 
 # Experiment dataset
-dva kg workspace create eval-experiment-1 \
+`agent kg workspace create eval-experiment-1 \
   --env evaluation \
   --description "Enhanced data experiment"
 ```
@@ -71,7 +71,7 @@ dva kg workspace create eval-experiment-1 \
 ### 3. List All Workspaces
 
 ```bash
-dva kg workspace list
+`agent kg workspace list
 ```
 
 **Output**:
@@ -92,7 +92,7 @@ Base directory: /data/lightrag
 ### 4. Switch to a Workspace
 
 ```bash
-dva kg workspace switch production
+`agent kg workspace switch production
 ```
 
 **Output**:
@@ -106,7 +106,7 @@ Path: /data/lightrag/production
 
 ```bash
 # Ingest into currently active workspace (production)
-dva kg ingest --source cwow-docs
+`agent kg ingest --source cwow-docs
 ```
 
 **Output**:
@@ -119,7 +119,7 @@ Active workspace: production
 
 ```bash
 # Ingest into eval-baseline without switching
-dva kg ingest --source cwow-docs --workspace eval-baseline
+`agent kg ingest --source cwow-docs --workspace eval-baseline
 ```
 
 **Output**:
@@ -132,10 +132,10 @@ dva kg ingest --source cwow-docs --workspace eval-baseline
 
 ```bash
 # Query production
-dva kg query "How to identify active patients?" --workspace production
+`agent kg query "How to identify active patients?" --workspace production
 
 # Query baseline
-dva kg query "How to identify active patients?" --workspace eval-baseline
+`agent kg query "How to identify active patients?" --workspace eval-baseline
 
 # Compare results
 ```
@@ -143,7 +143,7 @@ dva kg query "How to identify active patients?" --workspace eval-baseline
 ### 8. Show Current Workspace
 
 ```bash
-dva kg workspace current
+`agent kg workspace current
 ```
 
 **Output**:
@@ -170,17 +170,17 @@ dva kg workspace current
 
 ```bash
 # 1. Create evaluation workspaces
-dva kg workspace create eval-v1 --env evaluation --description "Version 1"
-dva kg workspace create eval-v2 --env evaluation --description "Version 2"
+`agent kg workspace create eval-v1 --env evaluation --description "Version 1"
+`agent kg workspace create eval-v2 --env evaluation --description "Version 2"
 
 # 2. Ingest different datasets
-dva kg ingest --source baseline-data --workspace eval-v1
-dva kg ingest --source enhanced-data --workspace eval-v2
+`agent kg ingest --source baseline-data --workspace eval-v1
+`agent kg ingest --source enhanced-data --workspace eval-v2
 
 # 3. Run evaluation queries
 for workspace in eval-v1 eval-v2; do
   echo "Testing: $workspace"
-  dva kg query "patient status query" --workspace $workspace > results-$workspace.txt
+  agent kg query "patient status query" --workspace $workspace > results-$workspace.txt
 done
 
 # 4. Compare results
@@ -191,20 +191,20 @@ diff results-eval-v1.txt results-eval-v2.txt
 
 ```bash
 # Clone production for testing
-dva kg workspace create test-experiment --parent production
+`agent kg workspace create test-experiment --parent production
 
 # Now test-experiment has all production data
-dva kg workspace switch test-experiment
+`agent kg workspace switch test-experiment
 
 # Make changes without affecting production
-dva kg ingest --source experimental-data
+`agent kg ingest --source experimental-data
 ```
 
 ### Update Workspace Metadata
 
 ```bash
 # Update description and tags
-dva kg workspace update production \
+`agent kg workspace update production \
   --description "Updated production KG" \
   --tags prod,cwow,v2 \
   --env production
@@ -214,10 +214,10 @@ dva kg workspace update production \
 
 ```bash
 # Switch away from workspace first
-dva kg workspace switch default
+`agent kg workspace switch default
 
 # Delete workspace
-dva kg workspace delete eval-experiment-1
+`agent kg workspace delete eval-experiment-1
 
 # Confirm deletion
 # Output: ✓ Workspace 'eval-experiment-1' deleted
@@ -229,7 +229,7 @@ dva kg workspace delete eval-experiment-1
 
 ### Create Workspace
 ```bash
-dva kg workspace create <name> [OPTIONS]
+`agent kg workspace create <name> [OPTIONS]
 
 Options:
   -d, --description TEXT   Workspace description
@@ -240,27 +240,27 @@ Options:
 
 ### List Workspaces
 ```bash
-dva kg workspace list
+`agent kg workspace list
 ```
 
 ### Switch Workspace
 ```bash
-dva kg workspace switch <name>
+`agent kg workspace switch <name>
 ```
 
 ### Show Current Workspace
 ```bash
-dva kg workspace current
+`agent kg workspace current
 ```
 
 ### Show Workspace Info
 ```bash
-dva kg workspace info <name>
+`agent kg workspace info <name>
 ```
 
 ### Update Workspace
 ```bash
-dva kg workspace update <name> [OPTIONS]
+`agent kg workspace update <name> [OPTIONS]
 
 Options:
   -d, --description TEXT   New description
@@ -270,7 +270,7 @@ Options:
 
 ### Delete Workspace
 ```bash
-dva kg workspace delete <name> [OPTIONS]
+`agent kg workspace delete <name> [OPTIONS]
 
 Options:
   -y, --yes    Skip confirmation
@@ -318,7 +318,7 @@ du -sh /data/lightrag/*
 
 Delete unused workspaces:
 ```bash
-dva kg workspace delete old-experiment --yes
+`agent kg workspace delete old-experiment --yes
 ```
 
 ---
@@ -330,7 +330,7 @@ dva kg workspace delete old-experiment --yes
 
 **Solution**: Switch to LightRAG:
 ```bash
-dva kg init --provider lightrag --lightrag-url http://localhost:8001
+`agent kg init --provider lightrag --lightrag-url http://localhost:8001
 ```
 
 ### Error: "Workspace does not exist"
@@ -338,7 +338,7 @@ dva kg init --provider lightrag --lightrag-url http://localhost:8001
 
 **Solution**: Create the workspace:
 ```bash
-dva kg workspace create <name>
+`agent kg workspace create <name>
 ```
 
 ### Error: "Cannot delete active workspace"
@@ -346,8 +346,8 @@ dva kg workspace create <name>
 
 **Solution**: Switch to another workspace first:
 ```bash
-dva kg workspace switch default
-dva kg workspace delete <name>
+`agent kg workspace switch default
+`agent kg workspace delete <name>
 ```
 
 ### Workspace Not Showing Data
@@ -355,12 +355,12 @@ dva kg workspace delete <name>
 
 **Solution**: Check active workspace:
 ```bash
-dva kg workspace current
+`agent kg workspace current
 ```
 
 Switch to correct workspace:
 ```bash
-dva kg workspace switch <correct-workspace>
+`agent kg workspace switch <correct-workspace>
 ```
 
 ---

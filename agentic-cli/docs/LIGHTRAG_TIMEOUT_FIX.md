@@ -129,21 +129,21 @@ Based on knowledge graph size:
 
 ### View Current Timeout
 ```bash
-dva kg config --show
+`agent kg config --show
 ```
 
 ### Set Custom Timeout
 ```bash
 # Set 10-minute timeout for very large graphs
-dva kg init --provider lightrag --lightrag-timeout 600
+`agent kg init --provider lightrag --lightrag-timeout 600
 
 # Set 30-minute timeout for extremely large graphs
-dva kg init --provider lightrag --lightrag-timeout 1800
+`agent kg init --provider lightrag --lightrag-timeout 1800
 ```
 
 ### Reset to Default
 ```bash
-dva kg config --reset
+`agent kg config --reset
 ```
 
 ## Performance Characteristics
@@ -176,7 +176,7 @@ From the ingestion logs:
 ### Verify Configuration
 ```bash
 # Check current timeout
-dva kg config --show
+`agent kg config --show
 
 # Should show: Timeout: 300.0s (or higher if customized)
 ```
@@ -184,10 +184,10 @@ dva kg config --show
 ### Test Query with Large Graph
 ```bash
 # This should now complete without timeout
-dva kg query "patient"
+`agent kg query "patient"
 
 # This should also work
-dva kg search "patient status filter"
+`agent kg search "patient status filter"
 ```
 
 ### Monitor Performance

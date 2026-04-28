@@ -2,12 +2,12 @@
 
 ## Overview
 
-Successfully enhanced DVA Agentic CLI to support both Neo4j and LightRAG as knowledge graph providers. The existing Neo4j functionality remains fully intact while adding LightRAG as an alternative, lightweight option.
+Successfully enhanced Agentic CLI to support both Neo4j and LightRAG as knowledge graph providers. The existing Neo4j functionality remains fully intact while adding LightRAG as an alternative, lightweight option.
 
 ## Implementation Details
 
 ### 1. LightRAG Client Wrapper
-**File**: `dva-agentic-cli/src/dva_agentic_cli/kg/lightrag_client.py`
+**File**: `agentic-cli/src/dva_agentic_cli/kg/lightrag_client.py`
 
 - Created `LightRAGClient` class with HTTP-based API communication
 - Methods implemented:
@@ -22,7 +22,7 @@ Successfully enhanced DVA Agentic CLI to support both Neo4j and LightRAG as know
 - Graceful error handling with informative messages
 
 ### 2. Configuration Updates
-**File**: `dva-agentic-cli/src/dva_agentic_cli/kg/config.py`
+**File**: `agentic-cli/src/dva_agentic_cli/kg/config.py`
 
 - Extended `KGConfig` with LightRAG settings:
   - `lightrag_url` (default: http://localhost:8001)
@@ -31,7 +31,7 @@ Successfully enhanced DVA Agentic CLI to support both Neo4j and LightRAG as know
 - Updated provider field description to include "lightrag"
 
 ### 3. CLI Command Enhancements
-**File**: `dva-agentic-cli/src/dva_agentic_cli/commands/kg.py`
+**File**: `agentic-cli/src/dva_agentic_cli/commands/kg.py`
 
 #### `dva kg init`
 - Added `--lightrag-url` option
@@ -61,7 +61,7 @@ Successfully enhanced DVA Agentic CLI to support both Neo4j and LightRAG as know
 - Shows URL and timeout configuration
 
 ### 4. Dependencies
-**File**: `dva-agentic-cli/pyproject.toml`
+**File**: `agentic-cli/pyproject.toml`
 
 - Added `httpx>=0.25.0` to `[kg]` optional dependencies
 - Required for LightRAG HTTP client functionality
@@ -115,33 +115,33 @@ Successfully enhanced DVA Agentic CLI to support both Neo4j and LightRAG as know
 
 ### Initialize LightRAG
 ```bash
-dva kg init --provider lightrag --lightrag-url http://localhost:8001
+`agent kg init --provider lightrag --lightrag-url http://localhost:8001
 ```
 
 ### Ingest Single File
 ```bash
-dva kg ingest --path /path/to/document.pdf
+`agent kg ingest --path /path/to/document.pdf
 ```
 
 ### Ingest Directory
 ```bash
-dva kg ingest --path /path/to/documents --recursive
+`agent kg ingest --path /path/to/documents --recursive
 ```
 
 ### View Statistics
 ```bash
-dva kg stats
+`agent kg stats
 ```
 
 ### Switch to Neo4j
 ```bash
-dva kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
+`agent kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
 ```
 
 ## Architecture
 
 ```
-DVA CLI Command
+Agentic CLI Command
       ↓
 Load KGConfig
       ↓
@@ -177,29 +177,29 @@ Database      HTTP API         User Feedback
 cd lightrag-infrastructure
 ./setup.sh
 
-# 2. Install DVA CLI with KG support
-cd ../dva-agentic-cli
+# 2. Install Agentic CLI with KG support
+cd ../agentic-cli
 uv pip install -e ".[kg]"
 
 # 3. Test initialization
-dva kg init --provider lightrag
+`agent kg init --provider lightrag
 
 # 4. Test ingestion
 echo "Test document content" > test.txt
-dva kg ingest --path test.txt
+`agent kg ingest --path test.txt
 
 # 5. Test stats
-dva kg stats
+`agent kg stats
 
 # 6. Test directory ingestion
 mkdir test-docs
 echo "Doc 1" > test-docs/doc1.txt
 echo "Doc 2" > test-docs/doc2.md
-dva kg ingest --path test-docs
+`agent kg ingest --path test-docs
 
 # 7. Test provider switching
-dva kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
-dva kg config --show
+`agent kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
+`agent kg config --show
 ```
 
 ### Unit Tests (Future)

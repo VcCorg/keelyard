@@ -86,7 +86,7 @@ make backup   # Backup data
 - Read the full [README.md](README.md)
 - Explore different query modes (naive, local, global, hybrid)
 - Try production mode with Milvus: `make start-prod`
-- Integrate with DVA Agentic agents
+- Integrate with Agentic agents
 
 ## Troubleshooting
 

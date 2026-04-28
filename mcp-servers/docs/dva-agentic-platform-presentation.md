@@ -1,4 +1,4 @@
-# DVA Agentic Platform
+# Agentic Platform
 ## Developer-First AI Tooling for the Village
 
 **Presenter:** Your Name (your-user)
@@ -9,7 +9,7 @@
 
 ## 1. Executive Summary
 
-The DVA Agentic Platform is a **developer-first, implementation-driven** approach to AI-assisted software engineering at example. Rather than starting with governance frameworks and standards documents, this initiative delivers **working tools today** that connect AI code assistants directly to example's enterprise systems — Bitbucket, Jira, Confluence, and Glean.
+The Agentic Platform is a **developer-first, implementation-driven** approach to AI-assisted software engineering at example. Rather than starting with governance frameworks and standards documents, this initiative delivers **working tools today** that connect AI code assistants directly to example's enterprise systems — Bitbucket, Jira, Confluence, and Glean.
 
 ### Key Differentiator
 
@@ -52,7 +52,7 @@ The AI Strategy and Execution team is building:
 Build the tools. Prove the value. Then align with governance.
 
 ```
-AISE (Top-Down)                    DVA Agentic (Bottom-Up)
+AISE (Top-Down)                    Agentic (Bottom-Up)
 ┌─────────────────┐               ┌─────────────────┐
 │   Governance     │               │   Working Tools  │
 │   Frameworks     │               │   (MCP Servers)  │
@@ -74,7 +74,7 @@ AISE (Top-Down)                    DVA Agentic (Bottom-Up)
 
 ## 3. What We Built
 
-### 3.1 MCP Servers (`dva-mcp-servers`)
+### 3.1 MCP Servers (`mcp-servers`)
 
 The Model Context Protocol (MCP) is an open standard that lets AI assistants call external tools. We built 4 MCP servers that connect AI assistants to example systems:
 
@@ -137,7 +137,7 @@ The Model Context Protocol (MCP) is an open standard that lets AI assistants cal
 | MCP Gateway | 9090 | Single endpoint aggregating all 42 tools |
 | MCP Proxy | 9091 | Named server routing for tool isolation |
 
-### 3.2 Developer Skills Registry (`dva-skills`)
+### 3.2 Developer Skills Registry (`skills`)
 
 A library of **26 reusable skills** that teach AI assistants example-specific coding patterns:
 
@@ -161,13 +161,13 @@ Each skill is a structured Markdown file with:
 - Anti-patterns to avoid
 - Auto-detection rules (file presence, dependency matching)
 
-### 3.3 Agentic CLI (`dva-agentic-cli`)
+### 3.3 Agentic CLI (`agentic-cli`)
 
 A command-line tool that **automates code onboarding**:
 
 ```bash
 # Analyze any repo and install matching skills
-dva code onboard --path /path/to/project
+`agent code onboard --path /path/to/project
 
 # What happens:
 # 1. Detects: languages, frameworks, build tools, CI/CD, databases
@@ -179,9 +179,9 @@ dva code onboard --path /path/to/project
 # Result: AI assistant instantly understands the project
 ```
 
-**Tested:** Successfully onboarded `dva-agentic-cli` itself — detected Python, pyproject.toml, Make, MCP servers → installed 6 skills in < 30 seconds.
+**Tested:** Successfully onboarded `agentic-cli` itself — detected Python, pyproject.toml, Make, MCP servers → installed 6 skills in < 30 seconds.
 
-### 3.4 Knowledge Graph Infrastructure (`dva-kg-infrastructure`)
+### 3.4 Knowledge Graph Infrastructure (`kg-infrastructure`)
 
 Local development infrastructure for code knowledge graphs:
 
@@ -242,7 +242,7 @@ All services are **Dockerized**, use **SSE transport** for network access, and a
 
 ### Side-by-Side
 
-| Dimension | AISE Team | DVA Agentic Platform |
+| Dimension | AISE Team | Agentic Platform |
 |-----------|-----------|---------------------|
 | **Focus** | Governance, risk, compliance | Developer productivity, tooling |
 | **Approach** | Top-down (policies → standards → implementation) | Bottom-up (tools → adoption → governance alignment) |
@@ -288,7 +288,7 @@ All services are **Dockerized**, use **SSE transport** for network access, and a
 | # | Opportunity | Action | Who to Engage |
 |---|------------|--------|---------------|
 | 4 | **LLM Service API MCP** | Build an MCP server wrapping AISE's LLM Service API — gives agents access to approved Gemini/Claude models | Srujana Kandula |
-| 5 | **KG → Launchpad** | Position dva-kg-infrastructure as the dev prototype for AISE's "GraphRAG Ingestion" Launchpad service | Sanjay Arora |
+| 5 | **KG → Launchpad** | Position kg-infrastructure as the dev prototype for AISE's "GraphRAG Ingestion" Launchpad service | Sanjay Arora |
 | 6 | **Skills → Agent Standards** | Map our 26 skills to AISE's agent development standards (Section 03) as code-assist capabilities | Manesh Gurav |
 
 ### Strategic
@@ -316,7 +316,7 @@ All services are **Dockerized**, use **SSE transport** for network access, and a
 ### Demo 2: Instant Repo Onboarding (1 min)
 ```
 1. Clone any example repo
-2. Run: dva code onboard --path ./repo
+2. Run: agent code onboard --path ./repo
 3. Show: .skills/ directory populated with matched skills
 4. Open in Windsurf → AI assistant now understands the project conventions
 ```
@@ -355,7 +355,7 @@ All services are **Dockerized**, use **SSE transport** for network access, and a
 
 | Repository | Bitbucket URL |
 |------------|--------------|
-| dva-agentic-cli | https://bitbucket.example.com/users/your-user/repos/dva-agentic-cli |
+| agentic-cli | https://bitbucket.example.com/users/your-user/repos/agentic-cli |
 | dva-agent-skills | https://bitbucket.example.com/users/your-user/repos/dva-agent-skills |
 | dva-agent-mcp-servers | https://bitbucket.example.com/users/your-user/repos/dva-agent-mcp-servers |
 | dva-agent-kg-infra | https://bitbucket.example.com/users/your-user/repos/dva-agent-kg-infra |

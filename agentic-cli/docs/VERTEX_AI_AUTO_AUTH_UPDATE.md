@@ -24,17 +24,17 @@ Extended the `dva init vertex-ai` command to automatically run `gcloud auth appl
 **New Default Workflow:**
 ```bash
 # Single command - automatically authenticates
-dva init vertex-ai --project-id YOUR_PROJECT_ID
+`agent init vertex-ai --project-id YOUR_PROJECT_ID
 
 # Skip auth if already authenticated
-dva init vertex-ai --project-id YOUR_PROJECT_ID --skip-auth
+`agent init vertex-ai --project-id YOUR_PROJECT_ID --skip-auth
 ```
 
 **Old Workflow (removed):**
 ```bash
 # Required two separate commands
 gcloud auth application-default login
-dva init vertex-ai --project-id YOUR_PROJECT_ID
+`agent init vertex-ai --project-id YOUR_PROJECT_ID
 ```
 
 ### 3. Documentation Updates
@@ -91,21 +91,21 @@ Verified the following scenarios:
 
 ### Standard Usage (with auto-auth)
 ```bash
-dva init vertex-ai --project-id my-gcp-project
+`agent init vertex-ai --project-id my-gcp-project
 # Opens browser for authentication
 # Saves configuration after successful auth
 ```
 
 ### Skip Authentication
 ```bash
-dva init vertex-ai --project-id my-gcp-project --skip-auth
+`agent init vertex-ai --project-id my-gcp-project --skip-auth
 # Skips authentication step
 # Useful when already authenticated
 ```
 
 ### With All Options
 ```bash
-dva init vertex-ai \
+`agent init vertex-ai \
   --project-id my-gcp-project \
   --location us-central1 \
   --model gemini-pro \
@@ -122,7 +122,7 @@ For existing users who have scripts or automation:
 If you want to preserve the old behavior (skip authentication):
 ```bash
 # Add --skip-auth flag
-dva init vertex-ai --project-id PROJECT_ID --skip-auth
+`agent init vertex-ai --project-id PROJECT_ID --skip-auth
 ```
 
 ## Files Modified

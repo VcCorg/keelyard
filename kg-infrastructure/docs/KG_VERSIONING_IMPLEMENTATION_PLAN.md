@@ -265,7 +265,7 @@ class WorkspaceManager:
 #### File: `src/dva_agentic_cli/commands/kg_workspace.py` (NEW)
 
 ```python
-"""Workspace management commands for dva kg."""
+"""Workspace management commands for agent kg."""
 
 import typer
 from rich.console import Console
@@ -516,45 +516,45 @@ class LightRAGClient:
 
 ```bash
 # 1. Create workspaces
-dva kg workspace create production --env production --description "Production KG"
-dva kg workspace create eval-baseline --env evaluation --description "Baseline evaluation dataset"
-dva kg workspace create eval-experiment-1 --env evaluation --description "Experiment 1 dataset"
+`agent kg workspace create production --env production --description "Production KG"
+`agent kg workspace create eval-baseline --env evaluation --description "Baseline evaluation dataset"
+`agent kg workspace create eval-experiment-1 --env evaluation --description "Experiment 1 dataset"
 
 # 2. Ingest data into production
-dva kg workspace switch production
-dva kg ingest --source cwow-docs --segment census --version v1.0
+`agent kg workspace switch production
+`agent kg ingest --source cwow-docs --segment census --version v1.0
 
 # 3. Create evaluation datasets
-dva kg workspace switch eval-baseline
-dva kg ingest --source cwow-docs --segment census --version v1.0 --tags baseline
+`agent kg workspace switch eval-baseline
+`agent kg ingest --source cwow-docs --segment census --version v1.0 --tags baseline
 
-dva kg workspace switch eval-experiment-1
-dva kg ingest --source cwow-docs-enhanced --segment census --version v1.1 --tags experiment
+`agent kg workspace switch eval-experiment-1
+`agent kg ingest --source cwow-docs-enhanced --segment census --version v1.1 --tags experiment
 
 # 4. Query different workspaces
-dva kg query "How to identify active patients?" --workspace production
-dva kg query "How to identify active patients?" --workspace eval-baseline
-dva kg query "How to identify active patients?" --workspace eval-experiment-1
+`agent kg query "How to identify active patients?" --workspace production
+`agent kg query "How to identify active patients?" --workspace eval-baseline
+`agent kg query "How to identify active patients?" --workspace eval-experiment-1
 
 # 5. Compare results
-dva kg workspace list
-dva kg workspace current
+`agent kg workspace list
+`agent kg workspace current
 ```
 
 ### Evaluation Workflow
 
 ```bash
 # Clone production for evaluation
-dva kg workspace create eval-test-1 --parent production --description "Test dataset 1"
+`agent kg workspace create eval-test-1 --parent production --description "Test dataset 1"
 
 # Run evaluation queries
 for workspace in eval-baseline eval-experiment-1 eval-test-1; do
   echo "Testing workspace: $workspace"
-  dva kg query "patient status query" --workspace $workspace --output results-$workspace.json
+  agent kg query "patient status query" --workspace $workspace --output results-$workspace.json
 done
 
 # Compare results
-dva kg eval compare results-*.json
+`agent kg eval compare results-*.json
 ```
 
 ---
@@ -571,7 +571,7 @@ mv /data/lightrag/* /data/lightrag-new/default/
 mv /data/lightrag-new /data/lightrag
 
 # 3. Update config
-dva kg workspace list  # Should show 'default'
+`agent kg workspace list  # Should show 'default'
 ```
 
 ---

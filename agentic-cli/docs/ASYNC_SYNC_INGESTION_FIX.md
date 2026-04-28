@@ -122,7 +122,7 @@ This ensures the async worker receives the correct format and doesn't need to re
 ### Sync Command Flow (Working Before Fix)
 
 ```
-dva kg ingest --source cwow-patient-model
+`agent kg ingest --source cwow-patient-model
     ↓
 resolve_data_source() → (url, "git", metadata)
     ↓
@@ -136,7 +136,7 @@ if config.provider == "lightrag":
 ### Async Command Flow (Fixed)
 
 ```
-dva kg async submit --source cwow-patient-model
+`agent kg async submit --source cwow-patient-model
     ↓
 resolve_data_source() → (url, "git", metadata)
     ↓
@@ -169,16 +169,16 @@ print(detect_format('git@github.com:user/repo.git'))  # Should print: git
 ### Integration Test
 ```bash
 # Configure data source
-dva data create --name test-repo \
+`agent data create --name test-repo \
     --source-type git \
     --source-location https://github.com/user/repo.git \
     --git-branch main
 
 # Test async ingestion
-dva kg async submit --source test-repo --provider lightrag
+`agent kg async submit --source test-repo --provider lightrag
 
 # Check status
-dva kg async status <job-id>
+`agent kg async status <job-id>
 ```
 
 ## Benefits of This Fix

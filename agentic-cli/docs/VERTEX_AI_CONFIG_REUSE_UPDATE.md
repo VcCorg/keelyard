@@ -25,7 +25,7 @@ Enhanced the `dva init vertex-ai` command to automatically reuse existing config
 **First Time Setup:**
 ```bash
 # Prompts for project ID, uses defaults for others
-dva init vertex-ai
+`agent init vertex-ai
 # Enter your Google Cloud Project ID: my-project-123
 # Runs gcloud auth...
 # Saves configuration
@@ -34,7 +34,7 @@ dva init vertex-ai
 **Subsequent Runs:**
 ```bash
 # Reuses all existing config, only refreshes auth
-dva init vertex-ai
+`agent init vertex-ai
 # Using existing project ID: my-project-123
 # Runs gcloud auth...
 # Configuration updated
@@ -43,13 +43,13 @@ dva init vertex-ai
 **Selective Updates:**
 ```bash
 # Update only location, keep everything else
-dva init vertex-ai --location us-east1
+`agent init vertex-ai --location us-east1
 
 # Update model, keep everything else
-dva init vertex-ai --model gemini-1.5-pro
+`agent init vertex-ai --model gemini-1.5-pro
 
 # Skip auth if already authenticated
-dva init vertex-ai --skip-auth
+`agent init vertex-ai --skip-auth
 ```
 
 ### 3. Implementation Details
@@ -94,31 +94,31 @@ Updated the following files:
 ### Refresh Authentication
 ```bash
 # Just refresh the auth token, keep all settings
-dva init vertex-ai
+`agent init vertex-ai
 ```
 
 ### Switch Regions
 ```bash
 # Change region for a specific task
-dva init vertex-ai --location europe-west1
+`agent init vertex-ai --location europe-west1
 ```
 
 ### Update Model
 ```bash
 # Try a different model
-dva init vertex-ai --model gemini-1.5-flash
+`agent init vertex-ai --model gemini-1.5-flash
 ```
 
 ### Switch Projects
 ```bash
 # Work with a different project
-dva init vertex-ai --project-id another-project-456
+`agent init vertex-ai --project-id another-project-456
 ```
 
 ### Skip Auth During Testing
 ```bash
 # Skip auth when testing other changes
-dva init vertex-ai --skip-auth
+`agent init vertex-ai --skip-auth
 ```
 
 ## Technical Details
@@ -188,17 +188,17 @@ Verified the following scenarios:
 **Old usage still works:**
 ```bash
 # Explicit parameters still work
-dva init vertex-ai --project-id PROJECT_ID --location us-central1
+`agent init vertex-ai --project-id PROJECT_ID --location us-central1
 ```
 
 **New simplified usage:**
 ```bash
 # First time
-dva init vertex-ai
+`agent init vertex-ai
 # Enter your Google Cloud Project ID: PROJECT_ID
 
 # Subsequent runs
-dva init vertex-ai  # Just refreshes auth
+`agent init vertex-ai  # Just refreshes auth
 ```
 
 ## Files Modified

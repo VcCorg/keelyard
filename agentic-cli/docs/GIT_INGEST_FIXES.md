@@ -152,13 +152,13 @@ docker logs dva-lightrag --tail 20
 
 ```bash
 # Submit new ingestion job with fixes
-dva kg async submit --source cwow-patient-model --provider lightrag
+`agent kg async submit --source cwow-patient-model --provider lightrag
 
 # Track progress
-dva kg async status <job-id>
+`agent kg async status <job-id>
 
 # Monitor logs in real-time
-dva kg async logs <job-id> --follow
+`agent kg async logs <job-id> --follow
 ```
 
 ### 3. Expected Results
@@ -349,8 +349,8 @@ The fallback is automatic - repository will still be fully parsed without giting
 **Workaround:**
 1. Use Git tags/branches for specific releases:
    ```bash
-   dva data create --name repo-r27 --source-type git --git-tag R27
-   dva kg async submit --source repo-r27
+   agent data create --name repo-r27 --source-type git --git-tag R27
+   agent kg async submit --source repo-r27
    ```
 
 2. Manually track which files changed and ingest individually

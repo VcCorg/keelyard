@@ -1,6 +1,6 @@
 # Agent Development Guide
 
-Complete reference for building, managing, and deploying AI agents with `dva-agentic-cli`.
+Complete reference for building, managing, and deploying AI agents with `agentic-cli`.
 
 ## Table of Contents
 
@@ -19,19 +19,19 @@ Complete reference for building, managing, and deploying AI agents with `dva-age
 ## Architecture Overview
 
 ```
-dva-agentic-cli/
+agentic-cli/
 ├── src/dva_agentic_cli/
 │   ├── main.py                          # CLI entry point (Typer app)
 │   ├── commands/
-│   │   ├── code.py                      # dva code {onboard,skills,validate,config}
-│   │   ├── agent.py                     # dva agent {run,start,stop,status,logs,list,register}
-│   │   ├── skill.py                     # dva skill {create,list,install,show}
-│   │   ├── project.py                   # dva project {create,list-templates,info}
+│   │   ├── code.py                      # agent code {onboard,skills,validate,config}
+│   │   ├── agent.py                     # agent agent {run,start,stop,status,logs,list,register}
+│   │   ├── skill.py                     # agent skill {create,list,install,show}
+│   │   ├── project.py                   # agent project {create,list-templates,info}
 │   │   ├── project_extensions.py        # Agent discovery, interactive run, subprocess utils
-│   │   ├── init.py                      # dva init vertex-ai
-│   │   ├── kg.py                        # dva kg {check,init,ingest,query,...}
-│   │   ├── data.py                      # dva data {init,create,list,...}
-│   │   └── mcp.py                       # dva mcp {start,stop,...}
+│   │   ├── init.py                      # agent init vertex-ai
+│   │   ├── kg.py                        # agent kg {check,init,ingest,query,...}
+│   │   ├── data.py                      # agent data {init,create,list,...}
+│   │   └── mcp.py                       # agent mcp {start,stop,...}
 │   ├── analyzer/
 │   │   ├── detector.py                  # Project analysis (language, framework, deps, structure)
 │   │   └── matcher.py                   # Skill matching against registry + MCP detection
@@ -65,12 +65,12 @@ dva-agentic-cli/
 
 Onboard any repository with AI code assist skills — auto-detect tech stack, parse dependencies, and install matching context skills so AI tools have full project understanding from the first prompt.
 
-### Skills Registry (`dva-skills/`)
+### Skills Registry (`skills/`)
 
 Skills are maintained in a **separate repository** for independent versioning and easy updates:
 
 ```
-dva-skills/
+skills/
 ├── registry.json              # Skill index with auto_detect rules + metadata
 └── skills/
     ├── java-spring-boot/SKILL.md
@@ -101,20 +101,20 @@ dva-skills/
 
 ```bash
 # 1. Configure registry (once)
-dva code config --registry /path/to/dva-skills
+`agent code config --registry /path/to/skills
 
 # 2. Onboard a project
-dva code onboard --path ./my-repo          # Local path
-dva code onboard --repo <git-url>          # Clone + onboard
+`agent code onboard --path ./my-repo          # Local path
+`agent code onboard --repo <git-url>          # Clone + onboard
 
 # 3. Manage skills post-onboard
-dva code skills list --path ./my-repo
-dva code skills add security --path ./my-repo
-dva code skills remove testing-jest --path ./my-repo
-dva code skills available --tag mcp
+`agent code skills list --path ./my-repo
+`agent code skills add security --path ./my-repo
+`agent code skills remove testing-jest --path ./my-repo
+`agent code skills available --tag mcp
 
 # 4. Validate
-dva code validate --path ./my-repo
+`agent code validate --path ./my-repo
 ```
 
 **What onboard generates**:
@@ -172,7 +172,7 @@ MCP skills (jira, bitbucket, pr-reviewer) are regular skills whose `SKILL.md` re
 ### `dva project create` — PR Reviewer Flags
 
 ```bash
-dva project create <name> --use-case pr-reviewer [OPTIONS]
+`agent project create <name> --use-case pr-reviewer [OPTIONS]
 
 Options:
   --jira-mcp                  Enable Jira MCP integration
@@ -293,11 +293,11 @@ Instructions for the agent...
 
 ```bash
 # From Anthropic's skill library
-dva skill install anthropics/skills/skills/mcp-builder
-dva skill install anthropics/skills/skills/pdf
+`agent skill install anthropics/skills/skills/mcp-builder
+`agent skill install anthropics/skills/skills/pdf
 
 # From any GitHub repo
-dva skill install org/repo/path/to/skill
+`agent skill install org/repo/path/to/skill
 ```
 
 ---
@@ -355,11 +355,11 @@ tools:
 
 ```bash
 # Auto-generated during project creation
-dva project create my-bot --use-case pr-reviewer
+`agent project create my-bot --use-case pr-reviewer
 
 # Manual registration for existing projects
-dva agent register --path ./my-project --target opencode
-dva agent register --path ./my-project --target opencode --jira
+`agent agent register --path ./my-project --target opencode
+`agent agent register --path ./my-project --target opencode --jira
 ```
 
 ---
@@ -369,7 +369,7 @@ dva agent register --path ./my-project --target opencode --jira
 ### Required: Bitbucket MCP
 
 - **URL**: `http://localhost:8126/sse`
-- **Source**: `/Users/your-user/dva-agentic-project/bitbucket-server-mcp/`
+- **Source**: `/Users/your-user/agentic-project/bitbucket-server-mcp/`
 - **Docker**: `docker compose -f mcp-docker-compose.yml up -d bitbucket-mcp`
 - **Tools**: `get_pr_overview`, `get_pr_diff`, `get_pr_files`, `get_pr_commits`, `get_pr_comments`, `get_pr_activities`, `get_file_content`, `review_pr`, `add_pr_comment`, `add_pr_inline_comment`, `list_my_prs`
 - **Auth**: Bitbucket Personal Access Token (Bearer header)
@@ -378,7 +378,7 @@ dva agent register --path ./my-project --target opencode --jira
 ### Optional: Jira MCP
 
 - **URL**: `http://localhost:8128/sse`
-- **Source**: `/Users/your-user/dva-agentic-project/jira-server-mcp/`
+- **Source**: `/Users/your-user/agentic-project/jira-server-mcp/`
 - **Docker**: `docker compose -f mcp-docker-compose.yml up -d jira-mcp`
 - **Tools**: `get_issue`, `search_issues`, `get_my_issues`, `get_comments`, `add_comment`, `get_transitions`, `transition_issue`, `assign_issue`, `list_projects`, `get_sprint_issues`, `get_jira_config`
 - **Auth**: Jira Personal Access Token (Bearer header)
@@ -387,14 +387,14 @@ dva agent register --path ./my-project --target opencode --jira
 ### Optional: MCP Gateway
 
 - **URL**: `http://localhost:9090/sse`
-- **Source**: `/Users/your-user/dva-agentic-project/mcp-gateway/`
+- **Source**: `/Users/your-user/agentic-project/mcp-gateway/`
 - Proxies all upstream servers, namespaces tools as `bitbucket_*`, `jira_*`, `glean_*`
 - 29 total tools + `gateway_status`, `gateway_refresh`
 
 ### Starting All Services
 
 ```bash
-cd /Users/your-user/dva-agentic-project
+cd /Users/your-user/agentic-project
 docker compose -f mcp-docker-compose.yml up -d bitbucket-mcp jira-mcp
 # Or with gateway:
 docker compose -f mcp-docker-compose.yml up -d bitbucket-mcp jira-mcp mcp-gateway
@@ -482,7 +482,7 @@ def generate_<component>_files(target_dir: Path, config: TemplateConfig) -> None
 
 ```bash
 # Create project
-dva project create my-pr-bot --use-case pr-reviewer
+`agent project create my-pr-bot --use-case pr-reviewer
 
 # Setup
 cd my-pr-bot
@@ -501,7 +501,7 @@ python src/main.py --mode interactive    # Interactive mode
 python src/main.py --mode daemon         # Background polling
 python src/main.py --mode once           # Single pass
 
-# Or via dva CLI
-dva agent run --path . --mode interactive
-dva agent start --path . --review-mode auto-approve
+# Or via agent CLI
+`agent agent run --path . --mode interactive
+`agent agent start --path . --review-mode auto-approve
 ```

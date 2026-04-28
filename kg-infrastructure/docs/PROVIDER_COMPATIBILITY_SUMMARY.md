@@ -2,7 +2,7 @@
 
 ## Overview
 
-Enhanced DVA CLI knowledge graph commands to support both Neo4j and LightRAG providers with clear documentation and helpful error messages.
+Enhanced Agentic CLI knowledge graph commands to support both Neo4j and LightRAG providers with clear documentation and helpful error messages.
 
 ## Changes Made
 
@@ -23,10 +23,10 @@ Enhanced DVA CLI knowledge graph commands to support both Neo4j and LightRAG pro
 **Example:**
 ```bash
 # Neo4j
-dva kg query "Find all people" --format natural
+`agent kg query "Find all people" --format natural
 
 # LightRAG
-dva kg query "What are the main topics?" --mode hybrid
+`agent kg query "What are the main topics?" --mode hybrid
 ```
 
 #### ✅ `dva kg search` - Now Supports Both Providers
@@ -43,10 +43,10 @@ dva kg query "What are the main topics?" --mode hybrid
 **Example:**
 ```bash
 # Neo4j
-dva kg search "artificial intelligence" --semantic
+`agent kg search "artificial intelligence" --semantic
 
 # LightRAG
-dva kg search "machine learning"
+`agent kg search "machine learning"
 ```
 
 #### ⚠️ `dva kg visualize` - Neo4j Only (with Clear Messaging)
@@ -62,9 +62,9 @@ dva kg search "machine learning"
   Current provider: lightrag
 
 To use visualization:
-  1. Switch to Neo4j: dva kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
-  2. Ingest your data: dva kg ingest --path /your/data
-  3. Run visualization: dva kg visualize
+  1. Switch to Neo4j: agent kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
+  2. Ingest your data: agent kg ingest --path /your/data
+  3. Run visualization: agent kg visualize
 ```
 
 ### 2. Documentation Created
@@ -140,14 +140,14 @@ All commands now:
 
 ### Before
 ```bash
-$ dva kg search "patient"
-✗ Error: Neo4j is not properly configured. Run 'dva kg init' first.
+$ agent kg search "patient"
+✗ Error: Neo4j is not properly configured. Run 'agent kg init' first.
 ```
 **Problem:** Confusing error when using LightRAG
 
 ### After
 ```bash
-$ dva kg search "patient"
+$ agent kg search "patient"
 ✓ Search completed
 
 [search results]
@@ -156,21 +156,21 @@ $ dva kg search "patient"
 
 ### Before
 ```bash
-$ dva kg visualize
-✗ Error: Neo4j is not properly configured. Run 'dva kg init' first.
+$ agent kg visualize
+✗ Error: Neo4j is not properly configured. Run 'agent kg init' first.
 ```
 **Problem:** Unclear why it doesn't work
 
 ### After
 ```bash
-$ dva kg visualize
+$ agent kg visualize
 ⚠ Visualization is only supported for Neo4j provider
   Current provider: lightrag
 
 To use visualization:
-  1. Switch to Neo4j: dva kg init --provider neo4j ...
-  2. Ingest your data: dva kg ingest --path /your/data
-  3. Run visualization: dva kg visualize
+  1. Switch to Neo4j: agent kg init --provider neo4j ...
+  2. Ingest your data: agent kg ingest --path /your/data
+  3. Run visualization: agent kg visualize
 ```
 **Solution:** Clear explanation and actionable steps
 
@@ -179,40 +179,40 @@ To use visualization:
 ### Query Command
 ```bash
 # LightRAG query works
-$ dva kg query "What is in the knowledge graph?" --mode hybrid
+$ agent kg query "What is in the knowledge graph?" --mode hybrid
 ✓ Query executed (mode: hybrid)
 [results]
 
 # Neo4j query works (when switched)
-$ dva kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
-$ dva kg query "MATCH (n) RETURN count(n)"
+$ agent kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
+$ agent kg query "MATCH (n) RETURN count(n)"
 ✓ Found 6759 results
 ```
 
 ### Search Command
 ```bash
 # LightRAG search works
-$ dva kg search "patient"
+$ agent kg search "patient"
 ✓ Search completed
 [results]
 
 # Neo4j search works (when switched)
-$ dva kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
-$ dva kg search "patient" --semantic
+$ agent kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
+$ agent kg search "patient" --semantic
 ✓ Found 42 results
 ```
 
 ### Visualize Command
 ```bash
 # Clear error message for LightRAG
-$ dva kg visualize
+$ agent kg visualize
 ⚠ Visualization is only supported for Neo4j provider
   Current provider: lightrag
 [helpful instructions]
 
 # Works with Neo4j
-$ dva kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
-$ dva kg visualize
+$ agent kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
+$ agent kg visualize
 ✓ Visualization saved: graph.html
 ```
 
@@ -286,18 +286,18 @@ make start
 make validate
 
 # 2. Switch provider
-dva kg init --provider lightrag --lightrag-url http://localhost:8001
+`agent kg init --provider lightrag --lightrag-url http://localhost:8001
 
 # 3. Ingest data
-dva kg ingest --path /your/data
+`agent kg ingest --path /your/data
 
 # 4. Use commands
-dva kg stats
-dva kg query "Your question"
-dva kg search "search term"
+`agent kg stats
+`agent kg query "Your question"
+`agent kg search "search term"
 
 # 5. Switch back to Neo4j anytime
-dva kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
+`agent kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
 ```
 
 ### For New Users
@@ -325,4 +325,4 @@ Start with the provider that fits your use case:
 ✅ **User Experience** - Helpful error messages and instructions  
 ✅ **Testing** - All commands validated with both providers  
 
-The DVA CLI now provides a seamless experience regardless of which knowledge graph provider you choose, with clear documentation and helpful guidance when features are provider-specific.
+The Agentic CLI now provides a seamless experience regardless of which knowledge graph provider you choose, with clear documentation and helpful guidance when features are provider-specific.
