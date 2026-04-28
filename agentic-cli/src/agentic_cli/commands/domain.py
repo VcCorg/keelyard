@@ -38,8 +38,8 @@ from agentic_cli.tracker import (
     add_domain_doc,
     mark_domain_repo_onboarded,
 )
-from agentic_cli.skill_generator import (
 from agentic_cli.config import CLI_NAME
+from agentic_cli.skill_generator import (
     ROLES,
     ROLE_LABELS,
     gather_domain_context,
