@@ -1,4 +1,4 @@
-# DVA Dashboard
+# Agentic Dashboard
 
 Web dashboard for the Agentic Platform — manage agents, MCP servers, and interact via chat.
 

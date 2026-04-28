@@ -1,6 +1,6 @@
-# DVA Knowledge Graph Infrastructure
+# Agentic Knowledge Graph Infrastructure
 
-Docker-based infrastructure for the DVA Knowledge Graph system — Neo4j graph database, LightRAG retrieval-augmented generation, and KG MCP server.
+Docker-based infrastructure for the Agentic Knowledge Graph system — Neo4j graph database, LightRAG retrieval-augmented generation, and KG MCP server.
 
 ## Architecture
 

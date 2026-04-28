@@ -1,4 +1,4 @@
-# DVA Agent Templates
+# Agentic Agent Templates
 
 A comprehensive collection of agent templates for the Agentic CLI, supporting multiple frameworks and use cases.
 

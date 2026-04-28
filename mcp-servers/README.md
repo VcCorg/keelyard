@@ -1,4 +1,4 @@
-# DVA MCP Servers
+# Agentic MCP Servers
 
 Model Context Protocol (MCP) servers for AI code assistants. Provides Bitbucket, Jira, Confluence, Glean, and gateway services via SSE endpoints.
 

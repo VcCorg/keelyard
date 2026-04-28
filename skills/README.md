@@ -1,4 +1,4 @@
-# DVA Skills Registry
+# Agentic Skills Registry
 
 Curated skills for AI code assistants. Used by `dva code onboard` to auto-detect project tech stack and install matching context skills.
 
