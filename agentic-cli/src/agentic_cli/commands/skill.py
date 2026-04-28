@@ -518,25 +518,23 @@ def generate_skill(
             details_lines.append(f"**{label.title()}:** {value}")
     details = "\n".join(details_lines) if details_lines else f"Skill for: {one_liner}"
 
-    # --- Initialize LLM Provider ---
+    # --- Initialize LLM Provider (Provider-agnostic) ---
     try:
-        import vertexai
-        from vertexai.generative_models import GenerativeModel
-    except ImportError:
-        console.print("[red]✗ Vertex AI not installed.[/red]")
-        console.print("[dim]Install with: uv pip install google-cloud-aiplatform[/dim]")
-        raise typer.Exit(1)
+        from agentic_cli.llm.factory import get_llm_provider
+        from agentic_cli.llm.base import ProviderNotConfigured, MissingProviderSDK
 
-    try:
-        from agentic_cli.kg.config import KGConfig
-        config = KGConfig.load()
-        if not config.google_project_id or not config.google_location:
-            raise ValueError("missing config")
-        vertexai.init(project=config.google_project_id, location=config.google_location)
-        model = GenerativeModel(model_name, system_instruction=SKILL_CREATOR_SYSTEM)
+        provider = get_llm_provider(
+            model_name=model_name,
+            system_instruction=SKILL_CREATOR_SYSTEM
+        )
+    except MissingProviderSDK as e:
+        console.print(f"[red]✗ {e}[/red]")
+        raise typer.Exit(1)
+    except ProviderNotConfigured as e:
+        console.print(f"[red]✗ {e}[/red]")
+        raise typer.Exit(1)
     except Exception as e:
-        console.print(f"[red]✗ Vertex AI not configured: {e}[/red]")
-        console.print("[dim]Run: dva init vertex-ai[/dim]")
+        console.print(f"[red]✗ LLM initialization failed: {e}[/red]")
         raise typer.Exit(1)
 
     # --- Generation + refine loop ---
@@ -551,16 +549,21 @@ def generate_skill(
 
     while True:
         console.print(Rule())
-        console.print(f"[dim]Generating with {model_name}...[/dim]")
+        console.print(f"[dim]Generating with {provider.get_name()}...[/dim]")
         console.print()
 
         try:
-            chunks = model.generate_content(user_prompt, stream=True)
+            import asyncio
+
+            # Use streaming API
             output_parts: list[str] = []
-            for chunk in chunks:
-                if chunk.text:
-                    console.print(chunk.text, end="")
-                    output_parts.append(chunk.text)
+
+            async def stream_generation():
+                async for chunk in provider.generate_streaming(user_prompt):
+                    console.print(chunk, end="", flush=True)
+                    output_parts.append(chunk)
+
+            asyncio.run(stream_generation())
             console.print()
             current_skill = "".join(output_parts).strip()
         except Exception as e:
