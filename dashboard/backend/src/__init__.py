@@ -1,1 +1,1 @@
-"""DVA Dashboard backend."""
+"""Agentic Dashboard backend."""
