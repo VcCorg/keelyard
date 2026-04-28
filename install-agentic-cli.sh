@@ -142,10 +142,10 @@ esac
 # Create alias function based on shell
 case "$SHELL_NAME" in
     bash|zsh)
-        ALIAS_COMMAND="alias dva='agent'"
+        ALIAS_COMMAND="alias dva='dva'"
         ;;
     fish)
-        ALIAS_COMMAND="alias dva 'agent'"
+        ALIAS_COMMAND="alias dva 'dva'"
         ;;
     *)
         ALIAS_COMMAND=""
@@ -180,11 +180,11 @@ fi
 log_header "Verification"
 
 # Test the installation
-if command -v agent &> /dev/null; then
-    AGENT_VERSION=$(agent --version 2>/dev/null || echo "unknown")
-    log_ok "agent command available: $AGENT_VERSION"
+if command -v dva &> /dev/null; then
+    DVA_VERSION=$(dva --version 2>/dev/null || echo "unknown")
+    log_ok "dva command available: $DVA_VERSION"
 else
-    log_error "agent command not found"
+    log_error "dva command not found"
     if [ "$INSTALL_TYPE" = "local" ]; then
         log_info "For local installation, activate the venv:"
         echo "  source $ROOT_DIR/agentic-cli/.venv/bin/activate"
@@ -203,8 +203,8 @@ if [ "$INSTALL_TYPE" = "local" ]; then
 fi
 
 echo "  2. Test the installation:"
-echo "     agent --version"
-echo "     agent --help"
+echo "     dva --version"
+echo "     dva --help"
 echo ""
 
 if [ $ALIAS_ADDED -eq 1 ]; then
