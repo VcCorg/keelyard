@@ -98,7 +98,7 @@ return {
 }
 ```
 
-### 3. Updated DVA CLI Display (kg.py Lines 788-798)
+### 3. Updated Agentic CLI Display (kg.py Lines 788-798)
 
 **Before:**
 ```python
@@ -168,7 +168,7 @@ status_table.add_row("✗ Failed", str(failed), style="red" if failed > 0 else "
 The server code has been updated, now restart the container:
 
 ```bash
-cd /Users/your-user/dva-agentic-project/lightrag-infrastructure
+cd /Users/your-user/agentic-project/lightrag-infrastructure
 docker restart dva-lightrag
 ```
 
@@ -195,11 +195,11 @@ You should now see:
 }
 ```
 
-### Step 3: Test DVA CLI
+### Step 3: Test Agentic CLI
 
 ```bash
-cd /Users/your-user/dva-agentic-project
-dva kg stats
+cd /Users/your-user/agentic-project
+`agent kg stats
 ```
 
 Expected output:
@@ -235,12 +235,12 @@ For future reference, LightRAG uses these status values:
 
 ## Files Modified
 
-1. **`/Users/your-user/dva-agentic-project/lightrag-infrastructure/scripts/server.py`**
+1. **`/Users/your-user/agentic-project/lightrag-infrastructure/scripts/server.py`**
    - Lines 409-416: Added `pending` to empty state response
    - Lines 423-429: Fixed status counting logic
    - Lines 444-450: Added `pending` to response schema
 
-2. **`/Users/your-user/dva-agentic-project/dva-agentic-cli/src/dva_agentic_cli/commands/kg.py`**
+2. **`/Users/your-user/agentic-project/agentic-cli/src/dva_agentic_cli/commands/kg.py`**
    - Lines 788-798: Added pending status display to CLI table
 
 ---

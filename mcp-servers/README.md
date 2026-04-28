@@ -1,11 +1,11 @@
-# DVA MCP Servers
+# Agentic MCP Servers
 
 Model Context Protocol (MCP) servers for AI code assistants. Provides Bitbucket, Jira, Confluence, Glean, and gateway services via SSE endpoints.
 
 ## Architecture
 
 ```
-dva-mcp-servers/
+mcp-servers/
 ├── bitbucket/          # Bitbucket Server PR review tools (port 8126)
 ├── glean/              # Glean enterprise search & AI assistants (port 8127)
 ├── jira/               # Jira Server issue tracking tools (port 8128)
@@ -94,6 +94,6 @@ docker compose ps
 
 ## Related Repos
 
-- [dva-agentic-cli](https://bitbucket.example.com/users/your-user/repos/dva-agentic-cli) — CLI tool that uses these MCP servers for agent workflows
+- [agentic-cli](https://bitbucket.example.com/users/your-user/repos/agentic-cli) — CLI tool that uses these MCP servers for agent workflows
 - [dva-agent-skills](https://bitbucket.example.com/users/your-user/repos/dva-agent-skills) — Skills registry with MCP-backed skills (jira, bitbucket, pr-reviewer)
 - [dva-agent-kg-infra](https://bitbucket.example.com/users/your-user/repos/dva-agent-kg-infra) — Knowledge Graph MCP server + Neo4j + LightRAG

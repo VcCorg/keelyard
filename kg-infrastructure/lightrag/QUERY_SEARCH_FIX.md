@@ -5,11 +5,11 @@
 The `dva kg query` and `dva kg search` commands were returning `None` even with valid data:
 
 ```bash
-$ dva kg query "patient banner"
+$ agent kg query "patient banner"
 ✓ Query executed (mode: hybrid)
 None  ← Should show results!
 
-$ dva kg search "banner"
+$ agent kg search "banner"
 ✓ Search completed
 None  ← Should show results!
 ```
@@ -95,7 +95,7 @@ llm_model_func = vertex_ai_wrapper
 ### Step 1: Restart LightRAG
 
 ```bash
-cd /Users/your-user/dva-agentic-project/lightrag-infrastructure
+cd /Users/your-user/agentic-project/lightrag-infrastructure
 docker restart dva-lightrag
 ```
 
@@ -107,8 +107,8 @@ curl http://localhost:8001/health
 ### Step 2: Test Query Command
 
 ```bash
-cd /Users/your-user/dva-agentic-project
-dva kg query "Pediatric Height & Weight Metrics"
+cd /Users/your-user/agentic-project
+`agent kg query "Pediatric Height & Weight Metrics"
 ```
 
 **Expected Output:**
@@ -121,7 +121,7 @@ dva kg query "Pediatric Height & Weight Metrics"
 ### Step 3: Test Search Command
 
 ```bash
-dva kg search "banner"
+`agent kg search "banner"
 ```
 
 **Expected Output:**
@@ -135,16 +135,16 @@ dva kg search "banner"
 
 ```bash
 # Local mode (focuses on specific entities)
-dva kg query "patient banner" --mode local
+`agent kg query "patient banner" --mode local
 
 # Global mode (high-level overview)
-dva kg query "clinical workflows" --mode global
+`agent kg query "clinical workflows" --mode global
 
 # Naive mode (simple keyword search)
-dva kg query "metrics" --mode naive
+`agent kg query "metrics" --mode naive
 
 # Hybrid mode (default, combines approaches)
-dva kg query "patient care" --mode hybrid
+`agent kg query "patient care" --mode hybrid
 ```
 
 ### Step 5: Verify No Errors in Logs
@@ -199,7 +199,7 @@ LightRAG supports different query modes:
 
 1. **Check if documents are fully processed:**
    ```bash
-   dva kg stats
+   agent kg stats
    ```
    Make sure "✓ Completed" count is > 0
 
@@ -238,13 +238,13 @@ If queries succeed but return empty results:
 
 1. **Documents may still be processing:**
    ```bash
-   dva kg stats
+   agent kg stats
    ```
    Wait for all documents to show "✓ Completed"
 
 2. **Try broader queries:**
    ```bash
-   dva kg query "patient" --mode naive
+   agent kg query "patient" --mode naive
    ```
 
 3. **Check what's actually in the graph:**
@@ -254,7 +254,7 @@ If queries succeed but return empty results:
 
 ## Files Modified
 
-1. **`/Users/your-user/dva-agentic-project/lightrag-infrastructure/scripts/server.py`**
+1. **`/Users/your-user/agentic-project/lightrag-infrastructure/scripts/server.py`**
    - Lines 81-94: Fixed Gemini wrapper with `.func` attribute
    - Lines 103-139: Fixed Vertex AI wrapper with `.func` attribute
 

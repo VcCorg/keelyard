@@ -82,7 +82,7 @@ fi
 # Test connection
 echo ""
 echo "Testing Neo4j connection..."
-if docker exec dva-neo4j cypher-shell -u neo4j -p password "RETURN 'Connection successful' as status" &> /dev/null; then
+if docker exec neo4j cypher-shell -u neo4j -p password "RETURN 'Connection successful' as status" &> /dev/null; then
     echo -e "${GREEN}✓ Neo4j connection successful${NC}"
 else
     echo -e "${RED}✗ Neo4j connection failed${NC}"
@@ -108,6 +108,6 @@ echo "  make restart - Restart Neo4j"
 echo "  make health  - Check health"
 echo ""
 echo "Next steps:"
-echo "  1. Configure DVA CLI: dva kg init --provider neo4j"
-echo "  2. Start ingesting data: dva kg ingest <source>"
+echo "  1. Configure Agentic CLI: agent kg init --provider neo4j"
+echo "  2. Start ingesting data: agent kg ingest <source>"
 echo ""

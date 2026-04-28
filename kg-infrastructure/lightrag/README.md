@@ -1,6 +1,6 @@
 # LightRAG Infrastructure
 
-Docker-based infrastructure for running LightRAG (Light Retrieval-Augmented Generation) as a knowledge graph service for the DVA Agentic platform.
+Docker-based infrastructure for running LightRAG (Light Retrieval-Augmented Generation) as a knowledge graph service for the Agentic platform.
 
 ## Overview
 
@@ -368,7 +368,7 @@ MAX_EMBED_TOKENS=8192   # Max tokens for embeddings
 - **Development**: nano-vectordb + networkx (fast, in-memory)
 - **Production**: Milvus + Neo4j (scalable, persistent)
 
-## Integration with DVA Agentic
+## Integration with Agentic
 
 LightRAG can be used as an alternative to Neo4j in the ADK agent template:
 
@@ -399,7 +399,7 @@ See the agent template documentation for more details.
 For issues and questions:
 - Check the logs: `make logs`
 - Review this README
-- Check the DVA Agentic documentation
+- Check the Agentic documentation
 
 ## License
 

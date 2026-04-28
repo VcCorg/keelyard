@@ -1,11 +1,11 @@
-# DVA Knowledge Graph Infrastructure
+# Agentic Knowledge Graph Infrastructure
 
-Docker-based infrastructure for the DVA Knowledge Graph system — Neo4j graph database, LightRAG retrieval-augmented generation, and KG MCP server.
+Docker-based infrastructure for the Agentic Knowledge Graph system — Neo4j graph database, LightRAG retrieval-augmented generation, and KG MCP server.
 
 ## Architecture
 
 ```
-dva-kg-infrastructure/
+kg-infrastructure/
 ├── kg-mcp/             # KG MCP server (port 8125) — exposes KG tools to AI assistants
 ├── neo4j/              # Neo4j graph database Docker setup (ports 7474, 7687)
 ├── lightrag/           # LightRAG service Docker setup (port 8001)
@@ -24,7 +24,7 @@ docker compose up -d
 cd lightrag
 docker compose up -d
 
-# Start KG MCP server (from dva-mcp-servers docker-compose or standalone)
+# Start KG MCP server (from mcp-servers docker-compose or standalone)
 cd kg-mcp
 docker compose up -d
 ```
@@ -52,24 +52,24 @@ Sample CWOW (Clinical Workflow) datasets in `data/`:
 - `docs/LIGHTRAG_DATA_VALIDATION.md` — LightRAG validation
 - `docs/INFRASTRUCTURE_VALIDATION_SUMMARY.md` — Infrastructure validation
 
-## Integration with dva CLI
+## Integration with agent CLI
 
 ```bash
 # Configure KG
-dva kg init --provider neo4j --uri bolt://localhost:7687
+`agent kg init --provider neo4j --uri bolt://localhost:7687
 
 # Ingest data
-dva kg ingest --path data/cwow/patient/
+`agent kg ingest --path data/cwow/patient/
 
 # Query
-dva kg query "Find all patients"
+`agent kg query "Find all patients"
 
 # Visualize
-dva kg visualize --output graph.html
+`agent kg visualize --output graph.html
 ```
 
 ## Related Repos
 
-- [dva-agentic-cli](https://bitbucket.example.com/users/your-user/repos/dva-agentic-cli) — CLI with `dva kg` commands for KG operations
+- [agentic-cli](https://bitbucket.example.com/users/your-user/repos/agentic-cli) — CLI with `dva kg` commands for KG operations
 - [dva-agent-mcp-servers](https://bitbucket.example.com/users/your-user/repos/dva-agent-mcp-servers) — MCP docker-compose references kg-mcp for unified stack
 - [dva-agent-skills](https://bitbucket.example.com/users/your-user/repos/dva-agent-skills) — Skills registry with database-spanner and other data skills

@@ -269,7 +269,7 @@ enhanced_text = f"From the code/developer perspective: {search_text}"
 
 **Query:**
 ```bash
-dva kg query "patient authentication" --persona developer
+`agent kg query "patient authentication" --persona developer
 ```
 
 **Neo4j:**
@@ -286,7 +286,7 @@ dva kg query "patient authentication" --persona developer
 
 **Query:**
 ```bash
-dva kg query "patient authentication"
+`agent kg query "patient authentication"
 ```
 
 **Neo4j:**
@@ -342,7 +342,7 @@ After ingestion, check a document's metadata:
 
 ```python
 # For LightRAG
-dva kg search "patient" --persona developer
+`agent kg search "patient" --persona developer
 
 # Should return documents with persona="developer" in metadata
 ```
@@ -365,7 +365,7 @@ MATCH (n) RETURN n.persona, count(*) as count
 ### Check LightRAG Stats
 
 ```bash
-dva kg stats
+`agent kg stats
 
 # Should show entities with developer persona
 ```

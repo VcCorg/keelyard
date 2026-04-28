@@ -17,13 +17,13 @@ Query the knowledge graph with natural language or Cypher, filtered by persona.
 **Usage:**
 ```bash
 # Query all contexts (no filter)
-dva kg query "patient authentication"
+`agent kg query "patient authentication"
 
 # Query only code/developer context
-dva kg query "patient authentication" --persona developer
+`agent kg query "patient authentication" --persona developer
 
 # Query only docs/business context
-dva kg query "patient authentication" --persona business
+`agent kg query "patient authentication" --persona business
 ```
 
 **Query modes (LightRAG):**
@@ -35,13 +35,13 @@ dva kg query "patient authentication" --persona business
 **Examples:**
 ```bash
 # Find authentication functions in code
-dva kg query "authentication functions" --persona developer --mode local
+`agent kg query "authentication functions" --persona developer --mode local
 
 # Find authentication requirements in docs
-dva kg query "authentication requirements" --persona business --mode hybrid
+`agent kg query "authentication requirements" --persona business --mode hybrid
 
 # Find all patient-related entities (both code and docs)
-dva kg query "patient" --limit 20
+`agent kg query "patient" --limit 20
 ```
 
 ### 2. Search Command (`dva kg search`)
@@ -51,13 +51,13 @@ Semantic search across the knowledge graph, filtered by persona.
 **Usage:**
 ```bash
 # Search all contexts (no filter)
-dva kg search "patient"
+`agent kg search "patient"
 
 # Search only code/developer context
-dva kg search "patient" --persona developer
+`agent kg search "patient" --persona developer
 
 # Search only docs/business context
-dva kg search "patient" --persona business
+`agent kg search "patient" --persona business
 ```
 
 **Search options:**
@@ -68,13 +68,13 @@ dva kg search "patient" --persona business
 **Examples:**
 ```bash
 # Find patient-related code
-dva kg search "patient status filter" --persona developer --limit 20
+`agent kg search "patient status filter" --persona developer --limit 20
 
 # Find patient-related documentation
-dva kg search "patient eligibility" --persona business
+`agent kg search "patient eligibility" --persona business
 
 # Exact match search in code
-dva kg search "PatientModel" --persona developer --exact
+`agent kg search "PatientModel" --persona developer --exact
 ```
 
 ## How Persona Filtering Works
@@ -85,10 +85,10 @@ When data is ingested, it's tagged with a persona based on the source type:
 
 ```bash
 # Git repositories → developer persona
-dva kg ingest --source backend-repo  # Auto-tagged as "developer"
+`agent kg ingest --source backend-repo  # Auto-tagged as "developer"
 
 # Documents/PDFs → business persona
-dva kg ingest --path /docs/requirements.pdf  # Auto-tagged as "business"
+`agent kg ingest --path /docs/requirements.pdf  # Auto-tagged as "business"
 ```
 
 **Persona assignment:**
@@ -118,7 +118,7 @@ This guides the LLM and vector search to focus on the relevant context.
 
 ### Query Command with Persona
 
-```@/Users/your-user/dva-agentic-project/dva-agentic-cli/src/dva_agentic_cli/commands/kg.py#723:735
+```@/Users/your-user/agentic-project/agentic-cli/src/dva_agentic_cli/commands/kg.py#723:735
 # Add persona context to LightRAG query
 enhanced_query = query_text
 if persona:
@@ -135,7 +135,7 @@ result = client.query(enhanced_query, mode=mode, top_k=limit)
 
 ### Search Command with Persona
 
-```@/Users/your-user/dva-agentic-project/dva-agentic-cli/src/dva_agentic_cli/commands/kg.py#846:857
+```@/Users/your-user/agentic-project/agentic-cli/src/dva_agentic_cli/commands/kg.py#846:857
 # Add persona context to LightRAG search
 enhanced_text = text
 if persona:
@@ -157,13 +157,13 @@ result = client.search(enhanced_text, top_k=limit)
 **Find implementation details:**
 ```bash
 # Find patient model classes
-dva kg search "patient model" --persona developer
+`agent kg search "patient model" --persona developer
 
 # Find authentication functions
-dva kg query "authentication implementation" --persona developer
+`agent kg query "authentication implementation" --persona developer
 
 # Find database schema
-dva kg search "database schema" --persona developer --limit 30
+`agent kg search "database schema" --persona developer --limit 30
 ```
 
 ### 2. Documentation Review (Business Persona)
@@ -171,13 +171,13 @@ dva kg search "database schema" --persona developer --limit 30
 **Find requirements and specifications:**
 ```bash
 # Find patient requirements
-dva kg search "patient requirements" --persona business
+`agent kg search "patient requirements" --persona business
 
 # Find authentication policies
-dva kg query "authentication policy" --persona business
+`agent kg query "authentication policy" --persona business
 
 # Find API documentation
-dva kg search "API endpoints" --persona business
+`agent kg search "API endpoints" --persona business
 ```
 
 ### 3. Cross-Context Analysis (No Persona)
@@ -185,13 +185,13 @@ dva kg search "API endpoints" --persona business
 **Find information across both code and docs:**
 ```bash
 # Find all patient-related information
-dva kg query "patient" --limit 50
+`agent kg query "patient" --limit 50
 
 # Find authentication across code and docs
-dva kg search "authentication" --limit 30
+`agent kg search "authentication" --limit 30
 
 # Compare implementation vs requirements
-dva kg query "authentication requirements and implementation"
+`agent kg query "authentication requirements and implementation"
 ```
 
 ## Best Practices
@@ -200,46 +200,46 @@ dva kg query "authentication requirements and implementation"
 
 ```bash
 # ✅ Good: Specific context
-dva kg search "PatientModel class" --persona developer
+`agent kg search "PatientModel class" --persona developer
 
 # ❌ Less effective: Wrong context
-dva kg search "PatientModel class" --persona business
+`agent kg search "PatientModel class" --persona business
 ```
 
 ### 2. Omit Persona for Exploratory Queries
 
 ```bash
 # ✅ Good: Explore all contexts
-dva kg query "patient authentication"
+`agent kg query "patient authentication"
 
 # Then drill down with persona
-dva kg query "patient authentication" --persona developer
+`agent kg query "patient authentication" --persona developer
 ```
 
 ### 3. Combine with Other Options
 
 ```bash
 # Search code with high result count
-dva kg search "patient" --persona developer --limit 50
+`agent kg search "patient" --persona developer --limit 50
 
 # Query docs with specific mode
-dva kg query "requirements" --persona business --mode global
+`agent kg query "requirements" --persona business --mode global
 
 # Exact match in code
-dva kg search "class PatientModel" --persona developer --exact
+`agent kg search "class PatientModel" --persona developer --exact
 ```
 
 ### 4. Adjust Limit Based on Graph Size
 
 ```bash
 # Small graphs (<1000 entities)
-dva kg search "patient" --persona developer --limit 10
+`agent kg search "patient" --persona developer --limit 10
 
 # Medium graphs (1000-5000 entities)
-dva kg search "patient" --persona developer --limit 30
+`agent kg search "patient" --persona developer --limit 30
 
 # Large graphs (>5000 entities)
-dva kg search "patient" --persona developer --limit 50
+`agent kg search "patient" --persona developer --limit 50
 ```
 
 ## Troubleshooting
@@ -251,12 +251,12 @@ dva kg search "patient" --persona developer --limit 50
 **Solution:**
 1. Check if data was ingested with the correct persona:
    ```bash
-   dva kg stats  # Check entity counts
+   agent kg stats  # Check entity counts
    ```
 
 2. Try without persona filter first:
    ```bash
-   dva kg search "patient"  # See if results exist
+   agent kg search "patient"  # See if results exist
    ```
 
 3. Verify persona assignment during ingestion:
@@ -270,21 +270,21 @@ dva kg search "patient" --persona developer --limit 50
 **Solution:**
 1. Increase timeout:
    ```bash
-   dva kg init --provider lightrag --lightrag-timeout 600
+   agent kg init --provider lightrag --lightrag-timeout 600
    ```
 
 2. Reduce result limit:
    ```bash
-   dva kg search "patient" --persona developer --limit 5
+   agent kg search "patient" --persona developer --limit 5
    ```
 
 3. Use more specific queries:
    ```bash
    # ✅ Specific
-   dva kg search "PatientModel class methods" --persona developer
+   agent kg search "PatientModel class methods" --persona developer
    
    # ❌ Too broad
-   dva kg search "patient" --persona developer
+   agent kg search "patient" --persona developer
    ```
 
 ## Files Modified

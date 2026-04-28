@@ -1,10 +1,10 @@
-# DVA Agent Tools
+# Agentic Agent Tools
 
-A comprehensive collection of reusable tools for DVA agents, supporting integrations, data processing, AI utilities, and mathematical calculations.
+A comprehensive collection of reusable tools for Agentic agents, supporting integrations, data processing, AI utilities, and mathematical calculations.
 
 ## Overview
 
-This repository contains agent tools that can be used with the DVA Agentic CLI to extend agent capabilities. Tools are organized by category and designed to be easily integrated into any agent project.
+This repository contains agent tools that can be used with the Agentic CLI to extend agent capabilities. Tools are organized by category and designed to be easily integrated into any agent project.
 
 ## Available Tools
 
@@ -15,7 +15,7 @@ This repository contains agent tools that can be used with the DVA Agentic CLI t
 - **Description**: Tool for integrating with Jira for issue tracking, project management, and workflow automation
 - **Features**: Issue creation, search, comments, transitions, project management
 - **Dependencies**: jira>=3.1.0, requests>=2.31.0, pydantic>=2.0.0
-- **Author**: DVA Team
+- **Author**: Agentic Team
 - **Version**: 1.1.0
 
 #### Slack Integration (`slack-integration`)
@@ -23,7 +23,7 @@ This repository contains agent tools that can be used with the DVA Agentic CLI t
 - **Description**: Tool for integrating with Slack for team communication, notifications, and bot interactions
 - **Features**: Message sending, channel management, user interactions, webhooks
 - **Dependencies**: slack-sdk>=3.21.0, requests>=2.31.0, pydantic>=2.0.0
-- **Author**: DVA Team
+- **Author**: Agentic Team
 - **Version**: 1.0.0
 
 #### Confluence Integration (`confluence-integration`)
@@ -31,7 +31,7 @@ This repository contains agent tools that can be used with the DVA Agentic CLI t
 - **Description**: Tool for integrating with Confluence for documentation management and wiki operations
 - **Features**: Page creation, updates, search, space management, content conversion
 - **Dependencies**: atlassian-python-api>=3.41.0, requests>=2.31.0, pydantic>=2.0.0
-- **Author**: DVA Team
+- **Author**: Agentic Team
 - **Version**: 1.0.0
 
 ### Data Processing Tools
@@ -41,7 +41,7 @@ This repository contains agent tools that can be used with the DVA Agentic CLI t
 - **Description**: Tool for processing and extracting content from PDF files with text, images, and metadata extraction
 - **Features**: Text extraction, image extraction, metadata parsing, OCR support
 - **Dependencies**: PyPDF2>=3.0.0, pymupdf>=1.23.0, pillow>=10.0.0
-- **Author**: DVA Team
+- **Author**: Agentic Team
 - **Version**: 2.0.0
 
 #### CSV Data Processor (`csv-processor`)
@@ -49,7 +49,7 @@ This repository contains agent tools that can be used with the DVA Agentic CLI t
 - **Description**: Tool for processing CSV files with data validation, transformation, and analysis capabilities
 - **Features**: Data validation, transformation, analysis, Excel export
 - **Dependencies**: pandas>=2.0.0, numpy>=1.24.0, openpyxl>=3.1.0
-- **Author**: DVA Team
+- **Author**: Agentic Team
 - **Version**: 1.2.0
 
 #### JSON Data Processor (`json-processor`)
@@ -57,7 +57,7 @@ This repository contains agent tools that can be used with the DVA Agentic CLI t
 - **Description**: Tool for processing JSON files with schema validation, transformation, and querying capabilities
 - **Features**: Schema validation, transformation, JMESPath querying, pretty printing
 - **Dependencies**: jsonschema>=4.17.0, pydantic>=2.0.0, jmespath>=1.0.0
-- **Author**: DVA Team
+- **Author**: Agentic Team
 - **Version**: 1.1.0
 
 ### AI Utility Tools
@@ -67,7 +67,7 @@ This repository contains agent tools that can be used with the DVA Agentic CLI t
 - **Description**: AI-powered text analysis tool for sentiment analysis, entity extraction, and language processing
 - **Features**: Sentiment analysis, entity extraction, language detection, text classification
 - **Dependencies**: transformers>=4.30.0, torch>=2.0.0, spacy>=3.7.0
-- **Author**: DVA Team
+- **Author**: Agentic Team
 - **Version**: 1.3.0
 
 #### Text Summarizer (`summarizer`)
@@ -75,7 +75,7 @@ This repository contains agent tools that can be used with the DVA Agentic CLI t
 - **Description**: AI-powered text summarization tool for extractive and abstractive summarization
 - **Features**: Extractive summarization, abstractive summarization, length control
 - **Dependencies**: transformers>=4.30.0, torch>=2.0.0, sentence-transformers>=2.2.0
-- **Author**: DVA Team
+- **Author**: Agentic Team
 - **Version**: 1.2.0
 
 #### Text Translator (`translator`)
@@ -83,7 +83,7 @@ This repository contains agent tools that can be used with the DVA Agentic CLI t
 - **Description**: AI-powered text translation tool supporting multiple languages and translation models
 - **Features**: Multi-language support, model selection, batch translation
 - **Dependencies**: transformers>=4.30.0, torch>=2.0.0, sentencepiece>=0.1.0
-- **Author**: DVA Team
+- **Author**: Agentic Team
 - **Version**: 1.1.0
 
 ### Calculator Tools
@@ -93,7 +93,7 @@ This repository contains agent tools that can be used with the DVA Agentic CLI t
 - **Description**: Basic calculator tool for arithmetic operations and mathematical functions
 - **Features**: Arithmetic operations, basic functions, unit conversion
 - **Dependencies**: numpy>=1.24.0, sympy>=1.12.0
-- **Author**: DVA Team
+- **Author**: Agentic Team
 - **Version**: 1.0.0
 
 #### Scientific Calculator (`scientific-calculator`)
@@ -101,53 +101,53 @@ This repository contains agent tools that can be used with the DVA Agentic CLI t
 - **Description**: Advanced scientific calculator with complex mathematical operations and scientific functions
 - **Features**: Advanced functions, symbolic computation, statistical analysis
 - **Dependencies**: numpy>=1.24.0, sympy>=1.12.0, scipy>=1.10.0
-- **Author**: DVA Team
+- **Author**: Agentic Team
 - **Version**: 1.1.0
 
 ## Usage
 
 ### Prerequisites
 
-1. Install the DVA Agentic CLI:
+1. Install the Agentic CLI:
    ```bash
-   pip install dva-agentic-cli
+   pip install agentic-cli
    ```
 
 2. Configure the registry:
    ```bash
-   dva agent-tool registry add https://bitbucket.example.com/scm/~your-user/dva-agent-tools.git
+   agent agent-tool registry add https://bitbucket.example.com/scm/~your-user/agent-tools.git
    ```
 
 ### Using Tools
 
 #### List Available Tools
 ```bash
-dva agent-tool list
-dva agent-tool list --category integrations
-dva agent-tool list --tag jira
+`agent agent-tool list
+`agent agent-tool list --category integrations
+`agent agent-tool list --tag jira
 ```
 
 #### Show Tool Details
 ```bash
-dva agent-tool show jira-integration
+`agent agent-tool show jira-integration
 ```
 
 #### Install Tools in Project
 ```bash
 # Install single tool
-dva agent-tool install jira-integration --target ./my-agent/src/tools
+`agent agent-tool install jira-integration --target ./my-agent/src/tools
 
 # Install multiple tools
-dva agent-tool install jira-integration --target ./my-agent/src/tools
-dva agent-tool install slack-integration --target ./my-agent/src/tools
+`agent agent-tool install jira-integration --target ./my-agent/src/tools
+`agent agent-tool install slack-integration --target ./my-agent/src/tools
 
 # Install tools during project creation
-dva project create my-agent --agent-tools jira-integration,slack-integration
+`agent project create my-agent --agent-tools jira-integration,slack-integration
 ```
 
 #### Show Tool Dependencies
 ```bash
-dva agent-tool dependencies jira-integration
+`agent agent-tool dependencies jira-integration
 ```
 
 ### Tool Categories
@@ -329,8 +329,8 @@ OPENAI_API_KEY=your-openai-key
 
 1. Clone the repository:
    ```bash
-   git clone https://bitbucket.example.com/scm/~your-user/dva-agent-tools.git
-   cd dva-agent-tools
+   git clone https://bitbucket.example.com/scm/~your-user/agent-tools.git
+   cd agent-tools
    ```
 
 2. Install dependencies:
@@ -373,9 +373,9 @@ class TestJiraIntegrationTool:
 
 ## Support
 
-- **Documentation**: [DVA Agentic CLI Documentation](https://docs.dva.com)
-- **Issues**: [GitHub Issues](https://github.com/dva/dva-agent-tools/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/dva/dva-agent-tools/discussions)
+- **Documentation**: [Agentic CLI Documentation](https://docs.dva.com)
+- **Issues**: [GitHub Issues](https://github.com/dva/agent-tools/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/dva/agent-tools/discussions)
 
 ## License
 

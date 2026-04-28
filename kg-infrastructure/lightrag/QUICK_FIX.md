@@ -15,7 +15,7 @@ LightRAG was trying to use **Gemini API** with **Vertex AI credentials**, which 
 Since you already have `LLM_PROVIDER=vertex_ai` configured, just restart:
 
 ```bash
-cd /Users/your-user/dva-agentic-project/lightrag-infrastructure
+cd /Users/your-user/agentic-project/lightrag-infrastructure
 make restart
 ```
 

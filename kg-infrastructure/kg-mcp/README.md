@@ -31,7 +31,7 @@ MCP Server Container (dva-kg-mcp)
 
 - Docker and Docker Compose installed
 - Neo4j or LightRAG running (or use full stack mode)
-- DVA CLI configured (`dva kg init`)
+- Agentic CLI configured (`dva kg init`)
 
 ### Installation
 
@@ -262,14 +262,14 @@ kg-mcp-infrastructure/
     ├── requirements.txt
     └── src/
         ├── mcp_server.py       # Main MCP server
-        └── kg/                 # KG modules (mounted at runtime from ../dva-agentic-cli)
+        └── kg/                 # KG modules (mounted at runtime from ../agentic-cli)
             ├── query.py        # ↓ Volume mounted from CLI
             ├── search.py       # ↓ Changes reflected on restart
             ├── neo4j_client.py # ↓ No rebuild needed
             └── lightrag_client.py
 ```
 
-**Note**: KG modules are **volume-mounted at runtime** from `../dva-agentic-cli/src/dva_agentic_cli/kg/`. 
+**Note**: KG modules are **volume-mounted at runtime** from `../agentic-cli/src/dva_agentic_cli/kg/`. 
 This means:
 - ✅ Code changes in CLI are immediately reflected after container restart
 - ✅ No need to rebuild Docker image for KG module changes
@@ -279,11 +279,11 @@ This means:
 
 #### Making Changes to KG Code
 
-Since KG modules are volume-mounted from `dva-agentic-cli`, changes are reflected immediately:
+Since KG modules are volume-mounted from `agentic-cli`, changes are reflected immediately:
 
 ```bash
 # 1. Edit KG code in CLI
-cd ../dva-agentic-cli/src/dva_agentic_cli/kg
+cd ../agentic-cli/src/dva_agentic_cli/kg
 nano query.py  # Make your changes
 
 # 2. Restart MCP container (no rebuild needed!)
@@ -459,5 +459,5 @@ See main DVA project for license information.
 ## Support
 
 - **Issues**: GitHub Issues
-- **Documentation**: [DVA CLI Docs](../dva-agentic-cli/README.md)
-- **Knowledge Graph**: [KG Documentation](../dva-agentic-cli/docs/KNOWLEDGE_GRAPH.md)
+- **Documentation**: [Agentic CLI Docs](../agentic-cli/README.md)
+- **Knowledge Graph**: [KG Documentation](../agentic-cli/docs/KNOWLEDGE_GRAPH.md)

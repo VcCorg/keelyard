@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "basic-agent"
 version = "0.1.0"
 description = "Basic agent using Google ADK framework"
-authors = [{name = "DVA Team", email = "team@dva.com"}]
+authors = [{name = "Agentic Team", email = "team@dva.com"}]
 license = {text = "MIT"}
 readme = "README.md"
 requires-python = ">=3.10"

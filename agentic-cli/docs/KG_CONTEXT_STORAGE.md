@@ -53,7 +53,7 @@ Graph before acting on any coding task.
 ### Light Mode (`--kg`)
 
 ```bash
-dva code onboard --path ./repo --kg
+`agent code onboard --path ./repo --kg
 ```
 
 - Generates `kg-context.md` from `ProjectAnalysis`
@@ -66,7 +66,7 @@ dva code onboard --path ./repo --kg
 ### Full Mode (`--kg --extract-entities`)
 
 ```bash
-dva code onboard --path ./repo --kg --extract-entities
+`agent code onboard --path ./repo --kg --extract-entities
 ```
 
 - Everything in light mode, **plus**:
@@ -103,13 +103,13 @@ skill_md = (project / ".skills/project-context/SKILL.md").read_text()
 
 ```bash
 # List all registered sources
-dva data list
+`agent data list
 
 # Show details for a project's context source
-dva data show onboard-my-repo
+`agent data show onboard-my-repo
 
 # Re-ingest after changes
-dva kg ingest submit --source onboard-my-repo
+`agent kg ingest submit --source onboard-my-repo
 ```
 
 ### From Knowledge Graph (via KG MCP tools)
@@ -134,13 +134,13 @@ get_entity_details(entity_name="PatientService")
 
 ```bash
 # Query the KG directly
-dva kg query "architecture of my-repo"
+`agent kg query "architecture of my-repo"
 
 # Semantic search
-dva kg search "database patterns" --semantic
+`agent kg search "database patterns" --semantic
 
 # Check what's in the KG
-dva kg stats
+`agent kg stats
 ```
 
 ---
@@ -151,24 +151,24 @@ dva kg stats
 
 ```bash
 # Verify onboarding + KG context
-dva code validate --path ./my-repo
+`agent code validate --path ./my-repo
 # → Shows "KG Context: ✓ Prepared" if kg-context.md exists
 
 # Check data source registration
-dva data show onboard-my-repo
+`agent data show onboard-my-repo
 
 # Check LightRAG availability
-dva kg check --provider lightrag
+`agent kg check --provider lightrag
 ```
 
 ### Verify ingestion
 
 ```bash
 # Search for ingested content
-dva kg search "my-repo tech stack"
+`agent kg search "my-repo tech stack"
 
 # Check KG stats
-dva kg stats
+`agent kg stats
 ```
 
 ---
@@ -199,7 +199,7 @@ This works across all IDEs that read `.skills/*/SKILL.md`:
 ## Data Flow Diagram
 
 ```
-dva code onboard --path ./repo --kg
+`agent code onboard --path ./repo --kg
          │
          ├─ Step 3: analyze_project()
          │           → ProjectAnalysis object
@@ -247,10 +247,10 @@ To clean up and re-ingest:
 
 ```bash
 # Remove data source
-dva data delete onboard-my-repo --yes
+`agent data delete onboard-my-repo --yes
 
 # Clear LightRAG data (caution: clears entire workspace)
-dva kg workspace clear default
+`agent kg workspace clear default
 ```
 
 ---

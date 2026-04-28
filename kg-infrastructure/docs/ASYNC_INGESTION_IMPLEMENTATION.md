@@ -50,32 +50,32 @@ completed = manager.wait_for_job(job.job_id, timeout=3600)
 #### `dva kg async submit`
 Submit ingestion job for background processing
 ```bash
-dva kg async submit --path /docs --provider both
-dva kg async submit --source my-dataset --wait
+`agent kg async submit --path /docs --provider both
+`agent kg async submit --source my-dataset --wait
 ```
 
 #### `dva kg async status`
 Check job status and progress
 ```bash
-dva kg async status <job-id> --verbose
+`agent kg async status <job-id> --verbose
 ```
 
 #### `dva kg async list`
 List all jobs with filtering
 ```bash
-dva kg async list --status running --limit 50
+`agent kg async list --status running --limit 50
 ```
 
 #### `dva kg async cancel`
 Cancel pending or running job
 ```bash
-dva kg async cancel <job-id>
+`agent kg async cancel <job-id>
 ```
 
 #### `dva kg async cleanup`
 Remove old completed/failed jobs
 ```bash
-dva kg async cleanup --days 7 --force
+`agent kg async cleanup --days 7 --force
 ```
 
 ---
@@ -152,7 +152,7 @@ ThreadPoolExecutor (4 workers)
 ## File Structure
 
 ```
-dva-agentic-cli/
+agentic-cli/
 ├── src/dva_agentic_cli/
 │   ├── kg/
 │   │   ├── async_ingest.py          # NEW: Core async module
@@ -176,37 +176,37 @@ dva-agentic-cli/
 
 ```bash
 # Submit job and continue working
-dva kg async submit --source cwow-patient-docs --provider lightrag
+`agent kg async submit --source cwow-patient-docs --provider lightrag
 
 # Job ID: abc123-def456
-# Track progress with: dva kg async status abc123-def456
+# Track progress with: agent kg async status abc123-def456
 
 # Continue using CLI immediately
-dva kg query "patient status"
+`agent kg query "patient status"
 
 # Check status later
-dva kg async status abc123-def456
+`agent kg async status abc123-def456
 ```
 
 ### Example 2: Parallel Multi-Repo Ingestion
 
 ```bash
 # Submit multiple repos in parallel
-dva kg async submit --source backend-repo --provider both
-dva kg async submit --source frontend-repo --provider both
-dva kg async submit --source api-docs --provider lightrag
+`agent kg async submit --source backend-repo --provider both
+`agent kg async submit --source frontend-repo --provider both
+`agent kg async submit --source api-docs --provider lightrag
 
 # All jobs run concurrently (up to 4 at once)
 
 # Monitor progress
-dva kg async list --status running
+`agent kg async list --status running
 ```
 
 ### Example 3: Wait for Completion
 
 ```bash
 # Submit and block until done
-dva kg async submit --path /large-dataset --provider both --wait
+`agent kg async submit --path /large-dataset --provider both --wait
 
 # CLI waits and shows results when complete
 ```
@@ -278,7 +278,7 @@ manager.wait_for_job(job_id, timeout=7200)  # 2 hours
 ### Run Validation
 
 ```bash
-cd dva-agentic-cli
+cd agentic-cli
 python scripts/validate_concurrent_ingestion.py
 ```
 
@@ -296,19 +296,19 @@ python scripts/validate_concurrent_ingestion.py
 
 ```bash
 # Test async submission
-dva kg async submit --path /tmp/test.txt --provider lightrag
+`agent kg async submit --path /tmp/test.txt --provider lightrag
 
 # Test status check
-dva kg async status <job-id>
+`agent kg async status <job-id>
 
 # Test listing
-dva kg async list
+`agent kg async list
 
 # Test cancellation
-dva kg async cancel <job-id>
+`agent kg async cancel <job-id>
 
 # Test cleanup
-dva kg async cleanup --days 1 --force
+`agent kg async cleanup --days 1 --force
 ```
 
 ---
@@ -344,10 +344,10 @@ dva kg async cleanup --days 1 --force
 
 ```bash
 # Check error
-dva kg async status <job-id> --verbose
+`agent kg async status <job-id> --verbose
 
 # Resubmit if needed
-dva kg async submit --source <source> --provider <provider>
+`agent kg async submit --source <source> --provider <provider>
 ```
 
 ---

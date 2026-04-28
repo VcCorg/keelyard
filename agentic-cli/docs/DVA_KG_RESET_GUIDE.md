@@ -12,7 +12,7 @@ This guide covers how to reset/clear ingested data in the DVA Knowledge Graph sy
 
 **Command:**
 ```bash
-dva kg config --reset
+`agent kg config --reset
 ```
 
 **What it does:**
@@ -172,16 +172,16 @@ I can implement a new `dva kg clear` command that handles both providers:
 **Command:**
 ```bash
 # Clear LightRAG data
-dva kg clear --provider lightrag
+`agent kg clear --provider lightrag
 
 # Clear Neo4j data
-dva kg clear --provider neo4j
+`agent kg clear --provider neo4j
 
 # Clear both (if configured)
-dva kg clear --all
+`agent kg clear --all
 
 # With confirmation prompt
-dva kg clear --provider lightrag --yes
+`agent kg clear --provider lightrag --yes
 ```
 
 **Features:**
@@ -237,7 +237,7 @@ MATCH (n) DETACH DELETE n
 
 ```bash
 # See what you're about to delete
-dva kg stats
+`agent kg stats
 ```
 
 **Output example:**
@@ -273,7 +273,7 @@ Instead of clearing everything, re-ingest specific sources:
 
 ```bash
 # Re-ingest specific data source
-dva kg async submit --source cwow-patient-model --provider lightrag
+`agent kg async submit --source cwow-patient-model --provider lightrag
 
 # This will add/update data (may create duplicates in LightRAG)
 ```
@@ -284,11 +284,11 @@ dva kg async submit --source cwow-patient-model --provider lightrag
 
 ```bash
 # Test ingestion with small dataset
-dva kg ingest --path /path/to/small-test.pdf --provider lightrag
+`agent kg ingest --path /path/to/small-test.pdf --provider lightrag
 
 # Check results
-dva kg stats
-dva kg search "test query"
+`agent kg stats
+`agent kg search "test query"
 
 # If good, clear and ingest full dataset
 ```
@@ -300,7 +300,7 @@ dva kg search "test query"
 ### 1. Clear Command
 
 ```bash
-dva kg clear [OPTIONS]
+`agent kg clear [OPTIONS]
 
 Options:
   --provider TEXT        Provider to clear (neo4j, lightrag, both)  [required]
@@ -314,25 +314,25 @@ Options:
 **Examples:**
 ```bash
 # Clear all LightRAG data (with confirmation)
-dva kg clear --provider lightrag
+`agent kg clear --provider lightrag
 
 # Clear without confirmation
-dva kg clear --provider lightrag --yes
+`agent kg clear --provider lightrag --yes
 
 # Clear with backup
-dva kg clear --provider lightrag --backup
+`agent kg clear --provider lightrag --backup
 
 # Clear only developer persona
-dva kg clear --provider lightrag --persona developer
+`agent kg clear --provider lightrag --persona developer
 
 # Clear specific data source
-dva kg clear --provider lightrag --source cwow-patient-model
+`agent kg clear --provider lightrag --source cwow-patient-model
 ```
 
 ### 2. Backup Command
 
 ```bash
-dva kg backup [OPTIONS]
+`agent kg backup [OPTIONS]
 
 Options:
   --provider TEXT       Provider to backup (neo4j, lightrag, both)  [required]
@@ -343,16 +343,16 @@ Options:
 **Examples:**
 ```bash
 # Backup LightRAG data
-dva kg backup --provider lightrag --output ./backups/lightrag-backup.tar.gz
+`agent kg backup --provider lightrag --output ./backups/lightrag-backup.tar.gz
 
 # Backup Neo4j data
-dva kg backup --provider neo4j --output ./backups/neo4j-backup.dump
+`agent kg backup --provider neo4j --output ./backups/neo4j-backup.dump
 ```
 
 ### 3. Restore Command
 
 ```bash
-dva kg restore [OPTIONS]
+`agent kg restore [OPTIONS]
 
 Options:
   --provider TEXT       Provider to restore (neo4j, lightrag)  [required]
@@ -364,10 +364,10 @@ Options:
 **Examples:**
 ```bash
 # Restore LightRAG data
-dva kg restore --provider lightrag --input ./backups/lightrag-backup.tar.gz
+`agent kg restore --provider lightrag --input ./backups/lightrag-backup.tar.gz
 
 # Restore Neo4j data
-dva kg restore --provider neo4j --input ./backups/neo4j-backup.dump
+`agent kg restore --provider neo4j --input ./backups/neo4j-backup.dump
 ```
 
 ---

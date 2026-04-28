@@ -2,7 +2,7 @@
 
 ## Change Summary
 
-**Original Approach**: Copy KG modules from `dva-agentic-cli` into Docker image at build time
+**Original Approach**: Copy KG modules from `agentic-cli` into Docker image at build time
 
 **New Approach**: Mount KG modules at runtime using Docker volumes
 
@@ -16,7 +16,7 @@
 
 ### Benefits of Volume Mount
 - ✅ Code changes reflected after restart (~5 seconds)
-- ✅ Single source of truth in `dva-agentic-cli`
+- ✅ Single source of truth in `agentic-cli`
 - ✅ No sync issues
 - ✅ Faster development workflow
 - ✅ Edit → Restart → Test (not Edit → Rebuild → Restart → Test)
@@ -27,7 +27,7 @@
 
 **Before**:
 ```bash
-cp -r dva-agentic-cli/src/dva_agentic_cli/kg/*.py kg-mcp-infrastructure/mcp-server/src/kg/
+cp -r agentic-cli/src/dva_agentic_cli/kg/*.py kg-mcp-infrastructure/mcp-server/src/kg/
 ```
 
 **After**:
@@ -42,7 +42,7 @@ rm -rf kg-mcp-infrastructure/mcp-server/src/kg
 ```yaml
 volumes:
   # Mount KG modules from CLI (runtime - reflects code changes)
-  - ../dva-agentic-cli/src/dva_agentic_cli/kg:/app/src/kg:ro
+  - ../agentic-cli/src/dva_agentic_cli/kg:/app/src/kg:ro
 ```
 
 **Applied to**:
@@ -81,7 +81,7 @@ RUN mkdir -p /root/.dva-agentic /app/src/kg
 
 ```bash
 # 1. Edit KG code in CLI
-cd dva-agentic-cli/src/dva_agentic_cli/kg
+cd agentic-cli/src/dva_agentic_cli/kg
 nano query.py  # Make your changes
 
 # 2. Restart MCP container (no rebuild!)
@@ -116,11 +116,11 @@ services:
   kg-mcp-server:
     volumes:
       # Read-only mount from host to container
-      - ../dva-agentic-cli/src/dva_agentic_cli/kg:/app/src/kg:ro
+      - ../agentic-cli/src/dva_agentic_cli/kg:/app/src/kg:ro
 ```
 
 **Breakdown**:
-- **Source**: `../dva-agentic-cli/src/dva_agentic_cli/kg` (host)
+- **Source**: `../agentic-cli/src/dva_agentic_cli/kg` (host)
 - **Target**: `/app/src/kg` (container)
 - **Mode**: `:ro` (read-only)
 
@@ -128,8 +128,8 @@ services:
 
 **Host Machine**:
 ```
-dva-agentic-project/
-├── dva-agentic-cli/
+agentic-project/
+├── agentic-cli/
 │   └── src/
 │       └── dva_agentic_cli/
 │           └── kg/              ← Source
@@ -165,14 +165,14 @@ make start
 # Verify mount inside container
 docker exec dva-kg-mcp ls -la /app/src/kg
 
-# Should show files from dva-agentic-cli
+# Should show files from agentic-cli
 ```
 
 ### Test Code Changes
 
 ```bash
 # 1. Make a test change
-cd ../dva-agentic-cli/src/dva_agentic_cli/kg
+cd ../agentic-cli/src/dva_agentic_cli/kg
 echo "# Test change" >> query.py
 
 # 2. Restart container
@@ -184,7 +184,7 @@ docker exec dva-kg-mcp cat /app/src/kg/query.py | tail -1
 # Should show: # Test change
 
 # 4. Revert test change
-cd ../dva-agentic-cli/src/dva_agentic_cli/kg
+cd ../agentic-cli/src/dva_agentic_cli/kg
 git checkout query.py
 ```
 
@@ -244,7 +244,7 @@ Volume mount is automatic!
 
 ```bash
 # Check if CLI path is correct
-ls ../dva-agentic-cli/src/dva_agentic_cli/kg
+ls ../agentic-cli/src/dva_agentic_cli/kg
 
 # Check container mount
 docker exec dva-kg-mcp ls /app/src/kg
@@ -264,7 +264,7 @@ docker-compose up -d --force-recreate
 
 ```bash
 # Check host permissions
-ls -la ../dva-agentic-cli/src/dva_agentic_cli/kg
+ls -la ../agentic-cli/src/dva_agentic_cli/kg
 
 # Volume is read-only which is correct
 ```
@@ -303,7 +303,7 @@ ls -la ../dva-agentic-cli/src/dva_agentic_cli/kg
 This revision improves the development experience significantly by:
 
 1. **Eliminating Docker rebuilds** for KG code changes
-2. **Maintaining single source of truth** in dva-agentic-cli
+2. **Maintaining single source of truth** in agentic-cli
 3. **Speeding up iteration** from ~2 minutes to ~5 seconds
 4. **Simplifying maintenance** (no duplicate code)
 

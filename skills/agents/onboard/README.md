@@ -37,10 +37,10 @@ The agent imports reusable components from `dva_agentic_cli.agents.onboard`:
 ### Via CLI (recommended)
 ```bash
 # Uses this default agent from the skills registry
-dva code onboard --path ./my-repo --agent
+`agent code onboard --path ./my-repo --agent
 
 # Uses a custom agent project
-dva code onboard --path ./my-repo --agent-path /path/to/custom-onboard-agent
+`agent code onboard --path ./my-repo --agent-path /path/to/custom-onboard-agent
 ```
 
 ### Standalone
@@ -49,9 +49,9 @@ python src/main.py --project-path /path/to/repo
 python src/main.py --project-path /path/to/repo --model gemini-pro --enrich
 ```
 
-### Via dva agent commands
+### Via agent agent commands
 ```bash
-dva agent run --path ./onboard-agent
+`agent agent run --path ./onboard-agent
 ```
 
 ## Customization
@@ -79,7 +79,7 @@ Run: `python eval/evaluate.py --test-projects eval/test_projects/`
 ## Creating a Custom Agent
 
 ```bash
-dva project create my-onboard-agent --use-case onboard
+`agent project create my-onboard-agent --use-case onboard
 ```
 
 This scaffolds a new agent project with the same structure, ready for customization.

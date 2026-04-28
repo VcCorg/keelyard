@@ -5,8 +5,8 @@ Get your Knowledge Graph MCP server running in 5 minutes!
 ## Prerequisites
 
 - ✅ Docker installed and running
-- ✅ DVA CLI configured (`dva kg init`)
-- ✅ DVA CLI located at `../dva-agentic-cli` (relative to this directory)
+- ✅ Agentic CLI configured (`dva kg init`)
+- ✅ Agentic CLI located at `../agentic-cli` (relative to this directory)
 
 ## Option 1: MCP Server Only (Fastest)
 
@@ -173,11 +173,11 @@ make test
 
 ### Making Changes to KG Code
 
-KG modules are **volume-mounted** from `../dva-agentic-cli`, so changes are instant:
+KG modules are **volume-mounted** from `../agentic-cli`, so changes are instant:
 
 ```bash
 # 1. Edit KG code in CLI
-cd ../dva-agentic-cli/src/dva_agentic_cli/kg
+cd ../agentic-cli/src/dva_agentic_cli/kg
 nano query.py  # Make your changes
 
 # 2. Restart container (no rebuild!)
@@ -232,7 +232,7 @@ docker exec dva-kg-mcp curl http://dva-neo4j:7474
 
 1. **Ingest Data**:
    ```bash
-   dva kg ingest --source my-dataset --extract-entities
+   agent kg ingest --source my-dataset --extract-entities
    ```
 
 2. **Query from IDE**:
@@ -248,7 +248,7 @@ docker exec dva-kg-mcp curl http://dva-neo4j:7474
 
 - 📖 [Full README](README.md)
 - 🔧 [Troubleshooting Guide](README.md#troubleshooting)
-- 📚 [KG Documentation](../dva-agentic-cli/docs/KNOWLEDGE_GRAPH.md)
+- 📚 [KG Documentation](../agentic-cli/docs/KNOWLEDGE_GRAPH.md)
 
 ---
 

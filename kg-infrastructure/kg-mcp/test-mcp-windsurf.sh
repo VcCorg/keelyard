@@ -43,7 +43,7 @@ echo ""
 # Test 3: MCP Initialize
 echo "3️⃣  Testing MCP Initialize..."
 INIT=$(curl -s -X POST ${BASE_URL}/mcp/initialize -H "Content-Type: application/json" -d '{"protocolVersion":"2024-11-05"}')
-if echo "$INIT" | grep -q "dva-kg-mcp"; then
+if echo "$INIT" | grep -q "kg-mcp"; then
     echo -e "${GREEN}✓ MCP initialize passed${NC}"
     echo "   Protocol version: $(echo $INIT | python3 -c 'import sys, json; print(json.load(sys.stdin)["protocolVersion"])')"
 else

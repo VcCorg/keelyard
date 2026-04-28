@@ -1,10 +1,10 @@
 # LightRAG Integration
 
-This document describes the integration between DVA Agentic CLI and LightRAG infrastructure.
+This document describes the integration between Agentic CLI and LightRAG infrastructure.
 
 ## Overview
 
-The DVA Agentic CLI now supports both Neo4j and LightRAG as knowledge graph providers. LightRAG is a lightweight, high-performance graph-based retrieval-augmented generation system.
+The Agentic CLI now supports both Neo4j and LightRAG as knowledge graph providers. LightRAG is a lightweight, high-performance graph-based retrieval-augmented generation system.
 
 ## Prerequisites
 
@@ -16,9 +16,9 @@ The DVA Agentic CLI now supports both Neo4j and LightRAG as knowledge graph prov
    make start
    ```
 
-2. **Install DVA CLI with KG Support**
+2. **Install Agentic CLI with KG Support**
    ```bash
-   cd /path/to/dva-agentic-cli
+   cd /path/to/agentic-cli
    uv pip install -e ".[kg]"
    ```
 
@@ -28,16 +28,16 @@ The DVA Agentic CLI now supports both Neo4j and LightRAG as knowledge graph prov
 
 ```bash
 # Configure DVA to use LightRAG
-dva kg init --provider lightrag --lightrag-url http://localhost:8001
+`agent kg init --provider lightrag --lightrag-url http://localhost:8001
 
 # With custom timeout
-dva kg init --provider lightrag --lightrag-url http://localhost:8001 --lightrag-timeout 60.0
+`agent kg init --provider lightrag --lightrag-url http://localhost:8001 --lightrag-timeout 60.0
 ```
 
 ### View Configuration
 
 ```bash
-dva kg config --show
+`agent kg config --show
 ```
 
 Output:
@@ -60,39 +60,39 @@ Output:
 
 ```bash
 # PDF file
-dva kg ingest --path /path/to/document.pdf
+`agent kg ingest --path /path/to/document.pdf
 
 # Text file
-dva kg ingest --path /path/to/document.txt
+`agent kg ingest --path /path/to/document.txt
 
 # Markdown file
-dva kg ingest --path /path/to/document.md
+`agent kg ingest --path /path/to/document.md
 ```
 
 #### Ingest a Directory
 
 ```bash
 # Recursively ingest all supported files
-dva kg ingest --path /path/to/documents/
+`agent kg ingest --path /path/to/documents/
 
 # Non-recursive (only files in the directory)
-dva kg ingest --path /path/to/documents/ --no-recursive
+`agent kg ingest --path /path/to/documents/ --no-recursive
 ```
 
 #### Using Data Sources
 
 ```bash
 # First, configure a data source
-dva data create --name my-docs --source-type doc --source-location /path/to/docs
+`agent data create --name my-docs --source-type doc --source-location /path/to/docs
 
 # Then ingest using the source name
-dva kg ingest --source my-docs
+`agent kg ingest --source my-docs
 ```
 
 ### Get Statistics
 
 ```bash
-dva kg stats
+`agent kg stats
 ```
 
 Output:
@@ -141,7 +141,7 @@ When ingesting directories, the following file types are automatically processed
 ```
 User Command
     ↓
-dva kg ingest --path /docs
+`agent kg ingest --path /docs
     ↓
 Load KGConfig (provider=lightrag)
     ↓
@@ -160,13 +160,13 @@ You can easily switch between Neo4j and LightRAG:
 
 ```bash
 # Switch to LightRAG
-dva kg init --provider lightrag --lightrag-url http://localhost:8001
+`agent kg init --provider lightrag --lightrag-url http://localhost:8001
 
 # Switch to Neo4j
-dva kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
+`agent kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
 
 # Check current provider
-dva kg config --show
+`agent kg config --show
 ```
 
 ## Error Handling
@@ -175,12 +175,12 @@ The CLI provides clear error messages:
 
 ```bash
 # If LightRAG is not running
-$ dva kg ingest --path /docs
+$ agent kg ingest --path /docs
 ✗ LightRAG is not available: Cannot connect to LightRAG at http://localhost:8001
 Make sure LightRAG infrastructure is running.
 
 # If httpx is not installed
-$ dva kg ingest --path /docs
+$ agent kg ingest --path /docs
 ✗ Error: httpx is required for LightRAG support. Install it with: pip install httpx
 ```
 
@@ -203,7 +203,7 @@ When ingesting files, metadata is automatically added:
 For large directories, files are processed one at a time with progress updates:
 
 ```bash
-$ dva kg ingest --path /large-docs/
+$ agent kg ingest --path /large-docs/
   Ingested: file1.txt
   Ingested: file2.pdf
   Ingested: file3.md
@@ -245,7 +245,7 @@ make logs
 
 ```bash
 # Increase timeout
-dva kg init --provider lightrag --lightrag-url http://localhost:8001 --lightrag-timeout 60.0
+`agent kg init --provider lightrag --lightrag-url http://localhost:8001 --lightrag-timeout 60.0
 ```
 
 ### Missing Dependencies
@@ -285,24 +285,24 @@ python -c "import httpx; print(httpx.__version__)"
 cd lightrag-infrastructure
 make start
 
-# 2. Configure DVA CLI
-dva kg init --provider lightrag
+# 2. Configure Agentic CLI
+`agent kg init --provider lightrag
 
 # 3. Configure data source
-dva data create --name research-papers \
+`agent data create --name research-papers \
   --source-type doc \
   --source-location /path/to/papers \
   --description "Research papers collection" \
   --tags "research,papers,ml"
 
 # 4. Ingest data
-dva kg ingest --source research-papers
+`agent kg ingest --source research-papers
 
 # 5. View statistics
-dva kg stats
+`agent kg stats
 
 # 6. Query (future feature)
-# dva kg query "What are the main findings?"
+# agent kg query "What are the main findings?"
 ```
 
 ## Future Enhancements

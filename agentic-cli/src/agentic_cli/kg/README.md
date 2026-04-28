@@ -1,6 +1,6 @@
 # Knowledge Graph Module
 
-This module provides knowledge graph functionality for the DVA Agentic CLI, combining Neo4j graph database with Vertex AI for intelligent data processing.
+This module provides knowledge graph functionality for the Agentic CLI, combining Neo4j graph database with Vertex AI for intelligent data processing.
 
 ## Architecture
 

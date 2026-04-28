@@ -10,13 +10,13 @@ Changed the default behavior of `dva kg ingest` for Git repositories to use **fa
 
 **Before:**
 ```bash
-dva kg ingest --source my-repo
+`agent kg ingest --source my-repo
 # Used detailed analysis by default (slow, analyzed every file)
 ```
 
 **After:**
 ```bash
-dva kg ingest --source my-repo
+`agent kg ingest --source my-repo
 # Uses fast mode by default (gitingest only, much faster)
 ```
 
@@ -43,10 +43,10 @@ dva kg ingest --source my-repo
 ### Default: Fast Mode (Recommended for Healthcare)
 ```bash
 # Ingest with gitingest only (fast, default)
-dva kg ingest --source patient-records
+`agent kg ingest --source patient-records
 
 # Explicit (same as above)
-dva kg ingest --source patient-records --no-detailed-analysis
+`agent kg ingest --source patient-records --no-detailed-analysis
 ```
 
 **Performance:**
@@ -58,7 +58,7 @@ dva kg ingest --source patient-records --no-detailed-analysis
 ### Opt-in: Detailed Mode (For Code Analysis)
 ```bash
 # Ingest with detailed code analysis
-dva kg ingest --source backend-api --detailed-analysis
+`agent kg ingest --source backend-api --detailed-analysis
 ```
 
 **Performance:**
@@ -91,13 +91,13 @@ Use `--detailed-analysis` when you need:
 ### Example 1: Healthcare Documentation (Default)
 ```bash
 # Configure data source
-dva data create \
+`agent data create \
   --name patient-docs \
   --source-type git \
   --source-location https://github.com/org/patient-docs.git
 
 # Ingest (fast mode by default)
-dva kg ingest --source patient-docs
+`agent kg ingest --source patient-docs
 ```
 
 **Output:**
@@ -118,13 +118,13 @@ dva kg ingest --source patient-docs
 ### Example 2: Backend Codebase (Detailed)
 ```bash
 # Configure data source
-dva data create \
+`agent data create \
   --name backend-api \
   --source-type git \
   --source-location https://github.com/org/backend.git
 
 # Ingest with detailed analysis
-dva kg ingest --source backend-api --detailed-analysis
+`agent kg ingest --source backend-api --detailed-analysis
 ```
 
 **Output:**
@@ -159,37 +159,37 @@ dva kg ingest --source backend-api --detailed-analysis
 
 **Before (implicit detailed analysis):**
 ```bash
-dva kg ingest --source my-repo
+`agent kg ingest --source my-repo
 # This was slow (detailed analysis)
 ```
 
 **After (implicit fast mode):**
 ```bash
-dva kg ingest --source my-repo
+`agent kg ingest --source my-repo
 # This is now fast (gitingest only)
 ```
 
 **If you need the old behavior:**
 ```bash
-dva kg ingest --source my-repo --detailed-analysis
+`agent kg ingest --source my-repo --detailed-analysis
 ```
 
 ### Testing Your Use Case
 
 1. **Try default fast mode first:**
    ```bash
-   dva kg ingest --source my-repo
+   agent kg ingest --source my-repo
    ```
 
 2. **Test query quality:**
    ```bash
-   dva kg query "Find all patient assessments"
-   dva kg search "care plan" --semantic
+   agent kg query "Find all patient assessments"
+   agent kg search "care plan" --semantic
    ```
 
 3. **If results are insufficient, try detailed mode:**
    ```bash
-   dva kg ingest --source my-repo --detailed-analysis
+   agent kg ingest --source my-repo --detailed-analysis
    ```
 
 4. **Compare results and choose the mode that works best**
@@ -212,7 +212,7 @@ dva kg ingest --source my-repo --detailed-analysis
 
 Check the default behavior:
 ```bash
-dva kg ingest --help | grep -A 3 "detailed-analysis"
+`agent kg ingest --help | grep -A 3 "detailed-analysis"
 ```
 
 Expected output:
@@ -239,9 +239,9 @@ Expected output:
 
 **Use default fast mode:**
 ```bash
-dva kg ingest --source patient-records
-dva kg ingest --source clinical-docs
-dva kg ingest --source care-plans
+`agent kg ingest --source patient-records
+`agent kg ingest --source clinical-docs
+`agent kg ingest --source care-plans
 ```
 
 **Why:**
@@ -262,19 +262,19 @@ Only use `--detailed-analysis` if:
 
 1. **Test with your data:**
    ```bash
-   dva kg ingest --source your-healthcare-repo
+   agent kg ingest --source your-healthcare-repo
    ```
 
 2. **Verify entity extraction:**
    ```bash
-   dva kg stats
-   dva kg query "Show me all patients"
+   agent kg stats
+   agent kg query "Show me all patients"
    ```
 
 3. **Compare if needed:**
    ```bash
    # Try detailed mode if results are insufficient
-   dva kg ingest --source your-healthcare-repo --detailed-analysis
+   agent kg ingest --source your-healthcare-repo --detailed-analysis
    ```
 
 4. **Stick with what works best for your use case**

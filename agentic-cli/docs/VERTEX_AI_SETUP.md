@@ -1,6 +1,6 @@
 # Google Vertex AI Setup Guide
 
-This guide explains how to set up and use Google Vertex AI with the DVA Agentic CLI.
+This guide explains how to set up and use Google Vertex AI with the Agentic CLI.
 
 ## Prerequisites
 
@@ -23,10 +23,10 @@ This method uses your Google Cloud user credentials.
 gcloud config set project YOUR_PROJECT_ID
 
 # 3. Initialize DVA with your project (automatically runs gcloud auth)
-dva init vertex-ai --project-id YOUR_PROJECT_ID --location us-central1
+`agent init vertex-ai --project-id YOUR_PROJECT_ID --location us-central1
 
 # If already authenticated, skip the auth step
-dva init vertex-ai --project-id YOUR_PROJECT_ID --location us-central1 --skip-auth
+`agent init vertex-ai --project-id YOUR_PROJECT_ID --location us-central1 --skip-auth
 ```
 
 ### Method 2: Using Service Account Key
@@ -39,7 +39,7 @@ This method uses a service account JSON key file.
 # 3. Download the JSON key file
 
 # 4. Initialize DVA with the key file
-dva init vertex-ai \
+`agent init vertex-ai \
   --project-id YOUR_PROJECT_ID \
   --location us-central1 \
   --credentials /path/to/service-account-key.json
@@ -53,23 +53,23 @@ The `dva init vertex-ai` command saves your Vertex AI settings for use in new pr
 
 ```bash
 # First time: prompts for project ID and runs gcloud auth
-dva init vertex-ai
+`agent init vertex-ai
 
 # Subsequent runs: reuses existing config, only runs auth
-dva init vertex-ai
+`agent init vertex-ai
 
 # Update specific settings while keeping others
-dva init vertex-ai --location us-east1
+`agent init vertex-ai --location us-east1
 
 # With all options
-dva init vertex-ai \
+`agent init vertex-ai \
   --project-id my-gcp-project \
   --location us-central1 \
   --model gemini-pro \
   --credentials /path/to/key.json
 
 # Skip authentication if already authenticated
-dva init vertex-ai --skip-auth
+`agent init vertex-ai --skip-auth
 ```
 
 ### Options
@@ -93,7 +93,7 @@ All options are optional. If not provided, existing values are reused:
 
 ```bash
 # Show saved configuration
-dva init show
+`agent init show
 
 # Output:
 # Vertex AI:
@@ -109,7 +109,7 @@ Once initialized, new projects will automatically use your Vertex AI configurati
 
 ```bash
 # Create a new project
-dva project create my-vertex-project
+`agent project create my-vertex-project
 
 # The .env file will be pre-configured with:
 # GOOGLE_PROJECT_ID=my-gcp-project
@@ -272,10 +272,10 @@ mv key.json ~/.gcp/my-project-key.json
 
 ```bash
 # Initialize different projects
-dva init vertex-ai --project-id project-dev
+`agent init vertex-ai --project-id project-dev
 # Work with dev project...
 
-dva init vertex-ai --project-id project-prod
+`agent init vertex-ai --project-id project-prod
 # Work with prod project...
 ```
 
@@ -309,10 +309,10 @@ For issues:
 
 ```bash
 # 1. Initialize (automatically runs gcloud auth)
-dva init vertex-ai --project-id YOUR_PROJECT_ID
+`agent init vertex-ai --project-id YOUR_PROJECT_ID
 
 # 2. Create project
-dva project create my-ai-project
+`agent project create my-ai-project
 
 # 4. Install and run
 cd my-ai-project

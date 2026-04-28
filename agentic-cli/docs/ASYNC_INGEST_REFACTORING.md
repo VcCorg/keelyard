@@ -10,16 +10,16 @@ Refactored async ingestion commands from a top-level command group (`dva kg asyn
 
 **Before**: Async ingestion was at the same level as the core ingest feature:
 ```bash
-dva kg ingest --path /data/file.pdf    # Sync ingestion
-dva kg async submit --path /data/file.pdf  # Async ingestion
+`agent kg ingest --path /data/file.pdf    # Sync ingestion
+`agent kg async submit --path /data/file.pdf  # Async ingestion
 ```
 
 **Problem**: This structure suggests async is a separate feature equal to ingestion, when it's actually just an operational mode of the same ingestion feature.
 
 **After**: Async is now a subcommand of ingest:
 ```bash
-dva kg ingest --path /data/file.pdf           # Sync ingestion (default)
-dva kg ingest async submit --path /data/file.pdf  # Async ingestion
+`agent kg ingest --path /data/file.pdf           # Sync ingestion (default)
+`agent kg ingest async submit --path /data/file.pdf  # Async ingestion
 ```
 
 ---
@@ -99,9 +99,9 @@ def ingest(ctx: typer.Context, ...):
 
 ```bash
 # These commands work exactly as before
-dva kg ingest --path /data/file.pdf
-dva kg ingest --source my-dataset
-dva kg ingest --workspace production --path /data
+`agent kg ingest --path /data/file.pdf
+`agent kg ingest --source my-dataset
+`agent kg ingest --workspace production --path /data
 ```
 
 ---
@@ -112,38 +112,38 @@ dva kg ingest --workspace production --path /data
 
 ```bash
 # Direct path
-dva kg ingest --path /data/documents/file.pdf
+`agent kg ingest --path /data/documents/file.pdf
 
 # Data source
-dva kg ingest --source cwow-docs
+`agent kg ingest --source cwow-docs
 
 # With workspace
-dva kg ingest --source cwow-docs --workspace production
+`agent kg ingest --source cwow-docs --workspace production
 ```
 
 ### Asynchronous Ingestion
 
 ```bash
 # Submit async job
-dva kg ingest async submit --path /data/large-dataset
+`agent kg ingest async submit --path /data/large-dataset
 
 # Check status
-dva kg ingest async status abc123
+`agent kg ingest async status abc123
 
 # List all jobs
-dva kg ingest async list
+`agent kg ingest async list
 
 # List by status
-dva kg ingest async list --status running
+`agent kg ingest async list --status running
 
 # Cancel job
-dva kg ingest async cancel abc123
+`agent kg ingest async cancel abc123
 
 # View logs
-dva kg ingest async logs abc123
+`agent kg ingest async logs abc123
 
 # Cleanup old jobs
-dva kg ingest async cleanup --days 30
+`agent kg ingest async cleanup --days 30
 ```
 
 ---
@@ -152,7 +152,7 @@ dva kg ingest async cleanup --days 30
 
 ### 1. **Clearer Hierarchy**
 ```
-dva kg
+`agent kg
 ├── ingest (main feature)
 │   ├── [default] (sync mode)
 │   └── async (operational mode)
@@ -191,12 +191,12 @@ Similar to tools like:
 
 **If you were using**:
 ```bash
-dva kg async submit --path /data
+`agent kg async submit --path /data
 ```
 
 **Update to**:
 ```bash
-dva kg ingest async submit --path /data
+`agent kg ingest async submit --path /data
 ```
 
 **Find and replace**:
@@ -251,22 +251,22 @@ commands/
 
 ```bash
 # Test help
-dva kg ingest --help
-dva kg ingest async --help
+`agent kg ingest --help
+`agent kg ingest async --help
 
 # Test sync ingestion (should work as before)
-dva kg ingest --path /tmp/test.txt
+`agent kg ingest --path /tmp/test.txt
 
 # Test async commands
-dva kg ingest async list
-dva kg ingest async submit --path /tmp/test.txt
+`agent kg ingest async list
+`agent kg ingest async submit --path /tmp/test.txt
 ```
 
 ### Verify Old Commands Removed
 
 ```bash
 # Should fail
-dva kg async --help
+`agent kg async --help
 # Error: No such command 'async'.
 ```
 
@@ -278,12 +278,12 @@ dva kg async --help
 
 **Old commands will NOT work**:
 ```bash
-dva kg async submit    # ✗ Error: No such command 'async'
+`agent kg async submit    # ✗ Error: No such command 'async'
 ```
 
 **Users must update to**:
 ```bash
-dva kg ingest async submit  # ✓ Works
+`agent kg ingest async submit  # ✓ Works
 ```
 
 ### Migration Script
@@ -310,22 +310,22 @@ echo "Migration complete. Backup files created with .bak extension"
 
 1. **Async flag on main ingest**:
    ```bash
-   dva kg ingest --path /data --async  # Auto-submit as async job
+   agent kg ingest --path /data --async  # Auto-submit as async job
    ```
 
 2. **Batch operations**:
    ```bash
-   dva kg ingest async submit-batch --sources file1,file2,file3
+   agent kg ingest async submit-batch --sources file1,file2,file3
    ```
 
 3. **Job templates**:
    ```bash
-   dva kg ingest async submit --template large-dataset
+   agent kg ingest async submit --template large-dataset
    ```
 
 4. **Progress streaming**:
    ```bash
-   dva kg ingest async status abc123 --follow  # Live updates
+   agent kg ingest async status abc123 --follow  # Live updates
    ```
 
 ---

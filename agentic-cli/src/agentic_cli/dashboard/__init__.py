@@ -1,1 +1,1 @@
-"""DVA Agentic Dashboard — API and UI for validating agents."""
+"""Agentic Agentic Dashboard — API and UI for validating agents."""

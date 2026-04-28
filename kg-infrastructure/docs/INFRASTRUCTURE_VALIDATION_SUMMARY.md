@@ -131,9 +131,9 @@ LightRAG Infrastructure Validation
 ==========================================
 ```
 
-## Integration with DVA CLI
+## Integration with Agentic CLI
 
-Both infrastructures integrate seamlessly with DVA CLI:
+Both infrastructures integrate seamlessly with Agentic CLI:
 
 ### Neo4j Setup
 
@@ -142,15 +142,15 @@ Both infrastructures integrate seamlessly with DVA CLI:
 cd neo4j-infrastructure
 make validate
 
-# 2. Configure DVA CLI
-dva kg init --provider neo4j \
+# 2. Configure Agentic CLI
+`agent kg init --provider neo4j \
   --uri bolt://localhost:7687 \
   --username neo4j \
   --password password
 
 # 3. Test ingestion
-dva kg ingest --path /data/documents
-dva kg stats
+`agent kg ingest --path /data/documents
+`agent kg stats
 ```
 
 ### LightRAG Setup
@@ -160,13 +160,13 @@ dva kg stats
 cd lightrag-infrastructure
 make validate
 
-# 2. Configure DVA CLI
-dva kg init --provider lightrag \
+# 2. Configure Agentic CLI
+`agent kg init --provider lightrag \
   --lightrag-url http://localhost:8001
 
 # 3. Test ingestion
-dva kg ingest --path /data/documents
-dva kg stats
+`agent kg ingest --path /data/documents
+`agent kg stats
 ```
 
 ## Troubleshooting Guide
@@ -274,7 +274,7 @@ make validate
 
 ```bash
 # Before ingesting large datasets
-make validate && dva kg ingest --path /large-dataset
+make validate && agent kg ingest --path /large-dataset
 ```
 
 ### 3. Regular Health Checks
@@ -323,7 +323,7 @@ jobs:
 - ✅ `scripts/server.py` - Fixed async/await issues
 - ✅ `scripts/server.py` - Added storage initialization
 
-### DVA CLI
+### Agentic CLI
 - ✅ `lightrag_client.py` - Added PDF parsing support
 - ✅ `lightrag_client.py` - Added `_extract_text()` method
 - ✅ Both Neo4j and LightRAG providers fully functional
@@ -390,4 +390,4 @@ Both infrastructures now have robust validation systems that:
 4. **Support Troubleshooting** - Detailed diagnostics for debugging
 5. **Maintain Quality** - Consistent validation across environments
 
-The validation systems make it easy to verify that both Neo4j and LightRAG are properly configured and ready for production use with DVA CLI.
+The validation systems make it easy to verify that both Neo4j and LightRAG are properly configured and ready for production use with Agentic CLI.
