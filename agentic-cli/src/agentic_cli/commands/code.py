@@ -561,7 +561,7 @@ def onboard(
             if kg_result["ingested"]:
                 console.print(f"[green]\u2713 Context ingested into LightRAG[/green]")
 
-            # Full mode: use dva kg ingest pipeline with entity extraction
+            # Full mode: use {CLI_NAME} kg ingest pipeline with entity extraction
             if extract_entities and kg_result["source"]:
                 console.print("[cyan]Running full KG ingestion with entity extraction...[/cyan]")
                 try:
@@ -581,7 +581,7 @@ def onboard(
                     )
                 except Exception as e:
                     console.print(f"[yellow]\u26a0 Full KG ingestion failed: {e}[/yellow]")
-                    console.print("[dim]Context was still saved and registered. Retry with: dva kg ingest submit --source "
+                    console.print(f"[dim]Context was still saved and registered. Retry with: {CLI_NAME} kg ingest submit --source "
                                   f"onboard-{project_path.name}[/dim]")
 
             for err in kg_result.get("errors", []):
@@ -649,7 +649,7 @@ def onboard(
         for s in suggestions[:8]:
             sug_table.add_row(s.name, s.reason)
         console.print(sug_table)
-        console.print("[dim]Install with: dva code skills add <name> --path " + str(project_path) + "[/dim]")
+        console.print(f"[dim]Install with: {CLI_NAME} code skills add <name> --path " + str(project_path) + "[/dim]")
 
     # Show agent proposals if any
     if agent_result and agent_result.get("proposals"):
@@ -661,15 +661,15 @@ def onboard(
         for p in agent_result["proposals"]:
             prop_table.add_row(p["skill_name"], p["description"][:55], p.get("reason", "")[:50])
         console.print(prop_table)
-        console.print("[dim]Accept + push to registry: dva code skills propose --accept-all --push[/dim]")
-        console.print("[dim]Review one:               dva code skills propose --show <name>[/dim]")
+        console.print(f"[dim]Accept + push to registry: {CLI_NAME} code skills propose --accept-all --push[/dim]")
+        console.print(f"[dim]Review one:               {CLI_NAME} code skills propose --show <name>[/dim]")
 
     console.print()
-    console.print("[dim]Validate with: dva code validate --path " + str(project_path) + "[/dim]")
+    console.print(f"[dim]Validate with: {CLI_NAME} code validate --path " + str(project_path) + "[/dim]")
     if not kg:
-        console.print("[dim]Prepare KG context: dva code onboard --path " + str(project_path) + " --kg[/dim]")
+        console.print(f"[dim]Prepare KG context: {CLI_NAME} code onboard --path " + str(project_path) + " --kg[/dim]")
     elif kg and not graphify:
-        console.print("[dim]Enhance with Graphify: dva code onboard --path " + str(project_path) + " --kg --graphify[/dim]")
+        console.print(f"[dim]Enhance with Graphify: {CLI_NAME} code onboard --path " + str(project_path) + " --kg --graphify[/dim]")
 
 
 @code_app.command("list")
@@ -686,9 +686,9 @@ def list_projects(
     including tech stack, skills installed, and last updated time.
 
     Examples:
-        dva code list
-        dva code list cwow
-    """
+        {CLI_NAME} code list
+        {CLI_NAME} code list cwow
+    """.format(CLI_NAME=CLI_NAME)
     repos = get_repos(name=name)
 
     if not repos:
@@ -696,7 +696,7 @@ def list_projects(
             console.print(f"[yellow]No onboarded projects matching '{name}'.[/yellow]")
         else:
             console.print("[yellow]No onboarded projects found.[/yellow]")
-        console.print("[dim]Onboard a project: dva code onboard --path <dir>[/dim]")
+        console.print(f"[dim]Onboard a project: {CLI_NAME} code onboard --path <dir>[/dim]")
         return
 
     table = Table(
@@ -779,18 +779,18 @@ def skills_cmd(
     Manage skills for an onboarded project.
 
     Examples:
-        dva code skills list --path ./my-repo
-        dva code skills available
-        dva code skills available --tag database
-        dva code skills add jira --path ./my-repo
-        dva code skills remove testing-junit --path ./my-repo
-        dva code skills update --path ./my-repo
-        dva code skills propose
-        dva code skills propose --show spring-cloud-gcp
-        dva code skills propose --accept-all
-        dva code skills propose --accept-all --push  (accept + push to dva-skills repo)
-        dva code skills propose spring-cloud-gcp --push  (accept one + push)
-    """
+        {CLI_NAME} code skills list --path ./my-repo
+        {CLI_NAME} code skills available
+        {CLI_NAME} code skills available --tag database
+        {CLI_NAME} code skills add jira --path ./my-repo
+        {CLI_NAME} code skills remove testing-junit --path ./my-repo
+        {CLI_NAME} code skills update --path ./my-repo
+        {CLI_NAME} code skills propose
+        {CLI_NAME} code skills propose --show spring-cloud-gcp
+        {CLI_NAME} code skills propose --accept-all
+        {CLI_NAME} code skills propose --accept-all --push  (accept + push to {CLI_NAME}-skills repo)
+        {CLI_NAME} code skills propose spring-cloud-gcp --push  (accept one + push)
+    """.format(CLI_NAME=CLI_NAME)
     path = path.resolve()
 
     if action == "list":
@@ -799,7 +799,7 @@ def skills_cmd(
         _skills_available(registry, tag)
     elif action == "add":
         if not name:
-            console.print("[red]✗ Specify skill name: dva code skills add <name>[/red]")
+            console.print(f"[red]✗ Specify skill name: {CLI_NAME} code skills add <name>[/red]")
             raise typer.Exit(1)
         _skills_add(name, path, registry)
     elif action == "remove":
