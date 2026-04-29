@@ -6,7 +6,7 @@ reference them.
 
 Hierarchy:
     Product (e.g. CWOW)
-      └── Domain (e.g. Facility)  ← created via dva domain create
+      └── Domain (e.g. Facility)  ← created via {CLI_NAME} domain create
 """
 
 from typing_extensions import Annotated
@@ -35,7 +35,7 @@ console = Console()
 
 
 # ---------------------------------------------------------------------------
-# dva product create
+# {CLI_NAME} product create
 # ---------------------------------------------------------------------------
 
 @product_app.command()
@@ -51,8 +51,8 @@ def create(
     Product names are stored uppercase.
 
     Examples:
-        dva product create CWOW --description "CWOW Healthcare Platform" --tags "healthcare,gcp"
-        dva product create IMTO --description "Imaging & Technology Operations"
+        {CLI_NAME} product create CWOW --description "CWOW Healthcare Platform" --tags "healthcare,gcp"
+        {CLI_NAME} product create IMTO --description "Imaging & Technology Operations"
     """
     tag_list = [t.strip() for t in tags.split(",")] if tags else []
     name_upper = name.upper()
@@ -72,7 +72,7 @@ def create(
         lines.append(f"[cyan]Tags:[/cyan] {', '.join(tag_list)}")
     console.print(Panel("\n".join(lines), title="Product Details"))
 
-    console.print(f"\n[dim]Next: Create a domain:[/dim]  dva domain create <DOMAIN> --product {name_upper}")
+    console.print(f"\n[dim]Next: Create a domain:[/dim]  {CLI_NAME} domain create <DOMAIN> --product {name_upper}")
 
     record_activity(
         command="product", subcommand="create",
@@ -81,7 +81,7 @@ def create(
 
 
 # ---------------------------------------------------------------------------
-# dva product list
+# {CLI_NAME} product list
 # ---------------------------------------------------------------------------
 
 @product_app.command("list")
@@ -90,13 +90,13 @@ def list_products() -> None:
     List all registered products.
 
     Examples:
-        dva product list
+        {CLI_NAME} product list
     """
     products = get_products()
 
     if not products:
         console.print("[yellow]No products registered.[/yellow]")
-        console.print("[dim]Register one with: dva product create <NAME>[/dim]")
+        console.print("f[dim]Register one with: {CLI_NAME} product create <NAME>[/dim]")
         return
 
     table = Table(title=f"Registered Products ({len(products)})")
@@ -121,7 +121,7 @@ def list_products() -> None:
 
 
 # ---------------------------------------------------------------------------
-# dva product show
+# {CLI_NAME} product show
 # ---------------------------------------------------------------------------
 
 @product_app.command()
@@ -132,7 +132,7 @@ def show(
     Show detailed information about a product and its domains.
 
     Examples:
-        dva product show CWOW
+        {CLI_NAME} product show CWOW
     """
     p = get_product(name)
     if not p:
@@ -171,11 +171,11 @@ def show(
             )
         console.print(dtable)
     else:
-        console.print(f"[dim]No domains yet. Create one with: dva domain create <DOMAIN> --product {p['name']}[/dim]")
+        console.print(f"[dim]No domains yet. Create one with: {CLI_NAME} domain create <DOMAIN> --product {p['name']}[/dim]")
 
 
 # ---------------------------------------------------------------------------
-# dva product update
+# {CLI_NAME} product update
 # ---------------------------------------------------------------------------
 
 @product_app.command()
@@ -188,8 +188,8 @@ def update(
     Update a product's description or tags.
 
     Examples:
-        dva product update CWOW --description "Updated description"
-        dva product update CWOW --tags "healthcare,gcp,spanner"
+        {CLI_NAME} product update CWOW --description "Updated description"
+        {CLI_NAME} product update CWOW --tags "healthcare,gcp,spanner"
     """
     p = get_product(name)
     if not p:
@@ -218,7 +218,7 @@ def update(
 
 
 # ---------------------------------------------------------------------------
-# dva product remove
+# {CLI_NAME} product remove
 # ---------------------------------------------------------------------------
 
 @product_app.command()
@@ -230,7 +230,7 @@ def remove(
     Remove a product. Fails if domains still reference it.
 
     Examples:
-        dva product remove IMTO --yes
+        {CLI_NAME} product remove IMTO --yes
     """
     p = get_product(name)
     if not p:
@@ -240,7 +240,7 @@ def remove(
     domains = get_domains(product=p["name"])
     if domains:
         console.print(f"[red]✗ Cannot remove product '{p['name']}' — it has {len(domains)} domain(s).[/red]")
-        console.print("[dim]Remove domains first with: dva domain remove <domain-name>[/dim]")
+        console.print("f[dim]Remove domains first with: {CLI_NAME} domain remove <domain-name>[/dim]")
         raise typer.Exit(1)
 
     if not yes:

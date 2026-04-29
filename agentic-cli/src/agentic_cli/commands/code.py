@@ -804,7 +804,7 @@ def skills_cmd(
         _skills_add(name, path, registry)
     elif action == "remove":
         if not name:
-            console.print("[red]✗ Specify skill name: dva code skills remove <name>[/red]")
+            console.print(f"[red]✗ Specify skill name: {CLI_NAME} code skills remove <name>[/red]")
             raise typer.Exit(1)
         _skills_remove(name, path)
     elif action == "update":
@@ -829,7 +829,7 @@ def _skills_propose(
 
     if not proposals:
         console.print("[dim]No pending skill proposals.[/dim]")
-        console.print("[dim]Generate proposals: dva code onboard --path <repo> --agent[/dim]")
+        console.print(f"[dim]Generate proposals: {CLI_NAME} code onboard --path <repo> --agent[/dim]")
         return
 
     # Show full content for a specific proposal
@@ -865,7 +865,7 @@ def _skills_propose(
             if push:
                 _push_registry(registry_path, [p.skill_name], p.project)
             else:
-                console.print(f"[dim]Push to registry repo: dva code skills propose {p.skill_name} --push[/dim]")
+                console.print(f"[dim]Push to registry repo: {CLI_NAME} code skills propose {p.skill_name} --push[/dim]")
         else:
             console.print(f"[yellow]\u26a0 Could not accept '{p.skill_name}' (duplicate or registry error)[/yellow]")
         return
@@ -892,7 +892,7 @@ def _skills_propose(
             if push:
                 _push_registry(registry_path, accepted_names, source_project or "unknown")
             else:
-                console.print(f"[dim]Push to registry repo: dva code skills propose --accept-all --push[/dim]")
+                console.print(f"[dim]Push to registry repo: {CLI_NAME} code skills propose --accept-all --push[/dim]")
         return
 
     # Default: list all proposals
@@ -914,17 +914,17 @@ def _skills_propose(
 
     console.print(table)
     console.print()
-    console.print("[dim]Accept one:  dva code skills propose <skill-name>[/dim]")
-    console.print("[dim]Accept all:  dva code skills propose --accept-all[/dim]")
-    console.print("[dim]Accept+push: dva code skills propose --accept-all --push[/dim]")
-    console.print("[dim]Preview:     dva code skills propose --show <skill-name>[/dim]")
+    console.print(f"[dim]Accept one:  {CLI_NAME} code skills propose <skill-name>[/dim]")
+    console.print(f"[dim]Accept all:  {CLI_NAME} code skills propose --accept-all[/dim]")
+    console.print(f"[dim]Accept+push: {CLI_NAME} code skills propose --accept-all --push[/dim]")
+    console.print(f"[dim]Preview:     {CLI_NAME} code skills propose --show <skill-name>[/dim]")
 
 
 def _push_registry(registry_path: Path, skill_names: list[str], source_project: str) -> None:
     """Commit and push accepted skills to the registry git repo.
 
     This enables a feedback loop: agent-discovered skills get pushed
-    back to dva-skills so future onboarding picks them up automatically.
+    back to agent-cli-skills so future onboarding picks them up automatically.
     """
     # Check if registry is a git repo
     git_dir = registry_path / ".git"
@@ -986,7 +986,7 @@ def _skills_list(project_path: Path) -> None:
     """List installed skills in a project."""
     skills_dir = project_path / ".skills"
     if not skills_dir.exists():
-        console.print("[yellow]No skills installed. Run: dva code onboard --path " + str(project_path) + "[/yellow]")
+        console.print(f"[yellow]No skills installed. Run: {CLI_NAME} code onboard --path " + str(project_path) + "[/yellow]")
         return
 
     skills = []
@@ -1052,7 +1052,7 @@ def _skills_add(name: str, project_path: Path, registry_override: Optional[str])
         console.print(f"[green]✓ Skill '{name}' installed to {project_path / '.skills' / name}[/green]")
     else:
         console.print(f"[red]✗ Skill '{name}' not found in registry[/red]")
-        console.print("[dim]Run f'{CLI_NAME} code skills available' to see options[/dim]")
+        console.print(f"[dim]Run '{CLI_NAME} code skills available' to see options[/dim]")
         raise typer.Exit(1)
 
 
@@ -1143,15 +1143,15 @@ def validate(
     Validate onboarding and show a summary report.
 
     Examples:
-        dva code validate --path ./my-repo
-    """
+        {CLI_NAME} code validate --path ./my-repo
+    """.format(CLI_NAME=CLI_NAME)
     path = path.resolve()
 
     # Check if onboarded
     manifest_path = path / ".skills" / "onboard.json"
     if not manifest_path.exists():
         console.print("[yellow]Project not onboarded yet.[/yellow]")
-        console.print(f"[dim]Run: dva code onboard --path {path}[/dim]")
+        console.print(f"[dim]Run: {CLI_NAME} code onboard --path {path}[/dim]")
         raise typer.Exit(1)
 
     manifest = json.loads(manifest_path.read_text())
@@ -1231,13 +1231,13 @@ def config_cmd(
     ] = False,
 ) -> None:
     """
-    Configure dva code settings.
+    Configure {CLI_NAME} code settings.
 
     Examples:
-        dva code config --registry /path/to/dva-skills
-        dva code config --registry https://bitbucket.example.com/scm/DVA/dva-skills.git
-        dva code config --show
-    """
+        {CLI_NAME} code config --registry /path/to/{CLI_NAME}-skills
+        {CLI_NAME} code config --registry https://bitbucket.example.com/scm/DVA/{CLI_NAME}-skills.git
+        {CLI_NAME} code config --show
+    """.format(CLI_NAME=CLI_NAME)
     config = _get_config()
 
     if registry:
@@ -1258,8 +1258,8 @@ def config_cmd(
     if show or not registry:
         if not config:
             console.print("[dim]No configuration set.[/dim]")
-            console.print("[dim]Set workspace: dva code init <folder>[/dim]")
-            console.print("[dim]Set registry:  dva code config --registry <path-or-url>[/dim]")
+            console.print(f"[dim]Set workspace: {CLI_NAME} code init <folder>[/dim]")
+            console.print(f"[dim]Set registry:  {CLI_NAME} code config --registry <path-or-url>[/dim]")
             return
 
         display = {
@@ -1267,7 +1267,7 @@ def config_cmd(
             **{k: v for k, v in config.items() if k != "code_workspace"},
         }
         console.print(Panel.fit(
-            "[bold cyan]DVA Code Config[/bold cyan]\n\n" +
+            f"[bold cyan]{CLI_NAME.upper()} Code Config[/bold cyan]\n\n" +
             "\n".join(f"[bold]{k}:[/bold] {v}" for k, v in display.items()),
             border_style="cyan",
         ))
