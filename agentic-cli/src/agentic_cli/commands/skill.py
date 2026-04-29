@@ -459,15 +459,27 @@ def generate_skill(
     """
     Interactively generate an Agent Skill using AI.
 
-    Follows the Anthropic skill-creator interview methodology to collect
-    your requirements, then generates a production-quality SKILL.md in
-    agentskills.io format — compatible with Windsurf, VS Code, Claude Code,
-    and OpenCode.
+    Follows Anthropic's skill-creator 5-stage methodology:
+      Stage 1 (Capture Intent): Interview questions cover trigger conditions,
+        input/output specs, success criteria, edge cases, and common patterns
+      Stage 2 (Interview): 4-step interactive flow with type-specific questions
+      Stage 3 (Draft): AI-powered SKILL.md generation with examples and workflows
+      Stage 4-5 (Evaluate & Iterate): Use 'dva eval' framework to test and improve
+
+    The generated SKILL.md is production-quality and compatible with Windsurf,
+    VS Code, Claude Code, and OpenCode.
+
+    Provider-agnostic: Works with any LLM (Gemini, Claude, GPT) via --model.
+
+    After generation, test and iterate using:
+      dva eval dataset create <dataset>
+      dva eval run skill --skill <name> --dataset <dataset>
 
     Examples:
         dva skill generate
         dva skill generate --path ./my-project
-        dva skill generate --model gemini-2.0-flash
+        dva skill generate --model claude-3-5-sonnet-20241022
+        dva skill generate --model gpt-4
     """
     from agentic_cli.agents.skill_creator.prompts import (
         QUESTIONS_BY_TYPE,
@@ -653,58 +665,6 @@ def generate_skill(
         repo_path=str(path),
     )
 
-    # --- Stage 4: Optional test case generation ---
-    console.print()
-    console.print(Rule())
-    console.print("[bold]Stage 4: Test Cases (Optional)[/bold]")
-    console.print("[dim]Generate test cases to validate this skill? (evals.json)[/dim]")
-    console.print()
-
-    if Confirm.ask("Generate test cases for this skill?", default=True):
-        try:
-            from agentic_cli.agents.skill_creator.prompts import TEST_CASE_GENERATOR
-
-            test_prompt = TEST_CASE_GENERATOR.format(
-                skill_md=current_skill,
-                skill_name=skill_name,
-            )
-
-            console.print("[dim]Generating test cases with AI...[/dim]")
-            console.print()
-
-            # Generate test cases using the same provider
-            test_output: list[str] = []
-
-            async def stream_tests():
-                async for chunk in provider.generate_streaming(test_prompt):
-                    console.print(chunk, end="", flush=True)
-                    test_output.append(chunk)
-
-            asyncio.run(stream_tests())
-            console.print()
-            console.print()
-
-            test_json_str = "".join(test_output).strip()
-
-            # Extract JSON if wrapped in markdown
-            if "```json" in test_json_str:
-                test_json_str = test_json_str.split("```json")[1].split("```")[0].strip()
-            elif "```" in test_json_str:
-                test_json_str = test_json_str.split("```")[1].split("```")[0].strip()
-
-            # Validate and save
-            try:
-                test_cases = json.loads(test_json_str)
-                evals_file = skill_dir / "evals.json"
-                evals_file.write_text(json.dumps(test_cases, indent=2) + "\n")
-                console.print(f"[green]✓[/green] Test cases saved to [cyan]{evals_file.name}[/cyan]")
-            except json.JSONDecodeError as e:
-                console.print(f"[yellow]⚠ Could not parse test cases: {e}[/yellow]")
-                console.print("[dim]Skipping evals.json generation[/dim]")
-        except Exception as e:
-            console.print(f"[yellow]⚠ Test case generation failed: {e}[/yellow]")
-            console.print("[dim]Continuing without test cases[/dim]")
-
     # --- P1: Register in registry.json ---
     registry_note = ""
     if register:
@@ -720,9 +680,14 @@ def generate_skill(
         f"[bold]Location:[/bold] {skill_dir / 'SKILL.md'}\n"
         f"[bold]Works in:[/bold] {environments}"
         f"{registry_note}\n\n"
-        f"[dim]Claude Code / Windsurf auto-discover skills from .skills/[/dim]\n"
-        f"[dim]To install into another project:[/dim]\n"
-        f"[dim]  dva skill install {skill_dir} --path /path/to/project[/dim]",
+        f"[dim]Next steps:[/dim]\n"
+        f"  1. [bold]Test:[/bold]  dva eval dataset create {skill_name}-tests\n"
+        f"  2. [bold]Evaluate:[/bold]  dva eval run skill --skill {skill_name} --dataset {skill_name}-tests\n"
+        f"  3. [bold]Iterate:[/bold]  Refine based on evaluation metrics\n\n"
+        f"[dim]Auto-discovery:[/dim]\n"
+        f"  Claude Code / Windsurf auto-discover skills from .skills/\n"
+        f"[dim]Install elsewhere:[/dim]\n"
+        f"  dva skill install {skill_dir} --path /path/to/project[/dim]",
         border_style="green",
     ))
 
