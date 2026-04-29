@@ -198,7 +198,7 @@ def init_vertex_ai(
             f"  Credentials: {credentials_path or 'Application Default Credentials'}\n\n"
             f"[dim]Config saved to: {CONFIG_FILE}[/dim]\n\n"
             f"[bold]Next steps:[/bold]\n"
-            f"  1. Create a new project: dva project create my-project\n"
+            f"  1. Create a new project: {CLI_NAME} project create my-project\n"
             f"  2. The Vertex AI settings will be automatically added to .env",
             title="Success",
             border_style="green",
@@ -213,7 +213,7 @@ def show_config() -> None:
     
     if not config:
         console.print("[yellow]No configuration found.[/yellow]")
-        console.print("[dim]Run f'{CLI_NAME} init vertex-ai' to configure Vertex AI.[/dim]")
+        console.print(f"[dim]Run '{CLI_NAME} init vertex-ai' to configure Vertex AI.[/dim]")
         return
 
     console.print(
@@ -336,8 +336,8 @@ def init_anthropic(
             f"  API Key: {'✓ Configured' if api_key else '✗ Not set'}\n\n"
             f"[dim]Config saved to: {CONFIG_FILE}[/dim]\n\n"
             f"[bold]Next steps:[/bold]\n"
-            f"  1. Use Claude with skill generation: dva skill generate --model {model}\n"
-            f"  2. Set as default: dva init set-default-provider anthropic",
+            f"  1. Use Claude with skill generation: {CLI_NAME} skill generate --model {model}\n"
+            f"  2. Set as default: {CLI_NAME} init set-default-provider anthropic",
             title="Success",
             border_style="green",
         )
@@ -420,8 +420,8 @@ def init_openai(
             f"  API Key: {'✓ Configured' if api_key else '✗ Not set'}\n\n"
             f"[dim]Config saved to: {CONFIG_FILE}[/dim]\n\n"
             f"[bold]Next steps:[/bold]\n"
-            f"  1. Use GPT with skill generation: dva skill generate --model {model}\n"
-            f"  2. Set as default: dva init set-default-provider openai",
+            f"  1. Use GPT with skill generation: {CLI_NAME} skill generate --model {model}\n"
+            f"  2. Set as default: {CLI_NAME} init set-default-provider openai",
             title="Success",
             border_style="green",
         )
@@ -453,7 +453,7 @@ def set_default_provider(
     provider_config_key = "google" if provider == "google" else provider
     if provider_config_key not in config:
         console.print(f"[yellow]⚠ Warning:[/yellow] {provider} is not configured")
-        console.print(f"[dim]Initialize first: dva init {provider}[/dim]")
+        console.print(f"[dim]Initialize first: {CLI_NAME} init {provider}[/dim]")
         if not Confirm.ask("Continue anyway?", default=False):
             raise typer.Exit(0)
 

@@ -1,4 +1,4 @@
-"""Workspace management commands for dva kg."""
+"""Workspace management commands for Knowledge Graph."""
 
 from typing_extensions import Annotated
 
@@ -7,6 +7,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 
+from agentic_cli.config import CLI_NAME
 from agentic_cli.kg.config import KGConfig
 from agentic_cli.kg.workspace import WorkspaceManager
 
@@ -34,7 +35,7 @@ def _check_provider_support(config: KGConfig) -> bool:
         console.print(f"[dim]Current provider: {config.provider}[/dim]")
         console.print(
             f"[dim]To use workspaces, switch to LightRAG: "
-            f"dva kg init --provider lightrag[/dim]"
+            f"{CLI_NAME} kg init --provider lightrag[/dim]"
         )
         raise typer.Exit(1)
     return True
@@ -86,7 +87,7 @@ def create(
         if config.workspace != name:
             console.print(
                 f"\n[dim]To switch to this workspace: "
-                f"dva kg workspace switch {name}[/dim]"
+                f"{CLI_NAME} kg workspace switch {name}[/dim]"
             )
         
     except ValueError as e:
@@ -111,7 +112,7 @@ def list_workspaces() -> None:
         if not workspaces:
             console.print("[yellow]No workspaces found[/yellow]")
             console.print(
-                f"[dim]Create a workspace: dva kg workspace create <name>[/dim]"
+                f"[dim]Create a workspace: {CLI_NAME} kg workspace create <name>[/dim]"
             )
             return
         
@@ -245,7 +246,7 @@ def delete(
             "Switch to another workspace first."
         )
         console.print(f"[dim]Current workspace: {config.workspace}[/dim]")
-        console.print(f"[dim]Switch with: dva kg workspace switch <name>[/dim]")
+        console.print(f"[dim]Switch with: {CLI_NAME} kg workspace switch <name>[/dim]")
         raise typer.Exit(1)
     
     # Get workspace info for confirmation
