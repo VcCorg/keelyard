@@ -110,7 +110,7 @@ CREATE TABLE IF NOT EXISTS domain_repos (
     repo_slug   TEXT    NOT NULL,
     repo_name   TEXT,
     clone_url   TEXT,
-    onboarded   INTEGER DEFAULT 0,  -- 1 if onboarded via dva code onboard
+    onboarded   INTEGER DEFAULT 0,  -- 1 if onboarded via agent-cli code onboard
     onboarded_at TEXT,
     UNIQUE(domain_id, repo_slug)
 );
