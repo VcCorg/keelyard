@@ -16,6 +16,7 @@ from rich.table import Table
 from rich.tree import Tree
 from typing_extensions import Annotated
 
+from agentic_cli.config import CLI_NAME
 from agentic_cli.tracker import record_activity
 
 console = Console()
@@ -114,10 +115,10 @@ def create_skill(
     new capabilities. Skills work across Claude Code, OpenCode, VS Code, and more.
 
     Examples:
-        dva skill create pr-reviewer --template pr-reviewer
-        dva skill create code-analyzer --description "Analyze code quality"
-        dva skill create pr-reviewer --template pr-reviewer --jira
-    """
+        {CLI_NAME} skill create pr-reviewer --template pr-reviewer
+        {CLI_NAME} skill create code-analyzer --description "Analyze code quality"
+        {CLI_NAME} skill create pr-reviewer --template pr-reviewer --jira
+    """.format(CLI_NAME=CLI_NAME)
     path = path.resolve()
 
     if template == "pr-reviewer":
@@ -218,7 +219,7 @@ def list_skills(
 
     if not skills:
         console.print("[yellow]No Agent Skills found in this project.[/yellow]")
-        console.print("[dim]Create one with: dva skill create <name>[/dim]")
+        console.print(f"[dim]Create one with: {CLI_NAME} skill create <name>[/dim]")
         return
 
     table = Table(show_header=True, header_style="bold magenta", title="Agent Skills")
@@ -254,10 +255,10 @@ def install_skill(
     Clones the skill into the project's .skills/ directory.
 
     Examples:
-        dva skill install anthropics/skills/skills/mcp-builder
-        dva skill install https://github.com/anthropics/skills --name mcp-builder
-        dva skill install anthropics/skills/skills/pdf --path ./my-project
-    """
+        {CLI_NAME} skill install anthropics/skills/skills/mcp-builder
+        {CLI_NAME} skill install https://github.com/anthropics/skills --name mcp-builder
+        {CLI_NAME} skill install anthropics/skills/skills/pdf --path ./my-project
+    """.format(CLI_NAME=CLI_NAME)
     path = path.resolve()
 
     # Parse source
@@ -464,7 +465,7 @@ def generate_skill(
         input/output specs, success criteria, edge cases, and common patterns
       Stage 2 (Interview): 4-step interactive flow with type-specific questions
       Stage 3 (Draft): AI-powered SKILL.md generation with examples and workflows
-      Stage 4-5 (Evaluate & Iterate): Use 'dva eval' framework to test and improve
+      Stage 4-5 (Evaluate & Iterate): Use 'eval' framework to test and improve
 
     The generated SKILL.md is production-quality and compatible with Windsurf,
     VS Code, Claude Code, and OpenCode.
@@ -472,15 +473,15 @@ def generate_skill(
     Provider-agnostic: Works with any LLM (Gemini, Claude, GPT) via --model.
 
     After generation, test and iterate using:
-      dva eval dataset create <dataset>
-      dva eval run skill --skill <name> --dataset <dataset>
+      {CLI_NAME} eval dataset create <dataset>
+      {CLI_NAME} eval run skill --skill <name> --dataset <dataset>
 
     Examples:
-        dva skill generate
-        dva skill generate --path ./my-project
-        dva skill generate --model claude-3-5-sonnet-20241022
-        dva skill generate --model gpt-4
-    """
+        {CLI_NAME} skill generate
+        {CLI_NAME} skill generate --path ./my-project
+        {CLI_NAME} skill generate --model claude-3-5-sonnet-20241022
+        {CLI_NAME} skill generate --model gpt-4
+    """.format(CLI_NAME=CLI_NAME)
     from agentic_cli.agents.skill_creator.prompts import (
         QUESTIONS_BY_TYPE,
         SKILL_CREATOR_SYSTEM,
@@ -681,13 +682,13 @@ def generate_skill(
         f"[bold]Works in:[/bold] {environments}"
         f"{registry_note}\n\n"
         f"[dim]Next steps:[/dim]\n"
-        f"  1. [bold]Test:[/bold]  dva eval dataset create {skill_name}-tests\n"
-        f"  2. [bold]Evaluate:[/bold]  dva eval run skill --skill {skill_name} --dataset {skill_name}-tests\n"
+        f"  1. [bold]Test:[/bold]  {CLI_NAME} eval dataset create {skill_name}-tests\n"
+        f"  2. [bold]Evaluate:[/bold]  {CLI_NAME} eval run skill --skill {skill_name} --dataset {skill_name}-tests\n"
         f"  3. [bold]Iterate:[/bold]  Refine based on evaluation metrics\n\n"
         f"[dim]Auto-discovery:[/dim]\n"
         f"  Claude Code / Windsurf auto-discover skills from .skills/\n"
         f"[dim]Install elsewhere:[/dim]\n"
-        f"  dva skill install {skill_dir} --path /path/to/project[/dim]",
+        f"  {CLI_NAME} skill install {skill_dir} --path /path/to/project[/dim]",
         border_style="green",
     ))
 
@@ -709,7 +710,7 @@ def _register_skill(
 
     if not reg_dir or not (reg_dir / "registry.json").exists():
         console.print("[yellow]⚠ Registry not found — skill saved locally only.[/yellow]")
-        console.print("[dim]Configure with: dva code config --registry ./skills[/dim]")
+        console.print(f"[dim]Configure with: {CLI_NAME} code config --registry ./skills[/dim]")
         return None
 
     reg_file = reg_dir / "registry.json"
@@ -781,7 +782,7 @@ def _register_skill(
             console.print(f"[green]✓[/green] SKILL.md copied to registry: {skills_dir}")
 
         console.print(f"[green]✓[/green] Added to registry: {reg_file}")
-        console.print(f"[dim]Future 'dva code onboard' runs will auto-detect and install '{skill_name}'[/dim]")
+        console.print(f"[dim]Future '{CLI_NAME} code onboard' runs will auto-detect and install '{skill_name}'[/dim]")
         return str(reg_file)
     except Exception as e:
         console.print(f"[yellow]⚠ Could not register skill: {e}[/yellow]")
