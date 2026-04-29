@@ -19,7 +19,7 @@ def _generate_main(target_dir: Path, config: TemplateConfig) -> None:
     """Generate src/main.py for the onboard agent."""
     main_py = target_dir / "src" / "main.py"
     main_py.parent.mkdir(parents=True, exist_ok=True)
-    main_py.write_text(f'''"""DVA Onboard Agent — {config.name}
+    main_py.write_text(f'''"""Agent-CLI Onboard Agent — {config.name}
 
 Standalone onboard agent project.
 Imports reusable pipeline from agentic_cli.agents.onboard.
