@@ -335,11 +335,22 @@ def show_skill(
     """
     path = path.resolve()
 
-    # Search for the skill
+    # Search for the skill recursively like list command
     skill_dir = None
-    for search in [path / ".skills" / name, path / "skills" / name, path / ".claude" / "skills" / name]:
-        if search.exists() and (search / "SKILL.md").exists():
-            skill_dir = search
+    search_dirs = [
+        path / ".skills",
+        path / "skills", 
+        path / ".claude" / "skills",
+    ]
+    
+    for search_dir in search_dirs:
+        if not search_dir.exists():
+            continue
+        for skill_md in search_dir.rglob("SKILL.md"):
+            if skill_md.parent.name == name:
+                skill_dir = skill_md.parent
+                break
+        if skill_dir:
             break
 
     if not skill_dir:
