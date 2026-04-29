@@ -61,7 +61,7 @@ def get_llm_provider(
         except Exception as e:
             raise ProviderNotConfigured(
                 f"Could not load Vertex AI config: {e}\n"
-                "Initialize with: dva init vertex-ai --project-id <ID>"
+                "Initialize with: agent-cli init vertex-ai --project-id <ID>"
             ) from e
 
         return VertexAIProvider(

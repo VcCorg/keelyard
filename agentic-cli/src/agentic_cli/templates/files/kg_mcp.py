@@ -263,7 +263,7 @@ if __name__ == "__main__":
 '''
 
 
-KG_WORKSPACE_CLIENT = '''"""Knowledge Graph Workspace Client - Connect to existing dva kg workspace."""
+KG_WORKSPACE_CLIENT = '''"""Knowledge Graph Workspace Client - Connect to existing agent-cli kg workspace."""
 
 import json
 import subprocess
@@ -273,7 +273,7 @@ from typing import Any, Dict, List, Optional
 
 class KGWorkspaceClient:
     """
-    Client for interacting with an existing dva kg workspace.
+    Client for interacting with an existing agent-cli kg workspace.
     
     This allows your agent to use a pre-configured knowledge graph
     without managing Neo4j connections directly.
@@ -298,21 +298,21 @@ class KGWorkspaceClient:
     def _validate_workspace(self) -> None:
         """Validate that the workspace exists."""
         result = subprocess.run(
-            ["dva", "kg", "workspace", "list"],
+            ["agent-cli", "kg", "workspace", "list"],
             capture_output=True,
             text=True
         )
         if self.workspace_name not in result.stdout:
             raise ValueError(f"Workspace '{self.workspace_name}' not found. "
-                           f"Create it with: dva kg workspace create {self.workspace_name}")
+                           f"Create it with: agent-cli kg workspace create {self.workspace_name}")
     
     def _run_dva_command(self, *args) -> Dict[str, Any]:
-        """Run a dva kg command and return parsed output."""
-        cmd = ["dva", "kg", *args, "--workspace", self.workspace_name, "--json"]
+        """Run an agent-cli kg command and return parsed output."""
+        cmd = ["agent-cli", "kg", *args, "--workspace", self.workspace_name, "--json"]
         result = subprocess.run(cmd, capture_output=True, text=True)
-        
+
         if result.returncode != 0:
-            raise RuntimeError(f"dva kg command failed: {result.stderr}")
+            raise RuntimeError(f"agent-cli kg command failed: {result.stderr}")
         
         try:
             return json.loads(result.stdout)
@@ -491,9 +491,9 @@ from kg import init_workspace, query, search, stats
 
 def main():
     """Example of using the KG workspace client."""
-    
+
     # Initialize connection to workspace
-    # This workspace should be created with: dva kg workspace create my-workspace
+    # This workspace should be created with: agent-cli kg workspace create my-workspace
     workspace = init_workspace("WORKSPACE_NAME")
     
     print("Connected to KG workspace: WORKSPACE_NAME")

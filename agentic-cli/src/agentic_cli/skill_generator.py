@@ -166,12 +166,12 @@ def generate_dev_md(ctx: dict) -> str:
                 lines.append(f"- **Clone:** `{url}`")
             onboarded = r.get("onboarded", 0)
             if onboarded:
-                lines.append("- **Onboarded:** Yes — skills installed via `dva code onboard`")
+                lines.append("- **Onboarded:** Yes — skills installed via `agent-cli code onboard`")
             lines.append("")
 
     # Code conventions placeholder
     lines.append("## Code Conventions\n")
-    lines.append("<!-- Auto-populated when repos are onboarded via f'{CLI_NAME} code onboard' -->")
+    lines.append(f"<!-- Auto-populated when repos are onboarded via '{CLI_NAME} code onboard' -->")
     lines.append("- Follow existing patterns in each repository")
     lines.append("- Use the project's established build tool and dependency manager")
     lines.append("- Prefer constructor injection over field injection (Spring Boot)")

@@ -96,7 +96,7 @@ def list_products() -> None:
 
     if not products:
         console.print("[yellow]No products registered.[/yellow]")
-        console.print("f[dim]Register one with: {CLI_NAME} product create <NAME>[/dim]")
+        console.print(f"[dim]Register one with: {CLI_NAME} product create <NAME>[/dim]")
         return
 
     table = Table(title=f"Registered Products ({len(products)})")
@@ -137,7 +137,7 @@ def show(
     p = get_product(name)
     if not p:
         console.print(f"[red]✗ Product '{name.upper()}' not found.[/red]")
-        console.print("[dim]Use f'{CLI_NAME} product list' to see available products.[/dim]")
+        console.print(f"[dim]Use '{CLI_NAME} product list' to see available products.[/dim]")
         raise typer.Exit(1)
 
     lines = [f"[cyan]Name:[/cyan] {p['name']}"]
@@ -240,7 +240,7 @@ def remove(
     domains = get_domains(product=p["name"])
     if domains:
         console.print(f"[red]✗ Cannot remove product '{p['name']}' — it has {len(domains)} domain(s).[/red]")
-        console.print("f[dim]Remove domains first with: {CLI_NAME} domain remove <domain-name>[/dim]")
+        console.print(f"[dim]Remove domains first with: {CLI_NAME} domain remove <domain-name>[/dim]")
         raise typer.Exit(1)
 
     if not yes:

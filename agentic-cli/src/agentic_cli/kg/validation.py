@@ -63,7 +63,7 @@ def check_neo4j_availability(
     try:
         from neo4j import GraphDatabase
     except ImportError as e:
-        return False, f"neo4j package not installed. Install with: uv pip install 'agentic-cli\[kg]' (Error: {str(e)})"
+        return False, f"neo4j package not installed. Install with: uv pip install 'agent-cli\[kg]' (Error: {str(e)})"
     
     try:
         driver = GraphDatabase.driver(uri, auth=(username, password))
@@ -78,7 +78,7 @@ def check_neo4j_availability(
     
     except ImportError as e:
         # Catch import errors that might occur during driver initialization
-        return False, f"neo4j package import failed. Install with: uv pip install 'agentic-cli\[kg]' (Error: {str(e)})"
+        return False, f"neo4j package import failed. Install with: uv pip install 'agent-cli\[kg]' (Error: {str(e)})"
     except Exception as e:
         error_msg = str(e)
         
@@ -287,17 +287,17 @@ Then verify the connection:
     if package_missing:
         sections.append(
             "3. Install the KG Python dependencies:\n"
-            '   uv pip install "agentic-cli\[kg]"\n'
+            '   uv pip install "agent-cli\[kg]"\n'
         )
 
     sections.append(
-        "4. Configure DVA CLI (if not already done):\n"
-        "   dva kg init --provider neo4j \\\n"
+        "4. Configure Agent-CLI (if not already done):\n"
+        "   agent-cli kg init --provider neo4j \\\n"
         "     --uri bolt://localhost:7687 \\\n"
         "     --username neo4j \\\n"
         "     --password password\n\n"
         "5. Verify connection:\n"
-        "   dva kg stats\n"
+        "   agent-cli kg stats\n"
     )
 
     return "\n".join(sections)

@@ -39,7 +39,7 @@ class OpenAIProvider:
         if not api_key:
             raise ProviderNotConfigured(
                 "OpenAI API key not found. Set OPENAI_API_KEY env var or "
-                "initialize with: dva init openai"
+                "initialize with: agent-cli init openai"
             )
 
         self.model_name = model_name

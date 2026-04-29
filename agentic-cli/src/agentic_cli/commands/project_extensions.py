@@ -213,12 +213,12 @@ def run_project_command(
 ) -> None:
     """
     Run agents in a project.
-    
+
     Examples:
         {CLI_NAME} project run                          # Run main.py
         {CLI_NAME} project run --agent KnowledgeGraphAgent  # Run specific agent
         {CLI_NAME} project run --script examples/kg_agent_demo.py  # Run custom script
-    """
+    """.format(CLI_NAME=CLI_NAME)
     path = path.resolve()
     
     if not path.exists():
