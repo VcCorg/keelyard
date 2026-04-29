@@ -653,6 +653,58 @@ def generate_skill(
         repo_path=str(path),
     )
 
+    # --- Stage 4: Optional test case generation ---
+    console.print()
+    console.print(Rule())
+    console.print("[bold]Stage 4: Test Cases (Optional)[/bold]")
+    console.print("[dim]Generate test cases to validate this skill? (evals.json)[/dim]")
+    console.print()
+
+    if Confirm.ask("Generate test cases for this skill?", default=True):
+        try:
+            from agentic_cli.agents.skill_creator.prompts import TEST_CASE_GENERATOR
+
+            test_prompt = TEST_CASE_GENERATOR.format(
+                skill_md=current_skill,
+                skill_name=skill_name,
+            )
+
+            console.print("[dim]Generating test cases with AI...[/dim]")
+            console.print()
+
+            # Generate test cases using the same provider
+            test_output: list[str] = []
+
+            async def stream_tests():
+                async for chunk in provider.generate_streaming(test_prompt):
+                    console.print(chunk, end="", flush=True)
+                    test_output.append(chunk)
+
+            asyncio.run(stream_tests())
+            console.print()
+            console.print()
+
+            test_json_str = "".join(test_output).strip()
+
+            # Extract JSON if wrapped in markdown
+            if "```json" in test_json_str:
+                test_json_str = test_json_str.split("```json")[1].split("```")[0].strip()
+            elif "```" in test_json_str:
+                test_json_str = test_json_str.split("```")[1].split("```")[0].strip()
+
+            # Validate and save
+            try:
+                test_cases = json.loads(test_json_str)
+                evals_file = skill_dir / "evals.json"
+                evals_file.write_text(json.dumps(test_cases, indent=2) + "\n")
+                console.print(f"[green]✓[/green] Test cases saved to [cyan]{evals_file.name}[/cyan]")
+            except json.JSONDecodeError as e:
+                console.print(f"[yellow]⚠ Could not parse test cases: {e}[/yellow]")
+                console.print("[dim]Skipping evals.json generation[/dim]")
+        except Exception as e:
+            console.print(f"[yellow]⚠ Test case generation failed: {e}[/yellow]")
+            console.print("[dim]Continuing without test cases[/dim]")
+
     # --- P1: Register in registry.json ---
     registry_note = ""
     if register:
