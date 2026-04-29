@@ -11,7 +11,7 @@ This guide walks you through testing the complete Git repository ingestion featu
 ### 1. Install Dependencies
 
 ```bash
-cd /Users/your-user/dva-agentic-project/dva-agentic-cli
+cd /Users/your-user/agentic-project/agentic-cli
 
 # Install with KG dependencies (includes Git support)
 uv pip install -e ".[kg]"
@@ -29,15 +29,15 @@ python -c "import gitingest; print('✓ gitingest installed')"
 # Check if GitPython is installed
 python -c "import git; print('✓ GitPython installed')"
 
-# Verify DVA CLI
-dva --version
+# Verify Agentic CLI
+`agent --version
 ```
 
 ### 3. Start Knowledge Graph Infrastructure
 
 **Option A: LightRAG (Recommended for testing)**
 ```bash
-cd /Users/your-user/dva-agentic-project/lightrag-infrastructure
+cd /Users/your-user/agentic-project/lightrag-infrastructure
 docker-compose up -d
 docker logs -f dva-lightrag
 ```
@@ -58,16 +58,16 @@ docker run --name neo4j \
 
 ```bash
 # For LightRAG
-dva kg init --provider lightrag --lightrag-url http://localhost:8001
+`agent kg init --provider lightrag --lightrag-url http://localhost:8001
 
 # For Neo4j
-dva kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
+`agent kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
 ```
 
 ### Step 2: Register Git Repository
 
 ```bash
-dva data create \
+`agent data create \
   --name requests-lib \
   --source-type git \
   --source-location https://github.com/psf/requests.git \
@@ -89,7 +89,7 @@ dva data create \
 ### Step 3: Verify Data Source
 
 ```bash
-dva data show requests-lib
+`agent data show requests-lib
 ```
 
 **Expected Output:**
@@ -111,7 +111,7 @@ dva data show requests-lib
 ### Step 4: Ingest Repository
 
 ```bash
-dva kg ingest --source requests-lib
+`agent kg ingest --source requests-lib
 ```
 
 **Expected Output:**
@@ -136,7 +136,7 @@ Resolving data source 'requests-lib'...
 ### Step 5: Query Without Persona Filter
 
 ```bash
-dva kg query "HTTP request methods"
+`agent kg query "HTTP request methods"
 ```
 
 **Expected Output:**
@@ -150,7 +150,7 @@ The requests library provides several HTTP request methods through its main API.
 ### Step 6: Query with Developer Persona
 
 ```bash
-dva kg query "HTTP request methods" --persona developer
+`agent kg query "HTTP request methods" --persona developer
 ```
 
 **Expected Output:**
@@ -172,7 +172,7 @@ From the code perspective, the requests library implements HTTP methods in the `
 ### Step 7: Query with Business Persona
 
 ```bash
-dva kg query "HTTP request documentation" --persona business
+`agent kg query "HTTP request documentation" --persona business
 ```
 
 **Expected Output:**
@@ -190,7 +190,7 @@ Persona filter: business (filtering docs/business context)
 ### Step 1: Register Java Repository
 
 ```bash
-dva data create \
+`agent data create \
   --name spring-petclinic \
   --source-type git \
   --source-location https://github.com/spring-projects/spring-petclinic.git \
@@ -202,7 +202,7 @@ dva data create \
 ### Step 2: Ingest Repository
 
 ```bash
-dva kg ingest --source spring-petclinic
+`agent kg ingest --source spring-petclinic
 ```
 
 **Expected Output:**
@@ -219,7 +219,7 @@ dva kg ingest --source spring-petclinic
 ### Step 3: Query Java Code
 
 ```bash
-dva kg query "Spring controller classes" --persona developer
+`agent kg query "Spring controller classes" --persona developer
 ```
 
 **Expected Output:**
@@ -247,7 +247,7 @@ The Spring PetClinic application contains several controller classes:
 ### Step 1: Register Repository with Database Schema
 
 ```bash
-dva data create \
+`agent data create \
   --name patient-db-schema \
   --source-type git \
   --source-location https://github.com/your-org/patient-database.git \
@@ -259,7 +259,7 @@ dva data create \
 ### Step 2: Ingest Repository
 
 ```bash
-dva kg ingest --source patient-db-schema
+`agent kg ingest --source patient-db-schema
 ```
 
 **Expected Output:**
@@ -277,13 +277,13 @@ dva kg ingest --source patient-db-schema
 
 ```bash
 # Find all tables
-dva kg query "show all database tables" --persona developer
+`agent kg query "show all database tables" --persona developer
 
 # Find patient-related tables
-dva kg query "patient tables and columns" --persona developer
+`agent kg query "patient tables and columns" --persona developer
 
 # Find foreign key relationships
-dva kg query "foreign key constraints" --persona developer
+`agent kg query "foreign key constraints" --persona developer
 ```
 
 **Expected Output:**
@@ -311,10 +311,10 @@ Persona filter: developer (filtering code/developer context)
 
 ```bash
 # Find all views
-dva kg query "database views" --persona developer
+`agent kg query "database views" --persona developer
 
 # Find stored procedures
-dva kg query "stored procedures for patient data" --persona developer
+`agent kg query "stored procedures for patient data" --persona developer
 ```
 
 **Expected Output:**
@@ -352,7 +352,7 @@ ssh -T git@github.com
 ### Step 2: Register Private Repository
 
 ```bash
-dva data create \
+`agent data create \
   --name my-private-api \
   --source-type git \
   --source-location git@github.com:myorg/private-api.git \
@@ -364,7 +364,7 @@ dva data create \
 ### Step 3: Ingest with Specific Branch
 
 ```bash
-dva kg ingest --source my-private-api
+`agent kg ingest --source my-private-api
 ```
 
 ---
@@ -374,7 +374,7 @@ dva kg ingest --source my-private-api
 ### Step 1: Register with Tag
 
 ```bash
-dva data create \
+`agent data create \
   --name requests-v2 \
   --source-type git \
   --source-location https://github.com/psf/requests.git \
@@ -386,7 +386,7 @@ dva data create \
 ### Step 2: Ingest Specific Version
 
 ```bash
-dva kg ingest --source requests-v2
+`agent kg ingest --source requests-v2
 ```
 
 **Expected Output:**
@@ -404,33 +404,33 @@ dva kg ingest --source requests-v2
 ### Step 1: Switch to Neo4j
 
 ```bash
-dva kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
+`agent kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
 ```
 
 ### Step 2: Ingest Repository
 
 ```bash
-dva kg ingest --source requests-lib
+`agent kg ingest --source requests-lib
 ```
 
 ### Step 3: Query with Cypher and Persona
 
 ```bash
 # Find all developer nodes
-dva kg query "MATCH (n) WHERE n.persona = 'developer' RETURN n LIMIT 10" --format cypher
+`agent kg query "MATCH (n) WHERE n.persona = 'developer' RETURN n LIMIT 10" --format cypher
 
 # Find Code::Function nodes
-dva kg query "MATCH (n:Code:Function) RETURN n.name, n.file_path LIMIT 20" --format cypher
+`agent kg query "MATCH (n:Code:Function) RETURN n.name, n.file_path LIMIT 20" --format cypher
 ```
 
 ### Step 4: Natural Language Query with Persona
 
 ```bash
 # Query only code
-dva kg query "find all authentication functions" --persona developer
+`agent kg query "find all authentication functions" --persona developer
 
 # Query without filter
-dva kg query "find all authentication related items"
+`agent kg query "find all authentication related items"
 ```
 
 ---
@@ -522,13 +522,13 @@ Files with syntax errors are automatically skipped with warnings. Check logs for
 **Solution:**
 ```bash
 # Check ingestion status
-dva kg stats
+`agent kg stats
 
 # Try without persona filter
-dva kg query "your query"
+`agent kg query "your query"
 
 # Try broader query
-dva kg query "all nodes" --persona developer
+`agent kg query "all nodes" --persona developer
 ```
 
 ---

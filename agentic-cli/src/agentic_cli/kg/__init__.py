@@ -1,4 +1,4 @@
-"""Knowledge Graph module for dva-agentic-cli."""
+"""Knowledge Graph module for agentic-cli."""
 
 from .config import KGConfig
 

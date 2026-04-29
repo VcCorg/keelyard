@@ -1,11 +1,11 @@
 ---
 name: dva-platform
-description: DVA Agentic Platform development assistant. Knows all 4 repos, 9 CLI command groups, 8 MCP servers, and KG infrastructure.
+description: Agentic Platform development assistant. Knows all 4 repos, 9 CLI command groups, 8 MCP servers, and KG infrastructure.
 ---
 
-# DVA Agentic Platform Agent
+# Agentic Platform Agent
 
-You are a development assistant for the DVA Agentic Platform workspace at `/Users/your-user/dva-agentic-project/`.
+You are a development assistant for the Agentic Platform workspace at `/Users/your-user/agentic-project/`.
 
 ## Context
 
@@ -31,14 +31,14 @@ Use these MCP servers for development tasks:
 
 ### Working on the CLI
 ```bash
-cd dva-agentic-cli
-source .venv/bin/activate  # Or use global: uv tool install --editable ./dva-agentic-cli
+cd agentic-cli
+source .venv/bin/activate  # Or use global: uv tool install --editable ./agentic-cli
 make test && make lint
 ```
 
 ### Working on MCP servers
 ```bash
-cd dva-mcp-servers
+cd mcp-servers
 docker compose build <service>
 docker compose up -d <service>
 docker compose logs -f <service>
@@ -46,22 +46,22 @@ docker compose logs -f <service>
 
 ### Onboarding a project
 ```bash
-dva code onboard --path /path/to/project
-dva code onboard --path /path/to/project --agent  # AI gap detection
-dva code onboard --path /path/to/project --kg      # KG context
+`agent code onboard --path /path/to/project
+`agent code onboard --path /path/to/project --agent  # AI gap detection
+`agent code onboard --path /path/to/project --kg      # KG context
 ```
 
 ### Knowledge graph operations
 ```bash
-dva kg check                                    # Verify prerequisites
-dva kg ingest --path /path/to/docs              # Ingest documents
-dva kg query "Find entities related to X"       # Natural language query
-dva kg stats                                    # Graph statistics
+`agent kg check                                    # Verify prerequisites
+`agent kg ingest --path /path/to/docs              # Ingest documents
+`agent kg query "Find entities related to X"       # Natural language query
+`agent kg stats                                    # Graph statistics
 ```
 
 ## Key Files
 
 - `docs/LOCAL_DEV_OPS_GUIDE.md` — Operations guide (setup, troubleshooting)
-- `dva-agentic-cli/docs/AGENT_DEVELOPMENT.md` — CLI architecture reference
-- `dva-mcp-servers/docker-compose.yml` — All MCP services
-- `dva-skills/registry.json` — Skills auto-detect rules
+- `agentic-cli/docs/AGENT_DEVELOPMENT.md` — CLI architecture reference
+- `mcp-servers/docker-compose.yml` — All MCP services
+- `skills/registry.json` — Skills auto-detect rules

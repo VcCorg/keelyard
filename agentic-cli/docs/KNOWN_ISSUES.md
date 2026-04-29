@@ -25,24 +25,24 @@ All commands function correctly:
 
 ```bash
 # Project commands
-dva project create my-project
-dva project list-templates
-dva project info
-dva project run
-dva project run --script examples/demo.py
-dva project agent list
-dva project agent info AgentName
+`agent project create my-project
+`agent project list-templates
+`agent project info
+`agent project run
+`agent project run --script examples/demo.py
+`agent project agent list
+`agent project agent info AgentName
 
 # KG commands  
-dva kg init --provider neo4j
-dva kg config --show
-dva kg ingest document.pdf
-dva kg query "Find all people"
-dva kg stats
+`agent kg init --provider neo4j
+`agent kg config --show
+`agent kg ingest document.pdf
+`agent kg query "Find all people"
+`agent kg stats
 
 # Init commands
-dva init vertex-ai --project-id PROJECT_ID
-dva init show
+`agent init vertex-ai --project-id PROJECT_ID
+`agent init show
 ```
 
 ### Command Reference
@@ -50,58 +50,58 @@ dva init show
 #### Project Commands
 ```bash
 # Create new project
-dva project create <name> [--path PATH] [--agent-type adk]
+`agent project create <name> [--path PATH] [--agent-type adk]
 
 # List templates
-dva project list-templates
+`agent project list-templates
 
 # Show project info
-dva project info [--path PATH]
+`agent project info [--path PATH]
 
 # Run project
-dva project run [--path PATH] [--script SCRIPT] [--agent AGENT]
+`agent project run [--path PATH] [--script SCRIPT] [--agent AGENT]
 
 # List agents
-dva project agent list [--path PATH]
+`agent project agent list [--path PATH]
 
 # Show agent info
-dva project agent info <agent_name> [--path PATH]
+`agent project agent info <agent_name> [--path PATH]
 ```
 
 #### Knowledge Graph Commands
 ```bash
 # Initialize KG
-dva kg init --provider neo4j [--uri URI] [--username USER] [--password PASS]
+`agent kg init --provider neo4j [--uri URI] [--username USER] [--password PASS]
 
 # Show config
-dva kg config --show
+`agent kg config --show
 
 # Ingest data
-dva kg ingest <source> [--format FORMAT] [--extract-entities] [--build-relationships]
+`agent kg ingest <source> [--format FORMAT] [--extract-entities] [--build-relationships]
 
 # Query graph
-dva kg query <query_string>
+`agent kg query <query_string>
 
 # Search
-dva kg search <term> [--semantic] [--exact]
+`agent kg search <term> [--semantic] [--exact]
 
 # Statistics
-dva kg stats
+`agent kg stats
 
 # Visualize
-dva kg visualize [--output FILE]
+`agent kg visualize [--output FILE]
 ```
 
 #### Init Commands
 ```bash
 # Configure Vertex AI
-dva init vertex-ai --project-id PROJECT_ID [--location LOCATION] [--model MODEL]
+`agent init vertex-ai --project-id PROJECT_ID [--location LOCATION] [--model MODEL]
 
 # Show configuration
-dva init show
+`agent init show
 
 # Reset configuration
-dva init reset
+`agent init reset
 ```
 
 ### Resolution Plan
@@ -114,10 +114,10 @@ This will be fixed in a future release by either:
 To verify commands work despite the help error:
 ```bash
 # These all work correctly
-dva project create test-proj
-dva project agent list
-dva kg stats
-dva init show
+`agent project create test-proj
+`agent project agent list
+`agent kg stats
+`agent init show
 ```
 
 ## Summary

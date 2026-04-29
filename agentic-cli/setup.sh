@@ -1,9 +1,9 @@
 #!/bin/bash
-# Setup script for dva-agentic-cli
+# Setup script for agentic-cli
 
 set -e
 
-echo "🚀 Setting up DVA Agentic CLI..."
+echo "🚀 Setting up Agentic CLI..."
 
 # Check if uv is installed
 if ! command -v uv &> /dev/null; then
@@ -23,7 +23,7 @@ echo "🔧 Activating virtual environment..."
 source .venv/bin/activate
 
 # Install package in development mode
-echo "📥 Installing dva-agentic-cli with dev dependencies..."
+echo "📥 Installing agentic-cli with dev dependencies..."
 uv pip install -e ".[dev]"
 
 echo ""
@@ -33,8 +33,8 @@ echo "To activate the virtual environment, run:"
 echo "  source .venv/bin/activate"
 echo ""
 echo "To test the CLI, run:"
-echo "  dva --version"
-echo "  dva --help"
+echo "  agent --version"
+echo "  agent --help"
 echo ""
 echo "To run integration tests:"
 echo "  make integration"

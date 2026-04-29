@@ -1,7 +1,7 @@
 ---
 name: dva-agent-dev
 description: >-
-  Use this skill to quickly understand the dva-agentic-cli agent development system.
+  Use this skill to quickly understand the agentic-cli agent development system.
   Read this before starting any work on agent commands, PR reviewer templates,
   OpenCode integration, Agent Skills, or MCP server configuration.
   This provides full project context so you don't need to explore the codebase from scratch.
@@ -9,11 +9,11 @@ description: >-
 
 # DVA Agent Development Context
 
-You are working on `dva-agentic-cli`, a Python CLI tool (Typer + Rich) for scaffolding and managing AI agents. Read `docs/AGENT_DEVELOPMENT.md` for the full reference. Below is the essential context to get productive immediately.
+You are working on `agentic-cli`, a Python CLI tool (Typer + Rich) for scaffolding and managing AI agents. Read `docs/AGENT_DEVELOPMENT.md` for the full reference. Below is the essential context to get productive immediately.
 
 ## Project Location
 
-- **CLI source**: `/Users/your-user/dva-agentic-project/dva-agentic-cli/`
+- **CLI source**: `/Users/your-user/agentic-project/agentic-cli/`
 - **Package**: `src/dva_agentic_cli/`
 - **Entry point**: `src/dva_agentic_cli/main.py` → registers all Typer sub-apps
 - **Installed as**: `dva` (editable install via `uv pip install -e '.'`)
@@ -35,7 +35,7 @@ You are working on `dva-agentic-cli`, a Python CLI tool (Typer + Rich) for scaff
 
 Auto-detect tech stack and install matching context skills for any repo.
 
-- **Registry**: `dva-skills/` — separate repo with `registry.json` + `skills/<name>/SKILL.md`
+- **Registry**: `skills/` — separate repo with `registry.json` + `skills/<name>/SKILL.md`
 - **Analyzer**: `src/dva_agentic_cli/analyzer/detector.py` — detects language, framework, deps, structure
 - **Matcher**: `src/dva_agentic_cli/analyzer/matcher.py` — matches analysis → registry skills + MCP detection
 - **Commands**: `src/dva_agentic_cli/commands/code.py`
@@ -43,16 +43,16 @@ Auto-detect tech stack and install matching context skills for any repo.
 ### Key commands
 
 ```bash
-dva code config --registry /path/to/dva-skills   # Set registry path (or git URL)
-dva code onboard --path <project>                 # Analyze + install skills
-dva code onboard --repo <git-url>                 # Clone + analyze + install
-dva code skills list --path <project>             # List installed skills
-dva code skills available                         # Show all skills in registry
-dva code skills available --tag mcp               # Filter by tag
-dva code skills add jira --path <project>         # Add a skill
-dva code skills remove testing-junit --path <project>  # Remove
-dva code skills update --path <project>           # Update from latest registry
-dva code validate --path <project>                # Summary report
+`agent code config --registry /path/to/skills   # Set registry path (or git URL)
+`agent code onboard --path <project>                 # Analyze + install skills
+`agent code onboard --repo <git-url>                 # Clone + analyze + install
+`agent code skills list --path <project>             # List installed skills
+`agent code skills available                         # Show all skills in registry
+`agent code skills available --tag mcp               # Filter by tag
+`agent code skills add jira --path <project>         # Add a skill
+`agent code skills remove testing-junit --path <project>  # Remove
+`agent code skills update --path <project>           # Update from latest registry
+`agent code validate --path <project>                # Summary report
 ```
 
 ### How onboarding works
@@ -119,7 +119,7 @@ Templates live in `src/dva_agentic_cli/templates/`:
 
 ## MCP Servers (Docker)
 
-All managed via `/Users/your-user/dva-agentic-project/mcp-docker-compose.yml`:
+All managed via `/Users/your-user/agentic-project/mcp-docker-compose.yml`:
 
 | Server | Port | SSE URL | Source |
 |--------|------|---------|--------|
@@ -145,21 +145,21 @@ When resuming work on agent features, read these files in order:
 ## Testing
 
 ```bash
-cd /Users/your-user/dva-agentic-project/dva-agentic-cli
+cd /Users/your-user/agentic-project/agentic-cli
 source .venv/bin/activate
 
 # Verify CLI
-dva --version
-dva agent --help
-dva skill --help
+`agent --version
+`agent agent --help
+`agent skill --help
 
 # Create test project
-dva project create test-bot --use-case pr-reviewer --force
-dva agent list --path ./test-bot
-dva skill list --path ./test-bot
+`agent project create test-bot --use-case pr-reviewer --force
+`agent agent list --path ./test-bot
+`agent skill list --path ./test-bot
 
 # With Jira
-dva project create test-bot-jira --use-case pr-reviewer --jira-mcp --force
+`agent project create test-bot-jira --use-case pr-reviewer --jira-mcp --force
 
 # Clean up
 rm -rf test-bot test-bot-jira

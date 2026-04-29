@@ -1,6 +1,6 @@
 # ADK Agent Integration Guide
 
-This guide explains how to integrate ADK agent functionality into the DVA Agentic CLI.
+This guide explains how to integrate ADK agent functionality into the Agentic CLI.
 
 ## Option 1: Using Local Python Modules
 
@@ -8,12 +8,12 @@ If you're developing ADK modules locally in the parent project, you can referenc
 
 ### Step 1: Create Your ADK Module
 
-In the parent project directory (`/Users/your-user/dva-agentic-project/`), create your ADK modules:
+In the parent project directory (`/Users/your-user/agentic-project/`), create your ADK modules:
 
 ```bash
 # Example structure
-dva-agentic-project/
-├── dva-agentic-cli/          # This CLI project
+agentic-project/
+├── agentic-cli/          # This CLI project
 └── adk_modules/              # Your ADK modules
     ├── __init__.py
     ├── agent.py
@@ -142,13 +142,13 @@ app.add_typer(agent_app, name="agent")
 
 ```bash
 # Create an agent
-dva agent create my-agent --model gpt-4
+`agent agent create my-agent --model gpt-4
 
 # List agents
-dva agent list
+`agent agent list
 
 # Run an agent
-dva agent run my-agent --prompt "Analyze this data"
+`agent agent run my-agent --prompt "Analyze this data"
 ```
 
 ## Example Command Structure

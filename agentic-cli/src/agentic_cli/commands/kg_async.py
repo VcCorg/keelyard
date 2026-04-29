@@ -8,8 +8,8 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from typing_extensions import Annotated
 from pathlib import Path
 
-from agentic_cli.kg.async_ingest import (
 from agentic_cli.config import CLI_NAME
+from agentic_cli.kg.async_ingest import (
     get_manager,
     JobStatus,
     IngestionJob
@@ -59,17 +59,17 @@ def submit_ingestion(
     
     This allows you to ingest large datasets without blocking the CLI.
     Multiple jobs can run in parallel.
-    
+
     Examples:
         # Submit single file
-        dva kg async submit --path /path/to/file.pdf
-        
+        {CLI_NAME} kg async submit --path /path/to/file.pdf
+
         # Submit data source
-        dva kg async submit --source my-dataset --provider both
-        
+        {CLI_NAME} kg async submit --source my-dataset --provider both
+
         # Submit and wait for completion
-        dva kg async submit --path /docs --wait
-    """
+        {CLI_NAME} kg async submit --path /docs --wait
+    """.format(CLI_NAME=CLI_NAME)
     from agentic_cli.commands.kg import resolve_data_source
     
     # Validate inputs
@@ -130,8 +130,8 @@ def submit_ingestion(
         console.print(f"  Job ID: [cyan]{job.job_id}[/cyan]")
         console.print(f"  Status: [yellow]{job.status.value}[/yellow]")
         
-        console.print(f"\n[dim]Track progress with:[/dim] dva kg async status {job.job_id}")
-        console.print(f"[dim]List all jobs with:[/dim] dva kg async list")
+        console.print(f"\n[dim]Track progress with:[/dim] {CLI_NAME} kg async status {job.job_id}")
+        console.print(f"[dim]List all jobs with:[/dim] {CLI_NAME} kg async list")
         
         # Wait for completion if requested
         if wait:
@@ -158,7 +158,7 @@ def submit_ingestion(
                     
                 except TimeoutError:
                     console.print(f"\n[yellow]⚠ Job is still running after 1 hour[/yellow]")
-                    console.print(f"  Check status with: dva kg async status {job.job_id}")
+                    console.print(f"  Check status with: {CLI_NAME} kg async status {job.job_id}")
         
     except Exception as e:
         console.print(f"\n[bold red]✗ Failed to submit job:[/bold red] {str(e)}")
@@ -172,10 +172,10 @@ def job_status(
 ) -> None:
     """
     Check the status of an ingestion job.
-    
+
     Example:
-        dva kg async status abc123-def456
-    """
+        {CLI_NAME} kg async status abc123-def456
+    """.format(CLI_NAME=CLI_NAME)
     manager = get_manager()
     job = manager.get_job_status(job_id)
     
@@ -197,17 +197,17 @@ def list_jobs(
 ) -> None:
     """
     List ingestion jobs.
-    
+
     Examples:
         # List all jobs
-        dva kg async list
-        
+        {CLI_NAME} kg async list
+
         # List only running jobs
-        dva kg async list --status running
-        
+        {CLI_NAME} kg async list --status running
+
         # List last 50 jobs
-        dva kg async list --limit 50
-    """
+        {CLI_NAME} kg async list --limit 50
+    """.format(CLI_NAME=CLI_NAME)
     manager = get_manager()
     
     # Parse status filter
@@ -271,7 +271,7 @@ def list_jobs(
         )
     
     console.print(table)
-    console.print(f"\n[dim]View details:[/dim] dva kg async status <job-id>")
+    console.print(f"\n[dim]View details:[/dim] {CLI_NAME} kg async status <job-id>")
 
 
 @kg_async_app.command("cancel")
@@ -280,13 +280,13 @@ def cancel_job(
 ) -> None:
     """
     Cancel a pending or running job.
-    
+
     Note: Running jobs cannot be immediately stopped,
     but will be marked for cancellation.
-    
+
     Example:
-        dva kg async cancel abc123-def456
-    """
+        {CLI_NAME} kg async cancel abc123-def456
+    """.format(CLI_NAME=CLI_NAME)
     manager = get_manager()
     
     if manager.cancel_job(job_id):
@@ -304,10 +304,10 @@ def cleanup_jobs(
 ) -> None:
     """
     Clean up old completed and failed jobs.
-    
+
     Example:
-        dva kg async cleanup --days 7
-    """
+        {CLI_NAME} kg async cleanup --days 7
+    """.format(CLI_NAME=CLI_NAME)
     if not force:
         confirm = typer.confirm(
             f"Delete completed/failed jobs older than {days} days?",
@@ -331,20 +331,20 @@ def view_logs(
 ) -> None:
     """
     View ingestion job logs.
-    
+
     Examples:
         # View last 50 lines
-        dva kg async logs
-        
+        {CLI_NAME} kg async logs
+
         # View last 100 lines
-        dva kg async logs --lines 100
-        
+        {CLI_NAME} kg async logs --lines 100
+
         # Filter by job ID
-        dva kg async logs abc123-def456
-        
+        {CLI_NAME} kg async logs abc123-def456
+
         # Follow logs in real-time
-        dva kg async logs --follow
-    """
+        {CLI_NAME} kg async logs --follow
+    """.format(CLI_NAME=CLI_NAME)
     from pathlib import Path
     
     log_file = Path.home() / ".dva-agentic" / "logs" / "async_ingestion.log"

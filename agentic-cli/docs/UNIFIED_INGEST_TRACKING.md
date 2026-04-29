@@ -18,16 +18,16 @@ All ingestion operations are now tracked in a single system:
 
 **Before**:
 ```bash
-dva kg ingest --path /data              # Sync (not tracked)
-dva kg async submit --path /data        # Async (tracked separately)
-dva kg async list                       # Only async operations
+`agent kg ingest --path /data              # Sync (not tracked)
+`agent kg async submit --path /data        # Async (tracked separately)
+`agent kg async list                       # Only async operations
 ```
 
 **After**:
 ```bash
-dva kg ingest --path /data              # Sync (tracked)
-dva kg ingest --path /data --async      # Async (tracked)
-dva kg ingest-list                      # All operations (sync + async)
+`agent kg ingest --path /data              # Sync (tracked)
+`agent kg ingest --path /data --async      # Async (tracked)
+`agent kg ingest-list                      # All operations (sync + async)
 ```
 
 ### 3. **New Commands**
@@ -67,7 +67,7 @@ class IngestionJob(BaseModel):
 
 #### Sync Ingestion
 ```
-1. User runs: dva kg ingest --path /data
+1. User runs: agent kg ingest --path /data
 2. Create job record (is_async=False, status=pending)
 3. Update status to running
 4. Execute ingestion
@@ -77,7 +77,7 @@ class IngestionJob(BaseModel):
 
 #### Async Ingestion
 ```
-1. User runs: dva kg ingest --path /data --async
+1. User runs: agent kg ingest --path /data --async
 2. Create job record (is_async=True, status=pending)
 3. Submit to background worker
 4. Return immediately with job ID
@@ -93,64 +93,64 @@ class IngestionJob(BaseModel):
 
 ```bash
 # Sync ingestion (default)
-dva kg ingest --path /data/documents
+`agent kg ingest --path /data/documents
 
 # Tracked automatically
-dva kg ingest-list --sync-only
+`agent kg ingest-list --sync-only
 ```
 
 ### Async Ingestion
 
 ```bash
 # Submit async job
-dva kg ingest --path /data/large-dataset --async
+`agent kg ingest --path /data/large-dataset --async
 
 # Output:
 # ✓ Ingestion job submitted (async)
 # Job ID: abc123...
 # Status: pending
 # 
-# Check status: dva kg ingest-list
-# View details: dva kg ingest-status abc123
+# Check status: agent kg ingest-list
+# View details: agent kg ingest-status abc123
 ```
 
 ### List Operations
 
 ```bash
 # List all operations
-dva kg ingest-list
+`agent kg ingest-list
 
 # Filter by mode
-dva kg ingest-list --sync-only
-dva kg ingest-list --async-only
+`agent kg ingest-list --sync-only
+`agent kg ingest-list --async-only
 
 # Filter by status
-dva kg ingest-list --status completed
-dva kg ingest-list --status running
-dva kg ingest-list --status failed
+`agent kg ingest-list --status completed
+`agent kg ingest-list --status running
+`agent kg ingest-list --status failed
 
 # Limit results
-dva kg ingest-list --limit 10
+`agent kg ingest-list --limit 10
 ```
 
 ### Check Status
 
 ```bash
 # Full job ID
-dva kg ingest-status abc123-def456-...
+`agent kg ingest-status abc123-def456-...
 
 # Partial job ID (prefix matching)
-dva kg ingest-status abc123
+`agent kg ingest-status abc123
 
 # Verbose output
-dva kg ingest-status abc123 --verbose
+`agent kg ingest-status abc123 --verbose
 ```
 
 ### Cancel Operation
 
 ```bash
 # Cancel async operation
-dva kg ingest-cancel abc123
+`agent kg ingest-cancel abc123
 
 # Note: Cannot cancel sync operations
 # (they run in foreground)
@@ -176,16 +176,16 @@ dva kg ingest-cancel abc123
 **Examples**:
 ```bash
 # Sync ingestion
-dva kg ingest --path /data/file.pdf
+`agent kg ingest --path /data/file.pdf
 
 # Async ingestion
-dva kg ingest --path /data/large-dataset --async
+`agent kg ingest --path /data/large-dataset --async
 
 # With workspace
-dva kg ingest --path /data --workspace production --async
+`agent kg ingest --path /data --workspace production --async
 
 # From data source
-dva kg ingest --source my-dataset --async
+`agent kg ingest --source my-dataset --async
 ```
 
 ### `dva kg ingest-list`
@@ -199,20 +199,20 @@ dva kg ingest --source my-dataset --async
 **Examples**:
 ```bash
 # All operations
-dva kg ingest-list
+`agent kg ingest-list
 
 # Only sync operations
-dva kg ingest-list --sync-only
+`agent kg ingest-list --sync-only
 
 # Only async operations
-dva kg ingest-list --async-only
+`agent kg ingest-list --async-only
 
 # Filter by status
-dva kg ingest-list --status running
-dva kg ingest-list --status completed
+`agent kg ingest-list --status running
+`agent kg ingest-list --status completed
 
 # Combined filters
-dva kg ingest-list --async-only --status failed --limit 5
+`agent kg ingest-list --async-only --status failed --limit 5
 ```
 
 **Output**:
@@ -237,10 +237,10 @@ Ingestion Operations (10)
 **Examples**:
 ```bash
 # Basic status
-dva kg ingest-status abc123
+`agent kg ingest-status abc123
 
 # Verbose output
-dva kg ingest-status abc123 --verbose
+`agent kg ingest-status abc123 --verbose
 ```
 
 **Output**:
@@ -268,10 +268,10 @@ dva kg ingest-status abc123 --verbose
 **Examples**:
 ```bash
 # Cancel async operation
-dva kg ingest-cancel abc123
+`agent kg ingest-cancel abc123
 
 # Error if sync operation
-dva kg ingest-cancel xyz789
+`agent kg ingest-cancel xyz789
 # ⚠ Cannot cancel sync operation
 # Sync operations run in foreground and cannot be cancelled
 ```
@@ -284,7 +284,7 @@ dva kg ingest-cancel xyz789
 
 Track all ingestion operations in one place:
 ```bash
-dva kg ingest-list
+`agent kg ingest-list
 # Shows both sync and async operations
 ```
 
@@ -292,8 +292,8 @@ dva kg ingest-list
 
 Single command for both modes:
 ```bash
-dva kg ingest --path /data           # Sync
-dva kg ingest --path /data --async   # Async
+`agent kg ingest --path /data           # Sync
+`agent kg ingest --path /data --async   # Async
 ```
 
 ### 3. **Better Debugging**
@@ -301,17 +301,17 @@ dva kg ingest --path /data --async   # Async
 View history of all operations:
 ```bash
 # See what failed
-dva kg ingest-list --status failed
+`agent kg ingest-list --status failed
 
 # Check specific operation
-dva kg ingest-status abc123 --verbose
+`agent kg ingest-status abc123 --verbose
 ```
 
 ### 4. **Performance Monitoring**
 
 Track duration of all operations:
 ```bash
-dva kg ingest-list
+`agent kg ingest-list
 # Duration column shows how long each operation took
 ```
 
@@ -319,7 +319,7 @@ dva kg ingest-list
 
 See which workspace was used:
 ```bash
-dva kg ingest-status abc123
+`agent kg ingest-status abc123
 # Workspace: production
 ```
 
@@ -381,17 +381,17 @@ Each job file contains:
 **Old workflow**:
 ```bash
 # Async ingestion
-dva kg async submit --path /data
-dva kg async list
-dva kg async status abc123
+`agent kg async submit --path /data
+`agent kg async list
+`agent kg async status abc123
 ```
 
 **New workflow**:
 ```bash
 # Async ingestion
-dva kg ingest --path /data --async
-dva kg ingest-list
-dva kg ingest-status abc123
+`agent kg ingest --path /data --async
+`agent kg ingest-list
+`agent kg ingest-status abc123
 ```
 
 ### For Scripts
@@ -399,12 +399,12 @@ dva kg ingest-status abc123
 Update any automation scripts:
 ```bash
 # Old
-if dva kg async submit --path /data; then
+if agent kg async submit --path /data; then
     echo "Submitted"
 fi
 
 # New
-if dva kg ingest --path /data --async; then
+if agent kg ingest --path /data --async; then
     echo "Submitted"
 fi
 ```
@@ -416,21 +416,21 @@ fi
 ### 1. **Cleanup Command**
 
 ```bash
-dva kg ingest-cleanup --days 30
+`agent kg ingest-cleanup --days 30
 # Delete operations older than 30 days
 ```
 
 ### 2. **Export/Import**
 
 ```bash
-dva kg ingest-export --output operations.json
-dva kg ingest-import --input operations.json
+`agent kg ingest-export --output operations.json
+`agent kg ingest-import --input operations.json
 ```
 
 ### 3. **Statistics**
 
 ```bash
-dva kg ingest-stats
+`agent kg ingest-stats
 # Show aggregated statistics:
 # - Total operations
 # - Success rate
@@ -442,14 +442,14 @@ dva kg ingest-stats
 ### 4. **Retry Failed Operations**
 
 ```bash
-dva kg ingest-retry abc123
+`agent kg ingest-retry abc123
 # Retry a failed operation
 ```
 
 ### 5. **Batch Operations**
 
 ```bash
-dva kg ingest-batch --sources file1,file2,file3 --async
+`agent kg ingest-batch --sources file1,file2,file3 --async
 # Submit multiple operations at once
 ```
 
@@ -464,51 +464,51 @@ dva kg ingest-batch --sources file1,file2,file3 --async
 echo "Test document" > /tmp/test.txt
 
 # Run sync ingestion
-dva kg ingest --path /tmp/test.txt
+`agent kg ingest --path /tmp/test.txt
 
 # Verify tracking
-dva kg ingest-list --sync-only
+`agent kg ingest-list --sync-only
 ```
 
 ### Test Async Ingestion
 
 ```bash
 # Submit async job
-dva kg ingest --path /tmp/test.txt --async
+`agent kg ingest --path /tmp/test.txt --async
 
 # Check status immediately
-dva kg ingest-status <job-id>
+`agent kg ingest-status <job-id>
 
 # Wait and check again
 sleep 10
-dva kg ingest-status <job-id>
+`agent kg ingest-status <job-id>
 ```
 
 ### Test Filtering
 
 ```bash
 # All operations
-dva kg ingest-list
+`agent kg ingest-list
 
 # Only sync
-dva kg ingest-list --sync-only
+`agent kg ingest-list --sync-only
 
 # Only async
-dva kg ingest-list --async-only
+`agent kg ingest-list --async-only
 
 # By status
-dva kg ingest-list --status completed
-dva kg ingest-list --status running
+`agent kg ingest-list --status completed
+`agent kg ingest-list --status running
 ```
 
 ### Test Partial ID Matching
 
 ```bash
 # Get job ID from list
-dva kg ingest-list --limit 1
+`agent kg ingest-list --limit 1
 
 # Use first 8 characters
-dva kg ingest-status abc12345
+`agent kg ingest-status abc12345
 ```
 
 ---

@@ -128,7 +128,7 @@ async def main():
             
             if not project_id:
                 print("Error: GOOGLE_PROJECT_ID not set in .env file")
-                print("Please configure Vertex AI with: dva init vertex-ai")
+                print("Please configure Vertex AI with: {CLI_NAME} init vertex-ai")
                 sys.exit(1)
             
             agent = {agent_name}(
@@ -213,12 +213,12 @@ def run_project_command(
 ) -> None:
     """
     Run agents in a project.
-    
+
     Examples:
-        dva project run                          # Run main.py
-        dva project run --agent KnowledgeGraphAgent  # Run specific agent
-        dva project run --script examples/kg_agent_demo.py  # Run custom script
-    """
+        {CLI_NAME} project run                          # Run main.py
+        {CLI_NAME} project run --agent KnowledgeGraphAgent  # Run specific agent
+        {CLI_NAME} project run --script examples/kg_agent_demo.py  # Run custom script
+    """.format(CLI_NAME=CLI_NAME)
     path = path.resolve()
     
     if not path.exists():

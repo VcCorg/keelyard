@@ -110,7 +110,7 @@ This document describes the Git repository ingestion feature for the DVA KG syst
 
 ```bash
 # Register with metadata
-dva data create \
+`agent data create \
   --name backend-api \
   --source-type git \
   --source-location https://github.com/org/backend-api.git \
@@ -123,23 +123,23 @@ dva data create \
 
 ```bash
 # Ingest using data source name
-dva kg ingest --source backend-api
+`agent kg ingest --source backend-api
 
 # Or ingest directly with URL
-dva kg ingest --path https://github.com/org/backend-api.git --format git
+`agent kg ingest --path https://github.com/org/backend-api.git --format git
 ```
 
 ### 3. Query with Persona Filter (Coming Soon)
 
 ```bash
 # Query only code (developer persona)
-dva kg query "authentication middleware" --persona developer
+`agent kg query "authentication middleware" --persona developer
 
 # Query only docs (business persona)
-dva kg query "patient data requirements" --persona business
+`agent kg query "patient data requirements" --persona business
 
 # Query both (no filter)
-dva kg query "how is patient authentication implemented"
+`agent kg query "how is patient authentication implemented"
 ```
 
 ---
@@ -332,7 +332,7 @@ Repository: backend-api
 
 ```bash
 # Install with KG dependencies (includes Git support)
-cd dva-agentic-cli
+cd agentic-cli
 uv pip install -e ".[kg]"
 
 # Or with pip
@@ -366,7 +366,7 @@ pip install -e ".[kg]"
 ```
 User Command
     ↓
-dva kg ingest --source backend-api
+`agent kg ingest --source backend-api
     ↓
 Resolve Data Source (commands/kg.py)
     ├── Load from ~/.dva-agentic/config.json

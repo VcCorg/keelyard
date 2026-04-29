@@ -1,6 +1,6 @@
 # DVA vs Anchor MCP — Implementation Comparison
 
-Deep technical comparison between our **DVA Agentic Platform** and the Framework Team's **Anchor MCP Server**.
+Deep technical comparison between our **Agentic Platform** and the Framework Team's **Anchor MCP Server**.
 
 **Source:** [Anchor MCP Server — Confluence FWT Space](https://confluence.example.com/spaces/FWT/pages/1170481276/Anchor+MCP+Server)
 
@@ -32,7 +32,7 @@ Deep technical comparison between our **DVA Agentic Platform** and the Framework
 - Express server for remote SSE mode
 - Single Docker container (or local stdio process)
 
-### DVA Agentic Platform (Ours)
+### Agentic Platform (Ours)
 
 **Microservices — one server per integration, independently deployable.**
 
@@ -245,7 +245,7 @@ anchor-mcp/
 ### DVA (actual)
 
 ```
-dva-mcp-servers/                           ← 4,391 lines Python
+mcp-servers/                           ← 4,391 lines Python
   bitbucket/                               ← 1,423 lines, 6 files
     src/bitbucket_server_mcp/
       config.py                            ← BitbucketConfig (pydantic-settings)
@@ -391,7 +391,7 @@ if not config.is_configured:
 
 ## 10. Potential Collaboration Opportunities
 
-1. **Figma MCP** — Build a `dva-mcp-servers/figma/` service following our pattern, borrowing Anchor's tool design
+1. **Figma MCP** — Build a `mcp-servers/figma/` service following our pattern, borrowing Anchor's tool design
 2. **Prompt workflows** — Implement as Agent Skills (`.skills/jira-story-analysis/SKILL.md`) rather than server-side prompts — more portable
 3. **Code search** — Add `search_code` and `list_branches` to our Bitbucket MCP
 4. **Link following** — Add `get_remote_links` to our Jira MCP for Confluence/Figma traversal

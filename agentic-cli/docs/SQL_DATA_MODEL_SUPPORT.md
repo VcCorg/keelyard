@@ -149,46 +149,46 @@ class SQLAnalyzer(CodeAnalyzer):
 ### 1. Database Schema Discovery
 ```bash
 # Find all tables in the database
-dva kg query "show all database tables" --persona developer
+`agent kg query "show all database tables" --persona developer
 
 # Find tables related to patients
-dva kg query "patient tables" --persona developer
+`agent kg query "patient tables" --persona developer
 ```
 
 ### 2. Column Analysis
 ```bash
 # Find tables with specific columns
-dva kg query "tables with email column" --persona developer
+`agent kg query "tables with email column" --persona developer
 
 # Find primary key definitions
-dva kg query "primary key columns" --persona developer
+`agent kg query "primary key columns" --persona developer
 ```
 
 ### 3. Relationship Discovery
 ```bash
 # Find foreign key relationships
-dva kg query "foreign key constraints" --persona developer
+`agent kg query "foreign key constraints" --persona developer
 
 # Find tables related to a specific table
-dva kg query "tables referencing patients table" --persona developer
+`agent kg query "tables referencing patients table" --persona developer
 ```
 
 ### 4. View and Procedure Discovery
 ```bash
 # Find all views
-dva kg query "database views" --persona developer
+`agent kg query "database views" --persona developer
 
 # Find stored procedures
-dva kg query "stored procedures for patient data" --persona developer
+`agent kg query "stored procedures for patient data" --persona developer
 ```
 
 ### 5. Data Model Documentation
 ```bash
 # Get complete schema overview
-dva kg query "database schema structure" --persona developer
+`agent kg query "database schema structure" --persona developer
 
 # Find indexes for performance optimization
-dva kg query "database indexes" --persona developer
+`agent kg query "database indexes" --persona developer
 ```
 
 ---
@@ -303,22 +303,22 @@ END;
 
 ### Find All Tables
 ```bash
-dva kg query "MATCH (t:Code:Table) RETURN t.name, t.column_count" --format cypher --persona developer
+`agent kg query "MATCH (t:Code:Table) RETURN t.name, t.column_count" --format cypher --persona developer
 ```
 
 ### Find Tables with Foreign Keys
 ```bash
-dva kg query "tables with foreign key constraints" --persona developer
+`agent kg query "tables with foreign key constraints" --persona developer
 ```
 
 ### Find Views Using Specific Table
 ```bash
-dva kg query "views that use patients table" --persona developer
+`agent kg query "views that use patients table" --persona developer
 ```
 
 ### Get Complete Schema for a Domain
 ```bash
-dva kg query "patient database schema including tables, views, and procedures" --persona developer
+`agent kg query "patient database schema including tables, views, and procedures" --persona developer
 ```
 
 ---

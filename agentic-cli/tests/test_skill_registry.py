@@ -152,7 +152,9 @@ def test_git_skill_registry_publish(temp_registry_dir, sample_skill_dir):
     # Verify index was updated
     index = registry.load_index()
     assert "sample-skill" in index.skills
-    assert index.skills["sample-skill"].quality_score == 90.0
+    skill = index.skills["sample-skill"]
+    assert skill.latest_version == "1.0"
+    assert skill.versions["1.0"].quality_score == 90.0
 
 
 def test_git_skill_registry_search(temp_registry_dir, sample_skill_dir):

@@ -86,7 +86,7 @@ class TemplateConfig:
     include_kg_mcp: bool = False  # KG MCP server for knowledge-graph use case
     include_jira_mcp: bool = False  # Jira MCP add-on for pr-reviewer
     include_bitbucket_mcp: bool = True  # Bitbucket MCP (mandatory for pr-reviewer)
-    kg_workspace: Optional[str] = None  # Connect to existing dva kg workspace
+    kg_workspace: Optional[str] = None  # Connect to existing agent-cli kg workspace
     domain_name: Optional[str] = None  # Domain slug for auto-wiring context
     google_project_id: Optional[str] = None
     google_location: str = "us-central1"
@@ -172,7 +172,7 @@ class TemplateConfig:
         # Onboard agent dependencies
         if self.use_case == UseCase.ONBOARD:
             deps.extend([
-                "dva-agentic-cli[agent]",
+                "agentic-cli[agent]",
             ])
         
         # Scrum Master dependencies

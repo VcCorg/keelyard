@@ -10,18 +10,18 @@ Successfully implemented `dva kg clear` command with full support for both Neo4j
 
 ```bash
 # Clear configured provider (with confirmation)
-dva kg clear
+`agent kg clear
 
 # Clear specific provider
-dva kg clear --provider lightrag
-dva kg clear --provider neo4j
-dva kg clear --provider both
+`agent kg clear --provider lightrag
+`agent kg clear --provider neo4j
+`agent kg clear --provider both
 
 # Skip confirmation (for automation)
-dva kg clear --yes
+`agent kg clear --yes
 
 # Without statistics (faster)
-dva kg clear --no-show-stats --yes
+`agent kg clear --no-show-stats --yes
 ```
 
 ---
@@ -68,30 +68,30 @@ LightRAG:
 ### 1. Development/Testing
 ```bash
 # Clear between test runs
-dva kg clear --yes
+`agent kg clear --yes
 ```
 
 ### 2. Re-ingestion
 ```bash
 # Clear old data before re-ingesting
-dva kg clear --provider lightrag --yes
-dva kg async submit --source cwow-patient-model
+`agent kg clear --provider lightrag --yes
+`agent kg async submit --source cwow-patient-model
 ```
 
 ### 3. CI/CD Pipeline
 ```bash
 # Automated testing
-dva kg clear --yes --no-show-stats
-dva kg ingest --path test-data.pdf
+`agent kg clear --yes --no-show-stats
+`agent kg ingest --path test-data.pdf
 pytest tests/
-dva kg clear --yes --no-show-stats
+`agent kg clear --yes --no-show-stats
 ```
 
 ### 4. Switching Providers
 ```bash
 # Clear both before switching
-dva kg clear --provider both --yes
-dva kg init --provider neo4j
+`agent kg clear --provider both --yes
+`agent kg init --provider neo4j
 ```
 
 ---
@@ -138,19 +138,19 @@ dva kg init --provider neo4j
 ### Manual Test
 ```bash
 # 1. Check current data
-dva kg stats
+`agent kg stats
 
 # 2. Clear with confirmation
-dva kg clear
+`agent kg clear
 
 # 3. Verify cleared
-dva kg stats  # Should show 0 entities/nodes
+`agent kg stats  # Should show 0 entities/nodes
 ```
 
 ### Automated Test
 ```bash
 # Clear without prompts
-dva kg clear --provider lightrag --yes --no-show-stats
+`agent kg clear --provider lightrag --yes --no-show-stats
 ```
 
 ---
@@ -160,10 +160,10 @@ dva kg clear --provider lightrag --yes --no-show-stats
 ### Immediate Use
 ```bash
 # Clear your current LightRAG data
-dva kg clear --provider lightrag
+`agent kg clear --provider lightrag
 
 # Verify it's cleared
-dva kg stats
+`agent kg stats
 ```
 
 ### Future Enhancements (Planned)

@@ -1,21 +1,21 @@
 # Project Templates
 
-The DVA Agentic CLI provides an embedded template system for creating agent projects with different frameworks and use cases.
+The Agentic CLI provides an embedded template system for creating agent projects with different frameworks and use cases.
 
 ## Quick Start
 
 ```bash
 # Create a basic agent project
-dva project create my-agent
+`agent project create my-agent
 
 # Create a RAG agent
-dva project create my-rag --use-case rag
+`agent project create my-rag --use-case rag
 
 # Create a Knowledge Graph agent
-dva project create my-kg --use-case knowledge-graph
+`agent project create my-kg --use-case knowledge-graph
 
 # Create with additional tools
-dva project create my-bot --use-case chatbot --tools web_search,api_caller
+`agent project create my-bot --use-case chatbot --tools web_search,api_caller
 ```
 
 ## Frameworks
@@ -77,7 +77,7 @@ dva project create my-bot --use-case chatbot --tools web_search,api_caller
 ## Command Options
 
 ```bash
-dva project create <name> [OPTIONS]
+`agent project create <name> [OPTIONS]
 
 Arguments:
   name                    Project name (required)
@@ -97,42 +97,42 @@ Options:
 
 ### Basic Agent
 ```bash
-dva project create my-agent
+`agent project create my-agent
 ```
 
 Creates a simple agent with calculator, text analyzer, and file reader tools.
 
 ### RAG Agent
 ```bash
-dva project create my-rag --use-case rag
+`agent project create my-rag --use-case rag
 ```
 
 Creates an agent with document loading, embeddings, and vector search capabilities.
 
 ### Knowledge Graph Agent
 ```bash
-dva project create my-kg --use-case knowledge-graph
+`agent project create my-kg --use-case knowledge-graph
 ```
 
 Creates an agent integrated with Neo4j for knowledge graph operations.
 
 ### Multi-Agent System
 ```bash
-dva project create my-system --use-case multi-agent
+`agent project create my-system --use-case multi-agent
 ```
 
 Creates an orchestrator agent that can route to specialized sub-agents.
 
 ### Chatbot with Extra Tools
 ```bash
-dva project create my-bot --use-case chatbot --tools api_caller,file_reader
+`agent project create my-bot --use-case chatbot --tools api_caller,file_reader
 ```
 
 Creates a chatbot with memory, web search, and additional API and file tools.
 
 ### Production-Ready with Docker
 ```bash
-dva project create my-prod --use-case rag --docker
+`agent project create my-prod --use-case rag --docker
 ```
 
 Creates a RAG agent with Docker and docker-compose files included.
@@ -194,17 +194,17 @@ If you've run `dva init vertex-ai`, your Google Cloud settings will automaticall
 
 ```bash
 # Configure once
-dva init vertex-ai --project-id my-gcp-project
+`agent init vertex-ai --project-id my-gcp-project
 
 # All new projects get the config
-dva project create my-agent  # .env auto-populated
+`agent project create my-agent  # .env auto-populated
 ```
 
 ## Listing Available Options
 
 ```bash
 # Show all frameworks, use cases, and tools
-dva project list-templates
+`agent project list-templates
 ```
 
 ## Extending Tools

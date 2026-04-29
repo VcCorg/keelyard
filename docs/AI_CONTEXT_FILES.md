@@ -1,6 +1,6 @@
 # AI Context Files — What Goes Where and Why
 
-This documents the context file strategy for the DVA Agentic Platform workspace, explaining which files each AI coding tool reads and how they relate.
+This documents the context file strategy for the Agentic Platform workspace, explaining which files each AI coding tool reads and how they relate.
 
 ## Architecture: Single Source of Truth + Tool-Specific Pointers
 

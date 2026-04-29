@@ -4,7 +4,7 @@ description: Bootstrap project context — read this workspace's skills, MCP con
 
 # Context Bootstrap Workflow
 
-When starting a new session or resuming work on the DVA Agentic Platform:
+When starting a new session or resuming work on the Agentic Platform:
 
 1. **Read the platform skill** for full workspace context:
    - File: `.skills/dva-agentic-platform/SKILL.md`
@@ -17,18 +17,18 @@ When starting a new session or resuming work on the DVA Agentic Platform:
 
 3. **If services are down**, start them:
    ```bash
-   cd dva-mcp-servers && docker compose up -d && cd ..
-   cd dva-kg-infrastructure/neo4j && docker compose up -d && cd ../..
+   cd mcp-servers && docker compose up -d && cd ..
+   cd kg-infrastructure/neo4j && docker compose up -d && cd ../..
    ```
 
 4. **Verify CLI**:
    ```bash
-   dva --version
+   agent --version
    ```
 
 5. **Check git status** across all repos:
    ```bash
-   for d in dva-agentic-cli dva-skills dva-mcp-servers dva-kg-infrastructure; do echo "=== $d ===" && cd $d && git status --short && git log --oneline -1 && cd ..; done
+   for d in agentic-cli skills mcp-servers kg-infrastructure; do echo "=== $d ===" && cd $d && git status --short && git log --oneline -1 && cd ..; done
    ```
 
 ## Context Files by Tool

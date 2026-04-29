@@ -1,10 +1,10 @@
-"""Centralized activity tracker for DVA Agentic CLI.
+"""Centralized activity tracker for Agent-CLI Agentic Platform.
 
 Uses SQLite to record all CLI command executions, onboarded repos,
 created projects, and other tracked resources. Agents can query this
 database to understand the user's environment and history.
 
-Database location: ~/.dva-agentic/tracker.db
+Database location: ~/.agent-cli-agentic/tracker.db
 """
 
 import json
@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 
-DB_DIR = Path.home() / ".dva-agentic"
+DB_DIR = Path.home() / ".agent-cli-agentic"
 DB_PATH = DB_DIR / "tracker.db"
 
 _SCHEMA_VERSION = 7
@@ -110,7 +110,7 @@ CREATE TABLE IF NOT EXISTS domain_repos (
     repo_slug   TEXT    NOT NULL,
     repo_name   TEXT,
     clone_url   TEXT,
-    onboarded   INTEGER DEFAULT 0,  -- 1 if onboarded via dva code onboard
+    onboarded   INTEGER DEFAULT 0,  -- 1 if onboarded via agent-cli code onboard
     onboarded_at TEXT,
     UNIQUE(domain_id, repo_slug)
 );
