@@ -26,23 +26,61 @@ SKILL_TEMPLATE = '''---
 name: {name}
 description: >-
   {description}
+tags: [custom, development]
 ---
 
 # {title}
 
-## Instructions
+## Overview
 
-Add your skill instructions here. The agent will follow these when the skill is activated.
+This skill provides guidance and best practices for {description}.
 
-## Available Tools
+## Key Concepts
 
-List the MCP tools or capabilities this skill uses.
+- Concept 1: Brief explanation
+- Concept 2: Brief explanation
+- Concept 3: Brief explanation
 
-## Workflow
+## Common Patterns
 
-1. Step one
-2. Step two
-3. Step three
+### Pattern 1
+```
+Code or configuration example here
+```
+
+### Pattern 2
+```
+Code or configuration example here
+```
+
+## Best Practices
+
+1. **Practice 1** — Explanation of the best practice and why it matters
+2. **Practice 2** — Explanation of the best practice and why it matters
+3. **Practice 3** — Explanation of the best practice and why it matters
+
+## Resources
+
+- [Documentation](https://example.com)
+- [Guide](https://example.com)
+
+## When to Use This Skill
+
+This skill is useful when you need to:
+- Task or scenario 1
+- Task or scenario 2
+- Task or scenario 3
+
+## MCP Tools
+
+If using MCP tools:
+- Tool 1: Description
+- Tool 2: Description
+
+## Prerequisites
+
+- Prerequisite 1
+- Prerequisite 2
 '''
 
 
