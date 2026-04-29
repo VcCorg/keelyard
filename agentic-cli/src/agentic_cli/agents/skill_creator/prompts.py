@@ -173,36 +173,3 @@ User feedback: {feedback}
 
 Please refine the skill based on this feedback. Return the complete updated SKILL.md file.
 Maintain the same structure and agentskills.io format."""
-
-# Stage 4: Test & Evaluate — Generate test cases (evals.json)
-TEST_CASE_GENERATOR = """Based on this skill SKILL.md:
-
-```
-{skill_md}
-```
-
-Generate 5-7 realistic test cases for this skill in JSON format for use in evaluating AI agent performance.
-
-Return a valid JSON object with this structure:
-{{
-  "skill_name": "{skill_name}",
-  "test_cases": [
-    {{
-      "id": "test_001",
-      "description": "What this test validates",
-      "input": {{"parameter1": "value1", "parameter2": "value2"}},
-      "expected_output": "Expected result or pattern",
-      "success_criteria": "How to determine if the test passed",
-      "scenario": "Real-world context for this test"
-    }},
-    ...
-  ]
-}}
-
-Test cases should cover:
-- Happy path (normal usage)
-- Edge cases (boundary conditions, unusual inputs)
-- Error conditions (invalid inputs, missing data)
-- Integration scenarios (using MCP servers if applicable)
-
-Make test cases specific and measurable."""
