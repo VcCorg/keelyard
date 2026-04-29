@@ -234,8 +234,8 @@ def init_data_config(
             "\n".join(f"  • {item}" for item in updated) +
             f"\n\n[dim]Config saved to: {CONFIG_FILE}[/dim]\n\n"
             f"[bold]Next steps:[/bold]\n"
-            f"  • Create data sources: dva data create --name my-source ...\n"
-            f"  • List sources: dva data list (coming soon)",
+            f"  • Create data sources: {CLI_NAME} data create --name my-source ...\n"
+            f"  • List sources: {CLI_NAME} data list (coming soon)",
             title="Success",
             border_style="green",
         )
@@ -318,12 +318,12 @@ def create_data_source(
     or other data processing pipelines.
     
     Examples:
-        dva data create --name local-docs --source-type doc --source-location /path/to/docs
-        dva data create --name gcs-data --source-type doc --source-location gs://bucket/prefix
-        dva data create --name wiki --source-type confluence --source-location https://wiki.example.com/space
-        dva data create --name my-repo --source-type git --source-location https://github.com/user/repo.git --git-branch main
-        dva data create --name my-repo --source-type git --source-location git@github.com:user/repo.git --git-tag v1.0.0
-    """
+        {CLI_NAME} data create --name local-docs --source-type doc --source-location /path/to/docs
+        {CLI_NAME} data create --name gcs-data --source-type doc --source-location gs://bucket/prefix
+        {CLI_NAME} data create --name wiki --source-type confluence --source-location https://wiki.example.com/space
+        {CLI_NAME} data create --name my-repo --source-type git --source-location https://github.com/user/repo.git --git-branch main
+        {CLI_NAME} data create --name my-repo --source-type git --source-location git@github.com:user/repo.git --git-tag v1.0.0
+    """.format(CLI_NAME=CLI_NAME)
     console.print(
         Panel.fit(
             f"[bold cyan]Creating Data Source[/bold cyan]\n"
@@ -479,8 +479,8 @@ def create_data_source(
             f"[bold green]✓ Data source created successfully![/bold green]\n\n"
             f"[dim]Config saved to: {CONFIG_FILE}[/dim]\n\n"
             f"[bold]Next steps:[/bold]\n"
-            f"  • List all sources: dva data list (coming soon)\n"
-            f"  • Use in KG ingestion: dva kg ingest --source {name} (future)",
+            f"  • List all sources: {CLI_NAME} data list (coming soon)\n"
+            f"  • Use in KG ingestion: {CLI_NAME} kg ingest --source {name} (future)",
             title="Success",
             border_style="green",
         )
@@ -496,7 +496,7 @@ def list_data_sources() -> None:
     
     if "data" not in config or not config["data"].get("sources"):
         console.print("[yellow]No data sources configured.[/yellow]")
-        console.print("[dim]Create one with: dva data create[/dim]")
+        console.print(f"[dim]Create one with: {CLI_NAME} data create[/dim]")
         return
     
     sources = config["data"]["sources"]

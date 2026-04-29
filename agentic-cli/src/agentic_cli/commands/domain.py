@@ -3,11 +3,11 @@
 A domain is a scoped area within a product that ties together a Jira project,
 Bitbucket project, Confluence space, and selected repositories.
 
-Products must be registered first via ``dva product create``.
+Products must be registered first via ``{CLI_NAME} product create``.
 
 Hierarchy:
-    Product (e.g. CWOW)   ← dva product create CWOW
-      └── Domain (e.g. Facility)  ← dva domain create Facility --product CWOW
+    Product (e.g. CWOW)   ← {CLI_NAME} product create CWOW
+      └── Domain (e.g. Facility)  ← {CLI_NAME} domain create Facility --product CWOW
             ├── jira_project: CWOW
             ├── bitbucket_project: CGF
             ├── confluence_space: MTT
@@ -59,7 +59,7 @@ def _slugify(product: str, domain: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# dva domain create
+# {CLI_NAME} domain create
 # ---------------------------------------------------------------------------
 
 @domain_app.command()
@@ -82,9 +82,9 @@ def create(
     <product>-<domain> (lowercase).
 
     Examples:
-        dva domain create Facility --product CWOW --jira CWOW --bb CGF --confluence MTT
-        dva domain create Patient --product CWOW --jira CWOW --bb CGP --tags "spanner,healthcare"
-        dva domain create Imaging --product IMTO --jira IMTO --bb IMTO
+        {CLI_NAME} domain create Facility --product CWOW --jira CWOW --bb CGF --confluence MTT
+        {CLI_NAME} domain create Patient --product CWOW --jira CWOW --bb CGP --tags "spanner,healthcare"
+        {CLI_NAME} domain create Imaging --product IMTO --jira IMTO --bb IMTO
     """
     product_upper = product.upper()
 
@@ -92,7 +92,7 @@ def create(
     prod = get_product(product_upper)
     if not prod:
         console.print(f"[red]✗ Product '{product_upper}' not found.[/red]")
-        console.print(f"[dim]Register it first: dva product create {product_upper}[/dim]")
+        console.print(f"[dim]Register it first: {CLI_NAME} product create {product_upper}[/dim]")
         raise typer.Exit(1)
 
     name = _slugify(product_upper, domain)
@@ -143,9 +143,9 @@ def create(
 
     # Hints
     if bitbucket_project:
-        console.print(f"\n[dim]Next: Link repos with:[/dim]  dva domain link-repo {name} <repo-slug>")
+        console.print(f"\n[dim]Next: Link repos with:[/dim]  {CLI_NAME} domain link-repo {name} <repo-slug>")
     else:
-        console.print(f"\n[dim]Tip: Add a Bitbucket project:[/dim]  dva domain update {name} --bb <PROJECT_KEY>")
+        console.print(f"\n[dim]Tip: Add a Bitbucket project:[/dim]  {CLI_NAME} domain update {name} --bb <PROJECT_KEY>")
 
     record_activity(
         command="domain", subcommand="create",
@@ -154,7 +154,7 @@ def create(
 
 
 # ---------------------------------------------------------------------------
-# dva domain list
+# {CLI_NAME} domain list
 # ---------------------------------------------------------------------------
 
 @domain_app.command("list")
@@ -165,15 +165,15 @@ def list_domains(
     List all registered domains.
 
     Examples:
-        dva domain list
-        dva domain list --product CWOW
+        {CLI_NAME} domain list
+        {CLI_NAME} domain list --product CWOW
     """
     domains = get_domains(product=product.upper() if product else None)
 
     if not domains:
         filter_msg = f" for product '{product.upper()}'" if product else ""
         console.print(f"[yellow]No domains registered{filter_msg}.[/yellow]")
-        console.print("[dim]Register one with: dva domain create <PRODUCT> <DOMAIN>[/dim]")
+        console.print(f"[dim]Register one with: {CLI_NAME} domain create <PRODUCT> <DOMAIN>[/dim]")
         return
 
     table = Table(title=f"Registered Domains ({len(domains)})")
@@ -204,7 +204,7 @@ def list_domains(
 
 
 # ---------------------------------------------------------------------------
-# dva domain show
+# {CLI_NAME} domain show
 # ---------------------------------------------------------------------------
 
 @domain_app.command()
@@ -215,7 +215,7 @@ def show(
     Show detailed information about a domain.
 
     Examples:
-        dva domain show cwow-facility
+        {CLI_NAME} domain show cwow-facility
     """
     d = get_domain(name)
     if not d:
@@ -294,7 +294,7 @@ def show(
 
 
 # ---------------------------------------------------------------------------
-# dva domain update
+# {CLI_NAME} domain update
 # ---------------------------------------------------------------------------
 
 @domain_app.command()
@@ -314,10 +314,10 @@ def update(
     Update an existing domain's fields.
 
     Examples:
-        dva domain update cwow-facility --jira CWOW --bb CGF
-        dva domain update cwow-facility --jira-dashboard https://jira.example.com/...
-        dva domain update cwow-facility --confluence-url https://confluence.example.com/...
-        dva domain update cwow-facility --tags "spanner,healthcare,gcp"
+        {CLI_NAME} domain update cwow-facility --jira CWOW --bb CGF
+        {CLI_NAME} domain update cwow-facility --jira-dashboard https://jira.example.com/...
+        {CLI_NAME} domain update cwow-facility --confluence-url https://confluence.example.com/...
+        {CLI_NAME} domain update cwow-facility --tags "spanner,healthcare,gcp"
     """
     d = get_domain(name)
     if not d:
@@ -360,7 +360,7 @@ def update(
 
 
 # ---------------------------------------------------------------------------
-# dva domain remove
+# {CLI_NAME} domain remove
 # ---------------------------------------------------------------------------
 
 @domain_app.command()
@@ -372,8 +372,8 @@ def remove(
     Remove a domain and all its linked repos and docs.
 
     Examples:
-        dva domain remove cwow-facility
-        dva domain remove cwow-facility --yes
+        {CLI_NAME} domain remove cwow-facility
+        {CLI_NAME} domain remove cwow-facility --yes
     """
     d = get_domain(name)
     if not d:
@@ -402,7 +402,7 @@ def remove(
 
 
 # ---------------------------------------------------------------------------
-# dva domain link-repo
+# {CLI_NAME} domain link-repo
 # ---------------------------------------------------------------------------
 
 @domain_app.command("link-repo")
@@ -416,8 +416,8 @@ def link_repo(
     Link a repository to a domain.
 
     Examples:
-        dva domain link-repo cwow-facility cwow-facility-service
-        dva domain link-repo cwow-facility cwow-facility-service --clone-url https://bitbucket.example.com/scm/cgf/cwow-facility-service.git
+        {CLI_NAME} domain link-repo cwow-facility cwow-facility-service
+        {CLI_NAME} domain link-repo cwow-facility cwow-facility-service --clone-url https://bitbucket.example.com/scm/cgf/cwow-facility-service.git
     """
     d = get_domain(domain_name)
     if not d:
@@ -436,7 +436,7 @@ def link_repo(
 
 
 # ---------------------------------------------------------------------------
-# dva domain unlink-repo
+# {CLI_NAME} domain unlink-repo
 # ---------------------------------------------------------------------------
 
 @domain_app.command("unlink-repo")
@@ -448,7 +448,7 @@ def unlink_repo(
     Unlink a repository from a domain.
 
     Examples:
-        dva domain unlink-repo cwow-facility cwow-facility-service
+        {CLI_NAME} domain unlink-repo cwow-facility cwow-facility-service
     """
     removed = unlink_repo_from_domain(domain_name, repo_slug)
     if removed:
@@ -463,7 +463,7 @@ def unlink_repo(
 
 
 # ---------------------------------------------------------------------------
-# dva domain repos
+# {CLI_NAME} domain repos
 # ---------------------------------------------------------------------------
 
 @domain_app.command("repos")
@@ -474,7 +474,7 @@ def list_repos(
     List repositories linked to a domain.
 
     Examples:
-        dva domain repos cwow-facility
+        {CLI_NAME} domain repos cwow-facility
     """
     d = get_domain(domain_name)
     if not d:
@@ -484,7 +484,7 @@ def list_repos(
     repos = get_domain_repos(domain_name)
     if not repos:
         console.print(f"[yellow]No repos linked to '{domain_name}'.[/yellow]")
-        console.print(f"[dim]Link repos with: dva domain link-repo {domain_name} <repo-slug>[/dim]")
+        console.print(f"[dim]Link repos with: {CLI_NAME} domain link-repo {domain_name} <repo-slug>[/dim]")
         return
 
     table = Table(title=f"Repos in {domain_name} ({len(repos)})")
@@ -506,7 +506,7 @@ def list_repos(
 
 
 # ---------------------------------------------------------------------------
-# dva domain fetch-repos
+# {CLI_NAME} domain fetch-repos
 # ---------------------------------------------------------------------------
 
 def _interactive_repo_picker(repos: list[dict], already_linked: set[str]) -> list[dict]:
@@ -582,9 +582,9 @@ def fetch_repos(
     The domain must have a Bitbucket project key (set via --bb on create/update).
 
     Examples:
-        dva domain fetch-repos cwow-facility
-        dva domain fetch-repos cwow-facility --filter cwow
-        dva domain fetch-repos cwow-facility --all
+        {CLI_NAME} domain fetch-repos cwow-facility
+        {CLI_NAME} domain fetch-repos cwow-facility --filter cwow
+        {CLI_NAME} domain fetch-repos cwow-facility --all
     """
     from agentic_cli.mcp_tool_client import (
         MCPToolError, bb_list_project_repos, parse_project_key,
@@ -598,7 +598,7 @@ def fetch_repos(
     bb_project = parse_project_key(d.get("bitbucket_project") or "")
     if not bb_project:
         console.print(f"[red]✗ Domain '{domain_name}' has no Bitbucket project key.[/red]")
-        console.print(f"[dim]Set one with: dva domain update {domain_name} --bb <PROJECT_KEY>[/dim]")
+        console.print(f"[dim]Set one with: {CLI_NAME} domain update {domain_name} --bb <PROJECT_KEY>[/dim]")
         raise typer.Exit(1)
 
     # Fetch repos via Bitbucket MCP
@@ -656,7 +656,7 @@ def fetch_repos(
     )
 
     if linked_count > 0:
-        console.print(f"[dim]View linked repos: dva domain repos {domain_name}[/dim]")
+        console.print(f"[dim]View linked repos: {CLI_NAME} domain repos {domain_name}[/dim]")
 
     record_activity(
         command="domain", subcommand="fetch-repos",
@@ -670,7 +670,7 @@ def fetch_repos(
 
 
 # ---------------------------------------------------------------------------
-# dva domain add-docs
+# {CLI_NAME} domain add-docs
 # ---------------------------------------------------------------------------
 
 def _interactive_doc_picker(pages: list[dict], already_tracked: set[str]) -> list[dict]:
@@ -740,9 +740,9 @@ def add_docs(
     The domain must have a Confluence space key (set via --confluence on create/update).
 
     Examples:
-        dva domain add-docs cwow-facility
-        dva domain add-docs cwow-facility --filter architecture
-        dva domain add-docs cwow-facility --all
+        {CLI_NAME} domain add-docs cwow-facility
+        {CLI_NAME} domain add-docs cwow-facility --filter architecture
+        {CLI_NAME} domain add-docs cwow-facility --all
     """
     from agentic_cli.mcp_tool_client import (
         MCPToolError, confluence_get_space_pages, parse_space_key,
@@ -756,7 +756,7 @@ def add_docs(
     space_key = parse_space_key(d.get("confluence_space") or "")
     if not space_key:
         console.print(f"[red]✗ Domain '{domain_name}' has no Confluence space key.[/red]")
-        console.print(f"[dim]Set one with: dva domain update {domain_name} --confluence <SPACE_KEY>[/dim]")
+        console.print(f"[dim]Set one with: {CLI_NAME} domain update {domain_name} --confluence <SPACE_KEY>[/dim]")
         raise typer.Exit(1)
 
     console.print(f"Fetching pages from Confluence space [cyan]{space_key}[/cyan] via MCP...")
@@ -809,7 +809,7 @@ def add_docs(
         f"\n[bold green]✓[/bold green] Tracked [bold]{tracked_count}[/bold] docs for [cyan]{domain_name}[/cyan]."
     )
     if tracked_count > 0:
-        console.print(f"[dim]View docs: dva domain docs {domain_name}[/dim]")
+        console.print(f"[dim]View docs: {CLI_NAME} domain docs {domain_name}[/dim]")
 
     record_activity(
         command="domain", subcommand="add-docs",
@@ -818,7 +818,7 @@ def add_docs(
 
 
 # ---------------------------------------------------------------------------
-# dva domain docs
+# {CLI_NAME} domain docs
 # ---------------------------------------------------------------------------
 
 @domain_app.command("docs")
@@ -829,7 +829,7 @@ def list_docs(
     List tracked Confluence docs for a domain.
 
     Examples:
-        dva domain docs cwow-facility
+        {CLI_NAME} domain docs cwow-facility
     """
     d = get_domain(domain_name)
     if not d:
@@ -839,7 +839,7 @@ def list_docs(
     docs = get_domain_docs(domain_name)
     if not docs:
         console.print(f"[yellow]No docs tracked for '{domain_name}'.[/yellow]")
-        console.print(f"[dim]Add docs with: dva domain add-docs {domain_name}[/dim]")
+        console.print(f"[dim]Add docs with: {CLI_NAME} domain add-docs {domain_name}[/dim]")
         return
 
     table = Table(title=f"Tracked Docs — {domain_name} ({len(docs)})")
@@ -864,7 +864,7 @@ def list_docs(
 
 
 # ---------------------------------------------------------------------------
-# dva domain sync-docs
+# {CLI_NAME} domain sync-docs
 # ---------------------------------------------------------------------------
 
 @domain_app.command("sync-docs")
@@ -881,8 +881,8 @@ def sync_docs(
     Calls the Confluence MCP server (credentials managed there).
 
     Examples:
-        dva domain sync-docs cwow-facility
-        dva domain sync-docs cwow-facility --dry-run
+        {CLI_NAME} domain sync-docs cwow-facility
+        {CLI_NAME} domain sync-docs cwow-facility --dry-run
     """
     from agentic_cli.mcp_tool_client import (
         MCPToolError,
@@ -1004,7 +1004,7 @@ def sync_docs(
 
 
 # ---------------------------------------------------------------------------
-# dva domain gen-skills
+# {CLI_NAME} domain gen-skills
 # ---------------------------------------------------------------------------
 
 # Default output: skills/domains/<slug>/ next to agentic-cli
@@ -1031,10 +1031,10 @@ def gen_skills(
         ba      — Business Analyst: domain glossary, AC templates, docs
 
     Examples:
-        dva domain gen-skills cwow-facility
-        dva domain gen-skills cwow-facility --role dev
-        dva domain gen-skills cwow-facility --role sm
-        dva domain gen-skills cwow-facility --output /tmp/skills
+        {CLI_NAME} domain gen-skills cwow-facility
+        {CLI_NAME} domain gen-skills cwow-facility --role dev
+        {CLI_NAME} domain gen-skills cwow-facility --role sm
+        {CLI_NAME} domain gen-skills cwow-facility --output /tmp/skills
     """
     d = get_domain(domain_name)
     if not d:

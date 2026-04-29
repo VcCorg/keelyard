@@ -17,6 +17,7 @@ from agentic_cli.tracker import (
     get_full_context,
     remove_repo,
 )
+from agentic_cli.config import CLI_NAME
 
 console = Console()
 history_app = typer.Typer(help="View activity history, onboarded repos, and tracked projects", rich_markup_mode=None)
@@ -49,12 +50,12 @@ def show_log(
     Show the CLI activity log.
 
     Examples:
-        dva history log
-        dva history log --command kg --limit 10
-        dva history log --command code --sub onboard
-        dva history log --status error
-        dva history log --json
-    """
+        {CLI_NAME} history log
+        {CLI_NAME} history log --command kg --limit 10
+        {CLI_NAME} history log --command code --sub onboard
+        {CLI_NAME} history log --status error
+        {CLI_NAME} history log --json
+    """.format(CLI_NAME=CLI_NAME)
     entries = get_activity(command=command, subcommand=subcommand, status=status, limit=limit)
 
     if output_json:
@@ -103,9 +104,9 @@ def show_summary(
     Show summary statistics of all CLI activity.
 
     Examples:
-        dva history summary
-        dva history summary --json
-    """
+        {CLI_NAME} history summary
+        {CLI_NAME} history summary --json
+    """.format(CLI_NAME=CLI_NAME)
     summary = get_activity_summary()
 
     if output_json:
@@ -146,10 +147,10 @@ def list_repos(
     List all onboarded repositories.
 
     Examples:
-        dva history repos
-        dva history repos --name cwow
-        dva history repos --json
-    """
+        {CLI_NAME} history repos
+        {CLI_NAME} history repos --name cwow
+        {CLI_NAME} history repos --json
+    """.format(CLI_NAME=CLI_NAME)
     repos = get_repos(name=name)
 
     if output_json:
@@ -158,7 +159,7 @@ def list_repos(
 
     if not repos:
         console.print("[dim]No repos onboarded yet.[/dim]")
-        console.print("[dim]Onboard one with: dva code onboard --path ./my-repo[/dim]")
+        console.print(f"[dim]Onboard one with: {CLI_NAME} code onboard --path ./my-repo[/dim]")
         return
 
     table = Table(show_header=True, header_style="bold cyan", title="Onboarded Repositories")
@@ -199,8 +200,8 @@ def repos_remove(
     """
     Remove a repo from the central tracking registry.
 
-    This does NOT delete the repo — only removes it from dva tracking.
-    """
+    This does NOT delete the repo — only removes it from {CLI_NAME} tracking.
+    """.format(CLI_NAME=CLI_NAME)
     from pathlib import Path as P
     resolved = str(P(path).resolve())
 
@@ -226,9 +227,9 @@ def list_tracked_projects(
     List all created agent projects.
 
     Examples:
-        dva history projects
-        dva history projects --json
-    """
+        {CLI_NAME} history projects
+        {CLI_NAME} history projects --json
+    """.format(CLI_NAME=CLI_NAME)
     projects = get_projects()
 
     if output_json:
@@ -237,7 +238,7 @@ def list_tracked_projects(
 
     if not projects:
         console.print("[dim]No projects created yet.[/dim]")
-        console.print("[dim]Create one with: dva project create my-agent[/dim]")
+        console.print(f"[dim]Create one with: {CLI_NAME} project create my-agent[/dim]")
         return
 
     table = Table(show_header=True, header_style="bold cyan", title="Created Projects")
@@ -278,8 +279,8 @@ def export_context(
     - Activity summary and recent history
 
     Examples:
-        dva history context
-        dva history context --json
-    """
+        {CLI_NAME} history context
+        {CLI_NAME} history context --json
+    """.format(CLI_NAME=CLI_NAME)
     ctx = get_full_context()
     console.print(json.dumps(ctx, indent=2))
