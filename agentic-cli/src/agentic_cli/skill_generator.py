@@ -6,7 +6,7 @@ reusable context document that AI code assistants can consume.
 
 Output layout::
 
-    dva-skills/domains/<slug>/
+    agent-cli-skills/domains/<slug>/
     ├── DOMAIN.md   # Domain overview — repos, docs, tech stack, links
     ├── DEV.md      # Developer — code patterns, frameworks, build/deploy
     ├── QA.md       # QA — test strategy, frameworks, coverage
@@ -166,12 +166,12 @@ def generate_dev_md(ctx: dict) -> str:
                 lines.append(f"- **Clone:** `{url}`")
             onboarded = r.get("onboarded", 0)
             if onboarded:
-                lines.append("- **Onboarded:** Yes — skills installed via `dva code onboard`")
+                lines.append("- **Onboarded:** Yes — skills installed via `agent-cli code onboard`")
             lines.append("")
 
     # Code conventions placeholder
     lines.append("## Code Conventions\n")
-    lines.append("<!-- Auto-populated when repos are onboarded via f'{CLI_NAME} code onboard' -->")
+    lines.append(f"<!-- Auto-populated when repos are onboarded via '{CLI_NAME} code onboard' -->")
     lines.append("- Follow existing patterns in each repository")
     lines.append("- Use the project's established build tool and dependency manager")
     lines.append("- Prefer constructor injection over field injection (Spring Boot)")
@@ -261,7 +261,7 @@ def generate_sm_md(ctx: dict) -> str:
     if ctx["jira_dashboard"]:
         lines.append(f"- **Dashboard:** {ctx['jira_dashboard']}")
     if not ctx["jira_project"] and not ctx["jira_dashboard"]:
-        lines.append("- _No Jira project configured. Use `dva domain update <name> --jira <KEY>`_")
+        lines.append("- _No Jira project configured. Use `agent-cli domain update <name> --jira <KEY>`_")
     lines.append("")
 
     # Sprint workflow
@@ -337,7 +337,7 @@ def generate_ba_md(ctx: dict) -> str:
             title = d.get("title", "Untitled")
             lines.append(f"- {title}")
     elif not ctx["confluence_space"]:
-        lines.append("- _No Confluence space configured. Use `dva domain update <name> --confluence <KEY>`_")
+        lines.append("- _No Confluence space configured. Use `agent-cli domain update <name> --confluence <KEY>`_")
     lines.append("")
 
     # Acceptance criteria template

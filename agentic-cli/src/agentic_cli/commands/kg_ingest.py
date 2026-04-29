@@ -9,8 +9,8 @@ from typing_extensions import Annotated
 from pathlib import Path
 
 # Import async management functions
-from agentic_cli.kg.async_ingest import (
 from agentic_cli.config import CLI_NAME
+from agentic_cli.kg.async_ingest import (
     get_manager,
     JobStatus,
     IngestionJob
@@ -27,7 +27,7 @@ console = Console()
 
 
 # ============================================================================
-# ASYNC MANAGEMENT COMMANDS (dva kg ingest async ...)
+# ASYNC MANAGEMENT COMMANDS ({CLI_NAME} kg ingest async ...)
 # ============================================================================
 
 @async_app.command("submit")
@@ -125,8 +125,8 @@ def submit_async_ingestion(
         console.print(f"\n[green]✓ Job submitted successfully[/green]")
         console.print(f"[cyan]Job ID:[/cyan] {job.job_id}")
         console.print(f"[cyan]Status:[/cyan] {job.status.value}")
-        console.print(f"\n[dim]Check status:[/dim] dva kg ingest async status {job.job_id}")
-        console.print(f"[dim]View all jobs:[/dim] dva kg ingest async list")
+        console.print(f"\n[dim]Check status:[/dim] {CLI_NAME} kg ingest async status {job.job_id}")
+        console.print(f"[dim]View all jobs:[/dim] {CLI_NAME} kg ingest async list")
         
     except Exception as e:
         console.print(f"[red]✗ Error submitting job:[/red] {str(e)}")
@@ -183,7 +183,7 @@ def list_jobs(
                 console.print(f"[yellow]No jobs found with status '{status_filter.value}'[/yellow]")
             else:
                 console.print("[yellow]No jobs found[/yellow]")
-            console.print(f"[dim]Submit a job:[/dim] dva kg ingest async submit --path <source>")
+            console.print(f"[dim]Submit a job:[/dim] {CLI_NAME} kg ingest async submit --path <source>")
             return
         
         # Display jobs table
@@ -230,7 +230,7 @@ def list_jobs(
             )
         
         console.print(table)
-        console.print(f"\n[dim]View details:[/dim] dva kg ingest async status <job-id>")
+        console.print(f"\n[dim]View details:[/dim] {CLI_NAME} kg ingest async status <job-id>")
         
     except Exception as e:
         console.print(f"[red]✗ Error:[/red] {str(e)}")

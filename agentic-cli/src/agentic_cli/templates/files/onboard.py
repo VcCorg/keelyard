@@ -19,7 +19,7 @@ def _generate_main(target_dir: Path, config: TemplateConfig) -> None:
     """Generate src/main.py for the onboard agent."""
     main_py = target_dir / "src" / "main.py"
     main_py.parent.mkdir(parents=True, exist_ok=True)
-    main_py.write_text(f'''"""DVA Onboard Agent — {config.name}
+    main_py.write_text(f'''"""Agent-CLI Onboard Agent — {config.name}
 
 Standalone onboard agent project.
 Imports reusable pipeline from agentic_cli.agents.onboard.
@@ -289,19 +289,19 @@ python src/main.py --project-path /path/to/repo --enrich
 - **Model**: Edit `agent.json` or set `ONBOARD_AGENT_MODEL` env var
 - **Evaluation**: Add test projects to `eval/test_projects/` with `expected.json`
 
-## Integration with DVA CLI
+## Integration with Agent-CLI
 
 ```bash
 # Register this agent
-dva agent register --path . --target opencode
+agent-cli agent register --path . --target opencode
 
 # Use via CLI
-dva code onboard --path /path/to/repo --agent-path .
+agent-cli code onboard --path /path/to/repo --agent-path .
 ```
 
 ## Architecture
 
-This agent imports reusable components from `dva_agentic_cli.agents.onboard`:
+This agent imports reusable components from `agentic_cli.agents.onboard`:
 - `pipeline.run_onboard_pipeline()` — Orchestrates the full flow
 - `gap_detector.detect_skill_gaps()` — AI-powered gap detection
 - `skill_generator.generate_skill_content()` — SKILL.md generation

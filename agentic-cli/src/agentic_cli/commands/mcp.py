@@ -26,6 +26,7 @@ from agentic_cli.mcp.config import (
     PROJECT_MCP_DIR,
 )
 
+from agentic_cli.config import CLI_NAME
 from agentic_cli.tracker import record_activity
 
 console = Console()
@@ -61,13 +62,13 @@ def init_mcp(
     )
     
     config_path = save_project_config(config, base)
-    
+
     console.print(Panel(
         f"[green]✓[/green] Initialized MCP configuration at [cyan]{config_path}[/cyan]\n\n"
         "Next steps:\n"
-        "  1. Add servers: [cyan]dva mcp add <name> --type <type> ...[/cyan]\n"
-        "  2. List servers: [cyan]dva mcp list[/cyan]\n"
-        "  3. Sync to IDE: [cyan]dva mcp sync --ide windsurf[/cyan]",
+        f"  1. Add servers: [cyan]{CLI_NAME} mcp add <name> --type <type> ...[/cyan]\n"
+        f"  2. List servers: [cyan]{CLI_NAME} mcp list[/cyan]\n"
+        f"  3. Sync to IDE: [cyan]{CLI_NAME} mcp sync --ide windsurf[/cyan]",
         title="MCP Initialized",
     ))
 
@@ -286,7 +287,7 @@ def list_servers(
     
     if not servers:
         console.print("[yellow]No MCP servers configured[/yellow]")
-        console.print("Add a server with: [cyan]dva mcp add <name> --type <type> ...[/cyan]")
+        console.print(f"Add a server with: [cyan]{CLI_NAME} mcp add <name> --type <type> ...[/cyan]")
         return
     
     if json_output:

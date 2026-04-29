@@ -81,11 +81,11 @@ def run_agent(
     Run an agent project.
 
     Examples:
-        dva agent run --path ./my-pr-bot
-        dva agent run --path ./my-pr-bot --mode daemon
-        dva agent run --path ./my-pr-bot --mode once
-        dva agent run --path ./my-pr-bot --mode daemon --review-mode auto-approve
-    """
+        {CLI_NAME} agent run --path ./my-pr-bot
+        {CLI_NAME} agent run --path ./my-pr-bot --mode daemon
+        {CLI_NAME} agent run --path ./my-pr-bot --mode once
+        {CLI_NAME} agent run --path ./my-pr-bot --mode daemon --review-mode auto-approve
+    """.format(CLI_NAME=CLI_NAME)
     path = path.resolve()
 
     if not path.exists():
@@ -182,9 +182,9 @@ def start_agent(
     Start an agent as a background daemon process.
 
     Examples:
-        dva agent start --path ./my-pr-bot
-        dva agent start --path ./my-pr-bot --review-mode auto-approve --name prod-reviewer
-    """
+        {CLI_NAME} agent start --path ./my-pr-bot
+        {CLI_NAME} agent start --path ./my-pr-bot --review-mode auto-approve --name prod-reviewer
+    """.format(CLI_NAME=CLI_NAME)
     path = path.resolve()
     instance_name = name or path.name
 
@@ -203,7 +203,7 @@ def start_agent(
         pid = state["agents"][instance_name].get("pid")
         if pid and _is_process_running(pid):
             console.print(f"[yellow]⚠ Agent '{instance_name}' is already running (PID {pid})[/yellow]")
-            console.print("[dim]Use f'{CLI_NAME} agent stop' to stop it first.[/dim]")
+            console.print(f"[dim]Use {CLI_NAME} agent stop to stop it first.[/dim]")
             raise typer.Exit(1)
 
     # Determine Python executable
@@ -262,7 +262,7 @@ def start_agent(
         f"[bold]PID:[/bold] {process.pid}\n"
         f"[bold]Log:[/bold] {log_file}\n"
         f"[bold]Project:[/bold] {path}\n\n"
-        f"[dim]Use f'{CLI_NAME} agent status' to check or f'{CLI_NAME} agent stop --name {instance_name}' to stop[/dim]",
+        f"[dim]Use {CLI_NAME} agent status to check or {CLI_NAME} agent stop --name {instance_name} to stop[/dim]",
         border_style="green",
     ))
 
@@ -285,9 +285,9 @@ def stop_agent(
     Stop a running background agent.
 
     Examples:
-        dva agent stop --name my-pr-bot
-        dva agent stop --all
-    """
+        {CLI_NAME} agent stop --name my-pr-bot
+        {CLI_NAME} agent stop --all
+    """.format(CLI_NAME=CLI_NAME)
     state = _load_state()
 
     if not state["agents"]:
@@ -347,7 +347,7 @@ def agent_status() -> None:
 
     if not state["agents"]:
         console.print("[dim]No agents are currently tracked.[/dim]")
-        console.print("[dim]Start one with: dva agent start --path ./my-agent[/dim]")
+        console.print(f"[dim]Start one with: {CLI_NAME} agent start --path ./my-agent[/dim]")
         return
 
     table = Table(show_header=True, header_style="bold magenta")
@@ -393,9 +393,9 @@ def agent_logs(
     Show logs for a running agent.
 
     Examples:
-        dva agent logs --name my-pr-bot
-        dva agent logs --name my-pr-bot --tail 100
-    """
+        {CLI_NAME} agent logs --name my-pr-bot
+        {CLI_NAME} agent logs --name my-pr-bot --tail 100
+    """.format(CLI_NAME=CLI_NAME)
     state = _load_state()
 
     if not name:
@@ -504,12 +504,12 @@ def add_agent(
     Domain is auto-populated from tracker if using --project.
 
     Examples:
-        dva agent add my-rag --type rag --project cwow-facility-agents-project
-        dva agent add pr-bot --type pr-reviewer --path ./my-project
-        dva agent add sprint-tracker --type scrum-master --project cwow-facility-agents-project
-        dva agent add helper --type custom --path ./my-project
-        dva agent add --list-types
-    """
+        {CLI_NAME} agent add my-rag --type rag --project cwow-facility-agents-project
+        {CLI_NAME} agent add pr-bot --type pr-reviewer --path ./my-project
+        {CLI_NAME} agent add sprint-tracker --type scrum-master --project cwow-facility-agents-project
+        {CLI_NAME} agent add helper --type custom --path ./my-project
+        {CLI_NAME} agent add --list-types
+    """.format(CLI_NAME=CLI_NAME)
     from agentic_cli.templates.scaffolds import (
         AGENT_TYPES,
         get_agent_tools,
@@ -524,7 +524,7 @@ def add_agent(
 
     if not name:
         console.print("[red]✗ Error:[/red] Agent name is required.")
-        console.print("[dim]Usage: dva agent add <name> --type <type> [--project <name> | --path <dir>][/dim]")
+        console.print(f"[dim]Usage: {CLI_NAME} agent add <name> --type <type> [--project <name> | --path <dir>][/dim]")
         raise typer.Exit(1)
 
     # Resolve project path and domain
@@ -532,7 +532,7 @@ def add_agent(
         proj = get_project(project)
         if not proj:
             console.print(f"[red]✗ Error:[/red] Project '{project}' not found in tracker.")
-            console.print("[dim]Use f'{CLI_NAME} project list' to see registered projects.[/dim]")
+            console.print(f"[dim]Use {CLI_NAME} project list to see registered projects.[/dim]")
             raise typer.Exit(1)
         path = Path(proj["path"])
         # Auto-populate domain from tracker if not explicitly provided
@@ -551,7 +551,7 @@ def add_agent(
 
     if not (path / "src").exists():
         console.print(f"[red]✗ Error:[/red] No src/ directory found in {path}.")
-        console.print("[dim]Expected a project created via f'{CLI_NAME} project create'.[/dim]")
+        console.print(f"[dim]Expected a project created via {CLI_NAME} project create.[/dim]")
         raise typer.Exit(1)
 
     if agent_type not in AGENT_TYPES:
@@ -601,7 +601,7 @@ def add_agent(
         f"[bold]File:[/bold] src/agents/{result['agent_file']}\n\n"
         f"[dim]Use in main.py:[/dim]\n"
         f"  from agents.{result['agent_file'].replace('.py', '')} import {result['agent_class']}\n\n"
-        f"[dim]List agents:[/dim] dva agent list --path {path}",
+        f"[dim]List agents:[/dim] {CLI_NAME} agent list --path {path}",
         border_style="green",
     ))
 
@@ -626,7 +626,7 @@ def _show_agent_types(agent_types: dict, get_tools_fn) -> None:
     ))
     console.print(table)
     console.print(
-        "\n[dim]Usage: dva agent add <name> --type <type> --path <project>[/dim]"
+        f"\n[dim]Usage: {CLI_NAME} agent add <name> --type <type> --path <project>[/dim]"
     )
 
 
@@ -662,10 +662,10 @@ def register_agent(
     For OpenCode, this creates a markdown agent file in the project's agent/ directory.
 
     Examples:
-        dva agent register --path ./my-pr-bot --target opencode
-        dva agent register --path ./my-pr-bot --target opencode --jira
-        dva agent register --target opencode  (uses current directory)
-    """
+        {CLI_NAME} agent register --path ./my-pr-bot --target opencode
+        {CLI_NAME} agent register --path ./my-pr-bot --target opencode --jira
+        {CLI_NAME} agent register --target opencode  (uses current directory)
+    """.format(CLI_NAME=CLI_NAME)
     path = path.resolve()
 
     if target == "opencode":
@@ -738,11 +738,11 @@ def test_agent(
       6. generate — Generate SKILL.md for a detected gap
 
     Examples:
-        dva agent test --path ./my-repo
-        dva agent test --path ./my-repo --step model
-        dva agent test --path ./my-repo --step detect --verbose
-        dva agent test --path ./my-repo --agent-path ./my-custom-agent
-    """
+        {CLI_NAME} agent test --path ./my-repo
+        {CLI_NAME} agent test --path ./my-repo --step model
+        {CLI_NAME} agent test --path ./my-repo --step detect --verbose
+        {CLI_NAME} agent test --path ./my-repo --agent-path ./my-custom-agent
+    """.format(CLI_NAME=CLI_NAME)
     path = path.resolve()
     steps_to_run = [step] if step else ["deps", "config", "model", "analyze", "detect", "generate"]
 
@@ -773,7 +773,7 @@ def test_agent(
             results["deps"] = True
         except ImportError:
             console.print("  [red]✗[/red] google-cloud-aiplatform NOT installed")
-            console.print("  [dim]Fix: pip install 'dva-agentic-cli[agent]'[/dim]")
+            console.print("  [dim]Fix: pip install 'agentic-cli[agent]'[/dim]")
             console.print("  [dim]  or: pip install google-cloud-aiplatform[/dim]")
             results["deps"] = False
             if not step:
@@ -797,7 +797,7 @@ def test_agent(
             else:
                 console.print(f"  [red]✗[/red] project_id: {pid or 'NOT SET'}")
                 console.print(f"  [red]✗[/red] location: {loc or 'NOT SET'}")
-                console.print("  [dim]Fix: dva init vertex-ai --project-id <GCP_PROJECT> --location <REGION>[/dim]")
+                console.print(f"  [dim]Fix: {CLI_NAME} init vertex-ai --project-id <GCP_PROJECT> --location <REGION>[/dim]")
                 results["config"] = False
                 if not step:
                     _print_test_summary(results)
@@ -1000,7 +1000,7 @@ def _print_test_summary(results: dict) -> None:
         console.print("\n[bold green]All steps passed! Agent is working correctly.[/bold green]")
     elif not all_pass:
         console.print("\n[bold red]Some steps failed. Fix the errors above and re-run.[/bold red]")
-        console.print("[dim]Run a single step: dva agent test --step <step-name>[/dim]")
+        console.print(f"[dim]Run a single step: {CLI_NAME} agent test --step <step-name>[/dim]")
 
 
 def _load_dva_config() -> dict:

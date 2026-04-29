@@ -134,10 +134,10 @@ LightRAG:
 To verify the fix:
 ```bash
 # Check current stats
-dva kg stats
+`agent kg stats
 
 # Try to clear (cancel when prompted)
-dva kg clear
+`agent kg clear
 
 # Verify both show the same document count
 ```

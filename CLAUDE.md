@@ -1,19 +1,19 @@
-# DVA Agentic Platform
+# Agentic Platform
 
-Read `.skills/dva-agentic-platform/SKILL.md` for full project context before starting any work.
+Read `.skills/agentic-platform/SKILL.md` for full project context before starting any work.
 
 ## Quick Reference
 
 This is a **multi-repo workspace** with 4 repos building an enterprise AI agent platform:
 
-- **dva-agentic-cli/** — Python CLI (`dva` command): 9 command groups (code, kg, data, mcp, project, agent, skill, init, history)
-- **dva-skills/** — Skills registry: 62 auto-detect skills for project onboarding
-- **dva-mcp-servers/** — 8 Docker MCP servers: Bitbucket, Jira, Glean, Confluence, Memory, KG, Gateway, Proxy
-- **dva-kg-infrastructure/** — Knowledge graph: Neo4j + LightRAG + KG MCP
+- **agentic-cli/** — Python CLI (`agent` command): 9 command groups (code, kg, data, mcp, project, agent, skill, init, history)
+- **skills/** — Skills registry with AI evaluation framework and team sharing via Git
+- **mcp-servers/** — 8 Docker MCP servers: Bitbucket, Jira, Glean, Confluence, Memory, KG, Gateway, Proxy
+- **kg-infrastructure/** — Knowledge graph: Neo4j + LightRAG + KG MCP
 
 ## MCP Servers Available
 
-All are Docker containers on `dva-network`. Start with `cd dva-mcp-servers && docker compose up -d`.
+All are Docker containers on shared network. Start with `cd mcp-servers && docker compose up -d`.
 
 | Server | Port | SSE URL | Tools |
 |--------|------|---------|-------|
@@ -27,9 +27,9 @@ All are Docker containers on `dva-network`. Start with `cd dva-mcp-servers && do
 ## Rules
 
 - This workspace is NOT a git repo. Each subdirectory is its own repo.
-- All repos are on Bitbucket under `~your-user/`. Local dir names differ from Bitbucket slugs.
-- Neo4j is shared between memory-mcp and kg. All KG data is scoped with `_source='dva_kg'`.
+- All repos are on Git under appropriate locations. Local dir names are generic for development.
+- Neo4j is shared between memory-mcp and kg. All KG data is scoped with `_source='agentic_kg'`.
 - MCP servers use dual transport: `stdio` for local dev, `sse` for Docker.
-- Tokens live in `dva-mcp-servers/.env` (git-ignored). Never commit secrets.
-- CLI installs globally via `uv tool install --force ./dva-agentic-cli`.
+- Tokens live in `mcp-servers/.env` (git-ignored). Never commit secrets.
+- CLI installs globally via `uv tool install --force ./agentic-cli`.
 - Full operations guide: `docs/LOCAL_DEV_OPS_GUIDE.md`.

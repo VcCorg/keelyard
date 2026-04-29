@@ -1,6 +1,6 @@
 # Knowledge Graph Integration
 
-The DVA Agentic CLI includes a powerful knowledge graph system that combines Neo4j graph database with Vertex AI for intelligent entity extraction and semantic search.
+The Agentic CLI includes a powerful knowledge graph system that combines Neo4j graph database with Vertex AI for intelligent entity extraction and semantic search.
 
 ## Features
 
@@ -35,7 +35,7 @@ docker run \
 Then configure the CLI:
 
 ```bash
-dva kg init \
+`agent kg init \
     --provider neo4j \
     --uri bolt://localhost:7687 \
     --username neo4j \
@@ -47,7 +47,7 @@ dva kg init \
 
 ```bash
 # Automatically runs gcloud auth application-default login
-dva init vertex-ai \
+`agent init vertex-ai \
     --project-id YOUR_PROJECT_ID \
     --location us-central1
 ```
@@ -56,19 +56,19 @@ dva init vertex-ai \
 
 ```bash
 # Ingest a PDF document (direct path)
-dva kg ingest --path document.pdf
+`agent kg ingest --path document.pdf
 
 # Ingest using a configured data source
-dva kg ingest --source my-dataset
+`agent kg ingest --source my-dataset
 
 # Ingest a directory of files
-dva kg ingest --path ./data --format text
+`agent kg ingest --path ./data --format text
 
 # Ingest CSV data
-dva kg ingest --path data.csv --extract-entities --build-relationships
+`agent kg ingest --path data.csv --extract-entities --build-relationships
 
 # Ingest JSON
-dva kg ingest --path config.json
+`agent kg ingest --path config.json
 ```
 
 ## Commands
@@ -80,7 +80,7 @@ dva kg ingest --path config.json
 Initialize knowledge graph configuration.
 
 ```bash
-dva kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
+`agent kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
 ```
 
 Options:
@@ -96,10 +96,10 @@ Manage configuration.
 
 ```bash
 # Show current configuration
-dva kg config --show
+`agent kg config --show
 
 # Reset configuration
-dva kg config --reset
+`agent kg config --reset
 ```
 
 ### Data Ingestion
@@ -113,35 +113,35 @@ Ingest data from various sources. You can specify sources in two ways:
 
 ```bash
 # Direct path ingestion
-dva kg ingest --path document.pdf
+`agent kg ingest --path document.pdf
 
-# Data source ingestion (requires dva data create first)
-dva kg ingest --source my-dataset
+# Data source ingestion (requires agent data create first)
+`agent kg ingest --source my-dataset
 
 # Specify format explicitly
-dva kg ingest --path data.txt --format text
+`agent kg ingest --path data.txt --format text
 
 # Disable entity extraction
-dva kg ingest --path data.csv --no-extract-entities
+`agent kg ingest --path data.csv --no-extract-entities
 
 # Disable relationship building
-dva kg ingest --path data.json --no-build-relationships
+`agent kg ingest --path data.json --no-build-relationships
 ```
 
 **Data Source Integration**: Before using `--source`, configure data sources with:
 
 ```bash
 # Configure a local document source
-dva data create --name my-docs --source-type doc --source-location /path/to/docs
+`agent data create --name my-docs --source-type doc --source-location /path/to/docs
 
 # Configure a GCS source
-dva data create --name gcs-data --source-type doc --source-location gs://bucket/path
+`agent data create --name gcs-data --source-type doc --source-location gs://bucket/path
 
 # Configure a Confluence source
-dva data create --name wiki --source-type confluence --source-location https://company.atlassian.net
+`agent data create --name wiki --source-type confluence --source-location https://company.atlassian.net
 
 # Then ingest using the configured source
-dva kg ingest --source my-docs
+`agent kg ingest --source my-docs
 ```
 
 Supported formats:
@@ -159,13 +159,13 @@ Query the knowledge graph.
 
 ```bash
 # Natural language query
-dva kg query "Find all people who work at Google"
+`agent kg query "Find all people who work at Google"
 
 # Cypher query
-dva kg query "MATCH (n:Person) RETURN n LIMIT 10" --format cypher
+`agent kg query "MATCH (n:Person) RETURN n LIMIT 10" --format cypher
 
 # Limit results
-dva kg query "Show all organizations" --limit 5
+`agent kg query "Show all organizations" --limit 5
 ```
 
 #### `dva kg search`
@@ -174,13 +174,13 @@ Search the knowledge graph.
 
 ```bash
 # Semantic search (uses embeddings)
-dva kg search "artificial intelligence" --semantic
+`agent kg search "artificial intelligence" --semantic
 
 # Exact text search
-dva kg search "Google" --exact
+`agent kg search "Google" --exact
 
 # Limit results
-dva kg search "machine learning" --limit 20
+`agent kg search "machine learning" --limit 20
 ```
 
 ### Statistics
@@ -190,7 +190,7 @@ dva kg search "machine learning" --limit 20
 Display knowledge graph statistics.
 
 ```bash
-dva kg stats
+`agent kg stats
 ```
 
 Shows:
@@ -208,16 +208,16 @@ Generate interactive HTML visualization.
 
 ```bash
 # Basic visualization
-dva kg visualize
+`agent kg visualize
 
 # Custom output file
-dva kg visualize --output my-graph.html
+`agent kg visualize --output my-graph.html
 
 # Filter by node type
-dva kg visualize --filter Person
+`agent kg visualize --filter Person
 
 # Control traversal depth
-dva kg visualize --depth 3
+`agent kg visualize --depth 3
 ```
 
 ### Tool Generation
@@ -228,13 +228,13 @@ Generate ADK tool class for knowledge graph operations.
 
 ```bash
 # Generate tool with default operations
-dva kg tool --name company_knowledge
+`agent kg tool --name company_knowledge
 
 # Specify operations
-dva kg tool --name custom_kg --operations search,query,traverse
+`agent kg tool --name custom_kg --operations search,query,traverse
 
 # Save to file
-dva kg tool --name my_tool --output tools/kg_tool.py
+`agent kg tool --name my_tool --output tools/kg_tool.py
 ```
 
 Available operations:
@@ -283,7 +283,7 @@ SHOW INDEXES
 ### Generate a Tool
 
 ```bash
-dva kg tool --name knowledge_graph --output tools/kg_tool.py
+`agent kg tool --name knowledge_graph --output tools/kg_tool.py
 ```
 
 ### Use in Agent
@@ -310,13 +310,13 @@ class MyAgent:
 
 ```bash
 # Find all relationships
-dva kg query "MATCH (a)-[r]->(b) RETURN a.name, type(r), b.name LIMIT 10" --format cypher
+`agent kg query "MATCH (a)-[r]->(b) RETURN a.name, type(r), b.name LIMIT 10" --format cypher
 
 # Find nodes by property
-dva kg query "MATCH (n:Person) WHERE n.name CONTAINS 'John' RETURN n" --format cypher
+`agent kg query "MATCH (n:Person) WHERE n.name CONTAINS 'John' RETURN n" --format cypher
 
 # Complex traversal
-dva kg query "MATCH path = (start:Person)-[*1..3]-(end:Organization) RETURN path" --format cypher
+`agent kg query "MATCH path = (start:Person)-[*1..3]-(end:Organization) RETURN path" --format cypher
 ```
 
 ### Batch Ingestion
@@ -378,7 +378,7 @@ Configuration is stored in `~/.dva-agentic/kg-config.json`:
 
 ```bash
 # Test connection
-dva kg stats
+`agent kg stats
 
 # Check Neo4j is running
 docker ps | grep neo4j
@@ -397,7 +397,7 @@ gcloud auth application-default login
 gcloud config set project YOUR_PROJECT_ID
 
 # Verify configuration
-dva init show
+`agent init show
 ```
 
 ### Missing Dependencies
@@ -437,42 +437,42 @@ pip install neo4j PyPDF2 pyvis google-cloud-aiplatform
 
 ```bash
 # Ingest company documents
-dva kg ingest ./company-docs --format text --extract-entities
+`agent kg ingest ./company-docs --format text --extract-entities
 
 # Search for information
-dva kg search "product roadmap" --semantic
+`agent kg search "product roadmap" --semantic
 
 # Query organizational structure
-dva kg query "Find all people and their departments"
+`agent kg query "Find all people and their departments"
 
 # Visualize
-dva kg visualize --output company-graph.html
+`agent kg visualize --output company-graph.html
 ```
 
 ### Example 2: Research Papers
 
 ```bash
 # Ingest research papers
-dva kg ingest ./papers/*.pdf
+`agent kg ingest ./papers/*.pdf
 
 # Find related concepts
-dva kg search "neural networks" --semantic --limit 10
+`agent kg search "neural networks" --semantic --limit 10
 
 # Explore citations
-dva kg query "MATCH (p:Paper)-[:CITES]->(cited:Paper) RETURN p.name, cited.name"
+`agent kg query "MATCH (p:Paper)-[:CITES]->(cited:Paper) RETURN p.name, cited.name"
 ```
 
 ### Example 3: Customer Data
 
 ```bash
 # Ingest customer data
-dva kg ingest customers.csv --extract-entities --build-relationships
+`agent kg ingest customers.csv --extract-entities --build-relationships
 
 # Find customer segments
-dva kg query "Find all customers in California"
+`agent kg query "Find all customers in California"
 
 # Generate tool for CRM integration
-dva kg tool --name customer_knowledge --output tools/customer_kg.py
+`agent kg tool --name customer_knowledge --output tools/customer_kg.py
 ```
 
 ## Next Steps

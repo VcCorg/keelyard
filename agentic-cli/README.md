@@ -1,4 +1,4 @@
-# DVA Agentic CLI
+# Agentic CLI
 
 A command-line interface for agentic workflows using the ADK agent platform.
 
@@ -104,18 +104,18 @@ The CLI automatically adapts all help text and output to match your configured C
 
 ```bash
 # Get help (shows your configured CLI name)
-dva --help
+`agent --help
 
 # Get command-specific help
-dva project --help
-dva kg --help
-dva data --help
+`agent project --help
+`agent kg --help
+`agent data --help
 
 # Show version (displays your configured CLI name)
-dva --version
+`agent --version
 
 # All help output is dynamic - no hardcoded command names
-# If installed as 'raj', all examples show 'raj' instead of 'dva'
+# If installed as 'raj', all examples show 'raj' instead of 'agent'
 raj --help
 raj project --help
 ```
@@ -124,14 +124,14 @@ raj project --help
 
 ```bash
 # Show version
-dva --version
+`agent --version
 
 # Show help
-dva --help
+`agent --help
 
 # Example hello command
-dva hello
-dva hello "Your Name"
+`agent hello
+`agent hello "Your Name"
 ```
 
 ### Available Commands
@@ -217,10 +217,10 @@ All commands below use `dva` as the CLI name. If you installed with a custom nam
 Example:
 ```bash
 # Validate a skill file
-dva eval validate-skill .skills/pr-reviewer/SKILL.md
+`agent eval validate-skill .skills/pr-reviewer/SKILL.md
 
 # Get detailed JSON report
-dva eval validate-skill .skills/pr-reviewer/SKILL.md --output json
+`agent eval validate-skill .skills/pr-reviewer/SKILL.md --output json
 
 # Quality Score: 92/100 = Excellent
 # Includes: Full documentation, examples, clear workflow
@@ -262,19 +262,19 @@ Configure Vertex AI for your projects:
 
 ```bash
 # First time: prompts for project ID and runs gcloud auth
-dva init vertex-ai
+`agent init vertex-ai
 
 # Subsequent runs: reuses existing config, only refreshes auth
-dva init vertex-ai
+`agent init vertex-ai
 
 # Update specific settings
-dva init vertex-ai --location us-east1
+`agent init vertex-ai --location us-east1
 
 # Skip authentication if already authenticated
-dva init vertex-ai --skip-auth
+`agent init vertex-ai --skip-auth
 
 # View saved configuration
-dva init show
+`agent init show
 
 # The configuration will be automatically applied to new projects
 ```
@@ -287,24 +287,24 @@ The CLI provides an embedded template system with multiple frameworks and use ca
 
 ```bash
 # Create a basic agent
-dva project create my-agent
+`agent project create my-agent
 
 # Create with specific use case
-dva project create my-rag --use-case rag
-dva project create my-kg --use-case knowledge-graph
-dva project create my-bot --use-case chatbot
+`agent project create my-rag --use-case rag
+`agent project create my-kg --use-case knowledge-graph
+`agent project create my-bot --use-case chatbot
 
 # Create with specific framework
-dva project create my-agent --framework langgraph
+`agent project create my-agent --framework langgraph
 
 # Add extra tools
-dva project create my-bot --use-case chatbot --tools web_search,api_caller
+`agent project create my-bot --use-case chatbot --tools web_search,api_caller
 
 # Include Docker support
-dva project create my-prod --use-case rag --docker
+`agent project create my-prod --use-case rag --docker
 
 # List all available frameworks, use cases, and tools
-dva project list-templates
+`agent project list-templates
 ```
 
 #### Available Use Cases
@@ -357,40 +357,40 @@ pip install -e ".[kg]"
 cd ../lightrag-infrastructure
 ./setup.sh
 
-dva kg init --provider lightrag --lightrag-url http://localhost:8001
-dva kg ingest --path /path/to/documents
-dva kg stats
+`agent kg init --provider lightrag --lightrag-url http://localhost:8001
+`agent kg ingest --path /path/to/documents
+`agent kg stats
 
 # Option 2: Use Neo4j (for advanced graph operations)
 cd ../neo4j-infrastructure
 ./setup.sh
 
-dva kg init --provider neo4j \
+`agent kg init --provider neo4j \
   --uri bolt://localhost:7687 \
   --username neo4j \
   --password password
 
 # Ingest data (works with both providers)
-dva kg ingest --path document.pdf
-dva kg ingest --path data.csv
-dva kg ingest --path ./documents
+`agent kg ingest --path document.pdf
+`agent kg ingest --path data.csv
+`agent kg ingest --path ./documents
 
 # Or ingest using configured data sources
-dva data create --name my-docs --source-type doc --source-location /path/to/docs
-dva kg ingest --source my-docs
+`agent data create --name my-docs --source-type doc --source-location /path/to/docs
+`agent kg ingest --source my-docs
 
 # Query and search (Neo4j only)
-dva kg query "Find all people who work at Google"
-dva kg search "artificial intelligence" --semantic
+`agent kg query "Find all people who work at Google"
+`agent kg search "artificial intelligence" --semantic
 
 # View statistics (both providers)
-dva kg stats
+`agent kg stats
 
 # Generate tool for ADK agents (Neo4j only)
-dva kg tool --name knowledge_graph --output tools/kg_tool.py
+`agent kg tool --name knowledge_graph --output tools/kg_tool.py
 
 # Visualize the graph (Neo4j only)
-dva kg visualize --output graph.html
+`agent kg visualize --output graph.html
 ```
 
 **Prerequisites**: 
@@ -405,19 +405,19 @@ Configure and manage data sources for ingestion into knowledge graphs or other p
 
 ```bash
 # Configure global GCS settings
-dva data init \
+`agent data init \
   --gcs-project-id your-project-id \
   --gcs-bucket your-bucket \
   --gcs-prefix data/
 
 # Configure Confluence settings
-dva data init \
+`agent data init \
   --confluence-url https://your-domain.atlassian.net/wiki \
   --confluence-username user@example.com \
   --confluence-api-token-env CONFLUENCE_API_TOKEN
 
 # Create a local documentation source
-dva data create \
+`agent data create \
   --name local-docs \
   --source-type doc \
   --source-location /path/to/docs \
@@ -425,7 +425,7 @@ dva data create \
   --tags "local,documentation"
 
 # Create a GCS data source
-dva data create \
+`agent data create \
   --name gcs-data \
   --source-type doc \
   --source-location gs://my-bucket/data/docs \
@@ -433,7 +433,7 @@ dva data create \
   --tags "gcs,production"
 
 # Create a Confluence source
-dva data create \
+`agent data create \
   --name team-wiki \
   --source-type confluence \
   --source-location https://your-domain.atlassian.net/wiki/spaces/TEAM \
@@ -441,7 +441,7 @@ dva data create \
   --tags "confluence,wiki"
 
 # Create a Git repository source with branch
-dva data create \
+`agent data create \
   --name backend-repo \
   --source-type git \
   --source-location https://github.com/company/backend.git \
@@ -450,7 +450,7 @@ dva data create \
   --tags "git,backend,production"
 
 # Create a Git repository source with tag (SSH URL)
-dva data create \
+`agent data create \
   --name frontend-release \
   --source-type git \
   --source-location git@github.com:company/frontend.git \
@@ -459,18 +459,18 @@ dva data create \
   --tags "git,frontend,release"
 
 # List all data sources
-dva data list
+`agent data list
 
 # Show details of a specific source
-dva data show team-wiki
+`agent data show team-wiki
 
 # Update a data source
-dva data update local-docs \
+`agent data update local-docs \
   --description "Updated documentation" \
   --tags "local,docs,updated"
 
 # Delete a data source
-dva data delete old-source --yes
+`agent data delete old-source --yes
 ```
 
 **Configuration Storage**: Data source configurations are stored in `~/.dva-agentic/config.json` alongside other CLI settings.
@@ -489,12 +489,12 @@ dva data delete old-source --yes
 **Data Source Integration**: Data sources are now integrated with `dva kg ingest`:
 ```bash
 # Configure data sources
-dva data create --name team-wiki --source-type confluence --source-location https://company.atlassian.net
-dva data create --name local-docs --source-type doc --source-location /path/to/docs
+`agent data create --name team-wiki --source-type confluence --source-location https://company.atlassian.net
+`agent data create --name local-docs --source-type doc --source-location /path/to/docs
 
 # Ingest from configured data sources
-dva kg ingest --source team-wiki
-dva kg ingest --source local-docs
+`agent kg ingest --source team-wiki
+`agent kg ingest --source local-docs
 
 # Note: Git repositories are not yet supported for direct ingestion
 # Clone locally first, then use --path option

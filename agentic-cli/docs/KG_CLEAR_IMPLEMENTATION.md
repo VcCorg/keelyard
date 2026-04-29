@@ -14,7 +14,7 @@ Implemented a comprehensive `dva kg clear` command to safely delete all knowledg
 
 **Command:**
 ```bash
-dva kg clear [OPTIONS]
+`agent kg clear [OPTIONS]
 ```
 
 **Options:**
@@ -32,14 +32,14 @@ Clear data from Neo4j, LightRAG, or both:
 
 ```bash
 # Clear configured provider
-dva kg clear
+`agent kg clear
 
 # Clear specific provider
-dva kg clear --provider lightrag
-dva kg clear --provider neo4j
+`agent kg clear --provider lightrag
+`agent kg clear --provider neo4j
 
 # Clear both providers
-dva kg clear --provider both
+`agent kg clear --provider both
 ```
 
 ### ✅ Safety Features
@@ -86,7 +86,7 @@ Disable with `--no-show-stats` for faster execution.
 Validates provider names before execution:
 
 ```bash
-dva kg clear --provider invalid
+`agent kg clear --provider invalid
 # ✗ Invalid provider: invalid
 # Valid providers: neo4j, lightrag
 ```
@@ -152,27 +152,27 @@ client.close()
 
 ```bash
 # Clear between test runs
-dva kg clear --yes
+`agent kg clear --yes
 
 # Run test
-dva kg ingest --path test-data.pdf
+`agent kg ingest --path test-data.pdf
 pytest tests/test_kg.py
 
 # Clear after test
-dva kg clear --yes
+`agent kg clear --yes
 ```
 
 ### Re-ingestion
 
 ```bash
 # Check current state
-dva kg stats
+`agent kg stats
 
 # Clear old data
-dva kg clear --provider lightrag --yes
+`agent kg clear --provider lightrag --yes
 
 # Re-ingest
-dva kg async submit --source cwow-patient-model --provider lightrag
+`agent kg async submit --source cwow-patient-model --provider lightrag
 ```
 
 ### CI/CD Pipeline
@@ -182,29 +182,29 @@ dva kg async submit --source cwow-patient-model --provider lightrag
 # Automated testing with clean state
 
 # Clear previous data
-dva kg clear --provider lightrag --yes --no-show-stats
+`agent kg clear --provider lightrag --yes --no-show-stats
 
 # Ingest test data
-dva kg ingest --path test-fixtures/sample.pdf
+`agent kg ingest --path test-fixtures/sample.pdf
 
 # Run tests
 pytest tests/test_kg_queries.py
 
 # Cleanup
-dva kg clear --provider lightrag --yes --no-show-stats
+`agent kg clear --provider lightrag --yes --no-show-stats
 ```
 
 ### Switching Providers
 
 ```bash
 # Clear both providers
-dva kg clear --provider both --yes
+`agent kg clear --provider both --yes
 
 # Reconfigure
-dva kg init --provider neo4j --uri bolt://localhost:7687
+`agent kg init --provider neo4j --uri bolt://localhost:7687
 
 # Ingest to new provider
-dva kg ingest --source my-data
+`agent kg ingest --source my-data
 ```
 
 ---
@@ -212,9 +212,9 @@ dva kg ingest --source my-data
 ## Command Help Output
 
 ```bash
-$ dva kg clear --help
+$ agent kg clear --help
 
-Usage: dva kg clear [OPTIONS]
+Usage: agent kg clear [OPTIONS]
 
   Clear all data from the knowledge graph.
 
@@ -223,16 +223,16 @@ Usage: dva kg clear [OPTIONS]
 
   Examples:
       # Clear configured provider (with confirmation)
-      dva kg clear
+      agent kg clear
 
       # Clear LightRAG without confirmation
-      dva kg clear --provider lightrag --yes
+      agent kg clear --provider lightrag --yes
 
       # Clear Neo4j with stats
-      dva kg clear --provider neo4j --show-stats
+      agent kg clear --provider neo4j --show-stats
 
       # Clear both providers
-      dva kg clear --provider both --yes
+      agent kg clear --provider both --yes
 
 Options:
   --provider TEXT                 Provider to clear (neo4j, lightrag, or
@@ -251,7 +251,7 @@ Options:
 ### Updated Command List
 
 ```bash
-$ dva kg --help
+$ agent kg --help
 
 Commands:
   async      Asynchronous ingestion commands
@@ -280,7 +280,7 @@ docker restart dva-lightrag
 **After:**
 ```bash
 # Simple, safe, and consistent
-dva kg clear --provider lightrag --yes
+`agent kg clear --provider lightrag --yes
 ```
 
 ---
@@ -291,22 +291,22 @@ dva kg clear --provider lightrag --yes
 
 ```bash
 # 1. Check current data
-dva kg stats
+`agent kg stats
 
 # 2. Clear with confirmation (test prompt)
-dva kg clear
+`agent kg clear
 
 # 3. Verify cleared
-dva kg stats
+`agent kg stats
 
 # 4. Re-ingest test data
-dva kg ingest --path test-data.pdf
+`agent kg ingest --path test-data.pdf
 
 # 5. Clear without confirmation (test --yes flag)
-dva kg clear --yes
+`agent kg clear --yes
 
 # 6. Verify cleared again
-dva kg stats
+`agent kg stats
 ```
 
 ### Automated Testing
@@ -403,7 +403,7 @@ docker start dva-lightrag
 ✗ Error clearing neo4j: Authentication failed
 
 # Solution: Reconfigure
-dva kg init --provider neo4j --username neo4j --password newpassword
+`agent kg init --provider neo4j --username neo4j --password newpassword
 ```
 
 ### Timeout Errors
@@ -424,25 +424,25 @@ dva kg init --provider neo4j --username neo4j --password newpassword
 1. **Selective Clearing**
    ```bash
    # Clear by persona
-   dva kg clear --persona developer
+   agent kg clear --persona developer
    
    # Clear by source
-   dva kg clear --source cwow-patient-model
+   agent kg clear --source cwow-patient-model
    
    # Clear by date
-   dva kg clear --before 2025-01-01
+   agent kg clear --before 2025-01-01
    ```
 
 2. **Automatic Backup**
    ```bash
    # Backup before clearing
-   dva kg clear --backup
+   agent kg clear --backup
    ```
 
 3. **Dry Run**
    ```bash
    # Show what would be deleted
-   dva kg clear --dry-run
+   agent kg clear --dry-run
    ```
 
 4. **Progress Indicator**
@@ -454,7 +454,7 @@ dva kg init --provider neo4j --username neo4j --password newpassword
 5. **Restore Command**
    ```bash
    # Restore from backup
-   dva kg restore --backup backup-20250127.tar.gz
+   agent kg restore --backup backup-20250127.tar.gz
    ```
 
 ---
@@ -526,18 +526,18 @@ The command is production-ready and follows CLI best practices for destructive o
 
 ```bash
 # Basic usage
-dva kg clear                              # Clear configured provider (with confirmation)
-dva kg clear --provider lightrag          # Clear LightRAG
-dva kg clear --provider neo4j             # Clear Neo4j
-dva kg clear --provider both              # Clear both
+`agent kg clear                              # Clear configured provider (with confirmation)
+`agent kg clear --provider lightrag          # Clear LightRAG
+`agent kg clear --provider neo4j             # Clear Neo4j
+`agent kg clear --provider both              # Clear both
 
 # Automation
-dva kg clear --yes                        # Skip confirmation
-dva kg clear --no-show-stats              # Skip stats (faster)
-dva kg clear --provider lightrag --yes    # Automated clearing
+`agent kg clear --yes                        # Skip confirmation
+`agent kg clear --no-show-stats              # Skip stats (faster)
+`agent kg clear --provider lightrag --yes    # Automated clearing
 
 # Verification
-dva kg stats                              # Check before clearing
-dva kg clear                              # Clear with stats
-dva kg stats                              # Verify cleared
+`agent kg stats                              # Check before clearing
+`agent kg clear                              # Clear with stats
+`agent kg stats                              # Verify cleared
 ```

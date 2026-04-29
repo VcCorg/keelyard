@@ -10,7 +10,7 @@ The KG ingest system processes various data sources (PDFs, text files, Git repos
 **Location**: `src/dva_agentic_cli/commands/kg.py:374-620`
 
 ```
-dva kg ingest [--source NAME | --path PATH] [OPTIONS]
+`agent kg ingest [--source NAME | --path PATH] [OPTIONS]
 ```
 
 ### Processing Flow
@@ -67,7 +67,7 @@ dva kg ingest [--source NAME | --path PATH] [OPTIONS]
 
 **Parameters:**
 ```python
---source NAME              # Data source from 'dva data create'
+--source NAME              # Data source from 'agent data create'
 --path PATH                # Direct file/directory/URL path
 --format FORMAT            # pdf, text, csv, json, confluence, git, directory
 --extract-entities         # Use LLM for entity extraction (default: True)
@@ -274,7 +274,7 @@ Return JSON array with:
 ### Example 1: PDF Ingestion (Neo4j)
 
 ```bash
-dva kg ingest --path document.pdf
+`agent kg ingest --path document.pdf
 ```
 
 **Flow:**
@@ -288,7 +288,7 @@ dva kg ingest --path document.pdf
 ### Example 2: Git Repository (LightRAG)
 
 ```bash
-dva kg ingest --source backend-repo
+`agent kg ingest --source backend-repo
 ```
 
 **Flow:**
@@ -304,7 +304,7 @@ dva kg ingest --source backend-repo
 ### Example 3: Directory Ingestion (Neo4j)
 
 ```bash
-dva kg ingest --path /docs --recursive
+`agent kg ingest --path /docs --recursive
 ```
 
 **Flow:**

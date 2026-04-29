@@ -11,6 +11,7 @@ from rich.prompt import Confirm
 from rich.table import Table
 from typing_extensions import Annotated
 
+from agentic_cli.config import CLI_NAME
 from agentic_cli.commands.init import get_google_config
 from agentic_cli.tracker import (
     record_activity,
@@ -173,7 +174,7 @@ def create_project(
     ] = False,
     kg_workspace: Annotated[
         Optional[str],
-        typer.Option("--kg-workspace", help="Connect to existing dva kg workspace"),
+        typer.Option("--kg-workspace", help=f"Connect to existing {CLI_NAME} kg workspace"),
     ] = None,
     include_jira_mcp: Annotated[
         bool,
@@ -226,17 +227,17 @@ def create_project(
 ) -> None:
     """
     Create a new agentic project from embedded templates.
-    
+
     Examples:
-        dva project create my-agent
-        dva project create my-rag --use-case rag
-        dva project create my-kg --use-case knowledge-graph --kg-mcp
-        dva project create my-kg --use-case knowledge-graph --kg-workspace my-workspace
-        dva project create my-bot --use-case chatbot --tools web_search,memory
-        dva project create my-pr-bot --use-case pr-reviewer
-        dva project create my-pr-bot --use-case pr-reviewer --jira-mcp --docker
-        dva project create my-pr-bot --use-case pr-reviewer --domain cwow-facility
-    """
+        {CLI_NAME} project create my-agent
+        {CLI_NAME} project create my-rag --use-case rag
+        {CLI_NAME} project create my-kg --use-case knowledge-graph --kg-mcp
+        {CLI_NAME} project create my-kg --use-case knowledge-graph --kg-workspace my-workspace
+        {CLI_NAME} project create my-bot --use-case chatbot --tools web_search,memory
+        {CLI_NAME} project create my-pr-bot --use-case pr-reviewer
+        {CLI_NAME} project create my-pr-bot --use-case pr-reviewer --jira-mcp --docker
+        {CLI_NAME} project create my-pr-bot --use-case pr-reviewer --domain cwow-facility
+    """.format(CLI_NAME=CLI_NAME)
     # Validate domain if provided
     domain_data = None
     if domain:
@@ -521,7 +522,7 @@ def list_projects() -> None:
     projects = get_projects()
     if not projects:
         console.print("[yellow]No projects registered yet.[/yellow]")
-        console.print("[dim]Create one with: dva project create <name>[/dim]")
+        console.print(f"[dim]Create one with: {CLI_NAME} project create <name>[/dim]")
         return
 
     table = Table(show_header=True, header_style="bold magenta")
@@ -563,7 +564,7 @@ def show_project(
     p = get_project(name)
     if not p:
         console.print(f"[red]✗ Project '{name}' not found.[/red]")
-        console.print("[dim]fRun '{CLI_NAME} project list' to see registered projects.[/dim]")
+        console.print(f"[dim]Run '{CLI_NAME} project list' to see registered projects.[/dim]")
         raise typer.Exit(1)
 
     tools = p.get("tools") or []
@@ -653,15 +654,15 @@ def configure_project(
     Settings are stored in the tracker database and auto-populated in agent .env files.
 
     Examples:
-        dva project configure my-project --gcp-project my-gcp-proj --gcp-location us-central1
-        dva project configure my-project --vertex-ai-model gemini-2.0-flash-001
-        dva project configure my-project --domain cwow-facility
-        dva project configure my-project --show
-    """
+        {CLI_NAME} project configure my-project --gcp-project my-gcp-proj --gcp-location us-central1
+        {CLI_NAME} project configure my-project --vertex-ai-model gemini-2.0-flash-001
+        {CLI_NAME} project configure my-project --domain cwow-facility
+        {CLI_NAME} project configure my-project --show
+    """.format(CLI_NAME=CLI_NAME)
     p = get_project(name)
     if not p:
         console.print(f"[red]✗ Project '{name}' not found.[/red]")
-        console.print("[dim]fRun '{CLI_NAME} project list' to see registered projects.[/dim]")
+        console.print(f"[dim]Run '{CLI_NAME} project list' to see registered projects.[/dim]")
         raise typer.Exit(1)
 
     if show:
@@ -838,7 +839,7 @@ def list_templates() -> None:
     
     console.print(tool_table)
     
-    console.print("\n[dim]Usage: dva project create <name> --framework <fw> --use-case <uc> --tools <tool1,tool2>[/dim]")
+    console.print(f"\n[dim]Usage: {CLI_NAME} project create <name> --framework <fw> --use-case <uc> --tools <tool1,tool2>[/dim]")
 
 
 @project_app.command("info")
@@ -902,8 +903,8 @@ def project_info(
 
 
 # Import extension commands
-from agentic_cli.commands.project_extensions import (
 from agentic_cli.config import CLI_NAME
+from agentic_cli.commands.project_extensions import (
     run_project_command,
     list_agents_command,
     agent_info_command,
@@ -936,12 +937,12 @@ def run(
 ) -> None:
     """
     Run agents in a project.
-    
+
     Examples:
-        dva project run                          # Run main.py
-        dva project run --agent KnowledgeGraphAgent  # Run specific agent
-        dva project run --script examples/kg_agent_demo.py  # Run custom script
-    """
+        {CLI_NAME} project run                          # Run main.py
+        {CLI_NAME} project run --agent KnowledgeGraphAgent  # Run specific agent
+        {CLI_NAME} project run --script examples/kg_agent_demo.py  # Run custom script
+    """.format(CLI_NAME=CLI_NAME)
     run_project_command(path, agent or None, script or None)
 
 

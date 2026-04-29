@@ -54,7 +54,7 @@ def init_model(
     except ImportError:
         raise ImportError(
             "Vertex AI packages not installed. Install with:\n"
-            "  pip install dva-agentic-cli[agent]\n"
+            "  pip install agentic-cli[agent]\n"
             "  # or: pip install google-cloud-aiplatform"
         )
 

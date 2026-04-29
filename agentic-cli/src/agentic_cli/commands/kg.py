@@ -1,4 +1,4 @@
-"""Knowledge Graph commands for dva-agentic-cli."""
+"""Knowledge Graph commands for agentic-cli."""
 
 import json
 from pathlib import Path
@@ -44,15 +44,15 @@ def resolve_data_source(source_name: str) -> tuple[str, str, dict]:
         - location: URL or path to the data source
         - source_type: Type of source (doc, confluence, git)
         - metadata: Dict with additional info (for git: name, domain, purpose, branch, tag)
-    
+
     Raises:
         typer.Exit: If source not found or invalid
     """
     data_config = load_data_config()
-    
+
     if not data_config.get("sources"):
         console.print("[red]✗ Error:[/red] No data sources configured.")
-        console.print("[dim]Use f'{CLI_NAME} data create' to configure data sources first.[/dim]")
+        console.print(f"[dim]Use '{CLI_NAME} data create' to configure data sources first.[/dim]")
         raise typer.Exit(1)
     
     # Find the source
@@ -87,7 +87,7 @@ def resolve_data_source(source_name: str) -> tuple[str, str, dict]:
     
     # Source not found
     console.print(f"[red]✗ Error:[/red] Data source '{source_name}' not found.")
-    console.print("[dim]Use f'{CLI_NAME} data list' to see available sources.[/dim]")
+    console.print(f"[dim]Use '{CLI_NAME} data list' to see available sources.[/dim]")
     raise typer.Exit(1)
 
 
@@ -215,9 +215,9 @@ def _check_neo4j() -> None:
     if all_passed:
         console.print("[bold green]✓ All prerequisites are met![/bold green]")
         console.print("\nYou can now use Neo4j knowledge graph commands:")
-        console.print("  dva kg ingest submit --path <source>")
-        console.print("  dva kg query <query>")
-        console.print("  dva kg visualize")
+        console.print(f"  {CLI_NAME} kg ingest submit --path <source>")
+        console.print(f"  {CLI_NAME} kg query <query>")
+        console.print(f"  {CLI_NAME} kg visualize")
     else:
         console.print("[bold yellow]⚠ Some prerequisites are not met[/bold yellow]")
         console.print(Panel(
@@ -317,20 +317,20 @@ def _check_lightrag() -> None:
     if all_passed:
         console.print("[bold green]✓ All prerequisites are met![/bold green]")
         console.print("\nYou can now use LightRAG knowledge graph commands:")
-        console.print("  dva kg ingest submit --path <source>")
-        console.print("  dva kg ingest submit --path <source> --async")
-        console.print("  dva kg query <query>")
-        console.print("  dva kg search <text>")
-        console.print("  dva kg workspace list")
+        console.print(f"  {CLI_NAME} kg ingest submit --path <source>")
+        console.print(f"  {CLI_NAME} kg ingest submit --path <source> --async")
+        console.print(f"  {CLI_NAME} kg query <query>")
+        console.print(f"  {CLI_NAME} kg search <text>")
+        console.print(f"  {CLI_NAME} kg workspace list")
     else:
         console.print("[bold yellow]⚠ Some prerequisites are not met[/bold yellow]")
         console.print("\n[bold]Setup Instructions:[/bold]")
         console.print("1. Start LightRAG server:")
         console.print(f"   cd lightrag-infrastructure && ./scripts/start.sh")
         console.print("\n2. Initialize configuration:")
-        console.print(f"   dva kg init --provider lightrag --lightrag-url {lightrag_url}")
+        console.print(f"   {CLI_NAME} kg init --provider lightrag --lightrag-url {lightrag_url}")
         console.print("\n3. Create a workspace:")
-        console.print("   dva kg workspace create default")
+        console.print(f"   {CLI_NAME} kg workspace create default")
 
 
 @kg_app.command()
@@ -437,7 +437,7 @@ def init(
         else:
             console.print(f"[bold yellow]⚠[/bold yellow] {message}")
             console.print("\n[dim]Configuration saved, but Neo4j is not accessible.[/dim]")
-            console.print("[dim]fRun '{CLI_NAME} kg config --show' to verify settings.[/dim]")
+            console.print(f"[dim]Run '{CLI_NAME} kg config --show' to verify settings.[/dim]")
     elif provider == "lightrag":
         console.print("\n[bold]Validating LightRAG connection...[/bold]")
         
@@ -583,8 +583,8 @@ def ingest_submit(
     Submit data for ingestion into the knowledge graph.
     
     You can specify a source in two ways:
-    1. Direct path/URL: dva kg ingest submit --path /path/to/file.pdf
-    2. Data source name: dva kg ingest submit --source my-dataset
+    1. Direct path/URL: {CLI_NAME} kg ingest submit --path /path/to/file.pdf
+    2. Data source name: {CLI_NAME} kg ingest submit --source my-dataset
     
     Data sources are configured using f'{CLI_NAME} data create' command.
     
@@ -593,7 +593,7 @@ def ingest_submit(
     For directories, all supported files (.pdf, .txt, .md, .csv, .json) will be processed.
     
     Use --async flag to run ingestion in background:
-      dva kg ingest submit --path /data --async
+      {CLI_NAME} kg ingest submit --path /data --async
     """
     from agentic_cli.kg.config import KGConfig
     from agentic_cli.kg.async_ingest import get_manager
@@ -619,7 +619,7 @@ def ingest_submit(
         
         if not manager.workspace_exists(workspace):
             console.print(f"[bold red]✗ Error:[/bold red] Workspace '{workspace}' does not exist")
-            console.print(f"[dim]Create it with: dva kg workspace create {workspace}[/dim]")
+            console.print(f"[dim]Create it with: {CLI_NAME} kg workspace create {workspace}[/dim]")
             raise typer.Exit(1)
         
         # Temporarily switch to specified workspace
@@ -715,8 +715,8 @@ def ingest_submit(
             console.print(f"[cyan]Provider:[/cyan] {config.provider}")
             if workspace:
                 console.print(f"[cyan]Workspace:[/cyan] {workspace}")
-            console.print(f"\n[dim]Check status:[/dim] dva kg ingest list")
-            console.print(f"[dim]View details:[/dim] dva kg ingest status {job.job_id[:8]}")
+            console.print(f"\n[dim]Check status:[/dim] {CLI_NAME} kg ingest list")
+            console.print(f"[dim]View details:[/dim] {CLI_NAME} kg ingest status {job.job_id[:8]}")
             return
             
         except Exception as e:
@@ -953,7 +953,7 @@ def ingest_list(
                 console.print(f"[yellow]No operations found with {' and '.join(filter_desc)}[/yellow]")
             else:
                 console.print("[yellow]No operations found[/yellow]")
-            console.print(f"[dim]Run an ingestion:[/dim] dva kg ingest submit --path <source>")
+            console.print(f"[dim]Run an ingestion:[/dim] {CLI_NAME} kg ingest submit --path <source>")
             return
         
         # Display jobs table
@@ -1003,7 +1003,7 @@ def ingest_list(
             )
         
         console.print(table)
-        console.print(f"\n[dim]View details:[/dim] dva kg ingest status <job-id>")
+        console.print(f"\n[dim]View details:[/dim] {CLI_NAME} kg ingest status <job-id>")
         
     except Exception as e:
         console.print(f"[red]✗ Error:[/red] {str(e)}")
@@ -1134,9 +1134,9 @@ def sync(
     to sync selectively.
 
     Examples:
-        dva kg sync                     # sync all
-        dva kg sync --repos             # just repos
-        dva kg sync --activity --since 2026-04-01  # recent activity
+        {CLI_NAME} kg sync                     # sync all
+        {CLI_NAME} kg sync --repos             # just repos
+        {CLI_NAME} kg sync --activity --since 2026-04-01  # recent activity
     """
     from agentic_cli.kg.config import KGConfig
     from agentic_cli.kg.sync import sync_to_lightrag
@@ -1151,7 +1151,7 @@ def sync(
     config = KGConfig.load()
     if config.provider != "lightrag" and not skip_validation:
         console.print("[yellow]⚠ KG sync currently targets LightRAG only.[/yellow]")
-        console.print(f"[dim]Current provider: {config.provider}. Switch with: dva kg init --provider lightrag[/dim]")
+        console.print(f"[dim]Current provider: {config.provider}. Switch with: {CLI_NAME} kg init --provider lightrag[/dim]")
         raise typer.Exit(1)
 
     if not skip_validation:
@@ -1253,13 +1253,13 @@ def query(
     
     Examples:
         # Query all contexts
-        dva kg query "authentication"
+        {CLI_NAME} kg query "authentication"
         
         # Query only code (developer persona)
-        dva kg query "authentication functions" --persona developer
+        {CLI_NAME} kg query "authentication functions" --persona developer
         
         # Query only docs (business persona)
-        dva kg query "authentication requirements" --persona business
+        {CLI_NAME} kg query "authentication requirements" --persona business
     """
     from agentic_cli.kg.config import KGConfig
     
@@ -1281,7 +1281,7 @@ def query(
                 raise typer.Exit(1)
     else:
         console.print(f"[bold red]✗ Unknown provider:[/bold red] {config.provider}")
-        console.print("[dim]fRun '{CLI_NAME} kg init' to configure a provider.[/dim]")
+        console.print(f"[dim]Run '{CLI_NAME} kg init' to configure a provider.[/dim]")
         raise typer.Exit(1)
     
     # Add persona context to query if specified
@@ -1374,13 +1374,13 @@ def search(
     
     Examples:
         # Search all contexts
-        dva kg search "patient"
+        {CLI_NAME} kg search "patient"
         
         # Search only code (developer persona)
-        dva kg search "authentication" --persona developer
+        {CLI_NAME} kg search "authentication" --persona developer
         
         # Search only docs (business persona)
-        dva kg search "requirements" --persona business
+        {CLI_NAME} kg search "requirements" --persona business
     """
     from agentic_cli.kg.config import KGConfig
     
@@ -1402,7 +1402,7 @@ def search(
                 raise typer.Exit(1)
     else:
         console.print(f"[bold red]✗ Unknown provider:[/bold red] {config.provider}")
-        console.print("[dim]fRun '{CLI_NAME} kg init' to configure a provider.[/dim]")
+        console.print(f"[dim]Run '{CLI_NAME} kg init' to configure a provider.[/dim]")
         raise typer.Exit(1)
     
     # Handle exact flag
@@ -1591,16 +1591,16 @@ def clear(
     
     Examples:
         # Clear configured provider (with confirmation)
-        dva kg clear
+        {CLI_NAME} kg clear
         
         # Clear LightRAG without confirmation
-        dva kg clear --provider lightrag --yes
+        {CLI_NAME} kg clear --provider lightrag --yes
         
         # Clear Neo4j with stats
-        dva kg clear --provider neo4j --show-stats
+        {CLI_NAME} kg clear --provider neo4j --show-stats
         
         # Clear both providers
-        dva kg clear --provider both --yes
+        {CLI_NAME} kg clear --provider both --yes
     """
     from agentic_cli.kg.config import KGConfig
     
@@ -1786,9 +1786,9 @@ def visualize(
         console.print(f"[bold yellow]⚠ Visualization is only supported for Neo4j provider[/bold yellow]")
         console.print(f"  Current provider: [cyan]{config.provider}[/cyan]")
         console.print("\n[dim]To use visualization:[/dim]")
-        console.print("  1. Switch to Neo4j: dva kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password")
-        console.print("  2. Ingest your data: dva kg ingest --path /your/data")
-        console.print("  3. Run visualization: dva kg visualize")
+        console.print(f"  1. Switch to Neo4j: {CLI_NAME} kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password")
+        console.print(f"  2. Ingest your data: {CLI_NAME} kg ingest --path /your/data")
+        console.print(f"  3. Run visualization: {CLI_NAME} kg visualize")
         raise typer.Exit(1)
     
     # Validate Neo4j connection

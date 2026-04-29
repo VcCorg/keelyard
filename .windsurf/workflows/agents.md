@@ -1,5 +1,5 @@
 ---
-description: List, register, and manage PR reviewer agents created with dva-agentic-cli
+description: List, register, and manage PR reviewer agents created with agentic-cli
 ---
 
 # Agent Management Workflow
@@ -8,17 +8,17 @@ description: List, register, and manage PR reviewer agents created with dva-agen
 
 Onboard any repo with AI code assist skills — auto-detect tech stack and install matching context.
 
-1. **Configure registry**: `dva code config --registry /path/to/dva-skills` (or git URL)
+1. **Configure registry**: `dva code config --registry /path/to/skills` (or git URL)
 2. **Onboard a repo**: `dva code onboard --path <project-path>` or `dva code onboard --repo <git-url>`
 3. **Manage skills**: `dva code skills list|available|add|remove|update --path <project-path>`
 4. **Validate**: `dva code validate --path <project-path>`
 
-Skills registry: `dva-skills/` — separate repo with `registry.json` + `skills/<name>/SKILL.md`.
+Skills registry: `skills/` — separate repo with `registry.json` + `skills/<name>/SKILL.md`.
 MCP-backed skills (jira, bitbucket) auto-install when MCP servers are configured.
 
 ## List available agents in a project
 
-1. Run `dva agent list --path <project-path>` to discover agents in a dva project.
+1. Run `dva agent list --path <project-path>` to discover agents in a agent project.
 2. If no path is given, default to the current working directory.
 
 ## Register an agent with OpenCode
@@ -64,9 +64,9 @@ Skills are a portable, open format that works across Claude Code, OpenCode, VS C
 
 To get up to speed on the agent system without running multiple commands:
 
-1. Read the skill: `dva skill show dva-agent-dev --path dva-agentic-cli`
-2. Or directly read: `dva-agentic-cli/.skills/dva-agent-dev/SKILL.md`
-3. Full reference: `dva-agentic-cli/docs/AGENT_DEVELOPMENT.md`
+1. Read the skill: `dva skill show dva-agent-dev --path agentic-cli`
+2. Or directly read: `agentic-cli/.skills/dva-agent-dev/SKILL.md`
+3. Full reference: `agentic-cli/docs/AGENT_DEVELOPMENT.md`
 
 The `dva-agent-dev` skill contains all project context: architecture, commands, template system, MCP servers, OpenCode integration, and key files to read first.
 

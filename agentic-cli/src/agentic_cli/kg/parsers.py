@@ -206,7 +206,7 @@ def parse_confluence(url: str, config=None) -> List[Dict[str, Any]]:
     if not config.is_confluence_configured():
         raise ValueError(
             "Confluence is not configured. Please run:\n"
-            "  dva kg init --confluence-url <url> --confluence-username <username> --confluence-token <token>\n\n"
+            "  agent-cli kg init --confluence-url <url> --confluence-username <username> --confluence-token <token>\n\n"
             "To get an API token:\n"
             "  1. Go to https://id.atlassian.com/manage-profile/security/api-tokens\n"
             "  2. Click 'Create API token'\n"
@@ -396,7 +396,7 @@ def parse_git_repository(
     from agentic_cli.kg.code_analyzer import get_analyzer, detect_language
     
     # Create temp directory for cloning
-    temp_dir = Path(tempfile.mkdtemp(prefix="dva_git_"))
+    temp_dir = Path(tempfile.mkdtemp(prefix="agent_cli_git_"))
     
     try:
         print(f"[INFO] Cloning repository: {repo_url}")
