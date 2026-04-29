@@ -269,7 +269,7 @@ Install the KG dependencies:
    uv pip install "agentic-cli\[kg]"
 
 Then verify the connection:
-   dva kg stats
+   agent-cli kg stats
 """
 
     # Case 2: Container not running — show full infra setup
@@ -278,7 +278,7 @@ Then verify the connection:
     if not container_ok:
         sections.append(
             "1. Start the Neo4j container:\n"
-            "   docker compose -f mcp-servers/docker-compose.yml up -d dva-neo4j\n\n"
+            "   docker compose -f mcp-servers/docker-compose.yml up -d kg-neo4j\n\n"
             "   Or, from the infrastructure directory:\n"
             "   cd ../kg-infrastructure && make start\n\n"
             "2. Wait for Neo4j to be ready (30-60 seconds)\n"
