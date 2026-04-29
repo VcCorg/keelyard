@@ -62,7 +62,7 @@ def init_mcp(
     )
     
     config_path = save_project_config(config, base)
-    
+
     console.print(Panel(
         f"[green]✓[/green] Initialized MCP configuration at [cyan]{config_path}[/cyan]\n\n"
         "Next steps:\n"

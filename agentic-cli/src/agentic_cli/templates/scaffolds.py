@@ -1,6 +1,6 @@
 """Scaffold individual agents into existing projects.
 
-Supports adding new agents to projects created via ``dva project create``,
+Supports adding new agents to projects created via ``agent-cli project create``,
 or to any project that follows the ``src/agents/`` convention.
 """
 

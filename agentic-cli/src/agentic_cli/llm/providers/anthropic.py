@@ -39,7 +39,7 @@ class AnthropicProvider:
         if not api_key:
             raise ProviderNotConfigured(
                 "Anthropic API key not found. Set ANTHROPIC_API_KEY env var or "
-                "initialize with: dva init anthropic"
+                "initialize with: agent-cli init anthropic"
             )
 
         self.model_name = model_name

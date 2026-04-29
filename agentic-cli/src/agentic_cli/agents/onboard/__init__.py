@@ -1,9 +1,9 @@
 """Onboard Agent — reusable library for AI-powered skill gap detection.
 
 This package provides the core building blocks that can be used by:
-1. The CLI directly (dva code onboard --agent)
-2. The default agent shipped in dva-skills/agents/onboard/
-3. Custom agent projects created via dva project create --use-case onboard
+1. The CLI directly (agent-cli code onboard --agent)
+2. The default agent shipped in agent-cli-skills/agents/onboard/
+3. Custom agent projects created via agent-cli project create --use-case onboard
 
 All public functions accept optional `model` and prompt overrides so that
 standalone agent projects can swap models, tune prompts, and evaluate

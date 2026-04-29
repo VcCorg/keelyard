@@ -1281,7 +1281,7 @@ def query(
                 raise typer.Exit(1)
     else:
         console.print(f"[bold red]✗ Unknown provider:[/bold red] {config.provider}")
-        console.print("[dim]fRun '{CLI_NAME} kg init' to configure a provider.[/dim]")
+        console.print(f"[dim]Run '{CLI_NAME} kg init' to configure a provider.[/dim]")
         raise typer.Exit(1)
     
     # Add persona context to query if specified
@@ -1402,7 +1402,7 @@ def search(
                 raise typer.Exit(1)
     else:
         console.print(f"[bold red]✗ Unknown provider:[/bold red] {config.provider}")
-        console.print("[dim]fRun '{CLI_NAME} kg init' to configure a provider.[/dim]")
+        console.print(f"[dim]Run '{CLI_NAME} kg init' to configure a provider.[/dim]")
         raise typer.Exit(1)
     
     # Handle exact flag
@@ -1786,9 +1786,9 @@ def visualize(
         console.print(f"[bold yellow]⚠ Visualization is only supported for Neo4j provider[/bold yellow]")
         console.print(f"  Current provider: [cyan]{config.provider}[/cyan]")
         console.print("\n[dim]To use visualization:[/dim]")
-        console.print("f  1. Switch to Neo4j: {CLI_NAME} kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password")
-        console.print("f  2. Ingest your data: {CLI_NAME} kg ingest --path /your/data")
-        console.print("f  3. Run visualization: {CLI_NAME} kg visualize")
+        console.print(f"  1. Switch to Neo4j: {CLI_NAME} kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password")
+        console.print(f"  2. Ingest your data: {CLI_NAME} kg ingest --path /your/data")
+        console.print(f"  3. Run visualization: {CLI_NAME} kg visualize")
         raise typer.Exit(1)
     
     # Validate Neo4j connection

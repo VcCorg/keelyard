@@ -40,7 +40,7 @@ class VertexAIProvider:
         if not project_id:
             raise ProviderNotConfigured(
                 "Google Cloud project_id is required. "
-                "Set via: dva init vertex-ai --project-id <ID>"
+                "Set via: agent-cli init vertex-ai --project-id <ID>"
             )
 
         self.model_name = model_name
