@@ -405,6 +405,239 @@ def show_skill(
     console.print(tree)
 
 
+@skill_app.command("uninstall")
+def uninstall_skill(
+    name: Annotated[
+        str,
+        typer.Argument(help="Skill name to uninstall"),
+    ],
+    path: Annotated[
+        Path,
+        typer.Option("--path", "-p", help="Project directory containing the skill"),
+    ] = Path("."),
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", "-y", help="Skip confirmation prompt"),
+    ] = False,
+) -> None:
+    """
+    Uninstall an Agent Skill from the project.
+
+    Removes the skill directory completely. Requires confirmation unless --yes flag is used.
+
+    Examples:
+        {CLI_NAME} skill uninstall my-skill
+        {CLI_NAME} skill uninstall my-skill --yes
+        {CLI_NAME} skill uninstall my-skill --path ./my-project
+    """.format(CLI_NAME=CLI_NAME)
+
+    path = path.resolve()
+
+    # Find the skill
+    skill_dir = _find_skill_by_name(name, path)
+    if not skill_dir:
+        console.print(f"[red]✗ Skill '{name}' not found[/red]")
+        console.print(f"[dim]Use {CLI_NAME} skill list to see available skills[/dim]")
+        raise typer.Exit(1)
+
+    # Confirm if needed
+    if not yes:
+        skill_desc = _parse_skill_description(skill_dir / "SKILL.md")
+        console.print(f"[bold]About to uninstall:[/bold] {name}")
+        if skill_desc != "No description":
+            console.print(f"  {skill_desc}")
+        console.print(f"  Location: {skill_dir}")
+        console.print()
+
+        if not Confirm.ask("Are you sure?", default=False):
+            console.print("[dim]Cancelled.[/dim]")
+            raise typer.Exit(0)
+
+    # Delete the skill
+    try:
+        shutil.rmtree(skill_dir)
+    except Exception as e:
+        console.print(f"[red]✗ Failed to remove skill: {e}[/red]")
+        raise typer.Exit(1)
+
+    # Record activity
+    record_activity(
+        command="skill",
+        subcommand="uninstall",
+        args={"name": name, "path": str(skill_dir)},
+        repo_path=str(path),
+    )
+
+    console.print()
+    console.print(Panel.fit(
+        f"[bold green]✓ Skill Uninstalled[/bold green]\n\n"
+        f"[bold]Name:[/bold] {name}\n"
+        f"[bold]Location:[/bold] {skill_dir}",
+        border_style="green",
+    ))
+
+
+@skill_app.command("update")
+def update_skill(
+    name: Annotated[
+        str,
+        typer.Argument(help="Skill name to update"),
+    ],
+    source: Annotated[
+        str,
+        typer.Option("--source", "-s", help="GitHub source (org/repo/path or full URL)"),
+    ] = None,
+    path: Annotated[
+        Path,
+        typer.Option("--path", "-p", help="Project directory containing the skill"),
+    ] = Path("."),
+) -> None:
+    """
+    Update an Agent Skill to the latest version from source.
+
+    Auto-detects the original source from the skill's git remote. If not found,
+    use --source to specify where to fetch the latest version.
+
+    Local modifications in the skill directory are managed by git. If the skill
+    is in a git repository, resolve conflicts manually using git commands.
+
+    Examples:
+        {CLI_NAME} skill update my-skill
+        {CLI_NAME} skill update my-skill --source anthropics/skills/skills/my-skill
+        {CLI_NAME} skill update my-skill --source https://github.com/org/repo/path
+        {CLI_NAME} skill update my-skill --path ./my-project
+    """.format(CLI_NAME=CLI_NAME)
+
+    path = path.resolve()
+
+    # Find the skill
+    skill_dir = _find_skill_by_name(name, path)
+    if not skill_dir:
+        console.print(f"[red]✗ Skill '{name}' not found[/red]")
+        console.print(f"[dim]Use {CLI_NAME} skill list to see available skills[/dim]")
+        raise typer.Exit(1)
+
+    # Determine source
+    if not source:
+        # Try to auto-detect from git remote
+        detected_source = _get_skill_source_url(skill_dir)
+        if detected_source:
+            source = detected_source
+            console.print(f"[green]✓[/green] Detected source from git remote: [cyan]{source}[/cyan]")
+        else:
+            console.print(f"[red]✗ Skill source not detected[/red]")
+            console.print(f"[dim]Provide source with --source:[/dim]")
+            console.print(f"[dim]  {CLI_NAME} skill update {name} --source org/repo/path[/dim]")
+            console.print(f"[dim]  {CLI_NAME} skill update {name} --source https://github.com/org/repo[/dim]")
+            raise typer.Exit(1)
+
+    console.print(f"[dim]Updating {name} from source: {source}[/dim]")
+    console.print()
+
+    # Remove old skill directory
+    try:
+        shutil.rmtree(skill_dir)
+    except Exception as e:
+        console.print(f"[red]✗ Failed to remove old skill: {e}[/red]")
+        raise typer.Exit(1)
+
+    # Re-install from source using the same logic as install_skill
+    # Parse source to extract org, repo, subpath
+    if source.startswith("https://github.com/"):
+        # Full URL
+        parts = source.replace("https://github.com/", "").split("/")
+        org = parts[0]
+        repo = parts[1]
+        subpath = "/".join(parts[2:]) if len(parts) > 2 else ""
+    elif "/" in source:
+        # org/repo/path format
+        parts = source.split("/")
+        org = parts[0]
+        repo = parts[1]
+        subpath = "/".join(parts[2:]) if len(parts) > 2 else ""
+    else:
+        console.print(f"[red]✗ Invalid source format: {source}[/red]")
+        console.print("[dim]Use format: org/repo/path or https://github.com/org/repo/path[/dim]")
+        raise typer.Exit(1)
+
+    # Clone using sparse checkout if subpath, or full clone
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        clone_url = f"https://github.com/{org}/{repo}.git"
+
+        try:
+            if subpath:
+                # Sparse checkout for subdirectory
+                subprocess.run(
+                    ["git", "clone", "--depth", "1", "--filter=blob:none", "--sparse", clone_url, "repo"],
+                    cwd=tmp_path,
+                    capture_output=True,
+                    check=True,
+                )
+                subprocess.run(
+                    ["git", "sparse-checkout", "set", subpath],
+                    cwd=tmp_path / "repo",
+                    capture_output=True,
+                    check=True,
+                )
+                source_dir = tmp_path / "repo" / subpath
+            else:
+                subprocess.run(
+                    ["git", "clone", "--depth", "1", clone_url, "repo"],
+                    cwd=tmp_path,
+                    capture_output=True,
+                    check=True,
+                )
+                source_dir = tmp_path / "repo"
+
+            if not source_dir.exists():
+                console.print(f"[red]✗ Path '{subpath}' not found in {org}/{repo}[/red]")
+                raise typer.Exit(1)
+
+            # Check for SKILL.md
+            skill_md = source_dir / "SKILL.md"
+            if not skill_md.exists():
+                console.print(f"[red]✗ No SKILL.md found at {subpath or 'repo root'}[/red]")
+                raise typer.Exit(1)
+
+            # Copy to target
+            target_dir = skill_dir
+            target_dir.mkdir(parents=True, exist_ok=True)
+            for item in source_dir.iterdir():
+                if item.name.startswith(".git"):
+                    continue
+                dest = target_dir / item.name
+                if item.is_dir():
+                    shutil.copytree(item, dest, dirs_exist_ok=True)
+                else:
+                    shutil.copy2(item, dest)
+
+        except subprocess.CalledProcessError as e:
+            console.print(f"[red]✗ Git clone failed: {e.stderr.decode() if e.stderr else str(e)}[/red]")
+            raise typer.Exit(1)
+
+    # Record activity
+    record_activity(
+        command="skill",
+        subcommand="update",
+        args={"name": name, "source": source},
+        repo_path=str(path),
+    )
+
+    description = _parse_skill_description(skill_dir / "SKILL.md")
+    console.print()
+    console.print(Panel.fit(
+        f"[bold green]✓ Skill Updated[/bold green]\n\n"
+        f"[bold]Name:[/bold] {name}\n"
+        f"[bold]Source:[/bold] {source}\n"
+        f"[bold]Location:[/bold] {skill_dir}\n"
+        f"[bold]Description:[/bold] {description}",
+        border_style="green",
+    ))
+
+
 def _parse_skill_description(skill_md: Path) -> str:
     """Parse the description from a SKILL.md frontmatter."""
     try:
@@ -440,6 +673,47 @@ def _parse_skill_description(skill_md: Path) -> str:
     except (ValueError, OSError):
         pass
     return "No description"
+
+
+def _find_skill_by_name(name: str, path: Path) -> Optional[Path]:
+    """Find a skill by name in all three standard locations.
+
+    Searches in order: .skills/, skills/, .claude/skills/
+    Returns the full path to the skill directory if found, None otherwise.
+    """
+    search_dirs = [
+        path / ".skills",
+        path / "skills",
+        path / ".claude" / "skills",
+    ]
+
+    for search_dir in search_dirs:
+        skill_dir = search_dir / name
+        if skill_dir.exists() and (skill_dir / "SKILL.md").exists():
+            return skill_dir
+
+    return None
+
+
+def _get_skill_source_url(skill_dir: Path) -> Optional[str]:
+    """Try to detect skill source from git remote origin.
+
+    Parses .git/config to find the origin URL. Returns None if not found
+    or if skill directory is not a git repository.
+    """
+    try:
+        git_config = skill_dir / ".git" / "config"
+        if git_config.exists():
+            content = git_config.read_text()
+            for line in content.split('\n'):
+                if 'url = ' in line:
+                    # Extract URL from line like "url = https://github.com/org/repo"
+                    url = line.split('url = ')[1].strip()
+                    return url
+    except Exception:
+        pass
+
+    return None
 
 
 @skill_app.command("generate")
