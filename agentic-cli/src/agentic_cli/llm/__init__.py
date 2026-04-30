@@ -17,7 +17,7 @@ Usage:
 
     # Stream text asynchronously
     async for chunk in provider.generate_streaming(prompt):
-        print(chunk, end="", flush=True)
+        print(chunk, end="")
 
     # Get provider identifier
     print(provider.get_name())  # "anthropic/claude-3-5-sonnet-20241022"
