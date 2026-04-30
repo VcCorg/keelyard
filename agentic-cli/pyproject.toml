@@ -12,6 +12,8 @@ dependencies = [
     "httpx>=0.25.0",
     "mcp>=1.0.0",
     "PyYAML>=6.0",
+    # Core agent dependencies - commonly needed
+    "google-cloud-aiplatform>=1.45.0",
 ]
 
 [project.scripts]
@@ -31,7 +33,7 @@ adk = [
 ]
 agent = [
     # AI agent dependencies (onboard agent, skill gap detection)
-    "google-cloud-aiplatform>=1.45.0",
+    # google-cloud-aiplatform moved to main dependencies
 ]
 dashboard = [
     "fastapi>=0.109.0",
@@ -41,7 +43,7 @@ kg = [
     # Knowledge graph dependencies
     "neo4j>=5.14.0",
     "pydantic>=2.0.0",
-    "google-cloud-aiplatform>=1.45.0",
+    # google-cloud-aiplatform moved to main dependencies
     "PyPDF2>=3.0.0",
     "pyvis>=0.3.2",
     "atlassian-python-api>=3.41.0",  # For Confluence integration
