@@ -359,11 +359,22 @@ def show_skill(
     """
     path = path.resolve()
 
-    # Search for the skill
+    # Search for the skill recursively like list command
     skill_dir = None
-    for search in [path / ".skills" / name, path / "skills" / name, path / ".claude" / "skills" / name]:
-        if search.exists() and (search / "SKILL.md").exists():
-            skill_dir = search
+    search_dirs = [
+        path / ".skills",
+        path / "skills", 
+        path / ".claude" / "skills",
+    ]
+    
+    for search_dir in search_dirs:
+        if not search_dir.exists():
+            continue
+        for skill_md in search_dir.rglob("SKILL.md"):
+            if skill_md.parent.name == name:
+                skill_dir = skill_md.parent
+                break
+        if skill_dir:
             break
 
     if not skill_dir:
@@ -694,7 +705,7 @@ def generate_skill(
     ] = "gemini-2.5-flash",
     register: Annotated[
         bool,
-        typer.Option("--register/--no-register", help="Add skill to the DVA skills registry after saving"),
+        typer.Option("--register/--no-register", help="Add skill to the skills registry after saving"),
     ] = False,
 ) -> None:
     """
@@ -829,7 +840,7 @@ def generate_skill(
 
             async def stream_generation():
                 async for chunk in provider.generate_streaming(user_prompt):
-                    console.print(chunk, end="", flush=True)
+                    console.print(chunk, end="")
                     output_parts.append(chunk)
 
             asyncio.run(stream_generation())
