@@ -20,7 +20,7 @@ from agentic_cli.config import CLI_NAME
 from agentic_cli.tracker import record_activity
 
 console = Console()
-skill_app = typer.Typer(help="Create, list, and install Agent Skills (agentskills.io format)", rich_markup_mode=None)
+skill_app = typer.Typer(help="Create, list, and install Agent Skills (agentskills.io format)")
 
 
 SKILL_TEMPLATE = '''---
