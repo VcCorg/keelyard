@@ -59,6 +59,31 @@ class SkillValidator:
         except FileNotFoundError:
             result.errors.append(f"Skill file not found: {self.skill_path}")
             return result
+        except UnicodeDecodeError:
+            # Try alternative encodings
+            encodings = ["iso-8859-1", "cp1252", "utf-16", "latin-1"]
+            for encoding in encodings:
+                try:
+                    self.content = self.skill_path.read_text(encoding=encoding)
+                    result.warnings.append(
+                        f"File was not UTF-8. Decoded as {encoding}. "
+                        f"Consider converting to UTF-8 for consistency."
+                    )
+                    break
+                except Exception:
+                    continue
+            else:
+                # If all encodings fail, try with error handling
+                try:
+                    self.content = self.skill_path.read_text(encoding="utf-8", errors="replace")
+                    result.warnings.append(
+                        "File contains invalid UTF-8 characters. "
+                        "Some characters may have been replaced. "
+                        "Please convert the file to UTF-8."
+                    )
+                except Exception as e:
+                    result.errors.append(f"Error reading skill file: {e}")
+                    return result
         except Exception as e:
             result.errors.append(f"Error reading skill file: {e}")
             return result
