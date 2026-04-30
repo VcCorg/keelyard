@@ -891,7 +891,7 @@ def generate_skill(
 
             async def stream_generation():
                 async for chunk in provider.generate_streaming(user_prompt):
-                    console.print(chunk, end="", flush=True)
+                    console.print(chunk, end="")
                     output_parts.append(chunk)
 
             asyncio.run(stream_generation())
