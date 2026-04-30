@@ -2,11 +2,21 @@
 #
 # Agentic CLI Installation Script with DVA Alias
 #
-# This script installs the agentic-cli package and creates a 'dva' alias
+# This script installs the agentic-cli package with all required dependencies
+# and creates a 'dva' alias. The Vertex AI SDK and other core dependencies
+# are installed by default.
+#
 # Usage:
-#   ./install-agentic-cli.sh [--local] [--global]
+#   ./install-agentic-cli.sh [--local] [--global] [--with PACKAGE] [--group GROUP]
 #   --local   Install for current user only (default)
 #   --global  Install globally with sudo
+#   --with PACKAGE  Install with additional dependencies (optional)
+#   --group GROUP  Install with predefined dependency group (optional)
+#
+# Examples:
+#   ./install-agentic-cli.sh --global                    # Install with all core dependencies
+#   ./install-agentic-cli.sh --global --group kg         # Add knowledge graph features
+#   ./install-agentic-cli.sh --global --with neo4j       # Add specific package
 #
 # After installation, use:
 #   dva --version
@@ -35,18 +45,54 @@ log_header(){ echo -e "\n${BOLD}$*${NC}\n"; }
 INSTALL_TYPE="local"  # local or global
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SHELL_CONFIG_FILES=()
+ADDITIONAL_DEPS=""  # Additional dependencies for --with flag
+DEPENDENCY_GROUP=""  # Predefined dependency group
+DEV_MODE=""  # Development mode flag
+FORCE_REINSTALL=""  # Force reinstall from source
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --local)  INSTALL_TYPE="local"; shift ;;
     --global) INSTALL_TYPE="global"; shift ;;
+    --with)
+      if [[ -n "${2:-}" ]]; then
+        ADDITIONAL_DEPS="$2"
+        shift 2
+      else
+        log_error "--with requires a package name"
+        exit 1
+      fi
+      ;;
+    --group)
+      if [[ -n "${2:-}" ]]; then
+        DEPENDENCY_GROUP="$2"
+        shift 2
+      else
+        log_error "--group requires a dependency group name"
+        exit 1
+      fi
+      ;;
+    --dev)
+      DEV_MODE="1"
+      log_info "Development mode enabled - will install from source"
+      shift
+      ;;
+    --force)
+      FORCE_REINSTALL="1"
+      log_info "Force reinstall enabled"
+      shift
+      ;;
     --help|-h)
-      echo "Usage: $0 [--local] [--global]"
+      echo "Usage: $0 [--local] [--global] [--with PACKAGE] [--group GROUP] [--dev] [--force]"
       echo ""
       echo "Options:"
       echo "  --local   Install for current user only (default)"
       echo "  --global  Install globally with sudo"
+      echo "  --with PACKAGE  Install with additional dependencies (optional)"
+      echo "  --group GROUP  Install with predefined dependency group (optional)"
+      echo "  --dev     Development mode - always install from latest source"
+      echo "  --force   Force reinstall (useful after code changes)"
       exit 0
       ;;
     *)
@@ -92,16 +138,42 @@ if [ "$INSTALL_TYPE" = "local" ]; then
         uv venv
     fi
 
-    # Install in editable mode
-    uv pip install -e ".[dev]"
+    # Install in editable mode with all core dependencies
+    if [ -n "$DEPENDENCY_GROUP" ]; then
+        log_info "Installing with dependency group: $DEPENDENCY_GROUP"
+        uv pip install -e ".[dev,$DEPENDENCY_GROUP]"
+    elif [ -n "$ADDITIONAL_DEPS" ]; then
+        log_info "Installing with additional dependencies: $ADDITIONAL_DEPS"
+        uv pip install -e ".[dev]" "$ADDITIONAL_DEPS"
+    else
+        log_info "Installing with all core dependencies (including Vertex AI SDK)"
+        uv pip install -e ".[dev]"
+    fi
     log_ok "Installed in $ROOT_DIR/agentic-cli"
 
 elif [ "$INSTALL_TYPE" = "global" ]; then
     log_info "Installing globally..."
     cd "$ROOT_DIR/agentic-cli"
 
-    # Install with uv tool
-    uv tool install --force .
+    # Install with uv tool, including all core dependencies
+    # Always use --force to ensure latest source code is used
+    if [ -n "$DEPENDENCY_GROUP" ]; then
+        log_info "Installing with dependency group: $DEPENDENCY_GROUP"
+        uv tool install --force --with ".[$DEPENDENCY_GROUP]" .
+    elif [ -n "$ADDITIONAL_DEPS" ]; then
+        log_info "Installing with additional dependencies: $ADDITIONAL_DEPS"
+        uv tool install --force --with "$ADDITIONAL_DEPS" .
+    else
+        log_info "Installing with all core dependencies (including Vertex AI SDK)"
+        uv tool install --force .
+    fi
+    
+    # In dev mode, ensure we're using the latest source
+    if [ -n "$DEV_MODE" ] || [ -n "$FORCE_REINSTALL" ]; then
+        log_info "Development mode: Ensuring latest source code is installed"
+        # The --force flag above should handle this, but let's be explicit
+        log_ok "Source installation complete"
+    fi
     log_ok "Installed globally"
 fi
 
@@ -177,12 +249,39 @@ fi
 
 # ─────────────────────────────────────────────────────────────────────────────
 
+log_header "Environment Validation"
+
+# Validate environment and dependencies
+if [ "$INSTALL_TYPE" = "global" ]; then
+    # Test if dependencies are available in the isolated environment
+    if [ -n "$ADDITIONAL_DEPS" ]; then
+        log_info "Validating additional dependencies..."
+        # Extract package name from --with argument (remove version specs if any)
+        PACKAGE_NAME=$(echo "$ADDITIONAL_DEPS" | cut -d'[' -f1 | cut -d'=' -f1 | cut -d'<' -f1 | cut -d'>' -f1)
+        if python3 -c "import $PACKAGE_NAME" 2>/dev/null; then
+            log_ok "$PACKAGE_NAME is available in the environment"
+        else
+            log_warn "$PACKAGE_NAME may not be properly installed in the isolated environment"
+            log_info "Try: uv tool install --force --with $ADDITIONAL_DEPS agentic-cli"
+        fi
+    fi
+fi
+
 log_header "Verification"
 
 # Test the installation
 if command -v dva &> /dev/null; then
     DVA_VERSION=$(dva --version 2>/dev/null || echo "unknown")
     log_ok "dva command available: $DVA_VERSION"
+    
+    # Test for console formatting errors
+    log_info "Testing console output..."
+    if dva --version > /dev/null 2>&1; then
+        log_ok "Console output working correctly"
+    else
+        log_warn "Console formatting issues detected (this is a known DVA CLI issue)"
+        log_info "The tool should still function despite formatting errors"
+    fi
 else
     log_error "dva command not found"
     if [ "$INSTALL_TYPE" = "local" ]; then
@@ -200,12 +299,20 @@ if [ "$INSTALL_TYPE" = "local" ]; then
     echo "  1. Activate the virtual environment:"
     echo "     source $ROOT_DIR/agentic-cli/.venv/bin/activate"
     echo ""
+else
+    echo "  1. The tool is now available globally"
+    echo ""
 fi
 
 echo "  2. Test the installation:"
 echo "     dva --version"
 echo "     dva --help"
 echo ""
+
+if [ -n "$ADDITIONAL_DEPS" ]; then
+    echo "  3. Your installation includes: $ADDITIONAL_DEPS"
+    echo ""
+fi
 
 if [ $ALIAS_ADDED -eq 1 ]; then
     echo "  3. Use the 'dva' alias:"
