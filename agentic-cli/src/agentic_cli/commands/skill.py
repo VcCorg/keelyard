@@ -20,7 +20,7 @@ from agentic_cli.config import CLI_NAME
 from agentic_cli.tracker import record_activity
 
 console = Console()
-skill_app = typer.Typer(help="Create, list, and install Agent Skills (agentskills.io format)", rich_markup_mode=None)
+skill_app = typer.Typer(help="Create, list, and install Agent Skills (agentskills.io format)")
 
 
 SKILL_TEMPLATE = '''---
@@ -429,7 +429,8 @@ def uninstall_skill(
         typer.Option("--yes", "-y", help="Skip confirmation prompt"),
     ] = False,
 ) -> None:
-    """Uninstall an Agent Skill from the project.
+    """
+    Uninstall an Agent Skill from the project.
 
     Removes the skill directory completely. Requires confirmation unless --yes flag is used.
 
@@ -500,7 +501,8 @@ def update_skill(
         typer.Option("--path", "-p", help="Project directory containing the skill"),
     ] = Path("."),
 ) -> None:
-    """Update an Agent Skill to the latest version from source.
+    """
+    Update an Agent Skill to the latest version from source.
 
     Auto-detects the original source from the skill's git remote. If not found,
     use --source to specify where to fetch the latest version.
