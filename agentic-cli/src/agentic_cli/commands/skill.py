@@ -108,8 +108,7 @@ def create_skill(
         typer.Option("--jira/--no-jira", help="Include Jira MCP integration (pr-reviewer template)"),
     ] = False,
 ) -> None:
-    """
-    Create a new Agent Skill in the project.
+    """Create a new Agent Skill in the project.
 
     Agent Skills (agentskills.io) are a portable, open format for giving AI agents
     new capabilities. Skills work across Claude Code, OpenCode, VS Code, and more.
@@ -249,8 +248,7 @@ def install_skill(
         typer.Option("--name", "-n", help="Override skill name (default: derived from source)"),
     ] = None,
 ) -> None:
-    """
-    Install an Agent Skill from a GitHub repository.
+    """Install an Agent Skill from a GitHub repository.
 
     Clones the skill into the project's .skills/ directory.
 
@@ -431,8 +429,7 @@ def uninstall_skill(
         typer.Option("--yes", "-y", help="Skip confirmation prompt"),
     ] = False,
 ) -> None:
-    """
-    Uninstall an Agent Skill from the project.
+    """Uninstall an Agent Skill from the project.
 
     Removes the skill directory completely. Requires confirmation unless --yes flag is used.
 
@@ -503,8 +500,7 @@ def update_skill(
         typer.Option("--path", "-p", help="Project directory containing the skill"),
     ] = Path("."),
 ) -> None:
-    """
-    Update an Agent Skill to the latest version from source.
+    """Update an Agent Skill to the latest version from source.
 
     Auto-detects the original source from the skill's git remote. If not found,
     use --source to specify where to fetch the latest version.
@@ -739,11 +735,10 @@ def generate_skill(
     ] = "gemini-2.5-flash",
     register: Annotated[
         bool,
-        typer.Option("--register/--no-register", help="Add skill to the DVA skills registry after saving"),
+        typer.Option("--register/--no-register", help="Add skill to the skills registry after saving"),
     ] = False,
 ) -> None:
-    """
-    Interactively generate an Agent Skill using AI.
+    """Interactively generate an Agent Skill using AI.
 
     Follows Anthropic's skill-creator 5-stage methodology:
       Stage 1 (Capture Intent): Interview questions cover trigger conditions,
