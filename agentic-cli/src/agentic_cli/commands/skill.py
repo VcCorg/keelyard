@@ -108,16 +108,9 @@ def create_skill(
         typer.Option("--jira/--no-jira", help="Include Jira MCP integration (pr-reviewer template)"),
     ] = False,
 ) -> None:
-    """Create a new Agent Skill in the project.
-
-    Agent Skills (agentskills.io) are a portable, open format for giving AI agents
-    new capabilities. Skills work across Claude Code, OpenCode, VS Code, and more.
-
-    Examples:
-        {CLI_NAME} skill create pr-reviewer --template pr-reviewer
-        {CLI_NAME} skill create code-analyzer --description "Analyze code quality"
-        {CLI_NAME} skill create pr-reviewer --template pr-reviewer --jira
-    """.format(CLI_NAME=CLI_NAME)
+    """
+    Create a new Agent Skill in the project.
+    """
     path = path.resolve()
 
     if template == "pr-reviewer":
@@ -248,15 +241,9 @@ def install_skill(
         typer.Option("--name", "-n", help="Override skill name (default: derived from source)"),
     ] = None,
 ) -> None:
-    """Install an Agent Skill from a GitHub repository.
-
-    Clones the skill into the project's .skills/ directory.
-
-    Examples:
-        {CLI_NAME} skill install anthropics/skills/skills/mcp-builder
-        {CLI_NAME} skill install https://github.com/anthropics/skills --name mcp-builder
-        {CLI_NAME} skill install anthropics/skills/skills/pdf --path ./my-project
-    """.format(CLI_NAME=CLI_NAME)
+    """
+    Install an Agent Skill from a GitHub repository.
+    """
     path = path.resolve()
 
     # Parse source
@@ -431,14 +418,7 @@ def uninstall_skill(
 ) -> None:
     """
     Uninstall an Agent Skill from the project.
-
-    Removes the skill directory completely. Requires confirmation unless --yes flag is used.
-
-    Examples:
-        {CLI_NAME} skill uninstall my-skill
-        {CLI_NAME} skill uninstall my-skill --yes
-        {CLI_NAME} skill uninstall my-skill --path ./my-project
-    """.format(CLI_NAME=CLI_NAME)
+    """
 
     path = path.resolve()
 
@@ -503,19 +483,7 @@ def update_skill(
 ) -> None:
     """
     Update an Agent Skill to the latest version from source.
-
-    Auto-detects the original source from the skill's git remote. If not found,
-    use --source to specify where to fetch the latest version.
-
-    Local modifications in the skill directory are managed by git. If the skill
-    is in a git repository, resolve conflicts manually using git commands.
-
-    Examples:
-        {CLI_NAME} skill update my-skill
-        {CLI_NAME} skill update my-skill --source anthropics/skills/skills/my-skill
-        {CLI_NAME} skill update my-skill --source https://github.com/org/repo/path
-        {CLI_NAME} skill update my-skill --path ./my-project
-    """.format(CLI_NAME=CLI_NAME)
+    """
 
     path = path.resolve()
 
@@ -740,30 +708,9 @@ def generate_skill(
         typer.Option("--register/--no-register", help="Add skill to the skills registry after saving"),
     ] = False,
 ) -> None:
-    """Interactively generate an Agent Skill using AI.
-
-    Follows Anthropic's skill-creator 5-stage methodology:
-      Stage 1 (Capture Intent): Interview questions cover trigger conditions,
-        input/output specs, success criteria, edge cases, and common patterns
-      Stage 2 (Interview): 4-step interactive flow with type-specific questions
-      Stage 3 (Draft): AI-powered SKILL.md generation with examples and workflows
-      Stage 4-5 (Evaluate & Iterate): Use 'eval' framework to test and improve
-
-    The generated SKILL.md is production-quality and compatible with Windsurf,
-    VS Code, Claude Code, and OpenCode.
-
-    Provider-agnostic: Works with any LLM (Gemini, Claude, GPT) via --model.
-
-    After generation, test and iterate using:
-      {CLI_NAME} eval dataset create <dataset>
-      {CLI_NAME} eval run skill --skill <name> --dataset <dataset>
-
-    Examples:
-        {CLI_NAME} skill generate
-        {CLI_NAME} skill generate --path ./my-project
-        {CLI_NAME} skill generate --model claude-3-5-sonnet-20241022
-        {CLI_NAME} skill generate --model gpt-4
-    """.format(CLI_NAME=CLI_NAME)
+    """
+    Interactively generate an Agent Skill using AI.
+    """
     from agentic_cli.agents.skill_creator.prompts import (
         QUESTIONS_BY_TYPE,
         SKILL_CREATOR_SYSTEM,
