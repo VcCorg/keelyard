@@ -85,7 +85,7 @@ If using MCP tools:
 '''
 
 
-@skill_app.command("create")
+@skill_app.command("create", help="Create a new Agent Skill in the project.")
 def create_skill(
     name: Annotated[
         str,
@@ -110,7 +110,15 @@ def create_skill(
 ) -> None:
     """
     Create a new Agent Skill in the project.
-    """
+
+    Agent Skills (agentskills.io) are a portable, open format for giving AI agents
+    new capabilities. Skills work across Claude Code, OpenCode, VS Code, and more.
+
+    Examples:
+        {CLI_NAME} skill create pr-reviewer --template pr-reviewer
+        {CLI_NAME} skill create code-analyzer --description "Analyze code quality"
+        {CLI_NAME} skill create pr-reviewer --template pr-reviewer --jira
+    """.format(CLI_NAME=CLI_NAME)
     path = path.resolve()
 
     if template == "pr-reviewer":
@@ -172,7 +180,7 @@ def _create_pr_reviewer_skill(path: Path, include_jira: bool) -> None:
     ))
 
 
-@skill_app.command("list")
+@skill_app.command("list", help="List all Agent Skills installed in a project.")
 def list_skills(
     path: Annotated[
         Path,
@@ -226,7 +234,7 @@ def list_skills(
     console.print(table)
 
 
-@skill_app.command("install")
+@skill_app.command("install", help="Install an Agent Skill from a GitHub repository.")
 def install_skill(
     source: Annotated[
         str,
@@ -243,7 +251,14 @@ def install_skill(
 ) -> None:
     """
     Install an Agent Skill from a GitHub repository.
-    """
+
+    Clones the skill into the project's .skills/ directory.
+
+    Examples:
+        {CLI_NAME} skill install anthropics/skills/skills/mcp-builder
+        {CLI_NAME} skill install https://github.com/anthropics/skills --name mcp-builder
+        {CLI_NAME} skill install anthropics/skills/skills/pdf --path ./my-project
+    """.format(CLI_NAME=CLI_NAME)
     path = path.resolve()
 
     # Parse source
@@ -343,7 +358,7 @@ def install_skill(
     ))
 
 
-@skill_app.command("show")
+@skill_app.command("show", help="Show details of an installed Agent Skill.")
 def show_skill(
     name: Annotated[
         str,
@@ -356,6 +371,9 @@ def show_skill(
 ) -> None:
     """
     Show details of an installed Agent Skill.
+
+    Displays the skill's directory structure and metadata including
+    description, location, and file contents.
     """
     path = path.resolve()
 
@@ -401,7 +419,7 @@ def show_skill(
     console.print(tree)
 
 
-@skill_app.command("uninstall")
+@skill_app.command("uninstall", help="Uninstall an Agent Skill from the project.")
 def uninstall_skill(
     name: Annotated[
         str,
@@ -418,7 +436,14 @@ def uninstall_skill(
 ) -> None:
     """
     Uninstall an Agent Skill from the project.
-    """
+
+    Removes the skill directory completely. Requires confirmation unless --yes flag is used.
+
+    Examples:
+        {CLI_NAME} skill uninstall my-skill
+        {CLI_NAME} skill uninstall my-skill --yes
+        {CLI_NAME} skill uninstall my-skill --path ./my-project
+    """.format(CLI_NAME=CLI_NAME)
 
     path = path.resolve()
 
@@ -466,7 +491,7 @@ def uninstall_skill(
     ))
 
 
-@skill_app.command("update")
+@skill_app.command("update", help="Update an Agent Skill to the latest version from source.")
 def update_skill(
     name: Annotated[
         str,
@@ -483,7 +508,19 @@ def update_skill(
 ) -> None:
     """
     Update an Agent Skill to the latest version from source.
-    """
+
+    Auto-detects the original source from the skill's git remote. If not found,
+    use --source to specify where to fetch the latest version.
+
+    Local modifications in the skill directory are managed by git. If the skill
+    is in a git repository, resolve conflicts manually using git commands.
+
+    Examples:
+        {CLI_NAME} skill update my-skill
+        {CLI_NAME} skill update my-skill --source anthropics/skills/skills/my-skill
+        {CLI_NAME} skill update my-skill --source https://github.com/org/repo/path
+        {CLI_NAME} skill update my-skill --path ./my-project
+    """.format(CLI_NAME=CLI_NAME)
 
     path = path.resolve()
 
@@ -693,7 +730,7 @@ def _get_skill_source_url(skill_dir: Path) -> Optional[str]:
     return None
 
 
-@skill_app.command("generate")
+@skill_app.command("generate", help="Interactively generate an Agent Skill using AI.")
 def generate_skill(
     path: Annotated[
         Path,
@@ -710,7 +747,29 @@ def generate_skill(
 ) -> None:
     """
     Interactively generate an Agent Skill using AI.
-    """
+
+    Follows Anthropic's skill-creator 5-stage methodology:
+      Stage 1 (Capture Intent): Interview questions cover trigger conditions,
+        input/output specs, success criteria, edge cases, and common patterns
+      Stage 2 (Interview): 4-step interactive flow with type-specific questions
+      Stage 3 (Draft): AI-powered SKILL.md generation with examples and workflows
+      Stage 4-5 (Evaluate & Iterate): Use 'eval' framework to test and improve
+
+    The generated SKILL.md is production-quality and compatible with Windsurf,
+    VS Code, Claude Code, and OpenCode.
+
+    Provider-agnostic: Works with any LLM (Gemini, Claude, GPT) via --model.
+
+    After generation, test and iterate using:
+      {CLI_NAME} eval dataset create <dataset>
+      {CLI_NAME} eval run skill --skill <name> --dataset <dataset>
+
+    Examples:
+        {CLI_NAME} skill generate
+        {CLI_NAME} skill generate --path ./my-project
+        {CLI_NAME} skill generate --model claude-3-5-sonnet-20241022
+        {CLI_NAME} skill generate --model gpt-4
+    """.format(CLI_NAME=CLI_NAME)
     from agentic_cli.agents.skill_creator.prompts import (
         QUESTIONS_BY_TYPE,
         SKILL_CREATOR_SYSTEM,
