@@ -814,12 +814,21 @@ def generate_skill(
     console.print("[bold]Step 2 of 4 — Identity[/bold]")
     console.print()
 
-    raw_name = Prompt.ask("Skill name (e.g., spring-boot-gcp, pr-reviewer, servicenow-mcp)")
+    try:
+        raw_name = Prompt.ask("Skill name (e.g., spring-boot-gcp, pr-reviewer, servicenow-mcp)")
+    except (KeyboardInterrupt, EOFError):
+        console.print("[dim]Cancelled.[/dim]")
+        raise typer.Exit(0)
+    
     skill_name = raw_name.lower().replace(" ", "-").replace("_", "-")
     if raw_name != skill_name:
         console.print(f"[dim]→ Normalized to: {skill_name}[/dim]")
 
-    one_liner = Prompt.ask("One-line description (what does this skill help with?)")
+    try:
+        one_liner = Prompt.ask("One-line description (what does this skill help with?)")
+    except (KeyboardInterrupt, EOFError):
+        console.print("[dim]Cancelled.[/dim]")
+        raise typer.Exit(0)
     console.print()
 
     # --- Step 3: Type-specific Q&A ---
@@ -829,7 +838,11 @@ def generate_skill(
 
     answers: dict[str, str] = {}
     for field_key, prompt_text, optional in QUESTIONS_BY_TYPE[skill_type_key]:
-        value = Prompt.ask(prompt_text, default="" if optional else None)
+        try:
+            value = Prompt.ask(prompt_text, default="" if optional else None)
+        except (KeyboardInterrupt, EOFError):
+            console.print("[dim]Cancelled.[/dim]")
+            raise typer.Exit(0)
         if value:
             answers[field_key] = value
         console.print()
@@ -843,8 +856,12 @@ def generate_skill(
     env_options = ["Windsurf", "VS Code", "Claude Code", "OpenCode"]
     selected_envs: list[str] = []
     for env in env_options:
-        if Confirm.ask(f"  {env}", default=True):
-            selected_envs.append(env)
+        try:
+            if Confirm.ask(f"  {env}", default=True):
+                selected_envs.append(env)
+        except (KeyboardInterrupt, EOFError):
+            console.print("[dim]Cancelled.[/dim]")
+            raise typer.Exit(0)
     environments = ", ".join(selected_envs) if selected_envs else "All agentskills.io-compatible tools"
     console.print()
 
