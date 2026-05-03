@@ -1,4 +1,4 @@
-"""DVA Dashboard — FastAPI application."""
+"""Agent Playground — FastAPI application."""
 
 import os
 from contextlib import asynccontextmanager
@@ -13,6 +13,7 @@ from src.api.activity import router as activity_router
 from src.api.chat import router as chat_router
 from src.api.terminal import router as terminal_router
 from src.api.skills import router as skills_router
+from src.api.deployments import router as deployments_router
 
 
 @asynccontextmanager
@@ -28,8 +29,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="DVA Dashboard",
-    description="Web dashboard for DVA Agentic Platform — manage agents, MCP servers, and interact via chat",
+    title="Agent Playground",
+    description="Web dashboard for Agentic Platform — manage agents, deploy applications, and interact via chat",
     version="0.1.0",
     lifespan=lifespan,
 )
@@ -55,6 +56,7 @@ app.include_router(activity_router)
 app.include_router(chat_router)
 app.include_router(terminal_router)
 app.include_router(skills_router)
+app.include_router(deployments_router)
 
 
 @app.get("/api/health")
