@@ -29,8 +29,7 @@ export function Layout() {
       <aside className="w-60 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-col">
         <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800">
           <h1 className="text-lg font-bold tracking-tight">
-            <span className="text-indigo-600 dark:text-indigo-400">DVA</span>{" "}
-            Dashboard
+            Agent Playground
           </h1>
           <p className="text-xs text-gray-500 mt-0.5">Agentic Platform</p>
         </div>
