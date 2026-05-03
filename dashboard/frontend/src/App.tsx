@@ -9,6 +9,7 @@ import { Projects } from "@/pages/Projects";
 import { Skills } from "@/pages/Skills";
 import { Terminal } from "@/pages/Terminal";
 import { Deployments } from "@/pages/Deployments";
+import { StarterPacks } from "@/pages/StarterPacks";
 import { TerminalProvider } from "@/context/TerminalContext";
 
 function App() {
@@ -22,6 +23,7 @@ function App() {
             <Route path="/projects" element={<Projects />} />
             <Route path="/skills" element={<Skills />} />
             <Route path="/deployments" element={<Deployments />} />
+            <Route path="/starter-packs" element={<StarterPacks />} />
             <Route path="/mcp" element={<MCPServers />} />
             <Route path="/activity" element={<ActivityFeed />} />
             <Route path="/chat" element={<Chat />} />
