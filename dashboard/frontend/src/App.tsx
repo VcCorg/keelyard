@@ -8,6 +8,7 @@ import { Chat } from "@/pages/Chat";
 import { Projects } from "@/pages/Projects";
 import { Skills } from "@/pages/Skills";
 import { Terminal } from "@/pages/Terminal";
+import { Deployments } from "@/pages/Deployments";
 import { TerminalProvider } from "@/context/TerminalContext";
 
 function App() {
@@ -20,6 +21,7 @@ function App() {
             <Route path="/agents" element={<Agents />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/skills" element={<Skills />} />
+            <Route path="/deployments" element={<Deployments />} />
             <Route path="/mcp" element={<MCPServers />} />
             <Route path="/activity" element={<ActivityFeed />} />
             <Route path="/chat" element={<Chat />} />

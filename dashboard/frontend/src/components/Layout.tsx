@@ -8,6 +8,7 @@ import {
   FolderKanban,
   TerminalSquare,
   Package,
+  Rocket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +17,7 @@ const navItems = [
   { to: "/agents", icon: Bot, label: "Agents" },
   { to: "/projects", icon: FolderKanban, label: "Agent Projects" },
   { to: "/skills", icon: Package, label: "Skills" },
+  { to: "/deployments", icon: Rocket, label: "Deployments" },
   { to: "/mcp", icon: Server, label: "MCP Servers" },
   { to: "/activity", icon: Activity, label: "Activity" },
   { to: "/chat", icon: MessageSquare, label: "Chat" },
