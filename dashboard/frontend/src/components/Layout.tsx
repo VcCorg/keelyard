@@ -9,7 +9,6 @@ import {
   TerminalSquare,
   Package,
   Rocket,
-  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,7 +18,6 @@ const navItems = [
   { to: "/projects", icon: FolderKanban, label: "Agent Projects" },
   { to: "/skills", icon: Package, label: "Skills" },
   { to: "/deployments", icon: Rocket, label: "Deployments" },
-  { to: "/starter-packs", icon: Zap, label: "Starter Packs" },
   { to: "/mcp", icon: Server, label: "MCP Servers" },
   { to: "/activity", icon: Activity, label: "Activity" },
   { to: "/chat", icon: MessageSquare, label: "Chat" },
