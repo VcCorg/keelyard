@@ -294,6 +294,125 @@ def get_entity_details(entity_name: str) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Tier 2b — Domain-scoped tools (for code onboarding & development)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@mcp.tool()
+def query_domain_context(
+    domain: str,
+    aspect: str = "all",
+    limit: int = 20,
+) -> str:
+    """Query business context for a specific domain.
+
+    Returns domain knowledge including SLAs, integration specs, security
+    policies, and performance requirements. Used by code onboarding and
+    AI assistants to understand domain constraints.
+
+    Args:
+        domain: Domain slug (e.g. "cwow-facility", "cwow-patient")
+        aspect: What to query — 'all', 'slas', 'integrations', 'security',
+                'performance', 'architecture'. Default: 'all'
+        limit: Maximum number of results (default: 20)
+    """
+    config = _get_config()
+    context: dict = {"domain": domain, "aspect": aspect, "results": []}
+
+    # Build aspect-specific query
+    aspect_queries = {
+        "all": f"business requirements, SLAs, integrations, security policies for {domain}",
+        "slas": f"SLA requirements, response time, availability, uptime for {domain}",
+        "integrations": f"integration specifications, APIs, endpoints, authentication for {domain}",
+        "security": f"security policies, compliance, encryption, HIPAA, access control for {domain}",
+        "performance": f"performance requirements, concurrent users, latency, throughput for {domain}",
+        "architecture": f"architecture patterns, CQRS, event sourcing, microservices for {domain}",
+    }
+    query_text = aspect_queries.get(aspect, aspect_queries["all"])
+
+    # Search LightRAG for semantic matches
+    if config.is_lightrag_configured:
+        try:
+            with _get_lightrag() as client:
+                if client.is_healthy():
+                    resp = client.query(query_text, mode="hybrid", top_k=limit)
+                    result_text = resp.get("result", "")
+                    if result_text:
+                        context["results"].append({
+                            "source": "lightrag",
+                            "type": "domain_context",
+                            "aspect": aspect,
+                            "content": result_text,
+                        })
+        except Exception as e:
+            logger.warning(f"LightRAG domain query failed: {e}")
+
+    # Search Neo4j for structured domain entities
+    if config.is_neo4j_configured:
+        try:
+            with _get_neo4j() as client:
+                neo4j_results = client.search_text(domain, limit=limit)
+                for r in neo4j_results:
+                    context["results"].append({
+                        "source": "neo4j",
+                        "type": "entity",
+                        "name": r.get("name", ""),
+                        "labels": r.get("labels", []),
+                        "content": (r.get("content", "") or "")[:500],
+                    })
+        except Exception as e:
+            logger.warning(f"Neo4j domain query failed: {e}")
+
+    if not context["results"]:
+        context["message"] = (
+            f"No context found for domain '{domain}'. "
+            "The domain may not be ingested yet. "
+            "Use 'dva kg ingest' to add domain knowledge."
+        )
+
+    return json.dumps(context, indent=2)
+
+
+@mcp.tool()
+def get_domain_slas(domain: str) -> str:
+    """Get SLA requirements for a specific domain.
+
+    Returns response time, availability, throughput, and other SLA targets
+    that code must satisfy.
+
+    Args:
+        domain: Domain slug (e.g. "cwow-facility")
+    """
+    return query_domain_context(domain, aspect="slas", limit=10)
+
+
+@mcp.tool()
+def get_domain_integrations(domain: str) -> str:
+    """Get integration specifications for a specific domain.
+
+    Returns API endpoints, authentication methods, data formats, and
+    integration patterns required by the domain.
+
+    Args:
+        domain: Domain slug (e.g. "cwow-facility")
+    """
+    return query_domain_context(domain, aspect="integrations", limit=10)
+
+
+@mcp.tool()
+def get_domain_security_policies(domain: str) -> str:
+    """Get security and compliance policies for a specific domain.
+
+    Returns compliance requirements (HIPAA, SOC2), encryption policies,
+    access control rules, and audit requirements.
+
+    Args:
+        domain: Domain slug (e.g. "cwow-facility")
+    """
+    return query_domain_context(domain, aspect="security", limit=10)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Tier 3 — Source management tools
 # ═══════════════════════════════════════════════════════════════════════════
 
