@@ -128,6 +128,29 @@ Output: Knowledge onboarding complete
 - `VersionComparator` - Compare versions
 - `RuleExtractor` - Extract rules
 
+**Output**: Domain knowledge stored in KG
+
+### Phase 2.5: KG to Memory MCP Sync (1-2 days) [NEW]
+**Purpose**: Expose domain knowledge as MCP tools for agents
+
+**New file**: `agentic-cli/src/agentic_cli/kg_integration/kg_to_mcp_sync.py`
+
+**Features**:
+- Read rules from KG
+- Create entities in Memory MCP
+- Create relationships
+- Agents can query Memory MCP
+
+**New Memory MCP Tools**:
+- `query_domain_rules(domain, category)` - Query rules by category
+- `search_rules(keyword)` - Search rules by keyword
+- `get_sla(domain)` - Get SLAs for domain
+- `get_integration_specs(domain)` - Get integration specs
+- `get_security_policies(domain)` - Get security policies
+- `get_performance_requirements(domain)` - Get performance requirements
+
+**Output**: Domain knowledge exposed as MCP tools
+
 ### Phase 3: Create Async Job System (2-3 days)
 **New file**: `agentic-cli/src/agentic_cli/async_jobs/kg_onboarding_job.py`
 
@@ -136,6 +159,7 @@ Output: Knowledge onboarding complete
 - Job status tracking
 - Job result storage
 - Job scheduling
+- Automatic sync to Memory MCP after completion
 
 **New commands**:
 - `dva kg onboard --domain cwow-facility --async` - Run in background
@@ -146,9 +170,11 @@ Output: Knowledge onboarding complete
 **Modify**: `agentic-cli/src/agentic_cli/analysis/codebase_analyzer.py`
 
 **Features**:
-- Query KG for domain knowledge
+- Query KG for domain knowledge (direct query)
 - Include in understanding documents
 - Reference in generated skills
+
+**Note**: Code onboarding queries KG directly (not through MCP)
 
 ---
 
@@ -285,9 +311,10 @@ dva kg list-documents --domain cwow-facility
 |-------|----------|-------------|
 | 1 | 0 days | Domain create (already done) |
 | 2 | 3-5 days | KG onboarding command |
+| 2.5 | 1-2 days | KG to Memory MCP sync (NEW) |
 | 3 | 2-3 days | Async job system |
 | 4 | 1-2 days | Code onboarding integration |
-| **Total** | **6-10 days** | **Complete Track A** |
+| **Total** | **7-12 days** | **Complete Track A with MCP** |
 
 ---
 
@@ -304,7 +331,8 @@ agentic-cli/src/agentic_cli/
 │   ├── onboarding.py
 │   ├── release_document_collector.py
 │   ├── document_deduplicator.py
-│   └── version_comparator.py
+│   ├── version_comparator.py
+│   └── kg_to_mcp_sync.py (NEW - Phase 2.5)
 └── async_jobs/ (NEW)
     ├── __init__.py
     └── kg_onboarding_job.py
@@ -398,6 +426,7 @@ CREATE TABLE kg_onboarding_jobs (
 ## Related Documents
 
 - `docs/plans/TRACK_A_SIMPLIFIED_DESIGN.md` - Detailed simplified design
+- `docs/plans/TRACK_A_MCP_INTEGRATION_STRATEGY.md` - MCP integration strategy
 - `docs/plans/TRACK_A_DOMAIN_CONTEXT_INTEGRATION.md` - Original design (for reference)
 - `docs/plans/TRACK_A_VERSIONED_RELEASE_DOCUMENTS.md` - Release strategy (for reference)
 
@@ -406,23 +435,53 @@ CREATE TABLE kg_onboarding_jobs (
 **Status**: ✅ FINAL DESIGN - READY FOR IMPLEMENTATION  
 **Date Prepared**: May 6, 2026  
 **Target Start**: May 7, 2026  
-**Target Completion**: May 17, 2026 (6-10 days)
+**Target Completion**: May 19, 2026 (7-12 days)
 
 ---
 
 ## Summary
 
-Track A is now redesigned with **clean separation of concerns**:
+Track A is now redesigned with **clean separation of concerns** and **dual MCP integration**:
+
+### Three Components
 
 1. **Domain Creation** - Simple, fast, metadata only
-2. **Knowledge Onboarding** - Separate command, can run async
-3. **Code Onboarding Integration** - Uses KG for business context
+   ```bash
+   dva domain create Facility --product CWOW --jira CWOW --bb CGF --confluence CWOV
+   ```
 
-This is much better than trying to do everything in `domain create`. It's:
+2. **Knowledge Onboarding** - Separate command, can run async
+   ```bash
+   dva kg onboard --domain cwow-facility --confluence-space CWOV --release-aware
+   ```
+
+3. **MCP Integration** - Dual approach
+   - **Memory MCP**: Agents query during execution
+   - **Direct KG Query**: Code onboarding enrichment
+
+### How MCP Fits In
+
+```
+KG Onboarding
+    ↓
+Knowledge Graph (Neo4j + LightRAG)
+    ↓
+├─ Sync to Memory MCP (agents query)
+│  └─ Tools: query_domain_rules(), get_sla(), get_integration_specs()
+│
+└─ Direct Query (code onboarding)
+   └─ Enrich understanding documents
+```
+
+### Benefits
+
 - ✅ Simpler to understand
 - ✅ Faster to execute
 - ✅ Easier to test
 - ✅ Better for future enhancements
 - ✅ Supports async operations
+- ✅ Business knowledge available to agents and code onboarding
+- ✅ Single source of truth (KG)
+- ✅ Multiple access patterns (MCP + direct query)
 
 **Ready to implement! 🚀**
