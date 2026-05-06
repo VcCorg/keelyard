@@ -578,6 +578,16 @@ def ingest_submit(
         "--async",
         help="Run ingestion asynchronously in background",
     ),
+    domain: str | None = typer.Option(
+        None,
+        "--domain",
+        help="Domain slug — auto-fetches tracked Confluence docs, tags with domain metadata, defaults workspace to domain slug",
+    ),
+    depth: int = typer.Option(
+        3,
+        "--depth",
+        help="Max child-page crawl depth for Confluence pages (used with --domain or --format confluence)",
+    ),
 ) -> None:
     """
     Submit data for ingestion into the knowledge graph.
@@ -588,9 +598,14 @@ def ingest_submit(
     
     Data sources are configured using f'{CLI_NAME} data create' command.
     
-    Supports: PDF, text files, CSV, JSON, Confluence, and directories.
+    Supports: PDF, text files, CSV, JSON, Confluence pages, and directories.
     
     For directories, all supported files (.pdf, .txt, .md, .csv, .json) will be processed.
+    
+    Use --domain to build a domain knowledge graph from Confluence docs:
+      {CLI_NAME} kg ingest submit --domain cwow-facility
+      {CLI_NAME} kg ingest submit --domain cwow-facility --path <confluence-page-url>
+      {CLI_NAME} kg ingest submit --domain cwow-facility --path <confluence-page-url> --depth 4
     
     Use --async flag to run ingestion in background:
       {CLI_NAME} kg ingest submit --path /data --async
@@ -601,6 +616,10 @@ def ingest_submit(
     # Load configuration to determine provider
     config = KGConfig.load()
     
+    # Default workspace to domain slug when --domain is set
+    if domain and not workspace and config.provider == "lightrag":
+        workspace = domain
+
     # Handle workspace parameter
     original_workspace = None
     if workspace:
@@ -671,9 +690,15 @@ def ingest_submit(
     
     elif source:
         resolved_source = source
+        # Auto-detect Confluence format from URL pattern
+        if not resolved_format and ("confluence" in resolved_source.lower() or "/pages/" in resolved_source or "/spaces/" in resolved_source):
+            resolved_format = "confluence"
+    elif domain and not source and not data_source:
+        # Domain-only mode: will fetch tracked docs below, no explicit source needed
+        resolved_source = None
     else:
-        console.print("[red]✗ Error:[/red] Must specify either --source (data source name) or --path (direct path).")
-        console.print("[dim]Use f'{CLI_NAME} data list' to see configured data sources.[/dim]")
+        console.print("[red]✗ Error:[/red] Must specify either --source (data source name), --path (direct path), or --domain.")
+        console.print(f"[dim]Use '{CLI_NAME} data list' to see configured data sources.[/dim]")
         raise typer.Exit(1)
     
     # Handle negation flags
@@ -793,24 +818,83 @@ def ingest_submit(
                 timeout = 600.0 if resolved_format == "git" else config.lightrag_timeout
                 client = LightRAGClient(base_url=config.lightrag_url, timeout=timeout)
                 
-                # Handle Confluence page/space ingestion
-                if resolved_format == "confluence":
+                # Handle Confluence page/space ingestion (+ domain tracked docs)
+                if resolved_format == "confluence" or (domain and not resolved_source):
                     from agentic_cli.kg.parsers import parse_confluence_tree, parse_confluence
 
-                    # Use tree parser for page URLs (crawls children), flat for spaces
-                    if "/pages/" in resolved_source:
-                        documents = parse_confluence_tree(resolved_source, include_children=True, max_depth=3)
-                    else:
-                        documents = parse_confluence(resolved_source)
+                    all_documents = []
+
+                    # Fetch tracked domain docs when --domain is set
+                    if domain:
+                        from agentic_cli.tracker import get_domain, get_domain_docs
+                        d = get_domain(domain)
+                        if not d:
+                            console.print(f"[red]✗ Domain '{domain}' not found.[/red]")
+                            raise typer.Exit(1)
+
+                        domain_product = d.get("product", "")
+
+                        docs = get_domain_docs(domain)
+                        if docs:
+                            console.print(f"[dim]Fetching {len(docs)} tracked docs for domain '{domain}'...[/dim]")
+                            try:
+                                conf_base = config.confluence_url or "https://confluence.example.com"
+                            except Exception:
+                                conf_base = "https://confluence.example.com"
+
+                            for doc_rec in docs:
+                                page_id = doc_rec.get("source_page_id")
+                                title = doc_rec.get("title", page_id)
+                                page_url = f"{conf_base}/pages/{page_id}"
+                                try:
+                                    fetched = parse_confluence_tree(page_url, include_children=True, max_depth=depth)
+                                    all_documents.extend(fetched)
+                                    child_count = len(fetched) - 1 if len(fetched) > 1 else 0
+                                    suffix = f" (+{child_count} children)" if child_count else ""
+                                    console.print(f"  [green]✓[/green] {title}{suffix}")
+                                except Exception as e:
+                                    console.print(f"  [yellow]⚠ {title}: {e}[/yellow]")
+                        else:
+                            console.print(f"[dim]No tracked docs for domain '{domain}'.[/dim]")
+
+                    # Fetch explicit page/space URL
+                    if resolved_source:
+                        if "/pages/" in resolved_source:
+                            console.print(f"[dim]Fetching page tree from {resolved_source} (depth={depth})...[/dim]")
+                            fetched = parse_confluence_tree(resolved_source, include_children=True, max_depth=depth)
+                        else:
+                            console.print(f"[dim]Fetching space pages from {resolved_source}...[/dim]")
+                            fetched = parse_confluence(resolved_source)
+                        all_documents.extend(fetched)
+                        root_title = fetched[0]["metadata"]["title"] if fetched else resolved_source
+                        console.print(f"  [green]✓[/green] {root_title} ({len(fetched)} pages)")
+
+                    if not all_documents:
+                        console.print("[yellow]No Confluence documents found to ingest.[/yellow]")
+                        raise typer.Exit(1)
+
+                    # Deduplicate by page_id
+                    seen_ids = set()
+                    documents = []
+                    for doc in all_documents:
+                        pid = doc["metadata"].get("page_id", "")
+                        if pid and pid in seen_ids:
+                            continue
+                        if pid:
+                            seen_ids.add(pid)
+                        documents.append(doc)
 
                     total_docs = len(documents)
                     total_chars = 0
 
-                    console.print(f"[dim]Inserting {total_docs} Confluence documents...[/dim]")
+                    console.print(f"[dim]Inserting {total_docs} unique Confluence documents...[/dim]")
 
                     for i, doc in enumerate(documents, 1):
                         doc_metadata = doc.get("metadata", {})
                         doc_metadata["persona"] = "business_analyst"
+                        if domain:
+                            doc_metadata["domain"] = domain
+                            doc_metadata["product"] = domain_product
 
                         try:
                             result = client.insert(
@@ -828,6 +912,11 @@ def ingest_submit(
                     console.print(f"[bold green]✓[/bold green] Successfully ingested Confluence content")
                     console.print(f"  Documents: [cyan]{total_docs}[/cyan]")
                     console.print(f"  Total characters: [cyan]{total_chars}[/cyan]")
+                    if domain:
+                        console.print(f"  Domain: [cyan]{domain}[/cyan]")
+                        console.print(f"\n[dim]Next steps:[/dim]")
+                        console.print(f"[dim]  Build static context: {CLI_NAME} domain init-context {domain}[/dim]")
+                        console.print(f"[dim]  Onboard repos: {CLI_NAME} code onboard --path <repo> --domain {domain} --kg[/dim]")
 
                 # Handle Git repository ingestion
                 elif resolved_format == "git":
