@@ -179,6 +179,96 @@ def parse_json(file_path: str) -> List[Dict[str, Any]]:
     return documents
 
 
+def _html_to_text(html: str) -> str:
+    """Convert Confluence storage-format HTML to clean text/markdown."""
+    import re
+
+    text = html
+    # Block-level elements → newlines
+    text = re.sub(r'<br\s*/?>', '\n', text)
+    text = re.sub(r'</?(p|div|tr|li|blockquote)[^>]*>', '\n', text)
+    text = re.sub(r'</(h[1-6])[^>]*>', '\n\n', text)
+    # Headers
+    for level in range(1, 7):
+        text = re.sub(rf'<h{level}[^>]*>', '\n' + '#' * level + ' ', text)
+    # Bold / italic
+    text = re.sub(r'<(strong|b)[^>]*>(.*?)</\1>', r'**\2**', text)
+    text = re.sub(r'<(em|i)[^>]*>(.*?)</\1>', r'*\2*', text)
+    # Code blocks
+    text = re.sub(r'<ac:structured-macro[^>]*ac:name="code"[^>]*>.*?<ac:plain-text-body>\s*<!\[CDATA\[(.*?)\]\]>\s*</ac:plain-text-body>\s*</ac:structured-macro>', r'\n```\n\1\n```\n', text, flags=re.DOTALL)
+    # Tables — keep as plain text rows
+    text = re.sub(r'<t[hd][^>]*>', ' | ', text)
+    text = re.sub(r'</t[hd]>', '', text)
+    # Links
+    text = re.sub(r'<a[^>]*href="([^"]*)"[^>]*>(.*?)</a>', r'[\2](\1)', text)
+    # Strip remaining tags
+    text = re.sub(r'<[^>]+>', '', text)
+    # HTML entities
+    text = text.replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>').replace('&nbsp;', ' ').replace('&quot;', '"')
+    # Collapse blank lines
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text.strip()
+
+
+def _get_confluence_client(config=None):
+    """Create and return a Confluence client + base_url tuple."""
+    try:
+        from atlassian import Confluence
+    except ImportError:
+        raise ImportError(
+            "atlassian-python-api not installed. Install with: pip install atlassian-python-api"
+        )
+
+    if config is None:
+        from agentic_cli.kg.config import KGConfig
+        config = KGConfig.load()
+
+    if not config.is_confluence_configured():
+        raise ValueError(
+            "Confluence is not configured. Please run:\n"
+            "  agent-cli kg init --confluence-url <url> --confluence-username <username> --confluence-token <token>"
+        )
+
+    from urllib.parse import urlparse
+    base_url = config.confluence_url
+    if "/spaces/" in base_url or "/pages/" in base_url:
+        parsed = urlparse(base_url)
+        base_url = f"{parsed.scheme}://{parsed.netloc}"
+
+    confluence = Confluence(
+        url=base_url,
+        username=config.confluence_username,
+        password=config.confluence_api_token,
+        cloud=config.confluence_cloud,
+    )
+    return confluence, base_url, config
+
+
+def _extract_page_id_from_url(url: str) -> str:
+    """Extract the numeric page ID from a Confluence URL."""
+    if "/pages/" in url:
+        return url.split("/pages/")[1].split("/")[0]
+    raise ValueError(f"Cannot extract page ID from URL: {url}")
+
+
+def _fetch_page_tree(confluence, page_id: str, max_depth: int = 3, _depth: int = 0) -> list:
+    """Recursively fetch a page and all its children."""
+    pages = []
+
+    page = confluence.get_page_by_id(page_id, expand='body.storage,version,space,children.page')
+    pages.append(page)
+
+    if _depth < max_depth:
+        children = page.get("children", {}).get("page", {}).get("results", [])
+        for child in children:
+            try:
+                pages.extend(_fetch_page_tree(confluence, child["id"], max_depth, _depth + 1))
+            except Exception:
+                continue  # skip inaccessible child pages
+
+    return pages
+
+
 def parse_confluence(url: str, config=None) -> List[Dict[str, Any]]:
     """
     Parse Confluence page or space.
@@ -190,53 +280,7 @@ def parse_confluence(url: str, config=None) -> List[Dict[str, Any]]:
     Returns:
         List of document dictionaries
     """
-    try:
-        from atlassian import Confluence
-    except ImportError:
-        raise ImportError(
-            "atlassian-python-api not installed. Install with: pip install atlassian-python-api"
-        )
-    
-    # Load config if not provided
-    if config is None:
-        from agentic_cli.kg.config import KGConfig
-        config = KGConfig.load()
-    
-    # Check if Confluence is configured
-    if not config.is_confluence_configured():
-        raise ValueError(
-            "Confluence is not configured. Please run:\n"
-            "  agent-cli kg init --confluence-url <url> --confluence-username <username> --confluence-token <token>\n\n"
-            "To get an API token:\n"
-            "  1. Go to https://id.atlassian.com/manage-profile/security/api-tokens\n"
-            "  2. Click 'Create API token'\n"
-            "  3. Use your email as username and the token as password"
-        )
-    
-    # Initialize Confluence client
-    import logging
-    logging.basicConfig(level=logging.DEBUG)
-    
-    # Extract base URL if full URL was provided
-    base_url = config.confluence_url
-    if "/spaces/" in base_url or "/pages/" in base_url:
-        # Extract just the base URL
-        from urllib.parse import urlparse
-        parsed = urlparse(base_url)
-        base_url = f"{parsed.scheme}://{parsed.netloc}"
-    
-    print(f"[DEBUG] Connecting to Confluence at: {base_url}")
-    print(f"[DEBUG] Username: {config.confluence_username}")
-    print(f"[DEBUG] Token length: {len(config.confluence_api_token) if config.confluence_api_token else 0}")
-    
-    confluence = Confluence(
-        url=base_url,
-        username=config.confluence_username,
-        password=config.confluence_api_token,
-        cloud=config.confluence_cloud
-    )
-    
-    print(f"[DEBUG] Confluence mode: {'Cloud' if config.confluence_cloud else 'Server'}")
+    confluence, base_url, config = _get_confluence_client(config)
     
     documents = []
     
@@ -250,7 +294,7 @@ def parse_confluence(url: str, config=None) -> List[Dict[str, Any]]:
             page = confluence.get_page_by_id(page_id, expand='body.storage,version')
             
             documents.append({
-                "content": page['body']['storage']['value'],
+                "content": _html_to_text(page['body']['storage']['value']),
                 "metadata": {
                     "source": url,
                     "title": page['title'],
@@ -270,7 +314,7 @@ def parse_confluence(url: str, config=None) -> List[Dict[str, Any]]:
             
             for page in pages:
                 documents.append({
-                    "content": page['body']['storage']['value'],
+                    "content": _html_to_text(page['body']['storage']['value']),
                     "metadata": {
                         "source": f"{config.confluence_url}/pages/{page['id']}",
                         "title": page['title'],
@@ -291,6 +335,81 @@ def parse_confluence(url: str, config=None) -> List[Dict[str, Any]]:
     except Exception as e:
         raise RuntimeError(f"Failed to fetch Confluence content: {str(e)}")
     
+    return documents
+
+
+def parse_confluence_tree(
+    url: str,
+    config=None,
+    include_children: bool = True,
+    max_depth: int = 3,
+    latest_only: bool = False,
+) -> List[Dict[str, Any]]:
+    """
+    Parse a Confluence page and its entire child-page tree.
+
+    Designed for release-style hierarchical pages like:
+        Release 29/
+        ├── Architecture Changes
+        ├── API Reference
+        └── Deployment Notes
+
+    Args:
+        url: Confluence page URL (must contain /pages/<id>/)
+        config: KGConfig instance with Confluence credentials
+        include_children: Recursively fetch child pages (default True)
+        max_depth: Maximum depth for child page crawling (default 3)
+        latest_only: If True, only return the latest version of each page
+
+    Returns:
+        List of document dictionaries (parent + children)
+    """
+    confluence, base_url, cfg = _get_confluence_client(config)
+
+    page_id = _extract_page_id_from_url(url)
+
+    if include_children:
+        raw_pages = _fetch_page_tree(confluence, page_id, max_depth=max_depth)
+    else:
+        raw_pages = [confluence.get_page_by_id(page_id, expand='body.storage,version,space')]
+
+    documents = []
+    seen_ids = set()
+
+    for page in raw_pages:
+        pid = str(page.get("id", ""))
+        if pid in seen_ids:
+            continue
+        seen_ids.add(pid)
+
+        html_body = page.get("body", {}).get("storage", {}).get("value", "")
+        title = page.get("title", f"Page {pid}")
+        version = page.get("version", {}).get("number", 0)
+        space_key = page.get("space", {}).get("key", "")
+
+        # Convert storage HTML to clean text/markdown
+        clean_text = _html_to_text(html_body)
+        if not clean_text.strip():
+            continue
+
+        # Build a richer document with header for KG ingestion
+        doc_text = f"# {title}\n\n"
+        doc_text += f"Source: Confluence page {pid} (space: {space_key}, version: {version})\n\n"
+        doc_text += clean_text
+
+        documents.append({
+            "content": doc_text,
+            "metadata": {
+                "source": f"{base_url}/pages/{pid}",
+                "title": title,
+                "space": space_key,
+                "page_id": pid,
+                "version": version,
+                "type": "confluence_page",
+                "parent_page_id": page_id if pid != page_id else None,
+            }
+        })
+
     return documents
 
 
