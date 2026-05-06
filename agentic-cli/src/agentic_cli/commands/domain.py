@@ -1086,3 +1086,151 @@ def gen_skills(
         command="domain", subcommand="gen-skills",
         args={"domain": domain_name, "roles": roles_to_gen, "output": str(out_dir)},
     )
+
+
+# ---------------------------------------------------------------------------
+# {CLI_NAME} domain init-context
+# ---------------------------------------------------------------------------
+
+@domain_app.command("init-context")
+def init_context(
+    domain_name: Annotated[str, typer.Argument(help="Domain name (slug, e.g. cwow-facility)")],
+    output: Annotated[str, typer.Option("--output", "-o", help="Output directory for domain context repo")] = None,
+    git_init: Annotated[bool, typer.Option("--git-init/--no-git-init", help="Initialize as a git repo")] = True,
+    git_remote: Annotated[str, typer.Option("--git-remote", help="Git remote URL to set as origin")] = None,
+    lightrag_url: Annotated[str, typer.Option("--lightrag-url", help="LightRAG server URL")] = "http://localhost:8001",
+) -> None:
+    """
+    Initialize a central domain context repository.
+
+    Creates a domain-context repo structure with shared business context
+    from the Knowledge Graph, shared skills, and metadata. This repo is
+    referenced by individual repos via git submodules.
+
+    Examples:
+        {CLI_NAME} domain init-context cwow-facility
+        {CLI_NAME} domain init-context cwow-facility --output ./facility-domain-context
+        {CLI_NAME} domain init-context cwow-facility --git-remote https://github.com/company/facility-domain-context.git
+    """
+    import subprocess
+
+    d = get_domain(domain_name)
+    if not d:
+        console.print(f"[red]✗ Domain '{domain_name}' not found.[/red]")
+        console.print(f"[dim]Register it first: {CLI_NAME} domain create <DOMAIN> --product <PRODUCT>[/dim]")
+        raise typer.Exit(1)
+
+    # Determine output directory
+    if output:
+        out_dir = Path(output).resolve()
+    else:
+        out_dir = Path.cwd() / f"{domain_name}-domain-context"
+
+    if out_dir.exists() and any(out_dir.iterdir()):
+        overwrite = typer.confirm(f"Directory {out_dir} is not empty. Overwrite?", default=False)
+        if not overwrite:
+            raise typer.Exit(0)
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    console.print(f"[cyan]Initializing domain context repo for '{domain_name}'...[/cyan]")
+
+    # Gather domain data
+    repos = get_domain_repos(domain_name)
+    docs = get_domain_docs(domain_name)
+
+    # Query KG for domain business context
+    console.print("[dim]Querying Knowledge Graph for domain context...[/dim]")
+    try:
+        from agentic_cli.kg.domain_context import (
+            query_domain_kg,
+            scaffold_domain_context_repo,
+        )
+        kg_context = query_domain_kg(domain_name, lightrag_url=lightrag_url)
+        has_kg = any(kg_context.values())
+
+        if has_kg:
+            console.print(f"[green]✓ KG domain context retrieved ({sum(1 for v in kg_context.values() if v)}/6 aspects)[/green]")
+        else:
+            console.print("[yellow]⚠ No domain context found in KG (LightRAG may not be running or domain not ingested)[/yellow]")
+            console.print("[dim]The repo structure will be created with placeholder content.[/dim]")
+
+    except Exception as e:
+        console.print(f"[yellow]⚠ KG query failed: {e}[/yellow]")
+        console.print("[dim]Creating repo structure with placeholder content.[/dim]")
+        kg_context = {}
+
+    # Scaffold the repo
+    try:
+        created = scaffold_domain_context_repo(
+            output_dir=out_dir,
+            domain=domain_name,
+            domain_data=d,
+            kg_context=kg_context,
+            repos=repos,
+        )
+
+        for name, path in created.items():
+            console.print(f"  [green]✓[/green] {name}: {path.relative_to(out_dir)}")
+
+    except Exception as e:
+        console.print(f"[red]✗ Failed to scaffold domain context repo: {e}[/red]")
+        raise typer.Exit(1)
+
+    # Initialize git repo
+    if git_init:
+        try:
+            subprocess.run(["git", "init"], cwd=str(out_dir), capture_output=True, check=True)
+            subprocess.run(["git", "add", "."], cwd=str(out_dir), capture_output=True, check=True)
+            subprocess.run(
+                ["git", "commit", "-m", f"Initial domain context for {domain_name}"],
+                cwd=str(out_dir), capture_output=True, check=True,
+            )
+            console.print("[green]✓ Git repo initialized and committed[/green]")
+
+            if git_remote:
+                subprocess.run(
+                    ["git", "remote", "add", "origin", git_remote],
+                    cwd=str(out_dir), capture_output=True, check=True,
+                )
+                console.print(f"[green]✓ Git remote set:[/green] {git_remote}")
+                console.print(f"[dim]Push with: cd {out_dir} && git push -u origin main[/dim]")
+
+        except subprocess.CalledProcessError as e:
+            stderr = e.stderr.decode() if e.stderr else str(e)
+            console.print(f"[yellow]⚠ Git init failed: {stderr}[/yellow]")
+
+    # Summary
+    domain_label = d.get("domain", domain_name)
+    product = d.get("product", "")
+
+    console.print()
+    console.print(Panel(
+        f"[bold]Domain:[/bold] {domain_label} ({product})\n"
+        f"[bold]Location:[/bold] {out_dir}\n"
+        f"[bold]Files:[/bold] {len(created)}\n"
+        f"[bold]KG Context:[/bold] {'Yes' if any((kg_context or {}).values()) else 'Placeholder'}\n"
+        f"[bold]Git Initialized:[/bold] {'Yes' if git_init else 'No'}"
+        + (f"\n[bold]Remote:[/bold] {git_remote}" if git_remote else ""),
+        title=f"Domain Context Repo — {domain_name}",
+        border_style="green",
+    ))
+
+    # Next steps
+    console.print(f"\n[dim]Next steps:[/dim]")
+    if git_remote:
+        console.print(f"[dim]  1. Push: cd {out_dir} && git push -u origin main[/dim]")
+        console.print(f"[dim]  2. Link to repos: {CLI_NAME} code onboard --path <repo> --domain {domain_name} --domain-context-repo {git_remote}[/dim]")
+    else:
+        console.print(f"[dim]  1. Create remote repo and push[/dim]")
+        console.print(f"[dim]  2. Link to repos: {CLI_NAME} code onboard --path <repo> --domain {domain_name} --domain-context-repo <git-url>[/dim]")
+
+    record_activity(
+        command="domain", subcommand="init-context",
+        args={
+            "domain": domain_name,
+            "output": str(out_dir),
+            "git_init": git_init,
+            "git_remote": git_remote,
+            "kg_aspects_found": sum(1 for v in (kg_context or {}).values() if v),
+        },
+    )

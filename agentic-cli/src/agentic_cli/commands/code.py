@@ -374,6 +374,14 @@ def onboard(
         bool,
         typer.Option("--graphify/--no-graphify", help="Use Graphify for code structure analysis (requires --kg)"),
     ] = False,
+    domain: Annotated[
+        Optional[str],
+        typer.Option("--domain", "-d", help="Domain slug to attach domain KG context (e.g. cwow-facility)"),
+    ] = None,
+    domain_context_repo: Annotated[
+        Optional[str],
+        typer.Option("--domain-context-repo", help="Git URL of central domain context repo to add as submodule"),
+    ] = None,
 ) -> None:
     """
     Onboard a repository for AI code assist.
@@ -390,6 +398,8 @@ def onboard(
         {CLI_NAME} code onboard --path ./my-repo --kg --extract-entities
         {CLI_NAME} code onboard --path ./my-repo --kg --graphify
         {CLI_NAME} code onboard --path ./my-repo --kg --graphify --extract-entities
+        {CLI_NAME} code onboard --path ./my-repo --domain cwow-facility --kg
+        {CLI_NAME} code onboard --path ./my-repo --domain cwow-facility --domain-context-repo https://github.com/company/facility-domain-context.git
     """.format(CLI_NAME=CLI_NAME)
     if not repo and not path:
         console.print("[red]Provide --repo (URL) or --path (local directory)[/red]")
@@ -535,7 +545,93 @@ def onboard(
         has_docker=analysis.has_docker,
     )
 
-    # Step 9c: KG context pipeline (optional)
+    # Step 9c: Domain context pipeline (optional — runs before KG pipeline)
+    domain_result = None
+    if domain:
+        console.print()
+        console.print(f"[cyan]Attaching domain context for '{domain}'...[/cyan]")
+        try:
+            from agentic_cli.kg.domain_context import (
+                query_domain_kg,
+                build_domain_skill_md,
+                build_domain_metadata,
+            )
+            from agentic_cli.tracker import get_domain, get_domain_repos
+
+            # Look up domain registration
+            domain_data = get_domain(domain)
+            domain_repos = get_domain_repos(domain) if domain_data else []
+
+            # Query KG for domain business context
+            console.print("[dim]Querying Knowledge Graph for domain context...[/dim]")
+            kg_domain_ctx = query_domain_kg(domain)
+            has_kg = any(kg_domain_ctx.values())
+
+            if has_kg:
+                console.print(f"[green]\u2713 KG domain context retrieved ({sum(1 for v in kg_domain_ctx.values() if v)}/6 aspects)[/green]")
+            else:
+                console.print("[yellow]\u26a0 No domain context found in KG (LightRAG may not be running or domain not ingested)[/yellow]")
+
+            # Generate domain-context skill in .skills/domain-context/
+            skill_dir = project_path / ".skills" / "domain-context"
+            skill_dir.mkdir(parents=True, exist_ok=True)
+            skill_content = build_domain_skill_md(
+                domain, domain_data, kg_domain_ctx,
+                repo_type=project_path.name.rsplit("-", 1)[-1] if "-" in project_path.name else "",
+            )
+            (skill_dir / "SKILL.md").write_text(skill_content)
+            installed_names.append("domain-context")
+            console.print(f"[green]\u2713 Domain context skill installed:[/green] .skills/domain-context/SKILL.md")
+
+            # Write .domain-context.json metadata
+            meta = build_domain_metadata(
+                domain, domain_data, domain_repos, domain_context_repo,
+            )
+            meta_path = project_path / ".domain-context.json"
+            meta_path.write_text(json.dumps(meta, indent=2))
+            console.print(f"[green]\u2713 Domain metadata written:[/green] .domain-context.json")
+
+            # Add git submodule reference if --domain-context-repo provided
+            if domain_context_repo:
+                console.print(f"[dim]Adding domain context repo as git submodule...[/dim]")
+                try:
+                    submodule_path = project_path / ".domain-context"
+                    if not submodule_path.exists():
+                        subprocess.run(
+                            ["git", "submodule", "add", "--branch", "main",
+                             domain_context_repo, ".domain-context"],
+                            cwd=str(project_path),
+                            capture_output=True, check=True,
+                        )
+                        console.print(f"[green]\u2713 Git submodule added:[/green] .domain-context -> {domain_context_repo}")
+                    else:
+                        console.print(f"[yellow]\u26a0 .domain-context/ already exists, skipping submodule add[/yellow]")
+                except subprocess.CalledProcessError as e:
+                    stderr = e.stderr.decode() if e.stderr else str(e)
+                    console.print(f"[yellow]\u26a0 Git submodule add failed: {stderr}[/yellow]")
+                    console.print("[dim]You can add it manually later: git submodule add <url> .domain-context[/dim]")
+
+            # Mark repo as onboarded in domain tracker
+            if domain_data:
+                try:
+                    from agentic_cli.tracker import mark_domain_repo_onboarded
+                    mark_domain_repo_onboarded(domain, project_path.name)
+                except Exception:
+                    pass  # non-critical
+
+            domain_result = {
+                "domain": domain,
+                "kg_aspects_found": sum(1 for v in kg_domain_ctx.values() if v),
+                "domain_context_repo": domain_context_repo,
+                "skill_installed": True,
+                "metadata_written": True,
+            }
+
+        except Exception as e:
+            console.print(f"[yellow]\u26a0 Domain context attachment failed: {e}[/yellow]")
+            console.print("[dim]Onboarding will continue without domain context.[/dim]")
+
+    # Step 9d: KG context pipeline (optional)
     kg_result = None
     if kg:
         console.print()
@@ -591,7 +687,7 @@ def onboard(
             console.print(f"[yellow]\u26a0 KG context preparation failed: {e}[/yellow]")
             console.print("[dim]Onboarding completed without KG integration.[/dim]")
 
-    # Step 9d: Record activity
+    # Step 9e: Record activity
     record_activity(
         command="code",
         subcommand="onboard",
@@ -606,6 +702,9 @@ def onboard(
             "kg_ingested": bool(kg_result and kg_result.get("ingested")),
             "graphify": graphify,
             "graphify_completed": bool(kg_result and kg_result.get("graphify_analysis")),
+            "domain": domain,
+            "domain_context_attached": bool(domain_result),
+            "domain_context_repo": domain_context_repo,
         },
         repo_path=str(project_path),
     )
@@ -624,7 +723,10 @@ def onboard(
         f"[bold]Skills Installed:[/bold] {len(installed_names)}"
         + (f"\n[bold]KG Context:[/bold] Prepared" if kg_result and kg_result.get("context_path") else "")
         + (f"\n[bold]KG Ingested:[/bold] LightRAG" if kg_result and kg_result.get("ingested") else "")
-        + (f"\n[bold]Graphify Analysis:[/bold] Completed" if kg_result and kg_result.get("graphify_analysis") and kg_result["graphify_analysis"].get("status") == "completed" else ""),
+        + (f"\n[bold]Graphify Analysis:[/bold] Completed" if kg_result and kg_result.get("graphify_analysis") and kg_result["graphify_analysis"].get("status") == "completed" else "")
+        + (f"\n[bold]Domain:[/bold] {domain}" if domain_result else "")
+        + (f"\n[bold]Domain KG Context:[/bold] {domain_result['kg_aspects_found']}/6 aspects" if domain_result else "")
+        + (f"\n[bold]Domain Context Repo:[/bold] Submodule linked" if domain_result and domain_context_repo else ""),
         border_style="green",
     ))
 
@@ -670,6 +772,8 @@ def onboard(
         console.print(f"[dim]Prepare KG context: {CLI_NAME} code onboard --path " + str(project_path) + " --kg[/dim]")
     elif kg and not graphify:
         console.print(f"[dim]Enhance with Graphify: {CLI_NAME} code onboard --path " + str(project_path) + " --kg --graphify[/dim]")
+    if not domain:
+        console.print(f"[dim]Attach domain context: {CLI_NAME} code onboard --path " + str(project_path) + " --domain <slug> --kg[/dim]")
 
 
 @code_app.command("list")
