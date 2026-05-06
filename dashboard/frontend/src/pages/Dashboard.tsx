@@ -30,16 +30,17 @@ export function Dashboard() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-gray-500 mt-1">DVA Agentic Platform overview</p>
+        <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Dashboard</h1>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Agentic Platform overview and quick access</p>
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {/* Agents */}
         <Link
           to="/agents"
-          className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors group"
+          className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-700 transition-all group"
+          aria-label="View agents"
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -62,7 +63,8 @@ export function Dashboard() {
         {/* MCP Servers */}
         <Link
           to="/mcp"
-          className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors group"
+          className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-700 transition-all group"
+          aria-label="View MCP servers"
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -85,7 +87,8 @@ export function Dashboard() {
         {/* Projects */}
         <Link
           to="/projects"
-          className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors group"
+          className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-700 transition-all group"
+          aria-label="View agent projects"
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -108,7 +111,8 @@ export function Dashboard() {
         {/* Activity */}
         <Link
           to="/activity"
-          className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors group"
+          className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-700 transition-all group"
+          aria-label="View activity"
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -135,33 +139,34 @@ export function Dashboard() {
       </div>
 
       {/* Recent Activity */}
-      <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-        <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Recent Activity</h2>
-          <Link to="/activity" className="text-xs text-indigo-600 hover:underline">
-            View all
+      <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+        <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white">Recent Activity</h2>
+          <Link to="/activity" className="text-sm font-medium text-indigo-600 hover:text-indigo-700 dark:hover:text-indigo-400 transition-colors">
+            View all →
           </Link>
         </div>
         <div className="divide-y divide-gray-100 dark:divide-gray-800">
           {d.activity.recent.length === 0 && (
-            <div className="px-5 py-8 text-center text-sm text-gray-400">
-              No activity recorded yet. Use <code className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-xs">dva</code> CLI to generate activity.
+            <div className="px-6 py-12 text-center">
+              <p className="text-sm text-gray-500 dark:text-gray-400">No activity recorded yet.</p>
+              <p className="text-xs text-gray-400 mt-2">Use <code className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-xs font-mono">agent</code> CLI to generate activity.</p>
             </div>
           )}
           {d.activity.recent.map((entry) => (
-            <div key={entry.id} className="px-5 py-3 flex items-center justify-between">
-              <div className="flex items-center gap-3">
+            <div key={entry.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+              <div className="flex items-center gap-3 flex-1">
                 <StatusBadge status={entry.status} />
                 <div>
-                  <span className="text-sm font-medium">
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">
                     {entry.command}
-                    {entry.subcommand && <span className="text-gray-400"> / {entry.subcommand}</span>}
+                    {entry.subcommand && <span className="text-gray-500 dark:text-gray-400"> / {entry.subcommand}</span>}
                   </span>
                 </div>
               </div>
-              <div className="text-xs text-gray-400">
+              <div className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap ml-4">
                 {entry.duration_ms && <span>{entry.duration_ms}ms</span>}
-                {" · "}
+                {entry.duration_ms && " · "}
                 {new Date(entry.timestamp).toLocaleTimeString()}
               </div>
             </div>
