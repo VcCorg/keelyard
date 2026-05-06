@@ -1,6 +1,6 @@
-# Agentic Dashboard
+# Agent Playground
 
-Web dashboard for the Agentic Platform — manage agents, MCP servers, and interact via chat.
+Web dashboard for the Agentic Platform — manage agents, deploy applications, and interact via chat.
 
 ## Architecture
 

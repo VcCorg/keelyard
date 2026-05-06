@@ -8,6 +8,7 @@ import {
   FolderKanban,
   TerminalSquare,
   Package,
+  Rocket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +17,7 @@ const navItems = [
   { to: "/agents", icon: Bot, label: "Agents" },
   { to: "/projects", icon: FolderKanban, label: "Agent Projects" },
   { to: "/skills", icon: Package, label: "Skills" },
+  { to: "/deployments", icon: Rocket, label: "Deployments" },
   { to: "/mcp", icon: Server, label: "MCP Servers" },
   { to: "/activity", icon: Activity, label: "Activity" },
   { to: "/chat", icon: MessageSquare, label: "Chat" },
@@ -29,8 +31,7 @@ export function Layout() {
       <aside className="w-60 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-col">
         <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800">
           <h1 className="text-lg font-bold tracking-tight">
-            <span className="text-indigo-600 dark:text-indigo-400">DVA</span>{" "}
-            Dashboard
+            Agent Playground
           </h1>
           <p className="text-xs text-gray-500 mt-0.5">Agentic Platform</p>
         </div>
