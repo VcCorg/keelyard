@@ -254,6 +254,69 @@ agentic-cli/src/agentic_cli/analysis/
 - ✅ Skills are well-documented
 - ✅ Skills are immediately usable
 
+### **PHASE 1: Domain-Driven Business Context Integration** (Weeks 1-2)
+
+**Objective**: Leverage domain registration to extract and internalize business context
+
+**See detailed design**: `docs/plans/TRACK_A_DOMAIN_CONTEXT_INTEGRATION.md`
+
+#### 1.1 Extend Domain Registration Command
+- [ ] Add CLI options to `domain create`
+  - `--ingest-business-context` - Auto-extract from Confluence
+  - `--context-pages` - Specify pages to extract
+  - `--auto-categorize` - Auto-categorize rules
+- [ ] Create `DomainBusinessContextManager`
+  - Orchestrate extraction and storage
+  - Handle Confluence integration
+  - Manage Memory MCP storage
+
+#### 1.2 Confluence PDF Extraction
+- [ ] Extend Confluence MCP
+  - `list_page_attachments()` - List PDFs on page
+  - `download_attachment()` - Download PDF
+  - `extract_pdf_text()` - Extract text from PDF
+  - `list_space_pages()` - List all pages in space
+- [ ] Add MCP tools for PDF operations
+- [ ] Handle corrupted PDFs gracefully
+
+#### 1.3 Business Rule Extraction & Categorization
+- [ ] Create `RuleExtractor` class
+  - LLM-based rule extraction
+  - Auto-categorization (SLA, Integration, Security, Performance)
+  - Regex fallback for pattern matching
+- [ ] Implement confidence scoring
+- [ ] Handle multi-page documents
+
+#### 1.4 Memory MCP Storage
+- [ ] Store extracted rules as entities
+  - SLA entities
+  - IntegrationSpec entities
+  - SecurityPolicy entities
+  - PerformanceRequirement entities
+- [ ] Create relationships between entities
+- [ ] Enable semantic search
+
+#### 1.5 Code Onboarding Integration
+- [ ] Query business context during analysis
+- [ ] Include in understanding documents
+- [ ] Reference in generated skills
+- [ ] Add to skill metadata
+
+**Deliverables**:
+- Enhanced domain registration with business context extraction
+- Confluence PDF extraction capability
+- Business rule extraction and categorization
+- Memory MCP storage for business rules
+- Integration with code onboarding
+
+**Success Criteria**:
+- ✅ Domain registration with `--ingest-business-context` working
+- ✅ PDF extraction reliable and accurate
+- ✅ Rules extracted and categorized correctly
+- ✅ Rules stored and queryable in Memory MCP
+- ✅ Code onboarding includes business context
+- ✅ Skills reference business rules
+
 #### Phase B4: Methodology Matching (1-2 days)
 **Goal**: Recommend and apply best-fit methodology
 
