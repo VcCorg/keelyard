@@ -512,3 +512,93 @@ class TestDomainCLI:
 
         result = runner.invoke(domain_app, ["show", "cwow-facility"])
         assert "Facility management" in result.output
+
+
+# ---------------------------------------------------------------------------
+# domain init-context CLI Tests
+# ---------------------------------------------------------------------------
+
+class TestInitContextCLI:
+    def _setup_domain(self):
+        _create_product("CWOW")
+        runner.invoke(domain_app, [
+            "create", "Facility", "--product", "CWOW",
+            "--jira", "CWOW", "--bb", "CGF",
+            "--description", "Facility management",
+        ])
+        runner.invoke(domain_app, ["link-repo", "cwow-facility", "facility-query"])
+
+    def test_init_context_creates_structure(self, tmp_path):
+        self._setup_domain()
+        out_dir = tmp_path / "ctx-repo"
+
+        with patch(
+            "agentic_cli.kg.domain_context.query_domain_kg",
+            return_value={
+                "business_context": "Facility domain context",
+                "slas": "99.9% uptime",
+                "integrations": "",
+                "security": "",
+                "performance": "",
+                "architecture": "",
+            },
+        ):
+            result = runner.invoke(domain_app, [
+                "init-context", "cwow-facility",
+                "--output", str(out_dir),
+                "--no-git-init",
+            ])
+
+        assert result.exit_code == 0
+        assert (out_dir / ".domain" / "kg-context.md").exists()
+        assert (out_dir / ".domain" / "domain-metadata.json").exists()
+        assert (out_dir / "README.md").exists()
+        assert "cwow-facility" in result.output
+
+    def test_init_context_domain_not_found(self, tmp_path):
+        result = runner.invoke(domain_app, [
+            "init-context", "nonexistent",
+            "--output", str(tmp_path / "out"),
+            "--no-git-init",
+        ])
+        assert result.exit_code == 1
+        assert "not found" in result.output
+
+    def test_init_context_kg_failure_fallback(self, tmp_path):
+        self._setup_domain()
+        out_dir = tmp_path / "ctx-repo"
+
+        with patch(
+            "agentic_cli.kg.domain_context.query_domain_kg",
+            side_effect=ConnectionError("LightRAG not running"),
+        ):
+            result = runner.invoke(domain_app, [
+                "init-context", "cwow-facility",
+                "--output", str(out_dir),
+                "--no-git-init",
+            ])
+
+        assert result.exit_code == 0
+        assert (out_dir / "README.md").exists()
+        content = (out_dir / ".domain" / "kg-context.md").read_text()
+        assert "No business context found" in content
+
+    def test_init_context_includes_repos_in_readme(self, tmp_path):
+        self._setup_domain()
+        out_dir = tmp_path / "ctx-repo"
+
+        with patch(
+            "agentic_cli.kg.domain_context.query_domain_kg",
+            return_value={k: "" for k in [
+                "business_context", "slas", "integrations",
+                "security", "performance", "architecture",
+            ]},
+        ):
+            runner.invoke(domain_app, [
+                "init-context", "cwow-facility",
+                "--output", str(out_dir),
+                "--no-git-init",
+            ])
+
+        readme = (out_dir / "README.md").read_text()
+        assert "facility-query" in readme
