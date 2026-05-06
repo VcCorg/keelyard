@@ -14,7 +14,28 @@ using a central domain-context repository referenced via git submodules.
 - Repos linked: `dva domain link-repo <slug> <repo-slug>`
 - (Optional) Knowledge Graph populated via `dva kg ingest`
 
-## Step 1: Create the central domain context repository
+## Step 1: Ingest Confluence docs into the Knowledge Graph
+
+```bash
+# Ingest tracked domain docs + specific release pages into LightRAG
+dva kg ingest submit --domain <domain-slug>
+
+# Or with explicit Confluence page URLs (crawls child pages):
+dva kg ingest submit --domain <domain-slug> \
+  --path https://confluence.example.com/spaces/CWOV/pages/847844475/Release+29
+
+# Control child-page crawl depth:
+dva kg ingest submit --domain <domain-slug> --path <page-url> --depth 4
+```
+
+This will:
+- Fetch tracked domain docs from Confluence (via `domain add-docs`)
+- Crawl child pages recursively (e.g. Release 29 sub-pages)
+- Convert Confluence HTML to clean markdown
+- Ingest into LightRAG (workspace defaults to domain slug)
+- Tag all documents with domain/product metadata
+
+## Step 2: Create the central domain context repository
 
 ```bash
 dva domain init-context <domain-slug> \
@@ -33,7 +54,7 @@ cd <domain-slug>-domain-context
 git push -u origin main
 ```
 
-## Step 2: Onboard each repo with domain context
+## Step 3: Onboard each repo with domain context
 
 For each repository in the domain:
 
@@ -52,7 +73,7 @@ This will:
 - Add the domain-context repo as a git submodule at `.domain-context/`
 - Prepare and ingest project context into the Knowledge Graph
 
-## Step 3: Verify the setup
+## Step 4: Verify the setup
 
 After onboarding, each repo should have:
 
@@ -74,7 +95,7 @@ After onboarding, each repo should have:
 └── .gitmodules               ← submodule configuration
 ```
 
-## Step 4: Use domain context in development
+## Step 5: Use domain context in development
 
 ### Via MCP tools (runtime)
 
@@ -93,7 +114,7 @@ search_business_context(query="<task>")        # Semantic search
 The `.skills/domain-context/SKILL.md` contains embedded KG context
 that works even without MCP connectivity.
 
-## Step 5: Update domain context
+## Step 6: Update domain context
 
 When domain knowledge changes:
 
