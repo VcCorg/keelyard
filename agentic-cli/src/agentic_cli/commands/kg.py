@@ -793,8 +793,44 @@ def ingest_submit(
                 timeout = 600.0 if resolved_format == "git" else config.lightrag_timeout
                 client = LightRAGClient(base_url=config.lightrag_url, timeout=timeout)
                 
+                # Handle Confluence page/space ingestion
+                if resolved_format == "confluence":
+                    from agentic_cli.kg.parsers import parse_confluence_tree, parse_confluence
+
+                    # Use tree parser for page URLs (crawls children), flat for spaces
+                    if "/pages/" in resolved_source:
+                        documents = parse_confluence_tree(resolved_source, include_children=True, max_depth=3)
+                    else:
+                        documents = parse_confluence(resolved_source)
+
+                    total_docs = len(documents)
+                    total_chars = 0
+
+                    console.print(f"[dim]Inserting {total_docs} Confluence documents...[/dim]")
+
+                    for i, doc in enumerate(documents, 1):
+                        doc_metadata = doc.get("metadata", {})
+                        doc_metadata["persona"] = "business_analyst"
+
+                        try:
+                            result = client.insert(
+                                text=doc["content"],
+                                metadata=doc_metadata,
+                            )
+                            total_chars += result.get("characters", 0)
+
+                            if i % 10 == 0 or i == total_docs:
+                                console.print(f"  [dim]Progress: {i}/{total_docs} ({i*100//total_docs}%)[/dim]")
+                        except Exception as e:
+                            console.print(f"  [yellow]⚠ Skipped: {doc_metadata.get('title', '?')}: {str(e)[:50]}[/yellow]")
+                            continue
+
+                    console.print(f"[bold green]✓[/bold green] Successfully ingested Confluence content")
+                    console.print(f"  Documents: [cyan]{total_docs}[/cyan]")
+                    console.print(f"  Total characters: [cyan]{total_chars}[/cyan]")
+
                 # Handle Git repository ingestion
-                if resolved_format == "git":
+                elif resolved_format == "git":
                     from agentic_cli.kg.parsers import parse_git_repository
                     
                     # Parse Git repository
