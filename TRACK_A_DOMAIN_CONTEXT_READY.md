@@ -46,21 +46,33 @@ Instead of building a standalone business context system, we **reuse the domain 
 
 ---
 
-## The 5 Implementation Phases
+## The 7 Implementation Phases (Enhanced with Release Awareness)
 
 ### Phase 1: Domain Registration Enhancement (2-3 days)
-**What**: Add CLI options to `domain create` command
+**What**: Add CLI options to `domain create` command with release-aware support
 ```bash
+# Basic: Extract from specific pages
 dva domain create Facility --product CWOW \
-  --jira CWOW --bb CGF --confluence MTT \
+  --jira CWOW --bb CGF --confluence CWOV \
   --ingest-business-context \
   --context-pages "Business Rules,SLA,Integration Specs"
+
+# Release-Aware: Scan all releases, pick latest versions
+dva domain create Facility --product CWOW \
+  --jira CWOW --bb CGF --confluence CWOV \
+  --ingest-business-context \
+  --release-aware \
+  --domain-keywords "Facility,Facility Domain,Facility Service" \
+  --version-strategy "latest"
 ```
 
-**Creates**: `DomainBusinessContextManager` class
+**Creates**: 
+- `DomainBusinessContextManager` class
+- `ReleaseDocumentCollector` class
 
 **Files**:
 - `agentic-cli/src/agentic_cli/domain_context/business_context_manager.py` (NEW)
+- `agentic-cli/src/agentic_cli/domain_context/release_document_collector.py` (NEW)
 - `agentic-cli/src/agentic_cli/commands/domain.py` (MODIFY)
 
 ---
@@ -325,12 +337,16 @@ Code Onboarding
 
 | Phase | Duration | Key Deliverable |
 |-------|----------|-----------------|
-| 1 | 2-3 days | Domain registration enhancement |
-| 2 | 2-3 days | Confluence PDF extraction |
-| 3 | 2-3 days | Rule extraction & categorization |
-| 4 | 1-2 days | Memory MCP storage |
-| 5 | 1-2 days | Code onboarding integration |
-| **Total** | **8-13 days** | **Full domain-driven business context** |
+| 1 | 2-3 days | Domain registration enhancement + release awareness |
+| 2 | 2-3 days | Release discovery & document identification |
+| 3 | 2-3 days | Version deduplication & content extraction |
+| 4 | 2-3 days | Rule extraction & categorization |
+| 5 | 1-2 days | Memory MCP storage |
+| 6 | 1-2 days | Code onboarding integration |
+| 7 | 1-2 days | Query interface & reporting |
+| **Total** | **12-18 days** | **Full release-aware business context** |
+
+**Note**: Enhanced design includes release-aware document collection with version management. See `docs/plans/TRACK_A_VERSIONED_RELEASE_DOCUMENTS.md` for detailed strategy.
 
 ---
 
@@ -339,10 +355,14 @@ Code Onboarding
 ```
 agentic-cli/src/agentic_cli/domain_context/
 ├── __init__.py
-├── business_context_manager.py    # Orchestrate extraction and storage
-├── rule_extractor.py              # Extract and categorize rules
+├── business_context_manager.py      # Orchestrate extraction and storage
+├── release_document_collector.py    # Release-aware document collection
+├── document_deduplicator.py         # Version deduplication logic
+├── version_comparator.py            # Version comparison utilities
+├── rule_extractor.py                # Extract and categorize rules
 └── tests/
     └── test_domain_context.py
+    └── test_release_documents.py
 ```
 
 ---
