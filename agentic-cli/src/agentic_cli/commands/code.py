@@ -382,6 +382,10 @@ def onboard(
         Optional[str],
         typer.Option("--domain-context-repo", help="Git URL of central domain context repo to add as submodule"),
     ] = None,
+    use_domain_skills: Annotated[
+        bool,
+        typer.Option("--use-domain-skills/--no-domain-skills", help="Install domain-validated skills from domain-context repo (requires --domain)"),
+    ] = False,
 ) -> None:
     """
     Onboard a repository for AI code assist.
@@ -400,6 +404,7 @@ def onboard(
         {CLI_NAME} code onboard --path ./my-repo --kg --graphify --extract-entities
         {CLI_NAME} code onboard --path ./my-repo --domain cwow-facility --kg
         {CLI_NAME} code onboard --path ./my-repo --domain cwow-facility --domain-context-repo https://github.com/company/facility-domain-context.git
+        {CLI_NAME} code onboard --path ./my-repo --domain cwow-facility --use-domain-skills
     """.format(CLI_NAME=CLI_NAME)
     if not repo and not path:
         console.print("[red]Provide --repo (URL) or --path (local directory)[/red]")
@@ -408,6 +413,10 @@ def onboard(
     # Validate graphify option
     if graphify and not kg:
         console.print("[red]--graphify requires --kg[/red]")
+        raise typer.Exit(1)
+
+    if use_domain_skills and not domain:
+        console.print("[red]--use-domain-skills requires --domain[/red]")
         raise typer.Exit(1)
 
     # Step 1: Clone if repo URL provided
@@ -468,6 +477,56 @@ def onboard(
     for match in matches:
         if _install_skill_from_registry(match.name, registry_path, project_path):
             installed_names.append(match.name)
+
+    # Step 7b: Install domain-validated skills (optional)
+    domain_skills_installed = []
+    if use_domain_skills and domain:
+        console.print(f"[cyan]Loading domain-validated skills for '{domain}'...[/cyan]")
+        try:
+            from agentic_cli.kg.domain_skills import load_domain_skills, install_domain_skill
+            from agentic_cli.commands.domain import _resolve_domain_context_dir
+
+            ctx_dir = None
+            # Try domain-context-repo submodule first
+            sub_path = project_path / ".domain-context"
+            if sub_path.exists() and (sub_path / ".domain").exists():
+                ctx_dir = sub_path
+            else:
+                try:
+                    ctx_dir = _resolve_domain_context_dir(domain)
+                except (SystemExit, Exception):
+                    ctx_dir = None
+
+            if ctx_dir:
+                domain_skill_map = load_domain_skills(ctx_dir)
+                # Priority: validated first, then customized, then injected
+                priority_order = []
+                for sname, sinfo in domain_skill_map.items():
+                    if sinfo.get("validated"):
+                        priority_order.insert(0, (sname, sinfo))  # front
+                    elif sinfo.get("customized"):
+                        priority_order.append((sname, sinfo))  # middle
+                    else:
+                        priority_order.append((sname, sinfo))  # end
+
+                for sname, sinfo in priority_order:
+                    if sname not in installed_names:
+                        if install_domain_skill(sname, sinfo["path"], project_path):
+                            installed_names.append(sname)
+                            domain_skills_installed.append(sname)
+                            status_tag = "validated" if sinfo.get("validated") else "injected"
+                            console.print(f"  [green]✓[/green] {sname} [dim]({status_tag})[/dim]")
+
+                if domain_skills_installed:
+                    console.print(f"[green]✓ {len(domain_skills_installed)} domain skills installed[/green]")
+                else:
+                    console.print("[dim]No additional domain skills to install[/dim]")
+            else:
+                console.print("[yellow]⚠ Domain context repo not found — skipping domain skills[/yellow]")
+                console.print(f"[dim]Use --domain-context-repo or run: dva domain init-context {domain}[/dim]")
+
+        except Exception as e:
+            console.print(f"[yellow]⚠ Domain skills loading failed: {e}[/yellow]")
 
     # Step 8: Get suggestions
     suggestions = get_suggested_skills(analysis, registry_data, installed_names, mcp_servers)
