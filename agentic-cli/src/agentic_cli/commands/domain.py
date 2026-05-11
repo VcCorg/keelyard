@@ -1099,6 +1099,8 @@ def init_context(
     git_init: Annotated[bool, typer.Option("--git-init/--no-git-init", help="Initialize as a git repo")] = True,
     git_remote: Annotated[str, typer.Option("--git-remote", help="Git remote URL to set as origin")] = None,
     lightrag_url: Annotated[str, typer.Option("--lightrag-url", help="LightRAG server URL")] = "http://localhost:8001",
+    bootstrap_skills: Annotated[bool, typer.Option("--bootstrap-skills/--no-bootstrap-skills", help="Inject superpowers skills as baseline")] = True,
+    superpowers_url: Annotated[str, typer.Option("--superpowers-url", help="Git URL for superpowers skills repo")] = "https://github.com/venkatchinta/superpowers.git",
 ) -> None:
     """
     Initialize a central domain context repository.
@@ -1107,10 +1109,14 @@ def init_context(
     from the Knowledge Graph, shared skills, and metadata. This repo is
     referenced by individual repos via git submodules.
 
+    By default, injects superpowers skills as a baseline. Use --no-bootstrap-skills
+    to skip skill injection.
+
     Examples:
         {CLI_NAME} domain init-context cwow-facility
         {CLI_NAME} domain init-context cwow-facility --output ./facility-domain-context
         {CLI_NAME} domain init-context cwow-facility --git-remote https://github.com/company/facility-domain-context.git
+        {CLI_NAME} domain init-context cwow-facility --no-bootstrap-skills
     """
     import subprocess
 
@@ -1176,6 +1182,33 @@ def init_context(
         console.print(f"[red]✗ Failed to scaffold domain context repo: {e}[/red]")
         raise typer.Exit(1)
 
+    # Inject superpowers skills
+    skills_result = None
+    if bootstrap_skills:
+        console.print("\n[cyan]Injecting superpowers skills as baseline...[/cyan]")
+        try:
+            from agentic_cli.kg.domain_skills import bootstrap_domain_skills
+
+            skills_result = bootstrap_domain_skills(
+                domain_context_dir=out_dir,
+                domain=domain_name,
+                superpowers_url=superpowers_url,
+                use_submodule=git_init,  # submodule needs git
+            )
+
+            for sname in skills_result["injected_skills"]:
+                console.print(f"  [green]✓[/green] {sname}")
+
+            console.print(
+                f"[green]✓ {skills_result['skill_count']} superpowers skills injected[/green]"
+            )
+            console.print(f"  Manifest: {skills_result['manifest_path'].relative_to(out_dir)}")
+            console.print(f"  Readme: {skills_result['manifest_md_path'].relative_to(out_dir)}")
+
+        except Exception as e:
+            console.print(f"[yellow]⚠ Skill injection failed: {e}[/yellow]")
+            console.print("[dim]Domain context repo created without superpowers skills.[/dim]")
+
     # Initialize git repo
     if git_init:
         try:
@@ -1202,6 +1235,7 @@ def init_context(
     # Summary
     domain_label = d.get("domain", domain_name)
     product = d.get("product", "")
+    skills_count = skills_result["skill_count"] if skills_result else 0
 
     console.print()
     console.print(Panel(
@@ -1209,6 +1243,7 @@ def init_context(
         f"[bold]Location:[/bold] {out_dir}\n"
         f"[bold]Files:[/bold] {len(created)}\n"
         f"[bold]KG Context:[/bold] {'Yes' if any((kg_context or {}).values()) else 'Placeholder'}\n"
+        f"[bold]Skills:[/bold] {skills_count} superpowers skills injected\n"
         f"[bold]Git Initialized:[/bold] {'Yes' if git_init else 'No'}"
         + (f"\n[bold]Remote:[/bold] {git_remote}" if git_remote else ""),
         title=f"Domain Context Repo — {domain_name}",
@@ -1232,5 +1267,244 @@ def init_context(
             "git_init": git_init,
             "git_remote": git_remote,
             "kg_aspects_found": sum(1 for v in (kg_context or {}).values() if v),
+            "skills_injected": skills_result["skill_count"] if skills_result else 0,
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# {CLI_NAME} domain validate-skills
+# ---------------------------------------------------------------------------
+
+@domain_app.command("validate-skills")
+def validate_skills(
+    domain_name: Annotated[str, typer.Argument(help="Domain name (slug, e.g. cwow-facility)")],
+    skill: Annotated[str, typer.Option("--skill", "-s", help="Skill name to validate")] = None,
+    feedback: Annotated[str, typer.Option("--feedback", "-f", help="Feedback: works, needs-tuning, broken")] = None,
+    task: Annotated[str, typer.Option("--task", "-t", help="Task description that skill was tested on")] = None,
+    notes: Annotated[str, typer.Option("--notes", "-n", help="Feedback notes")] = None,
+    list_skills: Annotated[bool, typer.Option("--list", "-l", help="List skill validation status")] = False,
+    report: Annotated[bool, typer.Option("--report", help="Generate validation report")] = False,
+    context_dir: Annotated[str, typer.Option("--context-dir", help="Domain context repo directory")] = None,
+) -> None:
+    """
+    Validate and track skill usage against real development tasks.
+
+    Record validation feedback for injected skills, list status, or generate
+    a report of which skills have been validated.
+
+    Examples:
+        {CLI_NAME} domain validate-skills cwow-facility --list
+        {CLI_NAME} domain validate-skills cwow-facility --skill requesting-code-review --feedback works --task "Review PR #123"
+        {CLI_NAME} domain validate-skills cwow-facility --report
+    """.format(CLI_NAME=CLI_NAME)
+    from agentic_cli.kg.domain_skills import (
+        load_skills_manifest,
+        update_skill_status,
+        log_skill_event,
+    )
+
+    # Resolve domain context dir
+    ctx_dir = _resolve_domain_context_dir(domain_name, context_dir)
+    if not ctx_dir:
+        return
+
+    manifest = load_skills_manifest(ctx_dir)
+    if not manifest or not manifest.get("skills"):
+        console.print(f"[red]✗ No skills manifest found in {ctx_dir}[/red]")
+        console.print(f"[dim]Run: {CLI_NAME} domain init-context {domain_name}[/dim]")
+        raise typer.Exit(1)
+
+    # List mode
+    if list_skills:
+        table = Table(title=f"Skills Status — {domain_name}")
+        table.add_column("Skill", style="cyan")
+        table.add_column("Source", style="dim")
+        table.add_column("Status", style="yellow")
+        table.add_column("Validated", style="green")
+        table.add_column("Notes", style="dim")
+
+        for sname, sinfo in sorted(manifest["skills"].items()):
+            validated = "✓" if sinfo.get("validated") else "—"
+            table.add_row(
+                sname,
+                sinfo.get("source", "—"),
+                sinfo.get("status", "—"),
+                validated,
+                (sinfo.get("notes") or "")[:40],
+            )
+        console.print(table)
+        return
+
+    # Report mode
+    if report:
+        skills_data = manifest.get("skills", {})
+        total = len(skills_data)
+        validated = sum(1 for s in skills_data.values() if s.get("validated"))
+        forked = sum(1 for s in skills_data.values() if s.get("customized"))
+        broken = sum(1 for s in skills_data.values() if s.get("status") == "broken")
+
+        console.print(Panel(
+            f"[bold]Domain:[/bold] {domain_name}\n"
+            f"[bold]Total Skills:[/bold] {total}\n"
+            f"[bold]Validated:[/bold] {validated}/{total}\n"
+            f"[bold]Forked:[/bold] {forked}\n"
+            f"[bold]Broken:[/bold] {broken}\n"
+            f"[bold]Pending:[/bold] {total - validated}",
+            title="Skill Validation Report",
+            border_style="cyan",
+        ))
+        return
+
+    # Validate a specific skill
+    if not skill:
+        console.print("[red]Provide --skill or use --list / --report[/red]")
+        raise typer.Exit(1)
+
+    if skill not in manifest.get("skills", {}):
+        console.print(f"[red]✗ Skill '{skill}' not found in manifest[/red]")
+        console.print(f"[dim]Use --list to see available skills[/dim]")
+        raise typer.Exit(1)
+
+    if not feedback:
+        console.print("[red]Provide --feedback (works, needs-tuning, broken)[/red]")
+        raise typer.Exit(1)
+
+    if feedback not in ("works", "needs-tuning", "broken"):
+        console.print(f"[red]Invalid feedback: {feedback} (use: works, needs-tuning, broken)[/red]")
+        raise typer.Exit(1)
+
+    # Record validation
+    is_validated = feedback == "works"
+    status = "validated" if is_validated else feedback
+    combined_notes = ""
+    if task:
+        combined_notes += f"Task: {task}. "
+    if notes:
+        combined_notes += notes
+
+    update_skill_status(ctx_dir, skill, status, validated=is_validated, notes=combined_notes)
+    log_skill_event(ctx_dir, skill, "validated", {
+        "feedback": feedback,
+        "task": task or "",
+        "notes": notes or "",
+    })
+
+    emoji = "✓" if is_validated else "⚠" if feedback == "needs-tuning" else "✗"
+    color = "green" if is_validated else "yellow" if feedback == "needs-tuning" else "red"
+    console.print(f"[{color}]{emoji} Skill '{skill}' marked as: {status}[/{color}]")
+    if combined_notes:
+        console.print(f"[dim]Notes: {combined_notes}[/dim]")
+
+
+# ---------------------------------------------------------------------------
+# {CLI_NAME} domain fork-skill
+# ---------------------------------------------------------------------------
+
+@domain_app.command("fork-skill")
+def fork_skill_cmd(
+    domain_name: Annotated[str, typer.Argument(help="Domain name (slug, e.g. cwow-facility)")],
+    skill: Annotated[str, typer.Option("--skill", "-s", help="Skill name to fork")] = ...,
+    reason: Annotated[str, typer.Option("--reason", "-r", help="Reason for forking")] = "",
+    context_dir: Annotated[str, typer.Option("--context-dir", help="Domain context repo directory")] = None,
+) -> None:
+    """
+    Fork a superpowers skill for domain-specific customization.
+
+    Copies the skill to a domain-specific directory, updates the manifest,
+    and creates a CUSTOMIZATION_NOTES.md for tracking changes.
+
+    Examples:
+        {CLI_NAME} domain fork-skill cwow-facility --skill requesting-code-review --reason "Add domain review rules"
+    """.format(CLI_NAME=CLI_NAME)
+    from agentic_cli.kg.domain_skills import fork_skill
+
+    ctx_dir = _resolve_domain_context_dir(domain_name, context_dir)
+    if not ctx_dir:
+        return
+
+    result = fork_skill(ctx_dir, skill, domain_name, reason)
+    if result:
+        console.print(f"[green]✓ Skill forked:[/green] {result.relative_to(ctx_dir)}")
+        console.print(f"[dim]Customize files in {result}[/dim]")
+        console.print(f"[dim]Document changes in {result / 'CUSTOMIZATION_NOTES.md'}[/dim]")
+    else:
+        console.print(f"[red]✗ Failed to fork skill '{skill}'[/red]")
+        console.print(f"[dim]Check that the skill exists in the domain context repo[/dim]")
+        raise typer.Exit(1)
+
+
+# ---------------------------------------------------------------------------
+# {CLI_NAME} domain list-skills
+# ---------------------------------------------------------------------------
+
+@domain_app.command("list-skills")
+def list_skills(
+    domain_name: Annotated[str, typer.Argument(help="Domain name (slug, e.g. cwow-facility)")],
+    context_dir: Annotated[str, typer.Option("--context-dir", help="Domain context repo directory")] = None,
+) -> None:
+    """
+    List all skills available for a domain (from manifest).
+
+    Examples:
+        {CLI_NAME} domain list-skills cwow-facility
+    """.format(CLI_NAME=CLI_NAME)
+    from agentic_cli.kg.domain_skills import load_skills_manifest
+
+    ctx_dir = _resolve_domain_context_dir(domain_name, context_dir)
+    if not ctx_dir:
+        return
+
+    manifest = load_skills_manifest(ctx_dir)
+    if not manifest or not manifest.get("skills"):
+        console.print(f"[red]✗ No skills manifest found[/red]")
+        raise typer.Exit(1)
+
+    table = Table(title=f"Domain Skills — {domain_name}")
+    table.add_column("Skill", style="cyan")
+    table.add_column("Description")
+    table.add_column("Source", style="dim")
+    table.add_column("Status", style="yellow")
+    table.add_column("Validated", style="green")
+    table.add_column("Customized", style="magenta")
+
+    for sname, sinfo in sorted(manifest["skills"].items()):
+        table.add_row(
+            sname,
+            (sinfo.get("description", "") or "")[:50],
+            sinfo.get("source", "—"),
+            sinfo.get("status", "—"),
+            "✓" if sinfo.get("validated") else "—",
+            "✓" if sinfo.get("customized") else "—",
+        )
+
+    console.print(table)
+    console.print(f"\n[dim]Total: {len(manifest['skills'])} skills[/dim]")
+
+
+# ---------------------------------------------------------------------------
+# Helper: resolve domain context directory
+# ---------------------------------------------------------------------------
+
+def _resolve_domain_context_dir(domain_name: str, context_dir: str = None) -> Path | None:
+    """Find the domain context repo directory."""
+    if context_dir:
+        p = Path(context_dir).resolve()
+        if p.exists():
+            return p
+        console.print(f"[red]✗ Directory not found: {p}[/red]")
+        raise typer.Exit(1)
+
+    # Try standard naming convention in CWD parent
+    candidates = [
+        Path.cwd() / f"{domain_name}-domain-context",
+        Path.cwd().parent / f"{domain_name}-domain-context",
+        Path.cwd() / ".domain-context",
+    ]
+    for c in candidates:
+        if c.exists() and (c / ".domain").exists():
+            return c
+
+    console.print(f"[red]✗ Cannot find domain context repo for '{domain_name}'[/red]")
+    console.print(f"[dim]Use --context-dir to specify the path, or run from the workspace root[/dim]")
+    raise typer.Exit(1)
