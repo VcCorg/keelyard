@@ -8,6 +8,7 @@
 #   - confluence-mcp: Confluence Server wiki & docs tools (port 8129)
 #   - memory-mcp: Neo4j agent memory (3 memory types, 16 tools) (port 8130)
 #   - kg-mcp: Knowledge graph business context & requirements (port 8131)
+#   - agentic-mcp: Agentic Platform central tracker & domain tools (port 8132)
 #   - mcp-gateway: Unified gateway aggregating all tools (port 9090)
 #   - mcp-proxy: Alternative gateway using mcp-proxy named servers (port 9091)
 #
@@ -143,6 +144,31 @@ services:
     networks:
       - dva-network
 
+  agentic-mcp:
+    build: ./agentic
+    container_name: dva-agentic-mcp
+    ports:
+      - "8132:8132"
+    environment:
+      - MCP_TRANSPORT=sse
+      - MCP_PORT=8132
+      - MCP_HOST=0.0.0.0
+      - AGENTIC_TRACKER_DB=/data/tracker.db
+      - SKILLS_REGISTRY_PATH=/app/skills/registry.json
+      - SKILLS_DIR=/app/skills/skills
+    volumes:
+      - ${HOME}/.agent-cli-agentic:/data
+      - ../skills:/app/skills:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl --max-time 2 -s http://localhost:8132/sse > /dev/null 2>&1; test $$? -eq 28"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - dva-network
+
   mcp-gateway:
     build: ./gateway
     container_name: dva-mcp-gateway
@@ -157,6 +183,7 @@ services:
       - MCP_UPSTREAM_CONFLUENCE=http://confluence-mcp:8129/sse
       - MCP_UPSTREAM_MEMORY=http://memory-mcp:8130/sse
       - MCP_UPSTREAM_KG=http://kg-mcp:8131/sse
+      - MCP_UPSTREAM_AGENTIC=http://agentic-mcp:8132/sse
     depends_on:
       bitbucket-mcp:
         condition: service_healthy
@@ -169,6 +196,8 @@ services:
       memory-mcp:
         condition: service_healthy
       kg-mcp:
+        condition: service_healthy
+      agentic-mcp:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl --max-time 2 -s http://localhost:9090/sse > /dev/null 2>&1; test $$? -eq 28"]

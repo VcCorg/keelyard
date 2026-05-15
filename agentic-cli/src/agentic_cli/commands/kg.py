@@ -1931,3 +1931,133 @@ def visualize(
         except Exception as e:
             console.print(f"[bold red]✗[/bold red] Error: {str(e)}")
             raise typer.Exit(1)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# kg link
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@kg_app.command("link")
+def link(
+    domain: Annotated[str, typer.Option("--domain", help="Domain slug to link (e.g. cwow-facility)")],
+    dry_run: Annotated[bool, typer.Option("--dry-run/--no-dry-run", help="Preview candidates without writing edges")] = False,
+    threshold: Annotated[float, typer.Option("--threshold", help="Minimum confidence to write an edge (0.0-1.0)")] = 0.75,
+    batch_size: Annotated[int, typer.Option("--batch-size", help="Code entities per Vertex AI call")] = 50,
+    show_preview: Annotated[int, typer.Option("--show-preview", help="Number of dry-run candidates to print (0=all)")] = 20,
+):
+    """Link Code::* nodes to requirement Document nodes via LLM evaluation.
+
+    Reads both code entities (developer persona) and business docs (business_analyst
+    persona) from Neo4j for the given domain, then uses Vertex AI to evaluate which
+    code implements/references/tests each requirement. Writes typed relationship edges
+    back to Neo4j (idempotent — safe to re-run).
+
+    Run with --dry-run first to preview candidates before committing.
+
+    Example:
+        dva kg link --domain cwow-facility --dry-run
+        dva kg link --domain cwow-facility --threshold 0.8
+    """
+    from agentic_cli.kg.config import KGConfig
+    from agentic_cli.kg.linker import KGLinker
+
+    config = KGConfig.load()
+    if not config.is_neo4j_configured():
+        console.print(f"[bold red]✗[/bold red] Neo4j is not configured.")
+        console.print(f"  Run: {CLI_NAME} kg init --provider neo4j")
+        raise typer.Exit(1)
+
+    if not config.is_vertex_ai_configured():
+        console.print(f"[bold red]✗[/bold red] Vertex AI is not configured.")
+        console.print(f"  Run: {CLI_NAME} init vertex-ai")
+        raise typer.Exit(1)
+
+    mode_label = "[DRY RUN] " if dry_run else ""
+    console.print(f"\n[bold]{mode_label}KG Linker — domain: [cyan]{domain}[/cyan][/bold]")
+    console.print(f"  Confidence threshold: [cyan]{threshold}[/cyan]")
+    console.print(f"  Batch size:           [cyan]{batch_size}[/cyan]")
+    console.print()
+
+    linker = KGLinker(
+        domain=domain,
+        config=config,
+        confidence_threshold=threshold,
+        batch_size=batch_size,
+    )
+
+    with console.status(f"[bold green]{'Evaluating (dry run)' if dry_run else 'Linking'}..."):
+        try:
+            result = linker.run(dry_run=dry_run)
+        except Exception as e:
+            console.print(f"[bold red]✗[/bold red] Linker failed: {e}")
+            raise typer.Exit(1)
+
+    # ── Print summary ─────────────────────────────────────────────────────────
+    console.print(f"[bold green]✓[/bold green] Done\n")
+
+    table = Table(show_header=False, box=None, padding=(0, 2))
+    table.add_column("Key", style="dim")
+    table.add_column("Value", style="cyan")
+    table.add_row("Domain", result.domain)
+    table.add_row("Code entities", str(result.total_code_entities))
+    table.add_row("Requirement docs", str(result.total_docs))
+    table.add_row("Batches processed", str(result.batches_processed))
+    table.add_row("Candidates found", str(result.candidates_found))
+    table.add_row("Low confidence (skipped)", str(result.skipped_low_confidence))
+    if dry_run:
+        table.add_row("Edges written", "[yellow]DRY RUN — none written[/yellow]")
+    else:
+        table.add_row("Edges written", str(result.edges_written))
+    console.print(table)
+
+    # ── Errors ────────────────────────────────────────────────────────────────
+    if result.errors:
+        console.print()
+        for err in result.errors:
+            console.print(f"  [yellow]⚠[/yellow] {err}")
+
+    # ── Dry-run preview ───────────────────────────────────────────────────────
+    if dry_run and result.dry_run_preview:
+        limit = show_preview if show_preview > 0 else len(result.dry_run_preview)
+        console.print(f"\n[bold]Preview (top {min(limit, len(result.dry_run_preview))} candidates):[/bold]")
+        preview_table = Table(show_header=True, box=None, padding=(0, 1))
+        preview_table.add_column("Relationship", style="green", no_wrap=True)
+        preview_table.add_column("Conf", style="cyan", no_wrap=True)
+        preview_table.add_column("Code entity", no_wrap=True)
+        preview_table.add_column("Requirement doc")
+        preview_table.add_column("Evidence", overflow="fold")
+        for item in result.dry_run_preview[:limit]:
+            preview_table.add_row(
+                item["relationship"],
+                f"{item['confidence']:.2f}",
+                item["code_id"][:40],
+                item["doc_id"][:40],
+                item["evidence"][:80],
+            )
+        console.print(preview_table)
+        if len(result.dry_run_preview) > limit:
+            console.print(f"  [dim]... and {len(result.dry_run_preview) - limit} more[/dim]")
+
+    # ── Next steps ────────────────────────────────────────────────────────────
+    if dry_run and result.candidates_found > 0:
+        console.print(f"\n[dim]To write these edges:[/dim]")
+        console.print(f"  {CLI_NAME} kg link --domain {domain} --threshold {threshold}")
+    elif not dry_run and result.edges_written > 0:
+        console.print(f"\n[dim]Query the graph:[/dim]")
+        console.print(f"  {CLI_NAME} kg query \"what code implements HDF treatment requirements?\"")
+        console.print(f"  {CLI_NAME} kg link --domain {domain} --dry-run  # verify idempotency")
+
+    record_activity(
+        command="kg",
+        subcommand="link",
+        status="success" if not result.errors else "partial",
+        details={
+            "domain": domain,
+            "dry_run": dry_run,
+            "threshold": threshold,
+            "code_entities": result.total_code_entities,
+            "docs": result.total_docs,
+            "candidates": result.candidates_found,
+            "edges_written": result.edges_written,
+        },
+    )

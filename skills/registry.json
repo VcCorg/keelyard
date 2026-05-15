@@ -1006,6 +1006,83 @@
           "org.jooq:jooq"
         ]
       }
+    },
+    {
+      "name": "dva-onboard",
+      "description": "Onboard repositories with AI coding skills via DVA Central MCP — detect, resolve, install, register",
+      "tags": [
+        "dva",
+        "onboarding",
+        "mcp",
+        "meta-skill"
+      ],
+      "mcp": {
+        "server": "agentic",
+        "required_tools": [
+          "repo_register",
+          "registry_list",
+          "skill_available"
+        ],
+        "config_hint": "Requires Agentic Platform MCP server (e.g., http://localhost:8132/sse)"
+      }
+    },
+    {
+      "name": "dva-manage-domains",
+      "description": "Manage products, domains, repos, and Confluence docs via DVA Central MCP",
+      "tags": [
+        "dva",
+        "domain",
+        "product",
+        "mcp",
+        "meta-skill"
+      ],
+      "mcp": {
+        "server": "agentic",
+        "required_tools": [
+          "product_create",
+          "domain_create",
+          "domain_link_repo"
+        ],
+        "config_hint": "Requires Agentic Platform MCP server (e.g., http://localhost:8132/sse)"
+      }
+    },
+    {
+      "name": "dva-kg-context",
+      "description": "Search and query the Knowledge Graph for business context, domain rules, and requirements via DVA Central MCP",
+      "tags": [
+        "dva",
+        "knowledge-graph",
+        "context",
+        "mcp",
+        "meta-skill"
+      ],
+      "mcp": {
+        "server": "agentic",
+        "required_tools": [
+          "kg_search",
+          "kg_domain_context"
+        ],
+        "config_hint": "Requires Agentic Platform MCP server (e.g., http://localhost:8132/sse)"
+      }
+    },
+    {
+      "name": "dva-skill-management",
+      "description": "Manage AI coding skills across local registry, marketplace, and domain sources via DVA Central MCP",
+      "tags": [
+        "dva",
+        "skills",
+        "marketplace",
+        "mcp",
+        "meta-skill"
+      ],
+      "mcp": {
+        "server": "agentic",
+        "required_tools": [
+          "skill_available",
+          "registry_list"
+        ],
+        "config_hint": "Requires Agentic Platform MCP server (e.g., http://localhost:8132/sse)"
+      }
     }
   ]
 }

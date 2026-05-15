@@ -364,7 +364,7 @@ def onboard(
     ] = False,
     kg: Annotated[
         bool,
-        typer.Option("--kg/--no-kg", help="Prepare project context for Knowledge Graph and ingest into LightRAG"),
+        typer.Option("--kg/--no-kg", help="Generate kg-code-context.md and ingest into LightRAG → Neo4j (Code:: nodes)"),
     ] = False,
     extract_entities: Annotated[
         bool,

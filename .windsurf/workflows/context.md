@@ -31,16 +31,48 @@ When starting a new session or resuming work on the Agentic Platform:
    for d in agentic-cli skills mcp-servers kg-infrastructure; do echo "=== $d ===" && cd $d && git status --short && git log --oneline -1 && cd ..; done
    ```
 
+## Step 6: Agentic Platform MCP Context (if available)
+
+If the Agentic Platform MCP server (`agentic`) is configured, use it for aggregated context:
+
+```text
+activity_summary()  # Platform overview: repos, domains, products
+```
+
+This returns tech stack + domain metadata + KG business context + installed skills
+in one call. Use this instead of reading individual files when MCP is available.
+
+Additional MCP queries for deeper context:
+
+```text
+repo_list()                               # All onboarded repos
+domain_list()                             # All registered domains
+kg_search(query="<what you need>")        # Search business context
+activity_recent(limit=10)                 # Recent activity
+```
+
 ## Context Files by Tool
 
 | AI Tool | Reads | File |
 |---------|-------|------|
 | **Any** (agentskills.io) | `.skills/` directory | `.skills/dva-agentic-platform/SKILL.md` |
+| **Any** (MCP) | Agentic Platform MCP | `activity_summary()` |
 | **Windsurf** | MCP config | `.windsurf/mcp_config.json` |
 | **Windsurf** | Workflows | `.windsurf/workflows/*.md` |
 | **OpenCode** | Agent + MCP | `.opencode/agent/dva-platform.md` + `.opencode/mcp.json` |
 | **Claude Code** | CLAUDE.md | `CLAUDE.md` |
 | **Cursor** | .cursorrules | `.cursorrules` |
+
+## Agentic MCP Meta-Skills
+
+These skills teach AI assistants how to use Agentic Platform MCP tools:
+
+| Skill | What It Teaches |
+|-------|-----------------|
+| `dva-onboard` | Repository onboarding via MCP |
+| `dva-manage-domains` | Product and domain management via MCP |
+| `dva-kg-context` | Knowledge Graph search and context via MCP |
+| `dva-skill-management` | Skill resolution and lifecycle via MCP |
 
 ## Operations Guide
 
