@@ -7,8 +7,15 @@ description: Set up multi-repo domain context using git submodules and KG MCP
 This workflow sets up shared domain context across multiple repositories
 using a central domain-context repository referenced via git submodules.
 
+**Related skills**: `dva-manage-domains`, `dva-kg-context`
+
 ## Prerequisites
 
+**If Agentic Platform MCP is available** (preferred):
+- MCP server `agentic` configured in `.windsurf/mcp_config.json`
+- Use MCP tools: `domain_create`, `domain_link_repo`, `kg_ingest`
+
+**If using CLI fallback**:
 - DVA CLI (`dva`) installed and on PATH
 - Domain registered: `dva domain create <DOMAIN> --product <PRODUCT>`
 - Repos linked: `dva domain link-repo <slug> <repo-slug>`
@@ -97,17 +104,21 @@ After onboarding, each repo should have:
 
 ## Step 5: Use domain context in development
 
-### Via MCP tools (runtime)
+### Via Agentic Platform MCP tools (runtime)
 
-AI assistants can query domain context through the KG MCP server:
+AI assistants can query domain context through the Agentic Platform MCP server:
 
+```text
+kg_domain_context(domain="<slug>")                        # Full context
+kg_domain_context(domain="<slug>", aspect="slas")         # SLA requirements
+kg_domain_context(domain="<slug>", aspect="integrations") # Integration specs
+kg_domain_context(domain="<slug>", aspect="security")     # Security policies
+kg_search(query="<task>")                                 # Semantic search
+domain_get(slug="<slug>")                                 # Aggregated: metadata + repos + docs
 ```
-query_domain_context(domain="<slug>")          # Full context
-get_domain_slas(domain="<slug>")               # SLA requirements
-get_domain_integrations(domain="<slug>")       # Integration specs
-get_domain_security_policies(domain="<slug>")  # Security policies
-search_business_context(query="<task>")        # Semantic search
-```
+
+Legacy KG MCP tools (`query_domain_context`, `search_business_context`) still work
+if using the standalone KG MCP server (`:8131`).
 
 ### Via embedded skills (static)
 
