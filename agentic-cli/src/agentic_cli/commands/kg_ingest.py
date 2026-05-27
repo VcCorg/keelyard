@@ -46,7 +46,7 @@ def submit_async_ingestion(
     ] = None,
     provider: Annotated[
         str,
-        typer.Option(help="Target provider: neo4j, lightrag, or both"),
+        typer.Option(help="Target provider: neo4j, postgres, lightrag, or both"),
     ] = "lightrag",
     extract_entities: bool = typer.Option(
         True,

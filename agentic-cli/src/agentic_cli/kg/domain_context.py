@@ -44,18 +44,24 @@ def _query_lightrag(query: str, lightrag_url: str, limit: int = 10) -> Optional[
 def query_domain_kg(
     domain: str,
     aspects: Optional[list[str]] = None,
-    lightrag_url: str = "http://localhost:8001",
+    lightrag_url: Optional[str] = None,
 ) -> dict[str, Any]:
     """Query the KG for all domain context aspects.
 
     Args:
         domain: Domain slug (e.g. "cwow-facility").
         aspects: Which aspects to query. Default: all.
-        lightrag_url: LightRAG server URL.
+        lightrag_url: LightRAG server URL (deprecated, uses KGConfig instead).
 
     Returns:
         Dict keyed by aspect name with KG content for each.
     """
+    from agentic_cli.kg.config import KGConfig
+    
+    # Load KG config to determine provider
+    kg_config = KGConfig.load()
+    provider = kg_config.provider
+    
     all_aspects = {
         "business_context": f"business requirements, domain model, key entities for {domain}",
         "slas": f"SLA requirements, response time, availability, uptime for {domain}",
@@ -71,11 +77,49 @@ def query_domain_kg(
         selected = all_aspects
 
     results: dict[str, Any] = {}
-    for aspect, query_text in selected.items():
-        content = _query_lightrag(query_text, lightrag_url)
-        results[aspect] = content or ""
+    
+    if provider == "neo4j":
+        # Query Neo4j for domain context
+        for aspect, query_text in selected.items():
+            content = _query_neo4j(query_text, kg_config)
+            results[aspect] = content or ""
+    elif provider == "lightrag":
+        # Query LightRAG for domain context
+        lightrag_url = lightrag_url or kg_config.lightrag_url
+        for aspect, query_text in selected.items():
+            content = _query_lightrag(query_text, lightrag_url)
+            results[aspect] = content or ""
+    else:
+        logger.warning(f"Unsupported KG provider: {provider}")
+        for aspect in selected:
+            results[aspect] = ""
 
     return results
+
+
+def _query_neo4j(query: str, config) -> Optional[str]:
+    """Query Neo4j for semantic domain context. Returns text or None."""
+    try:
+        from agentic_cli.kg.neo4j_client import Neo4jClient
+        client = Neo4jClient(config=config)
+        try:
+            client.connect()
+            # Simple text search in Neo4j
+            cypher = """
+            MATCH (n:Document)
+            WHERE n.content CONTAINS $search_text
+            RETURN n.content AS content
+            LIMIT 5
+            """
+            records = client.execute_cypher(cypher, {"search_text": query})
+            if records:
+                return "\n\n".join([r.get("content", "") for r in records if r.get("content")])
+            return None
+        finally:
+            client.close()
+    except Exception as e:
+        logger.warning(f"Neo4j query failed: {e}")
+        return None
 
 
 # ---------------------------------------------------------------------------

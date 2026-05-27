@@ -82,7 +82,7 @@ class MCPProjectConfig(BaseModel):
 
 
 # Configuration paths
-CONFIG_DIR = Path.home() / ".dva-agentic"
+CONFIG_DIR = Path.home() / ".agent-cli-agentic"
 MCP_DIR = CONFIG_DIR / "mcp"
 REGISTRY_FILE = MCP_DIR / "registry.json"
 

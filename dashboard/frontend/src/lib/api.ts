@@ -96,6 +96,79 @@ export interface Deployment {
   versions: DeploymentVersion[];
 }
 
+/* ============ KG Types ============ */
+
+export interface DomainKGStats {
+  domain: string;
+  product: string;
+  code_entities: number;
+  requirement_docs: number;
+  linked_edges: number;
+  unlinked_docs: number;
+  coverage_pct: number;
+  relationship_breakdown: Record<string, number>;
+  has_data: boolean;
+}
+
+export interface ProductKGSummary {
+  product: string;
+  total_domains: number;
+  total_code_entities: number;
+  total_requirement_docs: number;
+  total_linked_edges: number;
+  overall_coverage_pct: number;
+  domains: DomainKGStats[];
+}
+
+export interface KGLinkRow {
+  code_id: string;
+  code_name: string;
+  code_type: string;
+  doc_id: string;
+  doc_name: string;
+  relationship: string;
+  confidence: number;
+  evidence: string;
+  domain: string;
+}
+
+export interface KGGapRow {
+  doc_id: string;
+  doc_name: string;
+  domain: string;
+  jira_id?: string;
+  content_preview: string;
+}
+
+export interface KGGraphNode {
+  id: string;
+  label: string;
+  node_type: "code" | "document";
+  domain?: string;
+}
+
+export interface KGGraphEdge {
+  source: string;
+  target: string;
+  relationship: string;
+  confidence: number;
+}
+
+export interface KGNeighborhood {
+  nodes: KGGraphNode[];
+  edges: KGGraphEdge[];
+  center_id: string;
+}
+
+/* ============ Terminal Types ============ */
+
+export interface TerminalSession {
+  id: string;
+  title: string;
+  alive: boolean;
+  created_at: string;
+}
+
 /* ============ API Client ============ */
 
 class APIClient {
@@ -231,6 +304,43 @@ class APIClient {
         query.toString() ? "?" + query.toString() : ""
       }`
     );
+  }
+
+  /* ---- KG Context ---- */
+  async getKGProducts(): Promise<ProductKGSummary[]> {
+    return this.request("/kg/products");
+  }
+
+  async getKGDomainLinks(domain: string, limit = 200): Promise<KGLinkRow[]> {
+    return this.request(`/kg/${domain}/links?limit=${limit}`);
+  }
+
+  async getKGDomainGaps(domain: string): Promise<KGGapRow[]> {
+    return this.request(`/kg/${domain}/gaps`);
+  }
+
+  async getKGNodeNeighborhood(domain: string, nodeId: string): Promise<KGNeighborhood> {
+    return this.request(`/kg/${domain}/graph/${encodeURIComponent(nodeId)}`);
+  }
+
+  /* ---- Terminal Sessions ---- */
+  async listTerminalSessions(): Promise<TerminalSession[]> {
+    return this.request("/terminal/sessions");
+  }
+
+  async createTerminalSession(data: {
+    title: string;
+  }): Promise<TerminalSession> {
+    return this.request("/terminal/sessions", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async killTerminalSession(id: string): Promise<{ success: boolean }> {
+    return this.request(`/terminal/sessions/${id}`, {
+      method: "DELETE",
+    });
   }
 }
 

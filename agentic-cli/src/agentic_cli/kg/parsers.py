@@ -2,8 +2,9 @@
 
 import csv
 import json
+import re
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Set
 
 
 def parse_pdf(file_path: str) -> List[Dict[str, Any]]:
@@ -29,33 +30,40 @@ def parse_pdf(file_path: str) -> List[Dict[str, Any]]:
     
     documents = []
     
-    with open(path, "rb") as f:
-        reader = PyPDF2.PdfReader(f)
-        
-        for i, page in enumerate(reader.pages):
-            text = page.extract_text()
+    try:
+        with open(path, "rb") as f:
+            reader = PyPDF2.PdfReader(f)
             
-            if text.strip():
-                documents.append({
-                    "title": f"{path.stem} - Page {i + 1}",
-                    "content": text,
-                    "metadata": {
-                        "source": str(path),
-                        "page": i + 1,
-                        "total_pages": len(reader.pages),
-                        "format": "pdf",
-                    },
-                })
+            for i, page in enumerate(reader.pages):
+                text = page.extract_text()
+                
+                if text.strip():
+                    documents.append({
+                        "title": f"{path.stem} - Page {i + 1}",
+                        "content": text,
+                        "metadata": {
+                            "page": i + 1,
+                            "total_pages": len(reader.pages),
+                            "format": "pdf",
+                        },
+                    })
+    except Exception as e:
+        # Log error but return empty list instead of raising
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Failed to parse PDF {path.name}: {e}")
+        return []
     
     return documents
 
 
-def parse_text(file_path: str) -> List[Dict[str, Any]]:
+def parse_text(file_path: str, metadata: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
     """
     Parse text file.
     
     Args:
         file_path: Path to text file
+        metadata: Optional metadata to merge with document metadata
     
     Returns:
         List of document dictionaries
@@ -67,14 +75,22 @@ def parse_text(file_path: str) -> List[Dict[str, Any]]:
     with open(path, "r", encoding="utf-8") as f:
         content = f.read()
     
+    doc_metadata = {
+        "format": "text",
+        "size": len(content),
+    }
+    
+    # Merge provided metadata
+    if metadata:
+        doc_metadata.update(metadata)
+    
+    # Use document_title from metadata if available, otherwise use file stem
+    title = doc_metadata.get("document_title", path.stem)
+    
     return [{
-        "title": path.stem,
+        "title": title,
         "content": content,
-        "metadata": {
-            "source": str(path),
-            "format": "text",
-            "size": len(content),
-        },
+        "metadata": doc_metadata,
     }]
 
 
@@ -105,7 +121,6 @@ def parse_csv(file_path: str) -> List[Dict[str, Any]]:
                 "title": f"{path.stem} - Row {i + 1}",
                 "content": content,
                 "metadata": {
-                    "source": str(path),
                     "row": i + 1,
                     "format": "csv",
                     "fields": list(row.keys()),
@@ -145,7 +160,6 @@ def parse_json(file_path: str) -> List[Dict[str, Any]]:
                 "title": f"{path.stem} - Item {i + 1}",
                 "content": content,
                 "metadata": {
-                    "source": str(path),
                     "index": i,
                     "format": "json",
                     "data": item,
@@ -159,7 +173,6 @@ def parse_json(file_path: str) -> List[Dict[str, Any]]:
             "title": path.stem,
             "content": content,
             "metadata": {
-                "source": str(path),
                 "format": "json",
                 "data": data,
             },
@@ -170,7 +183,6 @@ def parse_json(file_path: str) -> List[Dict[str, Any]]:
             "title": path.stem,
             "content": str(data),
             "metadata": {
-                "source": str(path),
                 "format": "json",
                 "data": data,
             },
@@ -208,6 +220,26 @@ def _html_to_text(html: str) -> str:
     # Collapse blank lines
     text = re.sub(r'\n{3,}', '\n\n', text)
     return text.strip()
+
+
+def _extract_referenced_attachments(body_html: str) -> Set[str]:
+    """
+    Extract attachment filenames referenced in Confluence page content.
+    
+    Confluence storage format uses: <ac:link><ri:attachment ri:filename="..." /></ac:link>
+    
+    Args:
+        body_html: Page content in Confluence storage format
+    
+    Returns:
+        Set of attachment filenames referenced in the content
+    """
+    referenced = set()
+    # Match Confluence attachment references in storage format
+    pattern = r'<ri:attachment\s+ri:filename="([^"]+)"'
+    matches = re.findall(pattern, body_html)
+    referenced.update(matches)
+    return referenced
 
 
 def _get_confluence_client(config=None):
@@ -344,6 +376,8 @@ def parse_confluence_tree(
     include_children: bool = True,
     max_depth: int = 3,
     latest_only: bool = False,
+    use_mcp: bool = False,
+    include_attachments: bool = True,
 ) -> List[Dict[str, Any]]:
     """
     Parse a Confluence page and its entire child-page tree.
@@ -360,10 +394,17 @@ def parse_confluence_tree(
         include_children: Recursively fetch child pages (default True)
         max_depth: Maximum depth for child page crawling (default 3)
         latest_only: If True, only return the latest version of each page
+        use_mcp: If True, use MCP Confluence server instead of direct API (bypasses KG config check)
+        include_attachments: If True, fetch and parse page attachments (default True)
 
     Returns:
         List of document dictionaries (parent + children)
     """
+    # Check MCP mode first (bypasses all config validation)
+    if use_mcp:
+        # Use MCP-based Confluence client (bypasses KG config check)
+        return _parse_confluence_tree_mcp(url, include_children=include_children, max_depth=max_depth, include_attachments=include_attachments, parent_page_id=None)
+    
     confluence, base_url, cfg = _get_confluence_client(config)
 
     page_id = _extract_page_id_from_url(url)
@@ -413,6 +454,424 @@ def parse_confluence_tree(
     return documents
 
 
+def _parse_confluence_tree_mcp(
+    url: str,
+    include_children: bool = True,
+    max_depth: int = 3,
+    include_attachments: bool = True,
+    current_depth: int = 0,
+    parent_page_id: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Parse Confluence page tree using MCP server (bypasses KG config check).
+    
+    Args:
+        url: Confluence page URL
+        include_children: Whether to fetch child pages
+        max_depth: Maximum depth for child page crawling
+        include_attachments: Whether to fetch and parse attachments
+        current_depth: Current recursion depth
+        parent_page_id: Parent page ID (for linking child pages to release pages)
+        
+    Returns:
+        List of document dictionaries
+    """
+    from agentic_cli.mcp_tool_client import confluence_get_page, confluence_list_attachments, confluence_download_attachment, confluence_get_page_children, MCPToolError
+    from urllib.parse import urlparse
+    import tempfile
+    import os
+    import base64
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    # Extract page ID from URL
+    if "/pages/" not in url:
+        raise ValueError(f"Invalid Confluence page URL: {url}")
+    
+    parsed = urlparse(url)
+    path_parts = parsed.path.split("/")
+    try:
+        page_idx = path_parts.index("pages")
+        page_id = path_parts[page_idx + 1]
+    except (ValueError, IndexError):
+        raise ValueError(f"Could not extract page ID from URL: {url}")
+    
+    base_url = f"{parsed.scheme}://{parsed.netloc}"
+    
+    # Fetch the main page
+    try:
+        page = confluence_get_page(page_id, include_body=True)
+    except MCPToolError as e:
+        logger.error(f"Failed to fetch page {page_id} via MCP: {e}")
+        raise RuntimeError(f"Failed to fetch page {page_id} via MCP: {e}")
+    
+    documents = []
+    
+    # Convert page to document format
+    body_html = page.get("body_html", page.get("body", ""))
+    title = page.get("title", f"Page {page_id}")
+    version = page.get("version", 0)
+    space_key = page.get("space", "")
+    
+    # Check if this is Confluence storage format (contains ac:link tags)
+    is_storage_format = "<ac:" in body_html or "<ri:" in body_html
+    
+    if is_storage_format:
+        # For storage format, extract page links with their space keys
+        import re
+        # Extract both space key and title from links
+        page_links = re.findall(r'<ri:page ri:space-key="([^"]+)" ri:content-title="([^"]+)"', body_html)
+        logger.info(f"Found {len(page_links)} page links in storage format")
+        
+        # Add the page itself as a document (even with minimal content)
+        doc_text = f"# {title}\n\n"
+        doc_text += f"Source: Confluence page {page_id} (space: {space_key}, version: {version})\n\n"
+        doc_text += f"This page contains links to: {', '.join([f'{t} ({s})' for s, t in page_links]) if page_links else 'No links'}\n"
+        doc_text += f"Page content is in Confluence storage format.\n"
+        
+        documents.append({
+            "content": doc_text,
+            "metadata": {
+                "source": f"{base_url}/pages/{page_id}",
+                "title": title,
+                "space": space_key,
+                "page_id": str(page_id),
+                "version": version,
+                "type": "confluence_page",
+                "parent_page_id": None,
+            }
+        })
+        
+        # Fetch linked pages using MCP search tool
+        for link_space, link_title in page_links:
+            try:
+                from agentic_cli.mcp_tool_client import call_mcp_tool, _get_confluence_url
+                # Use the space from the link, fall back to page's space
+                target_space = link_space if link_space else space_key
+                cql = f'space="{target_space}" AND title="{link_title}" AND type=page'
+                logger.info(f"Searching for linked page: {link_title} in space {target_space}")
+                search_results = call_mcp_tool(_get_confluence_url(), "search_confluence_cql", {"cql": cql, "limit": 1})
+                
+                # If found, recursively fetch the linked page
+                if search_results and search_results != "0":
+                    import json
+                    try:
+                        results = json.loads(search_results) if isinstance(search_results, str) else search_results
+                        logger.info(f"Search results type: {type(results)}, keys: {list(results.keys()) if isinstance(results, dict) else 'N/A'}")
+                        
+                        # Handle different response formats
+                        page_id = None
+                        if isinstance(results, list) and len(results) > 0:
+                            page_id = results[0].get("id")
+                        elif isinstance(results, dict):
+                            # Check for common dict structures
+                            if "results" in results and len(results["results"]) > 0:
+                                page_id = results["results"][0].get("id")
+                            elif "id" in results:
+                                page_id = results.get("id")
+                            elif "content" in results and len(results["content"]) > 0:
+                                page_id = results["content"][0].get("id")
+                        
+                        if page_id:
+                            logger.info(f"Found linked page ID: {page_id}, fetching...")
+                            linked_url = f"{base_url}/pages/{page_id}"
+                            linked_docs = _parse_confluence_tree_mcp(
+                                linked_url,
+                                include_children=True,
+                                max_depth=max_depth - 1,
+                                include_attachments=include_attachments,
+                                current_depth=current_depth + 1,
+                            )
+                            documents.extend(linked_docs)
+                            logger.info(f"Added {len(linked_docs)} documents from linked page {link_title}")
+                        else:
+                            logger.warning(f"Could not extract page ID from search results for {link_title}")
+                    except json.JSONDecodeError as e:
+                        logger.warning(f"Failed to parse search results for {link_title}: {e}")
+                else:
+                    logger.warning(f"Search returned no results for {link_title}")
+            except Exception as e:
+                logger.error(f"Failed to fetch linked page {link_title}: {e}", exc_info=True)
+    else:
+        # Standard HTML format
+        clean_text = _html_to_text(body_html)
+    
+    if not is_storage_format and clean_text.strip():
+        doc_text = f"# {title}\n\n"
+        doc_text += f"Source: Confluence page {page_id} (space: {space_key}, version: {version})\n\n"
+        doc_text += clean_text
+        
+        documents.append({
+            "content": doc_text,
+            "metadata": {
+                "source": f"{base_url}/pages/{page_id}",
+                "title": title,
+                "space": space_key,
+                "page_id": str(page_id),
+                "version": version,
+                "type": "confluence_page",
+                "parent_page_id": parent_page_id,
+            }
+        })
+        logger.info(f"[DEBUG] Page {title} (page_id={page_id}, parent_page_id={parent_page_id})")
+    else:
+        logger.warning(f"Page \"{title}\" ({page_id}) has no content after HTML cleaning")
+    
+    # Fetch and parse attachments
+    if include_attachments:
+        try:
+            logger.info(f"Fetching attachments for page \"{title}\" ({page_id})...")
+            attachments = confluence_list_attachments(page_id)
+            logger.info(f"Attachments result type: {type(attachments)}, length: {len(attachments) if isinstance(attachments, list) else 'N/A'}")
+            logger.info(f"Found {len(attachments)} attachment(s) for page \"{title}\" ({page_id})")
+            logger.info(f"DEBUG: parent_page_id={parent_page_id} for page {page_id}")
+            
+            # Extract attachments referenced in page content (current version only)
+            referenced_attachments = set()
+            if is_storage_format and body_html:
+                referenced_attachments = _extract_referenced_attachments(body_html)
+                logger.info(f"Found {len(referenced_attachments)} attachment(s) referenced in page content")
+            
+            # Log attachment filenames for visibility
+            if attachments and isinstance(attachments, list):
+                attachment_names = [a.get("filename", "unknown") for a in attachments]
+                logger.info(f"Attachments: {', '.join(attachment_names[:10])}" + (f" ... and {len(attachment_names) - 10} more" if len(attachment_names) > 10 else ""))
+            
+            for attachment in attachments:
+                filename = attachment.get("filename", "")
+                if not filename:
+                    logger.debug("Skipping attachment with no filename")
+                    continue
+                
+                # Filter to only process attachments referenced in page content (current version)
+                # Skip filter for release pages (detected by title starting with "Release") since they have no content
+                is_release_page = title.startswith("Release")
+                if not is_release_page and referenced_attachments and filename not in referenced_attachments:
+                    logger.debug(f"Skipping attachment not referenced in page content: {filename}")
+                    continue
+                
+                # Check file extension
+                ext = Path(filename).suffix.lower()
+                if ext not in [".pdf", ".docx", ".doc", ".csv", ".xlsx", ".xls", ".txt", ".json"]:
+                    logger.debug(f"Skipping unsupported attachment: {filename} (type: {ext})")
+                    continue
+                
+                logger.info(f"Processing attachment: {filename} (type: {ext})")
+                
+                # Download attachment using MCP (authenticated)
+                attachment_id = attachment.get("id", "")
+                if not attachment_id:
+                    logger.warning(f"Skipping attachment with no ID: {filename}")
+                    continue
+                
+                try:
+                    # Download file via MCP (uses authenticated Confluence client)
+                    base64_content = confluence_download_attachment(attachment_id)
+                    content = base64.b64decode(base64_content)
+                    logger.info(f"Downloaded {filename} ({len(content)} bytes)")
+                    
+                    # Log if file size seems suspiciously small (might be error page)
+                    if len(content) < 1000:
+                        logger.warning(f"Downloaded file is very small ({len(content)} bytes), might be an error page")
+                        logger.warning(f"First 500 chars: {content[:500]}")
+                        continue  # Skip this attachment
+                    
+                    # Save to temp file
+                    with tempfile.NamedTemporaryFile(mode='wb', suffix=ext, delete=False) as f:
+                        f.write(content)
+                        temp_path = f.name
+                    
+                    try:
+                        # Parse based on file type
+                        if ext == ".pdf":
+                            attachment_docs = parse_pdf(temp_path)
+                        elif ext in [".docx", ".doc"]:
+                            attachment_docs = parse_docx(temp_path)
+                        elif ext in [".xlsx", ".xls"]:
+                            attachment_docs = parse_xlsx(temp_path)
+                        elif ext == ".csv":
+                            attachment_docs = parse_csv(temp_path)
+                        elif ext in [".txt", ".md"]:
+                            attachment_docs = parse_text(temp_path)
+                        elif ext == ".json":
+                            attachment_docs = parse_json(temp_path)
+                        else:
+                            continue
+                        
+                        logger.info(f"Parsed {filename} into {len(attachment_docs)} document(s)")
+                        
+                        # Add attachment metadata and append to documents
+                        for doc in attachment_docs:
+                            doc["metadata"]["source"] = f"{base_url}/pages/{page_id}/attachments/{filename}"
+                            doc["metadata"]["attachment_filename"] = filename
+                            doc["metadata"]["attachment_page_id"] = str(page_id)
+                            doc["metadata"]["parent_page_id"] = parent_page_id
+                            doc["metadata"]["type"] = "confluence_attachment"
+                            doc["metadata"]["parent_page_title"] = title
+                            # Overwrite title with actual filename instead of temp file name
+                            doc["title"] = filename
+                            documents.append(doc)
+                            logger.info(f"[DEBUG] Attachment {filename} (attachment_page_id={page_id}, parent_page_id={parent_page_id})")
+                    finally:
+                        # Clean up temp file
+                        os.unlink(temp_path)
+                        
+                except Exception as e:
+                    logger.error(f"Failed to process attachment {filename}: {e}")
+                    
+        except MCPToolError as e:
+            logger.error(f"Failed to fetch attachments for page {page_id}: {e}")
+    
+    # Fetch child pages if include_children is True
+    if include_children and max_depth > 0:
+        try:
+            children = confluence_get_page_children(page_id)
+            logger.info(f"Found {len(children)} child page(s) for page {page_id}")
+            
+            for child in children:
+                child_id = child.get("id", "")
+                if not child_id:
+                    continue
+                
+                # Recursively fetch child page content and attachments
+                child_url = f"{base_url}/pages/{child_id}"
+                child_docs = _parse_confluence_tree_mcp(
+                    child_url,
+                    include_children=True,
+                    max_depth=max_depth - 1,
+                    include_attachments=include_attachments,
+                    current_depth=current_depth + 1,
+                    parent_page_id=str(page_id),
+                )
+                documents.extend(child_docs)
+                
+        except MCPToolError as e:
+            logger.error(f"Failed to fetch child pages for page {page_id}: {e}")
+    
+    # Debug: log metadata of first few documents
+    if documents:
+        for i, doc in enumerate(documents[:3]):
+            metadata = doc.get("metadata", {})
+            print(f"[DEBUG] Document {i} metadata: page_id={metadata.get('page_id')}, parent_page_id={metadata.get('parent_page_id')}, attachment_page_id={metadata.get('attachment_page_id')}, type={metadata.get('type')}")
+    
+    return documents
+
+
+def parse_docx(file_path: str) -> List[Dict[str, Any]]:
+    """
+    Parse DOCX (Word) file and extract text content.
+    
+    Args:
+        file_path: Path to DOCX file
+    
+    Returns:
+        List of document dictionaries
+    """
+    try:
+        from docx import Document
+    except ImportError:
+        raise ImportError(
+            "python-docx not installed. Install with: pip install python-docx"
+        )
+    
+    path = Path(file_path)
+    if not path.exists():
+        raise FileNotFoundError(f"File not found: {file_path}")
+    
+    documents = []
+    doc = Document(path)
+    
+    # Extract text from paragraphs
+    paragraphs = []
+    for para in doc.paragraphs:
+        if para.text.strip():
+            paragraphs.append(para.text)
+    
+    # Extract text from tables
+    tables_text = []
+    for table in doc.tables:
+        table_data = []
+        for row in table.rows:
+            row_data = []
+            for cell in row.cells:
+                if cell.text.strip():
+                    row_data.append(cell.text.strip())
+            if row_data:
+                table_data.append(" | ".join(row_data))
+        if table_data:
+            tables_text.append("\n".join(table_data))
+    
+    # Combine all text
+    content = "\n\n".join(paragraphs)
+    if tables_text:
+        content += "\n\n" + "\n\n".join([f"Table {i+1}:\n{t}" for i, t in enumerate(tables_text)])
+    
+    if content.strip():
+        documents.append({
+            "title": path.stem,
+            "content": content,
+            "metadata": {
+                "format": "docx",
+                "paragraphs_count": len(paragraphs),
+                "tables_count": len(tables_text),
+            },
+        })
+    
+    return documents
+
+
+def parse_xlsx(file_path: str) -> List[Dict[str, Any]]:
+    """
+    Parse XLSX (Excel) file and extract data from all sheets.
+    
+    Args:
+        file_path: Path to XLSX file
+    
+    Returns:
+        List of document dictionaries (one per sheet)
+    """
+    try:
+        import openpyxl
+    except ImportError:
+        raise ImportError(
+            "openpyxl not installed. Install with: pip install openpyxl"
+        )
+    
+    path = Path(file_path)
+    if not path.exists():
+        raise FileNotFoundError(f"File not found: {file_path}")
+    
+    documents = []
+    workbook = openpyxl.load_workbook(path, data_only=True)
+    
+    for sheet_name in workbook.sheetnames:
+        sheet = workbook[sheet_name]
+        
+        # Extract data as CSV-like text
+        rows_data = []
+        for row in sheet.iter_rows(values_only=True):
+            # Filter out completely empty rows
+            if any(cell is not None for cell in row):
+                row_str = " | ".join(str(cell) if cell is not None else "" for cell in row)
+                rows_data.append(row_str)
+        
+        if rows_data:
+            content = f"Sheet: {sheet_name}\n\n" + "\n".join(rows_data)
+            
+            documents.append({
+                "title": f"{path.stem} - {sheet_name}",
+                "content": content,
+                "metadata": {
+                    "format": "xlsx",
+                    "sheet": sheet_name,
+                    "rows_count": len(rows_data),
+                },
+            })
+    
+    return documents
+
+
 def parse_directory(directory: str, recursive: bool = True) -> List[Dict[str, Any]]:
     """
     Parse all supported files in a directory.
@@ -437,6 +896,10 @@ def parse_directory(directory: str, recursive: bool = True) -> List[Dict[str, An
         ".md": parse_text,
         ".csv": parse_csv,
         ".json": parse_json,
+        ".docx": parse_docx,
+        ".doc": parse_docx,  # Use docx parser for .doc (may not work for old .doc format)
+        ".xlsx": parse_xlsx,
+        ".xls": parse_xlsx,  # Use xlsx parser for .xls (may not work for old .xls format)
     }
     
     # Find all supported files

@@ -10,7 +10,7 @@ RUN apt-get update && \
 # Copy project files and install dependencies
 COPY pyproject.toml README.md ./
 COPY src/ src/
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir --trusted-host pypi.org --trusted-host files.pythonhosted.org .
 
 # Default to SSE transport for Docker
 ENV MCP_TRANSPORT=sse

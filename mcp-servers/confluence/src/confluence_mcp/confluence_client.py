@@ -397,6 +397,115 @@ class ConfluenceClient:
             for l in data.get("results", [])
         ]
 
+    # ── Attachments ────────────────────────────────────────────────────────
+
+    def list_attachments(self, page_id: str, limit: int = 100) -> list[dict[str, Any]]:
+        """List attachments for a page.
+
+        Args:
+            page_id: Confluence page ID
+            limit: Maximum number of attachments (default: 100)
+
+        Returns list of attachments with metadata and download links.
+        """
+        data = self._get(
+            f"/content/{page_id}/child/attachment",
+            {"limit": limit, "expand": "version"},
+        )
+        attachments = []
+        for a in data.get("results", []):
+            version = a.get("version", {})
+            links = a.get("_links", {})
+            attachments.append({
+                "id": a.get("id", ""),
+                "filename": a.get("title", ""),
+                "media_type": a.get("metadata", {}).get("mediaType", ""),
+                "size": a.get("metadata", {}).get("size", 0),
+                "version": version.get("number", 0),
+                "created": version.get("when", ""),
+                "created_by": version.get("by", {}).get("displayName", "unknown"),
+                "_links": {
+                    "download": f"{self.config.server_url}{links.get('download', '')}",
+                    "self": f"{self.config.server_url}{links.get('self', '')}",
+                },
+            })
+        return attachments
+
+    def get_attachment(self, attachment_id: str) -> dict[str, Any]:
+        """Get attachment metadata by ID.
+
+        Args:
+            attachment_id: Confluence attachment ID
+
+        Returns attachment metadata with download link.
+        """
+        data = self._get(
+            f"/content/{attachment_id}",
+            {"expand": "version"},
+        )
+        version = data.get("version", {})
+        links = data.get("_links", {})
+        return {
+            "id": data.get("id", ""),
+            "filename": data.get("title", ""),
+            "media_type": data.get("metadata", {}).get("mediaType", ""),
+            "size": data.get("metadata", {}).get("size", 0),
+            "version": version.get("number", 0),
+            "created": version.get("when", ""),
+            "created_by": version.get("by", {}).get("displayName", "unknown"),
+            "_links": {
+                "download": f"{self.config.server_url}{links.get('download', '')}",
+                "self": f"{self.config.server_url}{links.get('self', '')}",
+            },
+        }
+
+    def download_attachment_content(self, attachment_id: str) -> bytes:
+        """Download attachment content as bytes.
+
+        Args:
+            attachment_id: Confluence attachment ID
+
+        Returns raw bytes of the attachment file.
+        """
+        # Get the download link
+        attachment = self.get_attachment(attachment_id)
+        download_url = attachment["_links"]["download"]
+        
+        # Convert relative URL to absolute
+        if download_url.startswith("/"):
+            download_url = f"{self.config.api_base_url}{download_url}"
+        
+        # Download using the authenticated client
+        resp = self._client.get(download_url)
+        resp.raise_for_status()
+        return resp.content
+
+    def get_page_children(self, page_id: str) -> list[dict[str, Any]]:
+        """Get direct child pages of a page.
+
+        Args:
+            page_id: Confluence page ID
+
+        Returns list of child page metadata
+        """
+        data = self._get(
+            f"/content/{page_id}/child/page",
+            {"limit": 100},  # Get up to 100 child pages
+        )
+        
+        results = data.get("results", [])
+        children = []
+        for child in results:
+            children.append({
+                "id": child.get("id", ""),
+                "title": child.get("title", ""),
+                "type": child.get("type", ""),
+                "status": child.get("status", ""),
+                "_links": child.get("_links", {}),
+            })
+        
+        return children
+
     # ── Current User ─────────────────────────────────────────────────────
 
     def get_current_user(self) -> dict[str, Any]:

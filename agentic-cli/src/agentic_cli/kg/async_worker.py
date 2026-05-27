@@ -13,7 +13,7 @@ from pathlib import Path
 from datetime import datetime
 
 # Setup logging
-LOG_DIR = Path.home() / ".dva-agentic" / "logs"
+LOG_DIR = Path.home() / ".agent-cli-agentic" / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 logging.basicConfig(
@@ -120,7 +120,80 @@ def run_ingestion_job(job_id: str):
                 format = job.format or detect_format(job.source)
                 
                 # Parse documents
-                if format == "directory":
+                if format == "confluence" and job.source.startswith("domain:"):
+                    # Domain mode: fetch tracked docs
+                    from agentic_cli.tracker import get_domain, get_domain_docs
+                    from agentic_cli.kg.parsers import parse_confluence_tree
+                    
+                    domain_slug = job.source.replace("domain:", "")
+                    logger.info(f"[{job_id}] Fetching tracked docs for domain: {domain_slug}")
+                    
+                    d = get_domain(domain_slug)
+                    if not d:
+                        raise ValueError(f"Domain '{domain_slug}' not found")
+                    
+                    domain_product = d.get("product", "")
+                    docs = get_domain_docs(domain_slug)
+                    
+                    # Limit to top N pages if --top was specified
+                    top = job.metadata.get("top")
+                    if top:
+                        docs = docs[:top]
+                        logger.info(f"[{job_id}] Limiting to top {top} pages for testing/validation")
+                    
+                    if not docs:
+                        logger.warning(f"[{job_id}] No tracked docs for domain '{domain_slug}'")
+                        documents = []
+                    else:
+                        logger.info(f"[{job_id}] Found {len(docs)} tracked docs")
+                        all_documents = []
+                        
+                        try:
+                            conf_base = config.confluence_url or "https://confluence.example.com"
+                        except Exception:
+                            conf_base = "https://confluence.example.com"
+                        
+                        depth = job.metadata.get("depth", 3)
+                        
+                        for doc_rec in docs:
+                            page_id = doc_rec.get("source_page_id")
+                            title = doc_rec.get("title", page_id)
+                            page_url = f"{conf_base}/pages/{page_id}"
+                            try:
+                                # Use MCP mode to bypass KG config check, include attachments by default
+                                fetched = parse_confluence_tree(page_url, include_children=True, max_depth=depth, use_mcp=True, include_attachments=True)
+                                all_documents.extend(fetched)
+                                child_count = len(fetched) - 1 if len(fetched) > 1 else 0
+                                suffix = f" (+{child_count} children)" if child_count else ""
+                                logger.info(f"[{job_id}]   Fetched: {title}{suffix}")
+                            except Exception as e:
+                                logger.warning(f"[{job_id}]   Failed to fetch {title}: {e}")
+                        
+                        # Limit total documents if --top was specified
+                        top = job.metadata.get("top")
+                        if top and len(all_documents) > top:
+                            all_documents = all_documents[:top]
+                            logger.info(f"[{job_id}] Limiting to top {top} documents for testing/validation")
+                        
+                        # Deduplicate by page_id
+                        seen_ids = set()
+                        documents = []
+                        for doc in all_documents:
+                            pid = doc["metadata"].get("page_id", "")
+                            if pid and pid in seen_ids:
+                                continue
+                            if pid:
+                                seen_ids.add(pid)
+                            documents.append(doc)
+                        
+                        # Add domain metadata to each document
+                        for doc in documents:
+                            doc_metadata = doc.get("metadata", {})
+                            doc_metadata["domain"] = domain_slug
+                            doc_metadata["product"] = domain_product
+                            doc["metadata"] = doc_metadata
+                
+                elif format == "directory":
                     documents = parse_directory(job.source, recursive=recursive)
                 elif format == "git":
                     git_metadata = job.metadata or {}

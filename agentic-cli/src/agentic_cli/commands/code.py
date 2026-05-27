@@ -33,7 +33,7 @@ code_app = typer.Typer(help="Onboard repos with AI code assist skills", rich_mar
 
 # Default skills registry location
 DEFAULT_REGISTRY = Path.home() / ".dva" / "skills-registry"
-DVA_CONFIG_DIR = Path.home() / ".dva"
+DVA_CONFIG_DIR = Path.home() / ".agent-cli-agentic"
 DVA_CONFIG_FILE = DVA_CONFIG_DIR / "config.json"
 
 
@@ -338,6 +338,10 @@ def onboard(
         Optional[str],
         typer.Option("--repo", "-r", help="Git repo URL to clone and onboard"),
     ] = None,
+    repo_slug: Annotated[
+        Optional[str],
+        typer.Option("--repo-slug", help="Repo slug from domain's linked repos (requires --domain)"),
+    ] = None,
     path: Annotated[
         Optional[Path],
         typer.Option("--path", "-p", help="Local project path to onboard"),
@@ -364,15 +368,11 @@ def onboard(
     ] = False,
     kg: Annotated[
         bool,
-        typer.Option("--kg/--no-kg", help="Generate kg-code-context.md and ingest into LightRAG → Neo4j (Code:: nodes)"),
+        typer.Option("--kg/--no-kg", help="Generate kg-code-context.md and ingest into configured KG provider"),
     ] = False,
     extract_entities: Annotated[
         bool,
         typer.Option("--extract-entities/--no-extract-entities", help="Full KG ingestion with entity extraction (requires --kg)"),
-    ] = False,
-    graphify: Annotated[
-        bool,
-        typer.Option("--graphify/--no-graphify", help="Use Graphify for code structure analysis (requires --kg)"),
     ] = False,
     domain: Annotated[
         Optional[str],
@@ -385,6 +385,10 @@ def onboard(
     use_domain_skills: Annotated[
         bool,
         typer.Option("--use-domain-skills/--no-domain-skills", help="Install domain-validated skills from domain-context repo (requires --domain)"),
+    ] = False,
+    link_kg: Annotated[
+        bool,
+        typer.Option("--link-kg/--no-link-kg", help="Link code context to KG requirements using LLM (requires --domain and --kg)"),
     ] = False,
 ) -> None:
     """
@@ -400,19 +404,41 @@ def onboard(
         {CLI_NAME} code onboard --path ./my-repo --registry /path/to/skills
         {CLI_NAME} code onboard --path ./my-repo --kg
         {CLI_NAME} code onboard --path ./my-repo --kg --extract-entities
-        {CLI_NAME} code onboard --path ./my-repo --kg --graphify
-        {CLI_NAME} code onboard --path ./my-repo --kg --graphify --extract-entities
         {CLI_NAME} code onboard --path ./my-repo --domain cwow-facility --kg
         {CLI_NAME} code onboard --path ./my-repo --domain cwow-facility --domain-context-repo https://github.com/company/facility-domain-context.git
         {CLI_NAME} code onboard --path ./my-repo --domain cwow-facility --use-domain-skills
+        {CLI_NAME} code onboard --domain cwow-facility --repo-slug cwow-facility-watercheck --kg
+        {CLI_NAME} code onboard --domain cwow-facility --repo-slug cwow-facility-watercheck --kg --link-kg
     """.format(CLI_NAME=CLI_NAME)
-    if not repo and not path:
-        console.print("[red]Provide --repo (URL) or --path (local directory)[/red]")
+    
+    # Validate link_kg flag
+    if link_kg and not domain:
+        console.print("[red]--link-kg requires --domain[/red]")
         raise typer.Exit(1)
+    if link_kg and not kg:
+        console.print("[red]--link-kg requires --kg[/red]")
+        raise typer.Exit(1)
+    # Handle repo-slug option
+    if repo_slug:
+        if not domain:
+            console.print("[red]--repo-slug requires --domain[/red]")
+            raise typer.Exit(1)
+        from agentic_cli.tracker import get_domain_repos
+        repos = get_domain_repos(domain)
+        matched_repo = None
+        for r in repos:
+            if r["repo_slug"] == repo_slug:
+                matched_repo = r
+                break
+        if not matched_repo:
+            console.print(f"[red]Repo slug '{repo_slug}' not found in domain '{domain}' linked repos[/red]")
+            console.print(f"[dim]Available repos: {', '.join(r['repo_slug'] for r in repos)}[/dim]")
+            raise typer.Exit(1)
+        repo = matched_repo["clone_url"]
+        console.print(f"[cyan]Using repo from linked repos: {repo}[/cyan]")
 
-    # Validate graphify option
-    if graphify and not kg:
-        console.print("[red]--graphify requires --kg[/red]")
+    if not repo and not path:
+        console.print("[red]Provide --repo (URL), --repo-slug (with --domain), or --path (local directory)[/red]")
         raise typer.Exit(1)
 
     if use_domain_skills and not domain:
@@ -429,6 +455,16 @@ def onboard(
             workspace_dir = config.get("code_workspace")
             if workspace_dir:
                 base = Path(workspace_dir)
+                # Ensure workspace directory exists
+                if not base.exists():
+                    console.print(f"[yellow]Workspace directory does not exist: {base}[/yellow]")
+                    console.print(f"[dim]Creating workspace directory...[/dim]")
+                    try:
+                        base.mkdir(parents=True, exist_ok=True)
+                        console.print(f"[green]✓[/green] Created: {base}")
+                    except Exception as e:
+                        console.print(f"[red]✗ Failed to create workspace: {e}[/red]")
+                        raise typer.Exit(1)
             else:
                 base = Path.cwd()
             repo_name = repo.rstrip("/").split("/")[-1].replace(".git", "")
@@ -473,10 +509,33 @@ def onboard(
     _generate_project_context_skill(project_path, analysis)
     installed_names = ["project-context"]
 
+    # Step 6b: Install default skills (skills with "default": true in registry)
+    default_skills = [s for s in registry_data.get("skills", []) if s.get("default")]
+    for skill in default_skills:
+        skill_name = skill["name"]
+        install_path = skill.get("install_path")
+        source = skill.get("source")
+        
+        if source == "system" and install_path:
+            # System skill - copy from system path
+            source_path = Path(install_path).expanduser()
+            if source_path.exists():
+                dest = project_path / ".skills" / skill_name
+                dest.mkdir(parents=True, exist_ok=True)
+                shutil.copy(source_path, dest / "SKILL.md")
+                installed_names.append(skill_name)
+                console.print(f"[dim]Installed default skill: {skill_name}[/dim]")
+        else:
+            # Registry skill - install from registry
+            if _install_skill_from_registry(skill_name, registry_path, project_path):
+                installed_names.append(skill_name)
+                console.print(f"[dim]Installed default skill: {skill_name}[/dim]")
+
     # Step 7: Install matched skills
     for match in matches:
-        if _install_skill_from_registry(match.name, registry_path, project_path):
-            installed_names.append(match.name)
+        if match.name not in installed_names:  # Don't install if already installed as default
+            if _install_skill_from_registry(match.name, registry_path, project_path):
+                installed_names.append(match.name)
 
     # Step 7b: Install domain-validated skills (optional)
     domain_skills_installed = []
@@ -629,7 +688,14 @@ def onboard(
             if has_kg:
                 console.print(f"[green]\u2713 KG domain context retrieved ({sum(1 for v in kg_domain_ctx.values() if v)}/6 aspects)[/green]")
             else:
-                console.print("[yellow]\u26a0 No domain context found in KG (LightRAG may not be running or domain not ingested)[/yellow]")
+                # Get the configured KG provider for the warning message
+                try:
+                    from agentic_cli.kg.config import KGConfig
+                    kg_config = KGConfig.load()
+                    provider = kg_config.provider
+                    console.print(f"[yellow]\u26a0 No domain context found in KG ({provider} may not be running or domain not ingested)[/yellow]")
+                except Exception:
+                    console.print("[yellow]\u26a0 No domain context found in KG (provider may not be running or domain not ingested)[/yellow]")
 
             # Generate domain-context skill in .skills/domain-context/
             skill_dir = project_path / ".skills" / "domain-context"
@@ -704,7 +770,6 @@ def onboard(
                 installed_skills=installed_names,
                 suggested_skills=suggested_names,
                 ingest=not extract_entities,  # light mode: ingest directly
-                use_graphify=graphify,
             )
 
             if kg_result["context_path"]:
@@ -714,7 +779,27 @@ def onboard(
             if kg_result["skill_patched"]:
                 console.print(f"[green]\u2713 SKILL.md updated with context-first workflow instructions[/green]")
             if kg_result["ingested"]:
-                console.print(f"[green]\u2713 Context ingested into LightRAG[/green]")
+                provider = kg_result.get("provider", "unknown")
+                console.print(f"[green]\u2713 Context ingested into {provider}[/green]")
+
+            # Link code to KG requirements if --link-kg is set
+            if link_kg and domain:
+                console.print()
+                console.print("[cyan]Linking code to KG requirements...[/cyan]")
+                try:
+                    from agentic_cli.kg.context_builder import link_code_to_requirements
+
+                    link_result = link_code_to_requirements(
+                        project_path=project_path,
+                        domain_slug=domain,
+                    )
+
+                    if link_result["success"]:
+                        console.print(f"[green]\u2713 Created {link_result['links_created']} code-requirement links[/green]")
+                    else:
+                        console.print(f"[yellow]\u26a0 Linking failed: {link_result.get('error', 'Unknown error')}[/yellow]")
+                except Exception as e:
+                    console.print(f"[yellow]\u26a0 Linking error: {e}[/yellow]")
 
             # Full mode: use {CLI_NAME} kg ingest pipeline with entity extraction
             if extract_entities and kg_result["source"]:
@@ -759,8 +844,6 @@ def onboard(
             "dependencies": len(analysis.dependencies),
             "kg": kg,
             "kg_ingested": bool(kg_result and kg_result.get("ingested")),
-            "graphify": graphify,
-            "graphify_completed": bool(kg_result and kg_result.get("graphify_analysis")),
             "domain": domain,
             "domain_context_attached": bool(domain_result),
             "domain_context_repo": domain_context_repo,
@@ -781,8 +864,7 @@ def onboard(
         f"[bold]Dependencies:[/bold] {len(analysis.dependencies)} found\n"
         f"[bold]Skills Installed:[/bold] {len(installed_names)}"
         + (f"\n[bold]KG Context:[/bold] Prepared" if kg_result and kg_result.get("context_path") else "")
-        + (f"\n[bold]KG Ingested:[/bold] LightRAG" if kg_result and kg_result.get("ingested") else "")
-        + (f"\n[bold]Graphify Analysis:[/bold] Completed" if kg_result and kg_result.get("graphify_analysis") and kg_result["graphify_analysis"].get("status") == "completed" else "")
+        + (f"\n[bold]KG Ingested:[/bold] {kg_result.get('provider', 'unknown') if kg_result and kg_result.get('ingested') else ''}" if kg_result and kg_result.get("ingested") else "")
         + (f"\n[bold]Domain:[/bold] {domain}" if domain_result else "")
         + (f"\n[bold]Domain KG Context:[/bold] {domain_result['kg_aspects_found']}/6 aspects" if domain_result else "")
         + (f"\n[bold]Domain Context Repo:[/bold] Submodule linked" if domain_result and domain_context_repo else ""),
@@ -794,10 +876,23 @@ def onboard(
     table.add_column("Skill", style="green")
     table.add_column("Reason")
 
-    table.add_row("project-context", "Auto-generated (project-specific)")
-    for match in matches:
-        if match.name in installed_names:
-            table.add_row(match.name, match.reason)
+    # Track matched and default skill names for lookup
+    matched_names = {match.name: match.reason for match in matches}
+    default_skills = {s["name"] for s in registry_data.get("skills", []) if s.get("default")}
+    
+    # Show all installed skills
+    for skill_name in installed_names:
+        if skill_name == "project-context":
+            reason = "Auto-generated (project-specific)"
+        elif skill_name in default_skills:
+            reason = "Default skill (AI assistant)"
+        elif skill_name in matched_names:
+            reason = matched_names[skill_name]
+        elif skill_name in domain_skills_installed:
+            reason = "Domain-validated skill"
+        else:
+            reason = "Installed from registry"
+        table.add_row(skill_name, reason)
 
     console.print(table)
 
@@ -829,8 +924,6 @@ def onboard(
     console.print(f"[dim]Validate with: {CLI_NAME} code validate --path " + str(project_path) + "[/dim]")
     if not kg:
         console.print(f"[dim]Prepare KG context: {CLI_NAME} code onboard --path " + str(project_path) + " --kg[/dim]")
-    elif kg and not graphify:
-        console.print(f"[dim]Enhance with Graphify: {CLI_NAME} code onboard --path " + str(project_path) + " --kg --graphify[/dim]")
     if not domain:
         console.print(f"[dim]Attach domain context: {CLI_NAME} code onboard --path " + str(project_path) + " --domain <slug> --kg[/dim]")
 

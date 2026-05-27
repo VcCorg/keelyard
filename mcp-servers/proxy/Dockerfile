@@ -8,15 +8,15 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Install mcp-proxy
-RUN pip install --no-cache-dir mcp-proxy
+RUN pip install --no-cache-dir --trusted-host pypi.org --trusted-host files.pythonhosted.org mcp-proxy
 
 # Copy and install bitbucket MCP server
 COPY bitbucket/ /tmp/bitbucket-mcp/
-RUN pip install --no-cache-dir /tmp/bitbucket-mcp && rm -rf /tmp/bitbucket-mcp
+RUN pip install --no-cache-dir --trusted-host pypi.org --trusted-host files.pythonhosted.org /tmp/bitbucket-mcp && rm -rf /tmp/bitbucket-mcp
 
 # Copy and install jira MCP server
 COPY jira/ /tmp/jira-mcp/
-RUN pip install --no-cache-dir /tmp/jira-mcp && rm -rf /tmp/jira-mcp
+RUN pip install --no-cache-dir --trusted-host pypi.org --trusted-host files.pythonhosted.org /tmp/jira-mcp && rm -rf /tmp/jira-mcp
 
 # Copy named-server config
 COPY proxy/mcp-servers.json ./

@@ -55,7 +55,7 @@ class TestSchemaMigration:
         conn = sqlite3.connect(str(tracker.DB_PATH))
         version = conn.execute("SELECT version FROM schema_version").fetchone()[0]
         conn.close()
-        assert version == 7
+        assert version == 8
 
 
 # ---------------------------------------------------------------------------

@@ -15,8 +15,37 @@ from agentic_cli.config import CLI_NAME
 console = Console()
 init_app = typer.Typer(help="Initialize and configure authentication", rich_markup_mode=None)
 
+
+@init_app.callback()
+def check_workspace_config(
+    ctx: typer.Context,
+) -> None:
+    """
+    Check if workspaces are configured before running init commands.
+    
+    If workspaces are not configured, prompt the user to run 'dva init workspace'.
+    """
+    # Skip check for show, reset, and workspace commands
+    if ctx.invoked_subcommand in ["show", "reset", "workspace"]:
+        return
+    
+    config = load_config()
+    code_workspace = config.get("code_workspace")
+    docs_workspace = config.get("docs_workspace")
+    
+    if not code_workspace or not docs_workspace:
+        console.print()
+        console.print("[yellow]⚠ Workspace configuration required[/yellow]")
+        console.print(f"[dim]Run '{CLI_NAME} init workspace' to configure workspaces.[/dim]")
+        console.print()
+        
+        # Auto-prompt for workspace configuration
+        if Confirm.ask("Configure workspaces now?", default=True):
+            ctx.invoke(init_workspace)
+
+
 # Configuration file location
-CONFIG_DIR = Path.home() / ".dva-agentic"
+CONFIG_DIR = Path.home() / ".agent-cli-agentic"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
 
@@ -213,6 +242,7 @@ def show_config() -> None:
     
     if not config:
         console.print("[yellow]No configuration found.[/yellow]")
+        console.print(f"[dim]Run '{CLI_NAME} init workspace' to configure workspaces.[/dim]")
         console.print(f"[dim]Run '{CLI_NAME} init vertex-ai' to configure Vertex AI.[/dim]")
         return
 
@@ -223,6 +253,14 @@ def show_config() -> None:
         )
     )
 
+    # Show workspaces
+    console.print("\n[bold]Workspaces:[/bold]")
+    code_workspace = config.get("code_workspace", "Not set")
+    docs_workspace = config.get("docs_workspace", "Not set")
+    console.print(f"  Code Workspace: {code_workspace}")
+    console.print(f"  Docs Workspace: {docs_workspace}")
+
+    # Show LLM provider configurations
     if "google" in config:
         google_config = config["google"]
         console.print("\n[bold]Vertex AI:[/bold]")
@@ -232,6 +270,23 @@ def show_config() -> None:
         console.print(
             f"  Credentials: {google_config.get('credentials_path', 'Application Default') or 'Application Default'}"
         )
+
+    if "anthropic" in config:
+        anthropic_config = config["anthropic"]
+        console.print("\n[bold]Anthropic:[/bold]")
+        console.print(f"  Model: {anthropic_config.get('model', 'Not set')}")
+        console.print(f"  API Key: {'✓ Configured' if anthropic_config.get('api_key') else '✗ Not set'}")
+
+    if "openai" in config:
+        openai_config = config["openai"]
+        console.print("\n[bold]OpenAI:[/bold]")
+        console.print(f"  Model: {openai_config.get('model', 'Not set')}")
+        console.print(f"  API Key: {'✓ Configured' if openai_config.get('api_key') else '✗ Not set'}")
+
+    if "llm" in config:
+        llm_config = config["llm"]
+        console.print("\n[bold]LLM Settings:[/bold]")
+        console.print(f"  Default Provider: {llm_config.get('default_provider', 'Not set')}")
 
     console.print(f"\n[dim]Config file: {CONFIG_FILE}[/dim]")
 
@@ -245,19 +300,177 @@ def reset_config(
             help="Skip confirmation prompt",
         ),
     ] = False,
+    workspaces: Annotated[
+        bool,
+        typer.Option(
+            "--workspaces",
+            help="Reset only workspace configuration",
+        ),
+    ] = False,
+    llm: Annotated[
+        bool,
+        typer.Option(
+            "--llm",
+            help="Reset only LLM provider configuration",
+        ),
+    ] = False,
 ) -> None:
     """Reset configuration to defaults."""
+    config = load_config()
+    
     if not confirm:
-        if not Confirm.ask("Are you sure you want to reset all configuration?"):
-            console.print("[dim]Operation cancelled.[/dim]")
-            raise typer.Exit(0)
+        if workspaces:
+            if not Confirm.ask("Are you sure you want to reset workspace configuration?"):
+                console.print("[dim]Operation cancelled.[/dim]")
+                raise typer.Exit(0)
+        elif llm:
+            if not Confirm.ask("Are you sure you want to reset LLM provider configuration?"):
+                console.print("[dim]Operation cancelled.[/dim]")
+                raise typer.Exit(0)
+        else:
+            if not Confirm.ask("Are you sure you want to reset all configuration?"):
+                console.print("[dim]Operation cancelled.[/dim]")
+                raise typer.Exit(0)
 
-    if CONFIG_FILE.exists():
-        CONFIG_FILE.unlink()
-        record_activity(command="init", subcommand="reset")
-        console.print("[green]✓[/green] Configuration reset successfully")
+    if workspaces:
+        # Reset only workspaces
+        if "code_workspace" in config:
+            del config["code_workspace"]
+        if "docs_workspace" in config:
+            del config["docs_workspace"]
+        save_config(config)
+        record_activity(command="init", subcommand="reset", args={"workspaces": True})
+        console.print("[green]✓[/green] Workspace configuration reset successfully")
+    elif llm:
+        # Reset only LLM providers
+        if "google" in config:
+            del config["google"]
+        if "anthropic" in config:
+            del config["anthropic"]
+        if "openai" in config:
+            del config["openai"]
+        if "llm" in config:
+            del config["llm"]
+        save_config(config)
+        record_activity(command="init", subcommand="reset", args={"llm": True})
+        console.print("[green]✓[/green] LLM provider configuration reset successfully")
     else:
-        console.print("[yellow]No configuration to reset.[/yellow]")
+        # Reset all configuration
+        if CONFIG_FILE.exists():
+            CONFIG_FILE.unlink()
+            record_activity(command="init", subcommand="reset")
+            console.print("[green]✓[/green] Configuration reset successfully")
+        else:
+            console.print("[yellow]No configuration to reset.[/yellow]")
+
+
+@init_app.command("workspace")
+def init_workspace(
+    code_workspace: Annotated[
+        str,
+        typer.Option(
+            "--code",
+            help="Directory for code repositories",
+        ),
+    ] = "",
+    docs_workspace: Annotated[
+        str,
+        typer.Option(
+            "--docs",
+            help="Directory for local documents",
+        ),
+    ] = "",
+) -> None:
+    """
+    Initialize workspace configuration.
+    
+    This command sets up the directories where code repositories and local documents
+    will be stored and managed.
+    """
+    console.print(
+        Panel.fit(
+            "[bold cyan]Workspace Configuration[/bold cyan]",
+            border_style="cyan",
+        )
+    )
+
+    # Load existing configuration
+    config = load_config()
+    
+    # Get code workspace
+    if not code_workspace:
+        existing_code = config.get("code_workspace", "")
+        if existing_code:
+            console.print(f"[dim]Using existing code workspace: {existing_code}[/dim]")
+            code_workspace = existing_code
+        else:
+            # Default to ~/dva-code-workspace
+            default_code = str(Path.home() / "dva-code-workspace")
+            code_workspace = Prompt.ask(
+                "Enter code workspace directory",
+                default=default_code
+            )
+    
+    # Get docs workspace
+    if not docs_workspace:
+        existing_docs = config.get("docs_workspace", "")
+        if existing_docs:
+            console.print(f"[dim]Using existing docs workspace: {existing_docs}[/dim]")
+            docs_workspace = existing_docs
+        else:
+            # Default to ~/dva-doc-workspace
+            default_docs = str(Path.home() / "dva-doc-workspace")
+            docs_workspace = Prompt.ask(
+                "Enter docs workspace directory",
+                default=default_docs
+            )
+    
+    # Expand paths
+    code_path = Path(code_workspace).expanduser().resolve()
+    docs_path = Path(docs_workspace).expanduser().resolve()
+    
+    # Create directories if they don't exist
+    console.print("\n[cyan]Creating workspace directories...[/cyan]")
+    try:
+        code_path.mkdir(parents=True, exist_ok=True)
+        console.print(f"[green]✓[/green] Code workspace: {code_path}")
+    except Exception as e:
+        console.print(f"[red]✗ Failed to create code workspace: {e}[/red]")
+        raise typer.Exit(1)
+    
+    try:
+        docs_path.mkdir(parents=True, exist_ok=True)
+        console.print(f"[green]✓[/green] Docs workspace: {docs_path}")
+    except Exception as e:
+        console.print(f"[red]✗ Failed to create docs workspace: {e}[/red]")
+        raise typer.Exit(1)
+    
+    # Save configuration
+    config["code_workspace"] = str(code_path)
+    config["docs_workspace"] = str(docs_path)
+    save_config(config)
+    
+    record_activity(
+        command="init",
+        subcommand="workspace",
+        args={"code_workspace": str(code_path), "docs_workspace": str(docs_path)},
+    )
+    
+    console.print(
+        Panel.fit(
+            f"[bold green]✓ Workspace configuration saved![/bold green]\n\n"
+            f"[bold]Workspaces:[/bold]\n"
+            f"  Code: {code_path}\n"
+            f"  Docs: {docs_path}\n\n"
+            f"[dim]Config saved to: {CONFIG_FILE}[/dim]\n\n"
+            f"[bold]Next steps:[/bold]\n"
+            f"  1. Configure LLM provider: {CLI_NAME} init vertex-ai\n"
+            f"  2. Onboard code: {CLI_NAME} code onboard --path <repo>\n"
+            f"  3. Ingest documents: {CLI_NAME} kg ingest submit --path <docs>",
+            title="Success",
+            border_style="green",
+        )
+    )
 
 
 @init_app.command("anthropic")

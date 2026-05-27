@@ -20,7 +20,7 @@ AGENT_STATE_DIR = Path.home() / ".dva" / "agents"
 AGENT_STATE_FILE = AGENT_STATE_DIR / "running.json"
 
 # Project tracker DB
-DVA_CONFIG_DIR = Path.home() / ".dva-agentic"
+DVA_CONFIG_DIR = Path.home() / ".agent-cli-agentic"
 
 
 class AgentInfo(BaseModel):

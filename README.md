@@ -36,18 +36,49 @@ git clone <repo-url>/agent-skills.git skills
 git clone <repo-url>/agent-mcp-servers.git mcp-servers
 git clone <repo-url>/agent-kg-infra.git kg-infrastructure
 
-# Install CLI
-cd agentic-cli && uv pip install -e '.' && cd ..
+# Install CLI (uses project-level uv venv with Python 3.12)
+./install-agentic-cli.sh --project --native-tls
+
+# Activate project venv
+source .venv/bin/activate
 
 # Configure skills registry
-agent code config --registry ./skills
+dva code config --registry ./skills
 
 # Start MCP servers
 cd mcp-servers && cp .env.example .env && docker compose up -d && cd ..
 
 # Onboard any project
-agent code onboard --path ./some-project
+dva code onboard --path ./some-project
 ```
+
+## Development
+
+### Project Virtual Environment
+
+This workspace uses a single project-level uv venv at `.venv` (Python 3.12) for all Python components:
+
+- **agentic-cli** — CLI tool
+- **dashboard/backend** — FastAPI backend
+
+To activate:
+```bash
+source .venv/bin/activate
+```
+
+### Running the Dashboard
+
+```bash
+# Start backend (uses project venv)
+./start-backend.sh
+
+# Start frontend (in another terminal)
+./start-frontend.sh
+```
+
+The dashboard will be available at:
+- Backend: http://localhost:8000
+- Frontend: http://localhost:5173
 
 ## Dependencies Between Repos
 
