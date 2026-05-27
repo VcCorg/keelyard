@@ -9,6 +9,7 @@ import {
   TerminalSquare,
   Package,
   Rocket,
+  GitBranch,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +23,7 @@ const navItems = [
   { to: "/activity", icon: Activity, label: "Activity" },
   { to: "/chat", icon: MessageSquare, label: "Chat" },
   { to: "/terminal", icon: TerminalSquare, label: "Terminal" },
+  { to: "/kg", icon: GitBranch, label: "KG Context" },
 ];
 
 export function Layout() {

@@ -22,14 +22,14 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/mcp-servers" && pwd)"
 COMPOSE_FILE="$SCRIPT_DIR/docker-compose.yml"
 ENV_FILE="$SCRIPT_DIR/.env"
 
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
+YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 BOLD='\033[1m'
 NC='\033[0m'
@@ -62,7 +62,7 @@ log_info()  { echo -e "${BLUE}▸${NC} $*"; }
 log_ok()    { echo -e "${GREEN}✓${NC} $*"; }
 log_warn()  { echo -e "${YELLOW}⚠${NC} $*"; }
 log_error() { echo -e "${RED}✗${NC} $*"; }
-log_header(){ echo -e "\n${BOLD}$*${NC}"; }
+log_header(){ echo -e "\n${BOLD}$*${NC}\n"; }
 
 docker_compose() {
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "$@"
@@ -77,8 +77,8 @@ ensure_network() {
 
 check_env() {
     if [[ ! -f "$ENV_FILE" ]]; then
-        log_error ".env file not found. Copy from .env.example:"
-        echo "  cp .env.example .env"
+        log_error ".env file not found in mcp-servers/. Copy from .env.example:"
+        echo "  cp mcp-servers/.env.example mcp-servers/.env"
         exit 1
     fi
 }

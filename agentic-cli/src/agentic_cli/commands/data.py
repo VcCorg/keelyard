@@ -17,7 +17,7 @@ console = Console()
 data_app = typer.Typer(help="Manage data source configurations", rich_markup_mode=None)
 
 # Configuration file location (shared with init.py)
-CONFIG_DIR = Path.home() / ".dva-agentic"
+CONFIG_DIR = Path.home() / ".agent-cli-agentic"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
 

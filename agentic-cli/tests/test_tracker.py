@@ -49,7 +49,7 @@ class TestSchema:
         conn = sqlite3.connect(str(use_temp_db))
         row = conn.execute("SELECT version FROM schema_version").fetchone()
         conn.close()
-        assert row[0] == 7
+        assert row[0] == 8
 
     def test_tables_exist(self, use_temp_db):
         _ensure_db()

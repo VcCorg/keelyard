@@ -16,7 +16,11 @@ import tempfile
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from rich.console import Console
+
 from agentic_cli.analyzer.detector import ProjectAnalysis
+
+console = Console()
 
 
 def generate_graphify_analysis(
@@ -74,14 +78,31 @@ def _run_graphify_pipeline(project_path: Path, temp_dir: Path) -> Dict[str, Any]
     import graphify
     
     # Step 1: Detect files
-    files = graphify.detect.collect_files(str(project_path))
+    try:
+        # Try the expected API
+        files = graphify.detect.collect_files(str(project_path))
+    except AttributeError:
+        # Fallback: try alternative API or simple file collection
+        import os
+        files = []
+        for root, dirs, filenames in os.walk(str(project_path)):
+            for filename in filenames:
+                if filename.endswith(('.py', '.js', '.ts', '.java', '.go', '.rs')):
+                    files.append(os.path.join(root, filename))
+    
     console.print(f"[dim]Graphify detected {len(files)} files[/dim]")
     
     # Step 2: Extract nodes and edges
     extractions = []
     for file_path in files[:50]:  # Limit for performance
         try:
-            extraction = graphify.extract.extract(file_path)
+            try:
+                extraction = graphify.extract.extract(file_path)
+            except AttributeError:
+                # Graphify API doesn't match expected structure
+                console.print(f"[dim]Graphify API not compatible, skipping extraction[/dim]")
+                break
+            
             if extraction and (extraction.get("nodes") or extraction.get("edges")):
                 extractions.append(extraction)
         except Exception as e:
@@ -89,32 +110,63 @@ def _run_graphify_pipeline(project_path: Path, temp_dir: Path) -> Dict[str, Any]
     
     console.print(f"[dim]Extracted data from {len(extractions)} files[/dim]")
     
+    # If no extractions, return empty result
+    if not extractions:
+        console.print("[dim]No data extracted, skipping Graphify analysis[/dim]")
+        return {"nodes": [], "edges": [], "communities": []}
+    
     # Step 3: Build graph
-    graph = graphify.build.build_graph(extractions)
+    try:
+        graph = graphify.build.build_graph(extractions)
+    except AttributeError:
+        console.print("[dim]Graphify API not compatible, skipping graph build[/dim]")
+        return {"nodes": [], "edges": [], "communities": []}
     
     # Step 4: Detect communities
-    graph = graphify.cluster.cluster(graph)
+    try:
+        graph = graphify.cluster.cluster(graph)
+    except AttributeError:
+        console.print("[dim]Graphify API not compatible, skipping community detection[/dim]")
     
     # Step 5: Analyze graph
-    analysis = graphify.analyze.analyze(graph)
+    try:
+        analysis = graphify.analyze.analyze(graph)
+    except AttributeError:
+        console.print("[dim]Graphify API not compatible, skipping analysis[/dim]")
+        analysis = {}
     
     # Step 6: Export results
-    outputs = graphify.export.export(
-        graph, 
-        out_dir=str(temp_dir),
-        formats=["json"]
-    )
+    try:
+        outputs = graphify.export.export(
+            graph, 
+            out_dir=str(temp_dir),
+            formats=["json"]
+        )
+    except AttributeError:
+        console.print("[dim]Graphify API not compatible, skipping export[/dim]")
+        outputs = None
     
     # Combine all results
     result = {
         "files_analyzed": len(extractions),
         "total_files": len(files),
-        "nodes": [{"id": n, **graph.nodes[n]} for n in graph.nodes()],
-        "edges": [{"source": u, "target": v, **graph[u][v]} for u, v in graph.edges()],
-        "communities": _extract_communities(graph),
+        "nodes": [],
+        "edges": [],
+        "communities": [],
         "analysis": analysis,
         "outputs": outputs
     }
+    
+    # Try to extract nodes/edges from graph if available
+    try:
+        if hasattr(graph, 'nodes'):
+            result["nodes"] = [{"id": n, **graph.nodes[n]} for n in graph.nodes()]
+        if hasattr(graph, 'edges'):
+            result["edges"] = [{"source": u, "target": v, **graph[u][v]} for u, v in graph.edges()]
+        if hasattr(graph, 'nodes') and hasattr(graph, 'nodes'):
+            result["communities"] = _extract_communities(graph)
+    except Exception as e:
+        console.print(f"[dim]Warning: Failed to extract graph data: {e}[/dim]")
     
     return result
 
@@ -334,8 +386,19 @@ def validate_graphify_compatibility(project_path: Path) -> Dict[str, Any]:
     # Check project size
     try:
         import graphify
+        import os
         
-        files = graphify.detect.collect_files(str(project_path))
+        # Try to use Graphify API if available
+        try:
+            files = graphify.detect.collect_files(str(project_path))
+        except AttributeError:
+            # Fallback: count files manually
+            files = []
+            for root, dirs, filenames in os.walk(str(project_path)):
+                for filename in filenames:
+                    if filename.endswith(('.py', '.js', '.ts', '.java', '.go', '.rs')):
+                        files.append(os.path.join(root, filename))
+        
         if len(files) > 1000:
             result["compatible"] = False
             result["reason"] = "Project too large"

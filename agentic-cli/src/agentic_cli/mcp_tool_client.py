@@ -175,6 +175,35 @@ def parse_space_key(value: str) -> str:
     return value
 
 
+def parse_confluence_url(value: str) -> tuple[str, str]:
+    """Extract (space_key, page_id) from Confluence URL.
+    
+    Returns:
+        tuple: (space_key, page_id) - one will be empty string if not found
+    """
+    if not value or "/" not in value:
+        return ("", "")
+    
+    parts = [p for p in urlparse(value).path.split("/") if p]
+    space_key = ""
+    page_id = ""
+    
+    # Check for space URL: /spaces/SPACE_KEY or /display/SPACE_KEY
+    for segment in ("display", "spaces"):
+        try:
+            idx = parts.index(segment)
+            if idx + 1 < len(parts):
+                space_key = parts[idx + 1]
+                # Check if this is followed by /pages/PAGE_ID
+                if idx + 2 < len(parts) and parts[idx + 2] == "pages" and idx + 3 < len(parts):
+                    page_id = parts[idx + 3]
+                break
+        except (ValueError, IndexError):
+            continue
+    
+    return (space_key, page_id)
+
+
 # ── Bitbucket helpers ────────────────────────────────────────────────
 
 def bb_list_project_repos(project: str, limit: int = 500) -> list[dict[str, Any]]:
@@ -245,3 +274,61 @@ def confluence_update_page(
 def confluence_get_space(space_key: str) -> dict[str, Any]:
     """Get Confluence space details via MCP."""
     return call_mcp_tool(_get_confluence_url(), "get_confluence_space", {"space_key": space_key})
+
+
+def confluence_list_attachments(page_id: str) -> list[dict[str, Any]]:
+    """List attachments for a Confluence page via MCP."""
+    result = call_mcp_tool(_get_confluence_url(), "list_attachments", {
+        "page_id": page_id,
+    })
+    return result.get("results", []) if isinstance(result, dict) else []
+
+
+def confluence_get_attachment(attachment_id: str) -> dict[str, Any]:
+    """Get attachment metadata and download URL via MCP."""
+    return call_mcp_tool(_get_confluence_url(), "get_attachment", {
+        "attachment_id": attachment_id,
+    })
+
+def confluence_download_attachment(attachment_id: str) -> str:
+    """Download attachment content as base64 via MCP."""
+    return call_mcp_tool(_get_confluence_url(), "download_attachment", {
+        "attachment_id": attachment_id,
+    })
+
+def confluence_get_page_children(page_id: str) -> list[dict[str, Any]]:
+    """Get direct child pages of a page via MCP."""
+    result = call_mcp_tool(_get_confluence_url(), "get_page_children", {
+        "page_id": page_id,
+    })
+    return json.loads(result) if isinstance(result, str) else result
+
+
+def confluence_get_all_descendants(page_id: str, max_depth: int = 10) -> list[dict[str, Any]]:
+    """Recursively fetch all descendant pages of a Confluence page.
+    
+    Args:
+        page_id: The root page ID
+        max_depth: Maximum recursion depth to prevent infinite loops
+        
+    Returns:
+        List of all descendant pages (not including the root page)
+    """
+    all_pages = []
+    
+    def _fetch_recursive(current_page_id: str, current_depth: int):
+        if current_depth >= max_depth:
+            return
+        
+        try:
+            children = confluence_get_page_children(current_page_id)
+            for child in children:
+                all_pages.append(child)
+                # Recursively fetch children of this page
+                _fetch_recursive(str(child.get("id")), current_depth + 1)
+        except Exception:
+            # If fetching children fails, skip this branch
+            pass
+    
+    _fetch_recursive(page_id, 0)
+    return all_pages

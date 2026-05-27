@@ -1,11 +1,45 @@
 """Entity extraction using Vertex AI."""
 
 import json
+import time
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
 from agentic_cli.kg.config import KGConfig
 from agentic_cli.config import CLI_NAME
+
+# Cache for Vertex AI initialization
+_vertexai_initialized = False
+
+
+def _retry_with_backoff(func, max_retries=3, initial_delay=1.0):
+    """
+    Retry function with exponential backoff for rate limit errors.
+    
+    Args:
+        func: Function to retry
+        max_retries: Maximum number of retries
+        initial_delay: Initial delay in seconds
+    
+    Returns:
+        Function result
+    """
+    for attempt in range(max_retries):
+        try:
+            return func()
+        except Exception as e:
+            error_str = str(e)
+            if "429" in error_str or "Resource exhausted" in error_str:
+                if attempt < max_retries - 1:
+                    delay = initial_delay * (2 ** attempt)
+                    print(f"[DEBUG] Rate limited, retrying in {delay}s (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(delay)
+                else:
+                    print(f"[DEBUG] Max retries exceeded for rate limit error")
+                    raise
+            else:
+                raise
+    return None
 
 
 def extract_entities_from_documents(
@@ -39,20 +73,23 @@ def extract_entities_from_documents(
             "Vertex AI packages not installed. Install with: pip install google-cloud-aiplatform"
         )
     
-    # Initialize Vertex AI
-    try:
-        print(f"[DEBUG] Initializing Vertex AI with project={config.google_project_id}, location={config.google_location}")
-        vertexai.init(
-            project=config.google_project_id,
-            location=config.google_location,
-        )
-    except Exception as e:
-        raise RuntimeError(
-            f"Failed to initialize Vertex AI: {str(e)}\n"
-            "Make sure you're authenticated with Google Cloud:\n"
-            "  gcloud auth application-default login\n"
-            "Or set GOOGLE_APPLICATION_CREDENTIALS environment variable."
-        )
+    # Initialize Vertex AI (cached)
+    global _vertexai_initialized
+    if not _vertexai_initialized:
+        try:
+            print(f"[DEBUG] Initializing Vertex AI with project={config.google_project_id}, location={config.google_location}")
+            vertexai.init(
+                project=config.google_project_id,
+                location=config.google_location,
+            )
+            _vertexai_initialized = True
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to initialize Vertex AI: {str(e)}\n"
+                "Make sure you're authenticated with Google Cloud:\n"
+                "  gcloud auth application-default login\n"
+                "Or set GOOGLE_APPLICATION_CREDENTIALS environment variable."
+            )
     
     # Use gemini-2.5-flash-lite model
     model_name = "gemini-2.5-flash-lite"
@@ -113,7 +150,10 @@ Return ONLY the JSON array, no other text.
 """
     
     try:
-        response = model.generate_content(prompt)
+        def _call_model():
+            return model.generate_content(prompt)
+        
+        response = _retry_with_backoff(_call_model)
         result_text = response.text.strip()
         
         # Try to parse JSON
@@ -128,16 +168,40 @@ Return ONLY the JSON array, no other text.
         # Convert to our entity format
         entities = []
         for entity_data in entities_data:
+            # Preserve original document metadata
+            doc_metadata = document.get("metadata", {})
+            entity_metadata = {
+                "source": doc_metadata.get("source", ""),
+                "document_title": doc_metadata.get("document_title", document.get("title", "")),
+                "extraction_method": "vertex-ai",
+            }
+            
+            # Preserve domain, product, and persona if present
+            if "domain" in doc_metadata:
+                entity_metadata["domain"] = doc_metadata["domain"]
+            if "product" in doc_metadata:
+                entity_metadata["product"] = doc_metadata["product"]
+            if "persona" in doc_metadata:
+                entity_metadata["persona"] = doc_metadata["persona"]
+            
+            # Preserve attachment-specific metadata if present
+            if "attachment_filename" in doc_metadata:
+                entity_metadata["attachment_filename"] = doc_metadata["attachment_filename"]
+            if "attachment_page_id" in doc_metadata:
+                entity_metadata["attachment_page_id"] = doc_metadata["attachment_page_id"]
+            if "parent_page_id" in doc_metadata:
+                entity_metadata["parent_page_id"] = doc_metadata["parent_page_id"]
+            if "parent_page_title" in doc_metadata:
+                entity_metadata["parent_page_title"] = doc_metadata["parent_page_title"]
+            if "page_id" in doc_metadata:
+                entity_metadata["page_id"] = doc_metadata["page_id"]
+            
             entity = {
                 "id": str(uuid.uuid4()),
                 "name": entity_data.get("name", ""),
                 "type": entity_data.get("type", "KGEntity"),
                 "content": entity_data.get("description", ""),
-                "metadata": {
-                    "source": document.get("metadata", {}).get("source", ""),
-                    "document_title": document.get("title", ""),
-                    "extraction_method": "vertex-ai",
-                },
+                "metadata": entity_metadata,
             }
             entities.append(entity)
         
@@ -193,7 +257,10 @@ Return ONLY the JSON array, no other text.
 """
     
     try:
-        response = model.generate_content(prompt)
+        def _call_model():
+            return model.generate_content(prompt)
+        
+        response = _retry_with_backoff(_call_model)
         result_text = response.text.strip()
         
         # Try to parse JSON
@@ -251,11 +318,14 @@ def generate_embeddings(texts: List[str], config: Optional[KGConfig] = None) -> 
             "Vertex AI packages not installed. Install with: pip install google-cloud-aiplatform"
         )
     
-    # Initialize Vertex AI
-    vertexai.init(
-        project=config.google_project_id,
-        location=config.google_location,
-    )
+    # Initialize Vertex AI (cached)
+    global _vertexai_initialized
+    if not _vertexai_initialized:
+        vertexai.init(
+            project=config.google_project_id,
+            location=config.google_location,
+        )
+        _vertexai_initialized = True
     
     model = TextEmbeddingModel.from_pretrained(config.vertex_ai_model)
     

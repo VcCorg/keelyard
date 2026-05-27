@@ -347,7 +347,7 @@ def view_logs(
     """.format(CLI_NAME=CLI_NAME)
     from pathlib import Path
     
-    log_file = Path.home() / ".dva-agentic" / "logs" / "async_ingestion.log"
+    log_file = Path.home() / ".agent-cli-agentic" / "logs" / "async_ingestion.log"
     
     if not log_file.exists():
         console.print("[yellow]No logs found[/yellow]")

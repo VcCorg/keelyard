@@ -56,25 +56,34 @@ async def list_skills(
     """List all available skills from the registry."""
     try:
         # Import here to avoid circular imports
-        from dva_agentic_cli.analyzer.matcher import load_registry
-        from dva_agentic_cli.commands.code import _ensure_registry
-        
+        from agentic_cli.analyzer.matcher import load_registry
+        from agentic_cli.commands.code import _ensure_registry, _get_registry_path
+
         # Get registry path
         if registry_path:
             reg_path = Path(registry_path)
             if not reg_path.exists() or not (reg_path / "registry.json").exists():
                 raise HTTPException(status_code=404, detail=f"Registry not found at {registry_path}")
         else:
-            reg_path = _ensure_registry()
-        
+            try:
+                reg_path = _ensure_registry()
+            except Exception:
+                # No registry configured - return empty list
+                reg_path = _get_registry_path()
+                return SkillListResponse(
+                    skills=[],
+                    total=0,
+                    registry_path=str(reg_path) if reg_path else None
+                )
+
         # Load registry data
         registry_data = load_registry(reg_path)
         skills = registry_data.get("skills", [])
-        
+
         # Filter by tag if provided
         if tag:
             skills = [s for s in skills if tag.lower() in [t.lower() for t in s.get("tags", [])]]
-        
+
         # Convert to SkillInfo models
         skill_infos = []
         for skill in skills:
@@ -85,13 +94,15 @@ async def list_skills(
                 mcp=skill.get("mcp"),
                 auto_detect=skill.get("auto_detect")
             ))
-        
+
         return SkillListResponse(
             skills=skill_infos,
             total=len(skill_infos),
             registry_path=str(reg_path)
         )
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to list skills: {str(e)}")
 
@@ -100,20 +111,29 @@ async def list_skills(
 async def get_project_skills(project_name: str):
     """Get skills installed and suggested for a specific project."""
     try:
-        from dva_agentic_cli.commands.code import _load_onboard_manifest
-        from dva_agentic_cli.analyzer.matcher import load_registry, get_suggested_skills
-        from dva_agentic_cli.analyzer.detector import analyze_project
-        
         # Convert project name to path (handle both relative and absolute)
         project_path = Path(project_name).resolve()
         if not project_path.exists():
             raise HTTPException(status_code=404, detail=f"Project not found at {project_path}")
-        
-        # Load onboard manifest
-        manifest = _load_onboard_manifest(project_path)
+
+        # Try to load onboard manifest - return empty if not available
+        try:
+            from agentic_cli.commands.code import _load_onboard_manifest
+            manifest = _load_onboard_manifest(project_path)
+        except (ImportError, AttributeError):
+            manifest = None
+
         if not manifest:
-            raise HTTPException(status_code=404, detail=f"No onboard manifest found for project {project_name}")
-        
+            # Return empty response if no manifest
+            return ProjectSkillsResponse(
+                project_path=str(project_path),
+                project_name=project_path.name,
+                installed_skills=[],
+                suggested_skills=[],
+                total_installed=0,
+                total_suggested=0
+            )
+
         # Get installed skills
         installed_skills = []
         for skill_name in manifest.get("installed_skills", []):
@@ -128,27 +148,33 @@ async def get_project_skills(project_name: str):
                     mcp=None,
                     auto_detect=None
                 ))
-        
+
         # Get suggested skills
-        analysis_data = manifest.get("analysis", {})
-        registry_path = _ensure_registry()
-        registry_data = load_registry(registry_path)
-        
-        # Recreate ProjectAnalysis from saved data
-        from dva_agentic_cli.analyzer.detector import ProjectAnalysis
-        analysis = ProjectAnalysis.from_dict(analysis_data)
-        
-        suggested_matches = get_suggested_skills(analysis, registry_data, manifest.get("installed_skills", []))
-        suggested_skills = []
-        for match in suggested_matches:
-            suggested_skills.append(SkillInfo(
-                name=match.name,
-                description=match.description,
-                tags=match.tags,
-                mcp=match.mcp,
-                auto_detect=None
-            ))
-        
+        try:
+            from agentic_cli.analyzer.matcher import load_registry, get_suggested_skills
+            from agentic_cli.analyzer.detector import ProjectAnalysis
+            from agentic_cli.commands.code import _ensure_registry
+
+            analysis_data = manifest.get("analysis", {})
+            registry_path = _ensure_registry()
+            registry_data = load_registry(registry_path)
+
+            # Recreate ProjectAnalysis from saved data
+            analysis = ProjectAnalysis.from_dict(analysis_data)
+
+            suggested_matches = get_suggested_skills(analysis, registry_data, manifest.get("installed_skills", []))
+            suggested_skills = []
+            for match in suggested_matches:
+                suggested_skills.append(SkillInfo(
+                    name=match.name,
+                    description=match.description,
+                    tags=match.tags,
+                    mcp=match.mcp,
+                    auto_detect=None
+                ))
+        except Exception:
+            suggested_skills = []
+
         return ProjectSkillsResponse(
             project_path=str(project_path),
             project_name=project_path.name,
@@ -157,7 +183,7 @@ async def get_project_skills(project_name: str):
             total_installed=len(installed_skills),
             total_suggested=len(suggested_skills)
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -168,7 +194,7 @@ async def get_project_skills(project_name: str):
 async def install_skill(request: SkillInstallRequest):
     """Install a skill to a project."""
     try:
-        from dva_agentic_cli.commands.code import _ensure_registry, _install_skill_from_registry
+        from agentic_cli.commands.code import _ensure_registry, _install_skill_from_registry
         
         # Validate project path
         project_path = Path(request.project_path).resolve()
@@ -207,8 +233,8 @@ async def show_skill(
 ):
     """Show details of a specific skill from the registry."""
     try:
-        from dva_agentic_cli.analyzer.matcher import load_registry
-        from dva_agentic_cli.commands.code import _ensure_registry
+        from agentic_cli.analyzer.matcher import load_registry
+        from agentic_cli.commands.code import _ensure_registry
         
         # Get registry path
         if registry_path:
@@ -257,30 +283,30 @@ async def show_skill(
 async def get_registry_info():
     """Get information about the skills registry."""
     try:
-        from dva_agentic_cli.commands.code import _ensure_registry, _get_registry_path
-        from dva_agentic_cli.analyzer.matcher import load_registry
-        
+        from agentic_cli.commands.code import _ensure_registry, _get_registry_path
+        from agentic_cli.analyzer.matcher import load_registry
+
         # Get registry path
         registry_path = _get_registry_path()
-        
+
         # Try to ensure registry (will clone if needed)
         try:
             actual_path = _ensure_registry()
             exists = True
-        except:
+        except Exception:
             exists = False
             actual_path = registry_path
-        
+
         # Load registry if it exists
         registry_data = {}
         skills_count = 0
         if exists and (actual_path / "registry.json").exists():
             registry_data = load_registry(actual_path)
             skills_count = len(registry_data.get("skills", []))
-        
+
         # Check if it's a git repo
         is_git_repo = exists and (actual_path / ".git").exists()
-        
+
         # Get git remote info if it's a git repo
         git_remote = None
         if is_git_repo:
@@ -296,9 +322,9 @@ async def get_registry_info():
                 git_remote = result.stdout.strip()
             except subprocess.CalledProcessError:
                 pass
-        
+
         return {
-            "configured_path": str(registry_path),
+            "configured_path": str(registry_path) if registry_path else None,
             "actual_path": str(actual_path) if exists else None,
             "exists": exists,
             "is_git_repo": is_git_repo,
@@ -306,7 +332,9 @@ async def get_registry_info():
             "skills_count": skills_count,
             "last_updated": None  # Could add git timestamp here
         }
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get registry info: {str(e)}")
 
@@ -372,13 +400,13 @@ async def configure_registry(
             )
         
         # Update the global config to point to this registry
-        from dva_agentic_cli.commands.code import _save_config, _get_config
+        from agentic_cli.commands.code import _save_config, _get_config
         config = _get_config()
         config["skills_registry"] = str(target_path)
         _save_config(config)
         
         # Load and validate registry
-        from dva_agentic_cli.analyzer.matcher import load_registry
+        from agentic_cli.analyzer.matcher import load_registry
         registry_data = load_registry(target_path)
         skills_count = len(registry_data.get("skills", []))
         
@@ -406,7 +434,7 @@ async def configure_registry(
 async def update_registry():
     """Update the configured skills registry from its remote."""
     try:
-        from dva_agentic_cli.commands.code import _ensure_registry
+        from agentic_cli.commands.code import _ensure_registry
         
         # Get the registry path
         registry_path = _ensure_registry()
@@ -433,7 +461,7 @@ async def update_registry():
             )
         
         # Load updated registry
-        from dva_agentic_cli.analyzer.matcher import load_registry
+        from agentic_cli.analyzer.matcher import load_registry
         registry_data = load_registry(registry_path)
         skills_count = len(registry_data.get("skills", []))
         

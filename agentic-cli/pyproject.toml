@@ -44,13 +44,16 @@ kg = [
     "neo4j>=5.14.0",
     "pydantic>=2.0.0",
     # google-cloud-aiplatform moved to main dependencies
-    "PyPDF2>=3.0.0",
+    "PyPDF2>=3.0.0",  # For parsing .pdf attachments
     "pyvis>=0.3.2",
     "atlassian-python-api>=3.41.0",  # For Confluence integration
     "httpx>=0.25.0",  # For LightRAG integration
     "gitpython>=3.1.40",  # For Git repository cloning
     "gitingest>=0.1.0",  # For parsing Git repositories
     "graphifyy>=0.4.0",  # For code structure analysis
+    "python-docx>=1.2.0",  # For parsing .docx attachments
+    "openpyxl>=3.1.0",  # For parsing .xlsx/.xls attachments
+    # JSON is handled by built-in json module
 ]
 
 [build-system]

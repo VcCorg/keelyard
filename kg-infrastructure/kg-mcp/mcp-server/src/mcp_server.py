@@ -27,13 +27,15 @@ class KGMCPServer:
     """MCP Server for Knowledge Graph operations."""
     
     def __init__(self):
-        """Initialize MCP server with both Neo4j and LightRAG support."""
+        """Initialize MCP server with Neo4j, LightRAG, and PostgreSQL support."""
         self.config = self._load_config()
         self.neo4j_available = self._check_neo4j_available()
         self.lightrag_available = self._check_lightrag_available()
+        self.postgres_available = self._check_postgres_available()
         logger.info(f"Initialized KG MCP Server")
         logger.info(f"  Neo4j: {'✓ Available' if self.neo4j_available else '✗ Not configured'}")
         logger.info(f"  LightRAG: {'✓ Available' if self.lightrag_available else '✗ Not configured'}")
+        logger.info(f"  PostgreSQL: {'✓ Available' if self.postgres_available else '✗ Not configured'}")
     
     def _load_config(self) -> Dict[str, Any]:
         """Load configuration from environment variables."""
@@ -42,6 +44,14 @@ class KGMCPServer:
                 "uri": os.getenv("NEO4J_URI", "bolt://localhost:7687"),
                 "user": os.getenv("NEO4J_USER", "neo4j"),
                 "password": os.getenv("NEO4J_PASSWORD", "password"),
+            },
+            "postgres": {
+                "host": os.getenv("POSTGRES_HOST", "localhost"),
+                "port": int(os.getenv("POSTGRES_PORT", "5432")),
+                "user": os.getenv("POSTGRES_USER", "postgres"),
+                "password": os.getenv("POSTGRES_PASSWORD", "postgres"),
+                "database": os.getenv("POSTGRES_DATABASE", "knowledge_graph"),
+                "graph": os.getenv("POSTGRES_GRAPH", "knowledge_graph"),
             },
             "lightrag": {
                 "url": os.getenv("LIGHTRAG_URL", "http://localhost:8001"),
@@ -64,6 +74,11 @@ class KGMCPServer:
         url = self.config["lightrag"]["url"]
         return url and url != "http://localhost:8001" or os.getenv("LIGHTRAG_URL")
     
+    def _check_postgres_available(self) -> bool:
+        """Check if PostgreSQL is configured and available."""
+        host = self.config["postgres"]["host"]
+        return host and host != "localhost" or os.getenv("POSTGRES_HOST")
+    
     def get_provider_status(self) -> Dict[str, Any]:
         """Get status of all providers."""
         return {
@@ -71,6 +86,10 @@ class KGMCPServer:
                 "neo4j": {
                     "available": self.neo4j_available,
                     "uri": self.config["neo4j"]["uri"] if self.neo4j_available else None,
+                },
+                "postgres": {
+                    "available": self.postgres_available,
+                    "host": self.config["postgres"]["host"] if self.postgres_available else None,
                 },
                 "lightrag": {
                     "available": self.lightrag_available,
@@ -89,6 +108,7 @@ async def lifespan(app: FastAPI):
     """Lifespan context manager for startup/shutdown."""
     logger.info("Starting DVA KG MCP Server...")
     logger.info(f"Neo4j: {'Available' if kg_server.neo4j_available else 'Not configured'}")
+    logger.info(f"PostgreSQL: {'Available' if kg_server.postgres_available else 'Not configured'}")
     logger.info(f"LightRAG: {'Available' if kg_server.lightrag_available else 'Not configured'}")
     yield
     logger.info("Shutting down DVA KG MCP Server...")
@@ -123,6 +143,7 @@ async def health_check():
         "status": "healthy",
         "providers": {
             "neo4j": kg_server.neo4j_available,
+            "postgres": kg_server.postgres_available,
             "lightrag": kg_server.lightrag_available
         },
         "version": "0.1.0"
@@ -171,6 +192,7 @@ async def mcp_initialize(request: Request):
                 "version": "0.1.0",
                 "providers": {
                     "neo4j": kg_server.neo4j_available,
+                    "postgres": kg_server.postgres_available,
                     "lightrag": kg_server.lightrag_available
                 }
             }
@@ -201,7 +223,7 @@ async def mcp_list_tools():
                         },
                         "provider": {
                             "type": "string",
-                            "enum": ["neo4j", "lightrag"],
+                            "enum": ["neo4j", "postgres", "lightrag"],
                             "default": "neo4j",
                             "description": "Which KG provider to use (neo4j or lightrag)"
                         },
@@ -237,7 +259,7 @@ async def mcp_list_tools():
                         },
                         "provider": {
                             "type": "string",
-                            "enum": ["neo4j", "lightrag"],
+                            "enum": ["neo4j", "postgres", "lightrag"],
                             "default": "neo4j",
                             "description": "Which KG provider to use (neo4j or lightrag)"
                         },
@@ -263,7 +285,7 @@ async def mcp_list_tools():
                     "properties": {
                         "provider": {
                             "type": "string",
-                            "enum": ["neo4j", "lightrag"],
+                            "enum": ["neo4j", "postgres", "lightrag"],
                             "default": "neo4j",
                             "description": "Which KG provider to use (neo4j or lightrag)"
                         }
@@ -282,7 +304,7 @@ async def mcp_list_tools():
                         },
                         "provider": {
                             "type": "string",
-                            "enum": ["neo4j", "lightrag"],
+                            "enum": ["neo4j", "postgres", "lightrag"],
                             "default": "neo4j",
                             "description": "Which KG provider to use (neo4j or lightrag)"
                         },

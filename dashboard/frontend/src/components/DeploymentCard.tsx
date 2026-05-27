@@ -1,5 +1,5 @@
 import { Trash2, RotateCcw, Play, Square } from "lucide-react";
-import { Deployment } from "@/lib/api";
+import type { Deployment } from "@/lib/api";
 import { StatusBadge } from "@/components/StatusBadge";
 
 interface DeploymentCardProps {

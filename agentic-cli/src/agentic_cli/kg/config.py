@@ -11,20 +11,34 @@ from pydantic import BaseModel, Field
 class KGConfig(BaseModel):
     """Knowledge graph configuration."""
     
-    provider: str = Field(default="neo4j", description="Graph database provider (neo4j, lightrag)")
+    provider: str = Field(default="neo4j", description="Graph database provider (neo4j, lightrag, postgres, weaviate)")
     neo4j_uri: str = Field(default="bolt://localhost:7687", description="Neo4j connection URI")
     neo4j_username: str = Field(default="neo4j", description="Neo4j username")
     neo4j_password: Optional[str] = Field(default=None, description="Neo4j password")
     embeddings_provider: str = Field(default="vertex-ai", description="Embeddings provider")
     
+    # PostgreSQL settings (pgvector + Apache AGE)
+    postgres_host: str = Field(default="localhost", description="PostgreSQL host")
+    postgres_port: int = Field(default=5432, description="PostgreSQL port")
+    postgres_user: str = Field(default="postgres", description="PostgreSQL username")
+    postgres_password: str = Field(default="postgres", description="PostgreSQL password")
+    postgres_database: str = Field(default="knowledge_graph", description="PostgreSQL database name")
+    postgres_graph: str = Field(default="knowledge_graph", description="Apache AGE graph name")
+    
     # LightRAG settings
     lightrag_url: str = Field(default="http://localhost:8001", description="LightRAG API base URL")
     lightrag_timeout: float = Field(default=300.0, description="LightRAG request timeout in seconds")
     
+    # Weaviate settings
+    weaviate_host: str = Field(default="localhost", description="Weaviate host")
+    weaviate_port: int = Field(default=8080, description="Weaviate port")
+    weaviate_scheme: str = Field(default="http", description="Weaviate connection scheme (http or https)")
+    weaviate_api_key: Optional[str] = Field(default=None, description="Weaviate API key for authentication")
+    
     # Workspace settings (LightRAG only)
     workspace: str = Field(default="default", description="Active workspace name (LightRAG only)")
     workspace_base_dir: str = Field(
-        default_factory=lambda: os.path.expanduser("~/.dva-agentic/lightrag-workspaces"),
+        default_factory=lambda: os.path.expanduser("~/.agent-cli-agentic/lightrag-workspaces"),
         description="Base directory for workspaces (LightRAG only)"
     )
     
@@ -58,7 +72,7 @@ class KGConfig(BaseModel):
                 kg_data = json.load(f)
         
         # Try to load Vertex AI settings from main config and merge
-        main_config_path = Path.home() / ".dva-agentic" / "config.json"
+        main_config_path = Path.home() / ".agent-cli-agentic" / "config.json"
         if main_config_path.exists():
             with open(main_config_path, "r") as f:
                 main_data = json.load(f)
@@ -111,6 +125,22 @@ class KGConfig(BaseModel):
         return (
             self.provider == "lightrag"
             and self.lightrag_url is not None
+        )
+    
+    def is_postgres_configured(self) -> bool:
+        """Check if PostgreSQL is properly configured."""
+        return (
+            self.provider == "postgres"
+            and self.postgres_host is not None
+            and self.postgres_user is not None
+            and self.postgres_password is not None
+        )
+    
+    def is_weaviate_configured(self) -> bool:
+        """Check if Weaviate is properly configured."""
+        return (
+            self.provider == "weaviate"
+            and self.weaviate_host is not None
         )
     
     def get_workspace_dir(self) -> str:

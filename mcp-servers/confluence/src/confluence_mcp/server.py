@@ -248,6 +248,64 @@ def get_page_labels(page_id: str) -> str:
         return json.dumps({"total": len(labels), "labels": labels}, indent=2)
 
 
+@mcp.tool()
+def list_attachments(page_id: str, limit: int = 100) -> str:
+    """List attachments for a Confluence page.
+
+    Args:
+        page_id: Confluence page ID
+        limit: Maximum number of attachments (default: 100)
+
+    Returns list of attachments with filenames, media types, sizes, and download links.
+    """
+    with _get_client() as client:
+        attachments = client.list_attachments(page_id, limit=limit)
+        return json.dumps({"total": len(attachments), "results": attachments}, indent=2)
+
+
+@mcp.tool()
+def get_attachment(attachment_id: str) -> str:
+    """Get attachment metadata and download URL.
+
+    Args:
+        attachment_id: Confluence attachment ID
+
+    Returns attachment metadata with download link.
+    """
+    with _get_client() as client:
+        attachment = client.get_attachment(attachment_id)
+        return json.dumps(attachment, indent=2)
+
+
+@mcp.tool()
+def download_attachment(attachment_id: str) -> str:
+    """Download attachment content as base64-encoded string.
+
+    Args:
+        attachment_id: Confluence attachment ID
+
+    Returns base64-encoded attachment content.
+    """
+    import base64
+    with _get_client() as client:
+        content = client.download_attachment_content(attachment_id)
+        return base64.b64encode(content).decode('utf-8')
+
+
+@mcp.tool()
+def get_page_children(page_id: str) -> str:
+    """Get direct child pages of a page.
+
+    Args:
+        page_id: Confluence page ID
+
+    Returns list of child page metadata as JSON.
+    """
+    with _get_client() as client:
+        children = client.get_page_children(page_id)
+        return json.dumps(children, indent=2)
+
+
 # ── Create / Update ──────────────────────────────────────────────────────────
 
 

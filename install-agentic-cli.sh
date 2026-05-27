@@ -42,13 +42,15 @@ log_error() { echo -e "${RED}✗${NC} $*"; }
 log_header(){ echo -e "\n${BOLD}$*${NC}\n"; }
 
 # Configuration
-INSTALL_TYPE="local"  # local or global
+INSTALL_TYPE="project"  # project, local, or global
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SHELL_CONFIG_FILES=()
 ADDITIONAL_DEPS=""  # Additional dependencies for --with flag
 DEPENDENCY_GROUP=""  # Predefined dependency group
 DEV_MODE=""  # Development mode flag
 FORCE_REINSTALL=""  # Force reinstall from source
+USE_NATIVE_TLS=""  # Use system TLS certificates
+PROJECT_VENV="$ROOT_DIR/.venv"  # Project-level uv venv
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -83,16 +85,28 @@ while [[ $# -gt 0 ]]; do
       log_info "Force reinstall enabled"
       shift
       ;;
+    --native-tls)
+      USE_NATIVE_TLS="1"
+      log_info "Using system TLS certificates for uv"
+      shift
+      ;;
+    --project)
+      INSTALL_TYPE="project"
+      log_info "Installing into project venv"
+      shift
+      ;;
     --help|-h)
-      echo "Usage: $0 [--local] [--global] [--with PACKAGE] [--group GROUP] [--dev] [--force]"
+      echo "Usage: $0 [--project] [--local] [--global] [--with PACKAGE] [--group GROUP] [--dev] [--force] [--native-tls]"
       echo ""
       echo "Options:"
-      echo "  --local   Install for current user only (default)"
-      echo "  --global  Install globally with sudo"
+      echo "  --project     Install into project venv (default: $PROJECT_VENV)"
+      echo "  --local       Install in local agentic-cli/.venv (legacy)"
+      echo "  --global      Install globally with sudo"
       echo "  --with PACKAGE  Install with additional dependencies (optional)"
       echo "  --group GROUP  Install with predefined dependency group (optional)"
-      echo "  --dev     Development mode - always install from latest source"
-      echo "  --force   Force reinstall (useful after code changes)"
+      echo "  --dev         Development mode - always install from latest source"
+      echo "  --force       Force reinstall (useful after code changes)"
+      echo "  --native-tls  Use system TLS certificates (fixes corporate VPN certificate issues)"
       exit 0
       ;;
     *)
@@ -128,7 +142,35 @@ log_ok "Python $(python3 --version | cut -d' ' -f2)"
 
 log_info "Installing agentic-cli..."
 
-if [ "$INSTALL_TYPE" = "local" ]; then
+if [ "$INSTALL_TYPE" = "project" ]; then
+    log_info "Installing into project venv ($PROJECT_VENV)..."
+    cd "$ROOT_DIR"
+
+    # Ensure project venv exists
+    if [ ! -d "$PROJECT_VENV" ]; then
+        log_info "Creating project venv with uv (Python 3.12)..."
+        uv venv --python 3.12
+    fi
+
+    # Install in editable mode with all core dependencies
+    UV_FLAGS=""
+    if [ -n "$USE_NATIVE_TLS" ]; then
+        UV_FLAGS="--native-tls"
+    fi
+
+    if [ -n "$DEPENDENCY_GROUP" ]; then
+        log_info "Installing with dependency group: $DEPENDENCY_GROUP"
+        uv pip install $UV_FLAGS -e "agentic-cli/[dev,$DEPENDENCY_GROUP]"
+    elif [ -n "$ADDITIONAL_DEPS" ]; then
+        log_info "Installing with additional dependencies: $ADDITIONAL_DEPS"
+        uv pip install $UV_FLAGS -e "agentic-cli/[dev]" "$ADDITIONAL_DEPS"
+    else
+        log_info "Installing with all core dependencies (including Vertex AI SDK)"
+        uv pip install $UV_FLAGS -e "agentic-cli/[dev]"
+    fi
+    log_ok "Installed in project venv: $PROJECT_VENV"
+
+elif [ "$INSTALL_TYPE" = "local" ]; then
     log_info "Installing in development mode (local)..."
     cd "$ROOT_DIR/agentic-cli"
 
@@ -139,15 +181,20 @@ if [ "$INSTALL_TYPE" = "local" ]; then
     fi
 
     # Install in editable mode with all core dependencies
+    UV_FLAGS=""
+    if [ -n "$USE_NATIVE_TLS" ]; then
+        UV_FLAGS="--native-tls"
+    fi
+
     if [ -n "$DEPENDENCY_GROUP" ]; then
         log_info "Installing with dependency group: $DEPENDENCY_GROUP"
-        uv pip install -e ".[dev,$DEPENDENCY_GROUP]"
+        uv pip install $UV_FLAGS -e ".[dev,$DEPENDENCY_GROUP]"
     elif [ -n "$ADDITIONAL_DEPS" ]; then
         log_info "Installing with additional dependencies: $ADDITIONAL_DEPS"
-        uv pip install -e ".[dev]" "$ADDITIONAL_DEPS"
+        uv pip install $UV_FLAGS -e ".[dev]" "$ADDITIONAL_DEPS"
     else
         log_info "Installing with all core dependencies (including Vertex AI SDK)"
-        uv pip install -e ".[dev]"
+        uv pip install $UV_FLAGS -e ".[dev]"
     fi
     log_ok "Installed in $ROOT_DIR/agentic-cli"
 
@@ -157,17 +204,22 @@ elif [ "$INSTALL_TYPE" = "global" ]; then
 
     # Install with uv tool, including all core dependencies
     # Always use --force to ensure latest source code is used
+    UV_FLAGS=""
+    if [ -n "$USE_NATIVE_TLS" ]; then
+        UV_FLAGS="--native-tls"
+    fi
+
     if [ -n "$DEPENDENCY_GROUP" ]; then
         log_info "Installing with dependency group: $DEPENDENCY_GROUP"
-        uv tool install --force --with ".[$DEPENDENCY_GROUP]" .
+        uv tool install $UV_FLAGS --force --with ".[$DEPENDENCY_GROUP]" .
     elif [ -n "$ADDITIONAL_DEPS" ]; then
         log_info "Installing with additional dependencies: $ADDITIONAL_DEPS"
-        uv tool install --force --with "$ADDITIONAL_DEPS" .
+        uv tool install $UV_FLAGS --force --with "$ADDITIONAL_DEPS" .
     else
         log_info "Installing with all core dependencies (including Vertex AI SDK)"
-        uv tool install --force .
+        uv tool install $UV_FLAGS --force .
     fi
-    
+
     # In dev mode, ensure we're using the latest source
     if [ -n "$DEV_MODE" ] || [ -n "$FORCE_REINSTALL" ]; then
         log_info "Development mode: Ensuring latest source code is installed"
@@ -273,7 +325,7 @@ log_header "Verification"
 if command -v dva &> /dev/null; then
     DVA_VERSION=$(dva --version 2>/dev/null || echo "unknown")
     log_ok "dva command available: $DVA_VERSION"
-    
+
     # Test for console formatting errors
     log_info "Testing console output..."
     if dva --version > /dev/null 2>&1; then
@@ -283,8 +335,11 @@ if command -v dva &> /dev/null; then
         log_info "The tool should still function despite formatting errors"
     fi
 else
-    log_error "dva command not found"
-    if [ "$INSTALL_TYPE" = "local" ]; then
+    log_error "dva command not found in PATH"
+    if [ "$INSTALL_TYPE" = "project" ]; then
+        log_info "For project installation, activate the venv:"
+        echo "  source $PROJECT_VENV/bin/activate"
+    elif [ "$INSTALL_TYPE" = "local" ]; then
         log_info "For local installation, activate the venv:"
         echo "  source $ROOT_DIR/agentic-cli/.venv/bin/activate"
     fi
@@ -295,7 +350,11 @@ fi
 log_header "Installation Complete!"
 
 echo "Quick start:"
-if [ "$INSTALL_TYPE" = "local" ]; then
+if [ "$INSTALL_TYPE" = "project" ]; then
+    echo "  1. Activate the project venv:"
+    echo "     source $PROJECT_VENV/bin/activate"
+    echo ""
+elif [ "$INSTALL_TYPE" = "local" ]; then
     echo "  1. Activate the virtual environment:"
     echo "     source $ROOT_DIR/agentic-cli/.venv/bin/activate"
     echo ""

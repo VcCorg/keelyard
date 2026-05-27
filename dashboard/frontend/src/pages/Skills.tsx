@@ -226,7 +226,13 @@ export function Skills() {
 
   const getAllTags = () => {
     const tags = new Set<string>();
-    skills.forEach(skill => skill.tags.forEach(tag => tags.add(tag)));
+    if (skills && Array.isArray(skills)) {
+      skills.forEach(skill => {
+        if (skill.tags && Array.isArray(skill.tags)) {
+          skill.tags.forEach(tag => tags.add(tag));
+        }
+      });
+    }
     return Array.from(tags).sort();
   };
 

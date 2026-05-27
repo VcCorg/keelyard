@@ -9,6 +9,8 @@ import { Projects } from "@/pages/Projects";
 import { Skills } from "@/pages/Skills";
 import { Terminal } from "@/pages/Terminal";
 import { Deployments } from "@/pages/Deployments";
+import { KGContext } from "@/pages/KGContext";
+import { KGDomain } from "@/pages/KGDomain";
 import { TerminalProvider } from "@/context/TerminalContext";
 
 function App() {
@@ -26,6 +28,8 @@ function App() {
             <Route path="/activity" element={<ActivityFeed />} />
             <Route path="/chat" element={<Chat />} />
             <Route path="/terminal" element={<Terminal />} />
+            <Route path="/kg" element={<KGContext />} />
+            <Route path="/kg/:domain" element={<KGDomain />} />
           </Route>
         </Routes>
       </BrowserRouter>

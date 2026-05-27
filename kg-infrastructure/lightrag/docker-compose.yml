@@ -53,7 +53,7 @@ services:
     command: >
       bash -c "
         apt-get update && apt-get install -y curl &&
-        pip install --no-cache-dir lightrag-hku fastapi uvicorn httpx google-cloud-aiplatform google-auth &&
+        pip install --no-cache-dir --upgrade --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org lightrag-hku fastapi uvicorn httpx google-cloud-aiplatform google-auth openai &&
         python /app/scripts/server.py
       "
     

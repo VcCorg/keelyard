@@ -44,7 +44,7 @@ class WorkspaceManager:
                      Defaults to ~/.dva-agentic/lightrag-workspaces
         """
         if base_dir is None:
-            base_dir = os.path.expanduser("~/.dva-agentic/lightrag-workspaces")
+            base_dir = os.path.expanduser("~/.agent-cli-agentic/lightrag-workspaces")
         
         self.base_dir = Path(base_dir)
         self.metadata_file = self.base_dir / "workspaces.json"

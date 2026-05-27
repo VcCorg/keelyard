@@ -20,7 +20,7 @@ from agentic_cli.config import CLI_NAME
 kg_app.add_typer(workspace_app, name="workspace", help="Workspace management (LightRAG only)")
 
 # Configuration file location (shared with data commands)
-CONFIG_DIR = Path.home() / ".dva-agentic"
+CONFIG_DIR = Path.home() / ".agent-cli-agentic"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
 
@@ -153,13 +153,13 @@ def check(
     provider: str | None = typer.Option(
         None,
         "--provider",
-        help="Provider to check (neo4j, lightrag). Defaults to configured provider or lightrag.",
+        help="Provider to check (neo4j, postgres, lightrag, weaviate). Defaults to configured provider.",
     ),
 ) -> None:
     """
     Check prerequisites and provider availability.
     
-    Validates prerequisites for Neo4j or LightRAG based on configured or specified provider.
+    Validates prerequisites for Neo4j, PostgreSQL, or LightRAG based on configured or specified provider.
     """
     from agentic_cli.kg.config import KGConfig
     
@@ -177,11 +177,15 @@ def check(
     
     if provider == "neo4j":
         _check_neo4j()
+    elif provider == "postgres":
+        _check_postgres()
     elif provider == "lightrag":
         _check_lightrag()
+    elif provider == "weaviate":
+        _check_weaviate()
     else:
         console.print(f"[red]✗ Unknown provider:[/red] {provider}")
-        console.print("[dim]Valid providers: neo4j, lightrag[/dim]")
+        console.print("[dim]Valid providers: neo4j, postgres, lightrag, weaviate[/dim]")
         raise typer.Exit(1)
 
 
@@ -247,69 +251,12 @@ def _check_lightrag() -> None:
     
     all_passed = True
     
-    # Check LightRAG server
-    try:
-        client = LightRAGClient(base_url=lightrag_url, timeout=5.0)
-        health = client.health_check()
-        
-        if health.get("status") == "healthy":
-            table.add_row(
-                "LightRAG Server",
-                "[green]✓[/green]",
-                f"Connected to {lightrag_url}"
-            )
-            
-            # Show additional info
-            working_dir = health.get("working_dir", "N/A")
-            vector_store = health.get("vector_store", "N/A")
-            graph_store = health.get("graph_store", "N/A")
-            
-            table.add_row("Working Directory", "[green]✓[/green]", working_dir)
-            table.add_row("Vector Store", "[green]✓[/green]", vector_store)
-            table.add_row("Graph Store", "[green]✓[/green]", graph_store)
-        else:
-            table.add_row(
-                "LightRAG Server",
-                "[yellow]⚠[/yellow]",
-                f"Server responded but status: {health.get('status')}"
-            )
-            all_passed = False
-            
-        client.close()
-        
-    except Exception as e:
-        table.add_row(
-            "LightRAG Server",
-            "[red]✗[/red]",
-            f"Cannot connect to {lightrag_url}: {str(e)}"
-        )
+    # Check LightRAG availability
+    is_available, message = check_lightrag_availability(base_url=lightrag_url)
+    status_icon = "[green]✓[/green]" if is_available else "[red]✗[/red]"
+    table.add_row("LightRAG Service", status_icon, message)
+    if not is_available:
         all_passed = False
-    
-    # Check workspace configuration
-    try:
-        config = KGConfig.load()
-        workspace = config.workspace
-        workspace_dir = config.get_workspace_dir()
-        
-        from pathlib import Path
-        if Path(workspace_dir).exists():
-            table.add_row(
-                "Workspace",
-                "[green]✓[/green]",
-                f"{workspace} ({workspace_dir})"
-            )
-        else:
-            table.add_row(
-                "Workspace",
-                "[yellow]⚠[/yellow]",
-                f"{workspace} directory not found"
-            )
-    except:
-        table.add_row(
-            "Workspace",
-            "[yellow]⚠[/yellow]",
-            "No workspace configured"
-        )
     
     console.print(table)
     console.print()
@@ -318,26 +265,151 @@ def _check_lightrag() -> None:
         console.print("[bold green]✓ All prerequisites are met![/bold green]")
         console.print("\nYou can now use LightRAG knowledge graph commands:")
         console.print(f"  {CLI_NAME} kg ingest submit --path <source>")
-        console.print(f"  {CLI_NAME} kg ingest submit --path <source> --async")
         console.print(f"  {CLI_NAME} kg query <query>")
         console.print(f"  {CLI_NAME} kg search <text>")
-        console.print(f"  {CLI_NAME} kg workspace list")
     else:
         console.print("[bold yellow]⚠ Some prerequisites are not met[/bold yellow]")
-        console.print("\n[bold]Setup Instructions:[/bold]")
-        console.print("1. Start LightRAG server:")
-        console.print(f"   cd lightrag-infrastructure && ./scripts/start.sh")
-        console.print("\n2. Initialize configuration:")
-        console.print(f"   {CLI_NAME} kg init --provider lightrag --lightrag-url {lightrag_url}")
-        console.print("\n3. Create a workspace:")
-        console.print(f"   {CLI_NAME} kg workspace create default")
+        console.print("\nTo start LightRAG:")
+        console.print("  1. Navigate to LightRAG directory")
+        console.print("  2. Run: docker-compose up -d")
+        console.print("  3. Configure with: dva kg init --provider lightrag --lightrag-url <url>")
+
+
+def _check_postgres() -> None:
+    """Check PostgreSQL prerequisites."""
+    from agentic_cli.kg.postgres_client import check_postgres_availability
+    from agentic_cli.kg.config import KGConfig
+    
+    # Load config to get PostgreSQL settings
+    try:
+        config = KGConfig.load()
+        host = config.postgres_host or "localhost"
+        port = config.postgres_port or 5432
+        user = config.postgres_user or "postgres"
+        password = config.postgres_password or "postgres"
+        database = config.postgres_database or "knowledge_graph"
+    except:
+        host = "localhost"
+        port = 5432
+        user = "postgres"
+        password = "postgres"
+        database = "knowledge_graph"
+    
+    # Display results
+    table = Table(title="PostgreSQL Prerequisites Check")
+    table.add_column("Component", style="cyan", width=25)
+    table.add_column("Status", style="white", width=10)
+    table.add_column("Message", style="yellow")
+    
+    all_passed = True
+    
+    # Check PostgreSQL availability
+    is_available, message = check_postgres_availability(
+        host=host,
+        port=port,
+        user=user,
+        password=password,
+        database=database
+    )
+    status_icon = "[green]✓[/green]" if is_available else "[red]✗[/red]"
+    table.add_row("PostgreSQL Service", status_icon, message)
+    if not is_available:
+        all_passed = False
+    
+    # Check psycopg2
+    try:
+        import psycopg2
+        table.add_row("psycopg2 Library", "[green]✓[/green]", "Installed")
+    except ImportError:
+        table.add_row("psycopg2 Library", "[red]✗[/red]", "Not installed (pip install psycopg2-binary)")
+        all_passed = False
+    
+    console.print(table)
+    console.print()
+    
+    if all_passed:
+        console.print("[bold green]✓ All prerequisites are met![/bold green]")
+        console.print("\nYou can now use PostgreSQL knowledge graph commands:")
+        console.print(f"  {CLI_NAME} kg ingest submit --path <source> --provider postgres")
+        console.print(f"  {CLI_NAME} kg query <query>")
+        console.print(f"  {CLI_NAME} kg search <text>")
+        console.print(f"\nTo setup KG tables:")
+        console.print("  cd /Users/your-user/agentic-project/myAgentPG/kg-infrastructure/postgres-graph")
+        console.print("  ./setup-kg.sh")
+    else:
+        console.print("[bold yellow]⚠ Some prerequisites are not met[/bold yellow]")
+        console.print("\nTo start PostgreSQL with pgvector and Apache AGE:")
+        console.print("  1. Navigate to: /Users/your-user/agentic-project/myAgentPG/kg-infrastructure/postgres-graph")
+        console.print("  2. Run: docker-compose up -d")
+        console.print("  3. Run: ./setup-kg.sh")
+        console.print("  4. Configure with: dva kg init --provider postgres --postgres-host <host>")
+
+
+def _check_weaviate() -> None:
+    """Check Weaviate prerequisites."""
+    from agentic_cli.kg.weaviate_client import check_weaviate_availability
+    from agentic_cli.kg.config import KGConfig
+    
+    # Load config to get Weaviate settings
+    try:
+        config = KGConfig.load()
+        host = config.weaviate_host or "localhost"
+        port = config.weaviate_port or 8080
+        scheme = config.weaviate_scheme or "http"
+    except:
+        host = "localhost"
+        port = 8080
+        scheme = "http"
+    
+    # Display results
+    table = Table(title="Weaviate Prerequisites Check")
+    table.add_column("Component", style="cyan", width=25)
+    table.add_column("Status", style="white", width=10)
+    table.add_column("Message", style="yellow")
+    
+    all_passed = True
+    
+    # Check Weaviate availability
+    is_available, message = check_weaviate_availability(
+        host=host,
+        port=port,
+        scheme=scheme
+    )
+    status_icon = "[green]✓[/green]" if is_available else "[red]✗[/red]"
+    table.add_row("Weaviate Service", status_icon, message)
+    if not is_available:
+        all_passed = False
+    
+    # Check weaviate-client
+    try:
+        import weaviate
+        table.add_row("weaviate-client Library", "[green]✓[/green]", "Installed")
+    except ImportError:
+        table.add_row("weaviate-client Library", "[red]✗[/red]", "Not installed (pip install weaviate-client)")
+        all_passed = False
+    
+    console.print(table)
+    console.print()
+    
+    if all_passed:
+        console.print("[bold green]✓ All prerequisites are met![/bold green]")
+        console.print("\nYou can now use Weaviate knowledge graph commands:")
+        console.print(f"  {CLI_NAME} kg ingest submit --path <source> --provider weaviate")
+        console.print(f"  {CLI_NAME} kg query <query>")
+        console.print(f"  {CLI_NAME} kg search <text>")
+    else:
+        console.print("[bold yellow]⚠ Some prerequisites are not met[/bold yellow]")
+        console.print("\nTo start Weaviate:")
+        console.print("  1. Navigate to: /Users/your-user/agentic-project/myAgentPG/kg-infrastructure/weaviate")
+        console.print("  2. Run: docker-compose up -d")
+        console.print("  3. Configure with: dva kg init --provider weaviate --weaviate-host <host>")
 
 
 @kg_app.command()
 def init(
     provider: str = typer.Option(
         default="neo4j",
-        help="Graph database provider (neo4j, lightrag)",
+        help="Graph database provider (neo4j, postgres, lightrag, weaviate)",
     ),
     uri: str | None = typer.Option(
         default=None,
@@ -351,6 +423,30 @@ def init(
         default=None,
         help="Neo4j password",
     ),
+    postgres_host: str | None = typer.Option(
+        default=None,
+        help="PostgreSQL host (e.g., localhost)",
+    ),
+    postgres_port: int | None = typer.Option(
+        default=None,
+        help="PostgreSQL port (e.g., 5432)",
+    ),
+    postgres_user: str | None = typer.Option(
+        default=None,
+        help="PostgreSQL username",
+    ),
+    postgres_password: str | None = typer.Option(
+        default=None,
+        help="PostgreSQL password",
+    ),
+    postgres_database: str | None = typer.Option(
+        default=None,
+        help="PostgreSQL database name",
+    ),
+    postgres_graph: str | None = typer.Option(
+        default=None,
+        help="Apache AGE graph name",
+    ),
     lightrag_url: str | None = typer.Option(
         default=None,
         help="LightRAG API URL (e.g., http://localhost:8001)",
@@ -358,6 +454,22 @@ def init(
     lightrag_timeout: float | None = typer.Option(
         default=None,
         help="LightRAG request timeout in seconds",
+    ),
+    weaviate_host: str | None = typer.Option(
+        default=None,
+        help="Weaviate host (e.g., localhost)",
+    ),
+    weaviate_port: int | None = typer.Option(
+        default=None,
+        help="Weaviate port (e.g., 8080)",
+    ),
+    weaviate_scheme: str | None = typer.Option(
+        default=None,
+        help="Weaviate connection scheme (http or https)",
+    ),
+    weaviate_api_key: str | None = typer.Option(
+        default=None,
+        help="Weaviate API key (for authentication)",
     ),
     embeddings: str = typer.Option(
         default="vertex-ai",
@@ -393,10 +505,30 @@ def init(
         config.neo4j_username = username
     if password:
         config.neo4j_password = password
+    if postgres_host:
+        config.postgres_host = postgres_host
+    if postgres_port:
+        config.postgres_port = postgres_port
+    if postgres_user:
+        config.postgres_user = postgres_user
+    if postgres_password:
+        config.postgres_password = postgres_password
+    if postgres_database:
+        config.postgres_database = postgres_database
+    if postgres_graph:
+        config.postgres_graph = postgres_graph
     if lightrag_url:
         config.lightrag_url = lightrag_url
     if lightrag_timeout:
         config.lightrag_timeout = lightrag_timeout
+    if weaviate_host:
+        config.weaviate_host = weaviate_host
+    if weaviate_port:
+        config.weaviate_port = weaviate_port
+    if weaviate_scheme:
+        config.weaviate_scheme = weaviate_scheme
+    if weaviate_api_key:
+        config.weaviate_api_key = weaviate_api_key
     config.embeddings_provider = embeddings
     
     # Update Confluence configuration
@@ -415,9 +547,18 @@ def init(
     if provider == "neo4j":
         console.print(f"  URI: [cyan]{config.neo4j_uri}[/cyan]")
         console.print(f"  Username: [cyan]{config.neo4j_username}[/cyan]")
+    elif provider == "postgres":
+        console.print(f"  Host: [cyan]{config.postgres_host}[/cyan]")
+        console.print(f"  Port: [cyan]{config.postgres_port}[/cyan]")
+        console.print(f"  Database: [cyan]{config.postgres_database}[/cyan]")
+        console.print(f"  Graph: [cyan]{config.postgres_graph}[/cyan]")
     elif provider == "lightrag":
         console.print(f"  URL: [cyan]{config.lightrag_url}[/cyan]")
         console.print(f"  Timeout: [cyan]{config.lightrag_timeout}s[/cyan]")
+    elif provider == "weaviate":
+        console.print(f"  Host: [cyan]{config.weaviate_host}[/cyan]")
+        console.print(f"  Port: [cyan]{config.weaviate_port}[/cyan]")
+        console.print(f"  Scheme: [cyan]{config.weaviate_scheme}[/cyan]")
     console.print(f"  Embeddings: [cyan]{embeddings}[/cyan]")
     
     # Validate connection based on provider
@@ -438,6 +579,44 @@ def init(
             console.print(f"[bold yellow]⚠[/bold yellow] {message}")
             console.print("\n[dim]Configuration saved, but Neo4j is not accessible.[/dim]")
             console.print(f"[dim]Run '{CLI_NAME} kg config --show' to verify settings.[/dim]")
+    elif provider == "weaviate":
+        console.print("\n[bold]Validating Weaviate connection...[/bold]")
+        
+        from agentic_cli.kg.weaviate_client import check_weaviate_availability
+        
+        is_available, message = check_weaviate_availability(
+            host=config.weaviate_host,
+            port=config.weaviate_port,
+            scheme=config.weaviate_scheme,
+            api_key=config.weaviate_api_key
+        )
+        
+        if is_available:
+            console.print(f"[bold green]✓[/bold green] {message}")
+        else:
+            console.print(f"[bold yellow]⚠[/bold yellow] {message}")
+            console.print("\n[dim]Configuration saved, but Weaviate is not accessible.[/dim]")
+            console.print(f"[dim]Run '{CLI_NAME} kg config --show' to verify settings.[/dim]")
+    elif provider == "postgres":
+        console.print("\n[bold]Validating PostgreSQL connection...[/bold]")
+        
+        from agentic_cli.kg.postgres_client import check_postgres_availability
+        
+        is_available, message = check_postgres_availability(
+            host=config.postgres_host,
+            port=config.postgres_port,
+            user=config.postgres_user,
+            password=config.postgres_password,
+            database=config.postgres_database
+        )
+        
+        if is_available:
+            console.print(f"[bold green]✓[/bold green] {message}")
+        else:
+            console.print(f"[bold yellow]⚠[/bold yellow] {message}")
+            console.print("\n[dim]Configuration saved, but PostgreSQL is not accessible.[/dim]")
+            console.print("[dim]Make sure PostgreSQL with pgvector and Apache AGE is running.[/dim]")
+            console.print(f"[dim]Run: cd /Users/your-user/agentic-project/myAgentPG/kg-infrastructure/postgres-graph && docker-compose up -d[/dim]")
     elif provider == "lightrag":
         console.print("\n[bold]Validating LightRAG connection...[/bold]")
         
@@ -470,7 +649,7 @@ def config(
     from agentic_cli.kg.config import KGConfig
     
     if reset:
-        config_path = Path.home() / ".dva-agentic" / "kg-config.json"
+        config_path = Path.home() / ".agent-cli-agentic" / "kg-config.json"
         if config_path.exists():
             config_path.unlink()
             console.print("[bold green]✓[/bold green] Configuration reset")
@@ -490,6 +669,13 @@ def config(
             table.add_row("Neo4j URI", config.neo4j_uri)
             table.add_row("Neo4j Username", config.neo4j_username)
             table.add_row("Neo4j Password", "***" if config.neo4j_password else "Not set")
+        elif config.provider == "postgres":
+            table.add_row("PostgreSQL Host", config.postgres_host)
+            table.add_row("PostgreSQL Port", str(config.postgres_port))
+            table.add_row("PostgreSQL User", config.postgres_user)
+            table.add_row("PostgreSQL Password", "***" if config.postgres_password else "Not set")
+            table.add_row("PostgreSQL Database", config.postgres_database)
+            table.add_row("Apache AGE Graph", config.postgres_graph)
         elif config.provider == "lightrag":
             table.add_row("LightRAG URL", config.lightrag_url)
             table.add_row("LightRAG Timeout", f"{config.lightrag_timeout}s")
@@ -588,6 +774,11 @@ def ingest_submit(
         "--depth",
         help="Max child-page crawl depth for Confluence pages (used with --domain or --format confluence)",
     ),
+    top: int | None = typer.Option(
+        None,
+        "--top",
+        help="Limit to first N pages for testing/validation (ingests all pages if not specified)",
+    ),
 ) -> None:
     """
     Submit data for ingestion into the knowledge graph.
@@ -660,6 +851,19 @@ def ingest_submit(
             if not is_available:
                 console.print(f"[bold red]✗ LightRAG is not available:[/bold red] {message}")
                 console.print("[dim]Make sure LightRAG infrastructure is running.[/dim]")
+            elif config.provider == "weaviate":
+                # Validate Weaviate connection
+                if not skip_validation:
+                    from agentic_cli.kg.weaviate_client import check_weaviate_availability
+                    is_available, message = check_weaviate_availability(
+                        host=config.weaviate_host,
+                        port=config.weaviate_port,
+                        scheme=config.weaviate_scheme,
+                        api_key=config.weaviate_api_key
+                    )
+                    if not is_available:
+                        console.print(f"[bold red]✗ Weaviate is not available:[/bold red] {message}")
+                        raise typer.Exit(1)
                 raise typer.Exit(1)
     
     # Resolve source - either from data source name or direct path
@@ -694,8 +898,12 @@ def ingest_submit(
         if not resolved_format and ("confluence" in resolved_source.lower() or "/pages/" in resolved_source or "/spaces/" in resolved_source):
             resolved_format = "confluence"
     elif domain and not source and not data_source:
-        # Domain-only mode: will fetch tracked docs below, no explicit source needed
-        resolved_source = None
+        # Domain-only mode: use domain slug as source, will fetch tracked docs below
+        resolved_source = f"domain:{domain}"
+        resolved_format = "confluence"  # Domain docs are Confluence pages
+        if source_metadata is None:
+            source_metadata = {}
+        source_metadata["domain"] = domain
     else:
         console.print("[red]✗ Error:[/red] Must specify either --source (data source name), --path (direct path), or --domain.")
         console.print(f"[dim]Use '{CLI_NAME} data list' to see configured data sources.[/dim]")
@@ -727,6 +935,10 @@ def ingest_submit(
                 workspace=workspace,
                 metadata=source_metadata or {}
             )
+            
+            # Add top to metadata if specified
+            if top:
+                job.metadata["top"] = top
             
             record_activity(
                 command="kg", subcommand="ingest-submit",
@@ -766,47 +978,206 @@ def ingest_submit(
     # Route to appropriate ingestion based on provider
     if config.provider == "neo4j":
         from agentic_cli.kg.ingest import ingest_data
+        from agentic_cli.kg.parsers import parse_confluence_tree
         
-        with console.status(f"[bold green]Ingesting data from {resolved_source}..."):
-            try:
-                result = ingest_data(
-                    source=resolved_source,
-                    format=resolved_format,
-                    persona=None,  # Auto-detect based on format
-                    metadata=source_metadata,
-                    extract_entities=extract_entities,
-                    build_relationships=build_relationships,
-                    recursive=recursive,
-                    detailed_analysis=detailed_analysis,
-                )
-                
-                record_activity(
-                    command="kg", subcommand="ingest-submit",
-                    args={"source": data_source or resolved_source, "async": False, "provider": config.provider},
-                    details={"entities": result['entities_count'], "relationships": result['relationships_count']},
-                )
-
-                console.print(f"[bold green]\u2713[/bold green] Successfully ingested data")
-                console.print(f"  Source: [cyan]{result['source']}[/cyan]")
-                console.print(f"  Format: [cyan]{result['format']}[/cyan]")
-                console.print(f"  Entities: [cyan]{result['entities_count']}[/cyan]")
-                console.print(f"  Relationships: [cyan]{result['relationships_count']}[/cyan]")
-                
-                # Mark job as completed
-                job.status = "completed"
-                job.completed_at = __import__('datetime').datetime.utcnow()
-                job.result = result
-                manager.queue.update_job(job.job_id, status=job.status, completed_at=job.completed_at, result=result)
-                
-            except Exception as e:
-                # Mark job as failed
-                job.status = "failed"
-                job.error = str(e)
-                job.completed_at = __import__('datetime').datetime.utcnow()
-                manager.queue.update_job(job.job_id, status=job.status, error=job.error, completed_at=job.completed_at)
-                
-                console.print(f"[bold red]✗[/bold red] Error: {str(e)}")
+        # Handle domain mode for Neo4j
+        if domain and resolved_source.startswith("domain:"):
+            from agentic_cli.tracker import get_domain, get_domain_docs
+            
+            console.print(f"[dim]Fetching tracked docs for domain '{domain}'...[/dim]")
+            d = get_domain(domain)
+            if not d:
+                console.print(f"[red]✗ Domain '{domain}' not found.[/red]")
                 raise typer.Exit(1)
+            
+            docs = get_domain_docs(domain)
+            if not docs:
+                console.print(f"[yellow]No tracked docs for domain '{domain}'.[/yellow]")
+                raise typer.Exit(1)
+            
+            # Limit to top N pages if --top is specified
+            if top:
+                docs = docs[:top]
+                console.print(f"[yellow]Limiting to top {top} pages for testing/validation[/yellow]")
+            
+            console.print(f"[dim]Found {len(docs)} tracked docs, ingesting to Neo4j...[/dim]")
+            
+            total_entities = 0
+            total_relationships = 0
+            failed_count = 0
+            
+            try:
+                conf_base = config.confluence_url or "https://confluence.example.com"
+            except Exception:
+                conf_base = "https://confluence.example.com"
+            
+            for doc_rec in docs:
+                page_id = doc_rec.get("source_page_id")
+                title = doc_rec.get("title", page_id)
+                page_url = f"{conf_base}/pages/{page_id}"
+                space_key = doc_rec.get("source_space_key")
+                
+                # Check if this is a release page and create Release node directly
+                release_node_id = None
+                is_release_page = "Release" in title
+                if is_release_page:
+                    try:
+                        from agentic_cli.kg.neo4j_client import Neo4jClient
+                        with Neo4jClient() as neo4j:
+                            release_node = neo4j.create_release_node(
+                                page_id=str(page_id),
+                                title=title,
+                                source_url=page_url,
+                                domain=domain,
+                                product=d.get("product", ""),
+                                space_key=space_key,
+                            )
+                            release_node_id = release_node.get("id")
+                            console.print(f"    [dim]Created Release node: {title} (page_id: {page_id})[/dim]")
+                    except Exception as e:
+                        console.print(f"    [yellow]Failed to create Release node: {e}[/yellow]")
+                
+                try:
+                    # Try MCP mode first (bypasses KG config check)
+                    try:
+                        documents = parse_confluence_tree(page_url, include_children=True, max_depth=depth, use_mcp=True, include_attachments=True)
+                        console.print(f"    [dim]Found {len(documents)} documents via MCP (page + children + attachments)[/dim]")
+                    except Exception as mcp_error:
+                        console.print(f"    [yellow]MCP mode failed: {mcp_error}[/yellow]")
+                        console.print(f"    [dim]Falling back to direct Confluence API...[/dim]")
+                        # Fall back to direct API mode (requires KG config)
+                        documents = parse_confluence_tree(page_url, include_children=True, max_depth=depth, use_mcp=False, include_attachments=True)
+                        console.print(f"    [dim]Found {len(documents)} documents via direct API (page + children + attachments)[/dim]")
+                    
+                    # Limit total documents if --top is specified
+                    if top and len(documents) > top:
+                        documents = documents[:top]
+                        console.print(f"    [yellow]Limiting to top {top} documents for testing/validation[/yellow]")
+                    
+                    # Ingest each document to Neo4j
+                    for doc in documents:
+                        doc_metadata = doc.get("metadata", {})
+                        doc_metadata["domain"] = domain
+                        doc_metadata["product"] = d.get("product", "")
+                        # Preserve original document title and source from Confluence
+                        # Title is in doc["metadata"]["title"] for Confluence documents
+                        doc_metadata["document_title"] = doc_metadata.get("title", doc.get("title", ""))
+                        if "source" in doc_metadata and not doc_metadata["source"]:
+                            # Use the source from the document if available
+                            doc_metadata["source"] = doc_metadata.get("source", "")
+                        
+                        # Check if this document is the release page itself (not a child/attachment)
+                        doc_page_id = doc_metadata.get("page_id")
+                        is_this_release_page = is_release_page and str(doc_page_id) == str(page_id)
+                        
+                        # Skip ingestion for release pages themselves - they only create Release nodes
+                        if is_this_release_page:
+                            console.print(f"    [dim]Skipping document ingestion for release page: {title}[/dim]")
+                            continue
+                        
+                        # Write content to temporary file for ingest_data
+                        import tempfile
+                        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+                            f.write(doc["content"])
+                            temp_file = f.name
+                        
+                        try:
+                            # Release nodes are created directly from domain_docs tracking
+                            result = ingest_data(
+                                source=temp_file,
+                                format="text",
+                                persona=None,
+                                metadata=doc_metadata,
+                                extract_entities=extract_entities,
+                                build_relationships=build_relationships,
+                                recursive=False,
+                                detailed_analysis=False,
+                            )
+                            
+                            total_entities += result.get('entities_count', 0)
+                            total_relationships += result.get('relationships_count', 0)
+                        finally:
+                            # Clean up temp file
+                            import os
+                            os.unlink(temp_file)
+                    
+                    console.print(f"  [green]✓[/green] {title}")
+                except Exception as e:
+                    console.print(f"  [yellow]⚠ {title}: {e}[/yellow]")
+                    failed_count += 1
+            
+            result = {
+                "source": f"domain:{domain}",
+                "format": "confluence",
+                "entities_count": total_entities,
+                "relationships_count": total_relationships,
+                "documents_processed": len(docs),
+                "documents_failed": failed_count
+            }
+            
+            record_activity(
+                command="kg", subcommand="ingest-submit",
+                args={"source": data_source or resolved_source, "async": False, "provider": config.provider},
+                details={"entities": total_entities, "relationships": total_relationships},
+            )
+
+            console.print(f"[bold green]\u2713[/bold green] Successfully ingested domain docs")
+            console.print(f"  Domain: [cyan]{domain}[/cyan]")
+            console.print(f"  Documents processed: [cyan]{len(docs) - failed_count}/{len(docs)}[/cyan]")
+            console.print(f"  Entities: [cyan]{total_entities}[/cyan]")
+            console.print(f"  Relationships: [cyan]{total_relationships}[/cyan]")
+            
+            # Mark domain as ingested
+            from agentic_cli.tracker import mark_domain_ingested
+            mark_domain_ingested(domain)
+            
+            # Mark job as completed
+            job.status = "completed"
+            job.completed_at = __import__('datetime').datetime.utcnow()
+            job.result = result
+            manager.queue.update_job(job.job_id, status=job.status, completed_at=job.completed_at, result=result)
+        else:
+            # Regular Neo4j ingestion
+            with console.status(f"[bold green]Ingesting data from {resolved_source}..."):
+                try:
+                    result = ingest_data(
+                        source=resolved_source,
+                        format=resolved_format,
+                        persona=None,  # Auto-detect based on format
+                        metadata=source_metadata,
+                        extract_entities=extract_entities,
+                        build_relationships=build_relationships,
+                        recursive=recursive,
+                        detailed_analysis=detailed_analysis,
+                    )
+                    
+                    record_activity(
+                        command="kg", subcommand="ingest-submit",
+                        args={"source": data_source or resolved_source, "async": False, "provider": config.provider},
+                        details={"entities": result['entities_count'], "relationships": result['relationships_count']},
+                    )
+
+                    console.print(f"[bold green]\u2713[/bold green] Successfully ingested data")
+                    console.print(f"  Source: [cyan]{result['source']}[/cyan]")
+                    console.print(f"  Format: [cyan]{result['format']}[/cyan]")
+                    console.print(f"  Entities: [cyan]{result['entities_count']}[/cyan]")
+                    console.print(f"  Relationships: [cyan]{result['relationships_count']}[/cyan]")
+                    
+                    # Mark job as completed
+                    job.status = "completed"
+                    job.completed_at = __import__('datetime').datetime.utcnow()
+                    job.result = result
+                    manager.queue.update_job(job.job_id, status=job.status, completed_at=job.completed_at, result=result)
+                    
+                except Exception as e:
+                    # Mark job as failed
+                    job.status = "failed"
+                    job.error = str(e)
+                    job.completed_at = __import__('datetime').datetime.utcnow()
+                    manager.queue.update_job(job.job_id, status=job.status, error=job.error, completed_at=job.completed_at)
+                    
+                    console.print(f"[bold red]✗[/bold red] Error: {str(e)}")
+                    raise typer.Exit(1)
     
     elif config.provider == "lightrag":
         from agentic_cli.kg.lightrag_client import LightRAGClient
@@ -847,7 +1218,8 @@ def ingest_submit(
                                 title = doc_rec.get("title", page_id)
                                 page_url = f"{conf_base}/pages/{page_id}"
                                 try:
-                                    fetched = parse_confluence_tree(page_url, include_children=True, max_depth=depth)
+                                    # Use MCP mode to bypass KG config check, include attachments by default
+                                    fetched = parse_confluence_tree(page_url, include_children=True, max_depth=depth, use_mcp=True, include_attachments=True)
                                     all_documents.extend(fetched)
                                     child_count = len(fetched) - 1 if len(fetched) > 1 else 0
                                     suffix = f" (+{child_count} children)" if child_count else ""
@@ -1373,6 +1745,9 @@ def query(
     Neo4j: Supports natural language queries (converted to Cypher) or direct Cypher queries.
            Use --persona to filter by developer (code) or business (docs) context.
     
+    PostgreSQL: Supports Cypher queries via Apache AGE.
+               Use --format cypher for direct Cypher queries.
+    
     LightRAG: Supports natural language queries with different modes (naive, local, global, hybrid).
               Persona filter applies to document metadata.
     
@@ -1385,6 +1760,9 @@ def query(
         
         # Query only docs (business persona)
         {CLI_NAME} kg query "authentication requirements" --persona business
+        
+        # Direct Cypher query (PostgreSQL/Neo4j)
+        {CLI_NAME} kg query "MATCH (n) RETURN n LIMIT 10" --format cypher
     """
     from agentic_cli.kg.config import KGConfig
     
@@ -1403,6 +1781,33 @@ def query(
             is_available, message = check_lightrag_availability(base_url=config.lightrag_url)
             if not is_available:
                 console.print(f"[bold red]✗ LightRAG is not available:[/bold red] {message}")
+                raise typer.Exit(1)
+    elif config.provider == "postgres":
+        # Validate PostgreSQL connection
+        if not skip_validation:
+            from agentic_cli.kg.postgres_client import check_postgres_availability
+            is_available, message = check_postgres_availability(
+                host=config.postgres_host,
+                port=config.postgres_port,
+                user=config.postgres_user,
+                password=config.postgres_password,
+                database=config.postgres_database
+            )
+            if not is_available:
+                console.print(f"[bold red]✗ PostgreSQL is not available:[/bold red] {message}")
+                raise typer.Exit(1)
+    elif config.provider == "weaviate":
+        # Validate Weaviate connection
+        if not skip_validation:
+            from agentic_cli.kg.weaviate_client import check_weaviate_availability
+            is_available, message = check_weaviate_availability(
+                host=config.weaviate_host,
+                port=config.weaviate_port,
+                scheme=config.weaviate_scheme,
+                api_key=config.weaviate_api_key
+            )
+            if not is_available:
+                console.print(f"[bold red]✗ Weaviate is not available:[/bold red] {message}")
                 raise typer.Exit(1)
     else:
         console.print(f"[bold red]✗ Unknown provider:[/bold red] {config.provider}")
@@ -1437,8 +1842,44 @@ def query(
                 
                 console.print(f"[bold green]✓[/bold green] Found {len(results)} results\n")
                 
-                for i, result in enumerate(results, 1):
-                    console.print(f"[bold cyan]{i}.[/bold cyan] {result}")
+                # Display results
+                for i, result in enumerate(results[:limit], 1):
+                    console.print(f"[cyan]{i}.[/cyan] {result}")
+            
+            elif config.provider == "postgres":
+                from agentic_cli.kg.postgres_client import PostgresClient
+                
+                client = PostgresClient(
+                    host=config.postgres_host,
+                    port=config.postgres_port,
+                    user=config.postgres_user,
+                    password=config.postgres_password,
+                    database=config.postgres_database,
+                    graph_name=config.postgres_graph
+                )
+                client.connect()
+                
+                # PostgreSQL only supports Cypher format via Apache AGE
+                if format == "natural":
+                    console.print("[yellow]PostgreSQL requires Cypher format. Use --format cypher[/yellow]")
+                    console.print(f"[dim]Converting natural query to Cypher: {query_text}[/dim]")
+                    # For now, just use the query as-is (would need LLM conversion in production)
+                    cypher_query = query_text
+                else:
+                    cypher_query = query_text
+                
+                results = client.execute_cypher(cypher_query, parameters={})
+                client.close()
+                
+                if not results:
+                    console.print("[yellow]No results found[/yellow]")
+                    return
+                
+                console.print(f"[bold green]✓[/bold green] Found {len(results)} results\n")
+                
+                # Display results
+                for i, result in enumerate(results[:limit], 1):
+                    console.print(f"[cyan]{i}.[/cyan] {result}")
             
             elif config.provider == "lightrag":
                 from agentic_cli.kg.lightrag_client import LightRAGClient
@@ -1459,6 +1900,31 @@ def query(
                 
                 console.print(f"[bold green]✓[/bold green] Query executed (mode: {mode})\n")
                 console.print(result.get("result", result))
+            
+            elif config.provider == "weaviate":
+                from agentic_cli.kg.weaviate_client import WeaviateClient
+                
+                client = WeaviateClient(
+                    host=config.weaviate_host,
+                    port=config.weaviate_port,
+                    scheme=config.weaviate_scheme,
+                    api_key=config.weaviate_api_key
+                )
+                client.connect()
+                
+                # Weaviate uses semantic search by default
+                results = client.search(query_text, class_name="Code", limit=limit)
+                client.close()
+                
+                if not results:
+                    console.print("[yellow]No results found[/yellow]")
+                    return
+                
+                console.print(f"[bold green]✓[/bold green] Found {len(results)} results\n")
+                
+                # Display results
+                for i, result in enumerate(results[:limit], 1):
+                    console.print(f"[cyan]{i}.[/cyan] {result}")
             
         except Exception as e:
             console.print(f"[bold red]✗[/bold red] Error: {str(e)}")
@@ -1494,8 +1960,9 @@ def search(
     Search the knowledge graph using semantic or exact matching with optional persona filtering.
     
     Neo4j: Supports both semantic (vector) and exact (text) search.
+    PostgreSQL: Supports semantic search via pgvector and exact text search.
     LightRAG: Supports semantic search via the search endpoint.
-           Use --persona to filter by developer (code) or business (docs) context.
+              Use --persona to filter by developer (code) or business (docs) context.
     
     Examples:
         # Search all contexts
@@ -1524,6 +1991,33 @@ def search(
             is_available, message = check_lightrag_availability(base_url=config.lightrag_url)
             if not is_available:
                 console.print(f"[bold red]✗ LightRAG is not available:[/bold red] {message}")
+                raise typer.Exit(1)
+    elif config.provider == "postgres":
+        # Validate PostgreSQL connection
+        if not skip_validation:
+            from agentic_cli.kg.postgres_client import check_postgres_availability
+            is_available, message = check_postgres_availability(
+                host=config.postgres_host,
+                port=config.postgres_port,
+                user=config.postgres_user,
+                password=config.postgres_password,
+                database=config.postgres_database
+            )
+            if not is_available:
+                console.print(f"[bold red]✗ PostgreSQL is not available:[/bold red] {message}")
+                raise typer.Exit(1)
+    elif config.provider == "weaviate":
+        # Validate Weaviate connection
+        if not skip_validation:
+            from agentic_cli.kg.weaviate_client import check_weaviate_availability
+            is_available, message = check_weaviate_availability(
+                host=config.weaviate_host,
+                port=config.weaviate_port,
+                scheme=config.weaviate_scheme,
+                api_key=config.weaviate_api_key
+            )
+            if not is_available:
+                console.print(f"[bold red]✗ Weaviate is not available:[/bold red] {message}")
                 raise typer.Exit(1)
     else:
         console.print(f"[bold red]✗ Unknown provider:[/bold red] {config.provider}")
@@ -1563,6 +2057,37 @@ def search(
                         console.print(f"  Relevance: {result['score']:.2f}")
                     console.print(f"  {result['description']}\n")
             
+            elif config.provider == "postgres":
+                from agentic_cli.kg.postgres_client import PostgresClient
+                
+                client = PostgresClient(
+                    host=config.postgres_host,
+                    port=config.postgres_port,
+                    user=config.postgres_user,
+                    password=config.postgres_password,
+                    database=config.postgres_database,
+                    graph_name=config.postgres_graph
+                )
+                client.connect()
+                
+                # For now, use exact match (semantic search requires embeddings)
+                results = client.find_nodes(
+                    label=None,
+                    properties={"name": text},
+                    limit=limit
+                )
+                client.close()
+                
+                if not results:
+                    console.print("[yellow]No results found[/yellow]")
+                    return
+                
+                console.print(f"[bold green]✓[/bold green] Found {len(results)} results\n")
+                
+                # Display results
+                for i, result in enumerate(results[:limit], 1):
+                    console.print(f"[cyan]{i}.[/cyan] {result}")
+            
             elif config.provider == "lightrag":
                 from agentic_cli.kg.lightrag_client import LightRAGClient
                 
@@ -1583,6 +2108,31 @@ def search(
                 console.print(f"[bold green]✓[/bold green] Search completed\n")
                 console.print(result.get("results", result))
             
+            elif config.provider == "weaviate":
+                from agentic_cli.kg.weaviate_client import WeaviateClient
+                
+                client = WeaviateClient(
+                    host=config.weaviate_host,
+                    port=config.weaviate_port,
+                    scheme=config.weaviate_scheme,
+                    api_key=config.weaviate_api_key
+                )
+                client.connect()
+                
+                # Weaviate uses semantic search by default
+                results = client.search(text, class_name="Code", limit=limit)
+                client.close()
+                
+                if not results:
+                    console.print("[yellow]No results found[/yellow]")
+                    return
+                
+                console.print(f"[bold green]✓[/bold green] Found {len(results)} results\n")
+                
+                # Display results
+                for i, result in enumerate(results[:limit], 1):
+                    console.print(f"[cyan]{i}.[/cyan] {result}")
+            
         except Exception as e:
             console.print(f"[bold red]✗[/bold red] Error: {str(e)}")
             raise typer.Exit(1)
@@ -1598,6 +2148,8 @@ def stats(
 ) -> None:
     """
     Display knowledge graph statistics.
+    
+    Shows statistics for the configured provider (Neo4j, PostgreSQL, or LightRAG).
     """
     from agentic_cli.kg.config import KGConfig
     
@@ -1608,12 +2160,37 @@ def stats(
     if config.provider == "neo4j":
         if not validate_neo4j_connection(skip_check=skip_validation):
             raise typer.Exit(1)
+    elif config.provider == "postgres":
+        if not skip_validation:
+            from agentic_cli.kg.postgres_client import check_postgres_availability
+            is_available, message = check_postgres_availability(
+                host=config.postgres_host,
+                port=config.postgres_port,
+                user=config.postgres_user,
+                password=config.postgres_password,
+                database=config.postgres_database
+            )
+            if not is_available:
+                console.print(f"[bold red]✗ PostgreSQL is not available:[/bold red] {message}")
+                raise typer.Exit(1)
     elif config.provider == "lightrag":
         if not skip_validation:
             from agentic_cli.kg.lightrag_client import check_lightrag_availability
             is_available, message = check_lightrag_availability(base_url=config.lightrag_url)
             if not is_available:
                 console.print(f"[bold red]✗ LightRAG is not available:[/bold red] {message}")
+                raise typer.Exit(1)
+    elif config.provider == "weaviate":
+        if not skip_validation:
+            from agentic_cli.kg.weaviate_client import check_weaviate_availability
+            is_available, message = check_weaviate_availability(
+                host=config.weaviate_host,
+                port=config.weaviate_port,
+                scheme=config.weaviate_scheme,
+                api_key=config.weaviate_api_key
+            )
+            if not is_available:
+                console.print(f"[bold red]✗ Weaviate is not available:[/bold red] {message}")
                 raise typer.Exit(1)
     
     try:
@@ -1638,6 +2215,35 @@ def stats(
                 for entity in stats['top_entities'][:5]:
                     console.print(f"  • {entity['name']} ({entity['connections']} connections)")
         
+        elif config.provider == "postgres":
+            from agentic_cli.kg.postgres_client import PostgresClient
+            
+            client = PostgresClient(
+                host=config.postgres_host,
+                port=config.postgres_port,
+                user=config.postgres_user,
+                password=config.postgres_password,
+                database=config.postgres_database,
+                graph_name=config.postgres_graph
+            )
+            
+            # Connect to PostgreSQL
+            client.connect()
+            
+            # Get entity counts from code_entities table
+            stats = client.get_graph_stats()
+            client.close()
+            
+            table = Table(title="Knowledge Graph Statistics (PostgreSQL)")
+            table.add_column("Metric", style="cyan")
+            table.add_column("Count", style="green", justify="right")
+            
+            table.add_row("Total Code Entities", str(stats.get('code_entities', 0)))
+            table.add_row("Total Document Entities", str(stats.get('document_entities', 0)))
+            table.add_row("Total Relationships", str(stats.get('relationships', 0)))
+            
+            console.print(table)
+        
         elif config.provider == "lightrag":
             from agentic_cli.kg.lightrag_client import LightRAGClient
             
@@ -1655,41 +2261,34 @@ def stats(
             for key, value in stats.items():
                 if key != "files":  # Skip file list for main table
                     metric_name = key.replace('_', ' ').title()
-                    table.add_row(metric_name, str(value))
+        
+        elif config.provider == "weaviate":
+            from agentic_cli.kg.weaviate_client import WeaviateClient
+            
+            client = WeaviateClient(
+                host=config.weaviate_host,
+                port=config.weaviate_port,
+                scheme=config.weaviate_scheme,
+                api_key=config.weaviate_api_key
+            )
+            client.connect()
+            stats = client.get_graph_stats()
+            client.close()
+            
+            table = Table(title="Knowledge Graph Statistics (Weaviate)")
+            table.add_column("Class", style="cyan")
+            table.add_column("Count", style="green", justify="right")
+            
+            for class_name, count in stats.items():
+                if class_name != "total_objects":
+                    table.add_row(class_name, str(count))
+            
+            table.add_row("Total Objects", str(stats.get('total_objects', 0)))
             
             console.print(table)
-            
-            # Document ingestion status table
-            if doc_status.get("total_documents", 0) > 0:
-                console.print("\n")
-                status_table = Table(title="Document Ingestion Status")
-                status_table.add_column("Status", style="cyan")
-                status_table.add_column("Count", style="green", justify="right")
-                
-                total = doc_status.get("total_documents", 0)
-                completed = doc_status.get("completed", 0)
-                processing = doc_status.get("processing", 0)
-                pending = doc_status.get("pending", 0)
-                failed = doc_status.get("failed", 0)
-                
-                status_table.add_row("Total Documents", str(total))
-                status_table.add_row("✓ Completed", str(completed), style="green")
-                status_table.add_row("⏳ Processing", str(processing), style="yellow")
-                status_table.add_row("⏸ Pending", str(pending), style="cyan" if pending > 0 else "dim")
-                status_table.add_row("✗ Failed", str(failed), style="red" if failed > 0 else "dim")
-                
-                console.print(status_table)
-                
-                # Show failed documents if any
-                if failed > 0:
-                    console.print("\n[bold yellow]⚠ Failed Documents:[/bold yellow]")
-                    for doc in doc_status.get("documents", []):
-                        if doc.get("status") == "failed":
-                            error = doc.get("error", "Unknown error")[:80]
-                            console.print(f"  • {doc.get('id', 'Unknown')[:20]}... - {error}...")
-        
+    
     except Exception as e:
-        console.print(f"[bold red]✗[/bold red] Error: {str(e)}")
+        console.print(f"[bold red]✗ Error:[/bold red] {e}")
         raise typer.Exit(1)
 
 
@@ -1697,7 +2296,7 @@ def stats(
 def clear(
     provider: str = typer.Option(
         default=None,
-        help="Provider to clear (neo4j, lightrag, or both). If not specified, uses configured provider.",
+        help="Provider to clear (neo4j, postgres, lightrag, or both). If not specified, uses configured provider.",
     ),
     yes: bool = typer.Option(
         default=False,
@@ -1718,6 +2317,9 @@ def clear(
         # Clear configured provider (with confirmation)
         {CLI_NAME} kg clear
         
+        # Clear PostgreSQL without confirmation
+        {CLI_NAME} kg clear --provider postgres --yes
+        
         # Clear LightRAG without confirmation
         {CLI_NAME} kg clear --provider lightrag --yes
         
@@ -1737,12 +2339,12 @@ def clear(
     
     providers_to_clear = []
     if provider == "both":
-        providers_to_clear = ["neo4j", "lightrag"]
+        providers_to_clear = ["neo4j", "lightrag", "postgres", "weaviate"]
     else:
         providers_to_clear = [provider]
     
     # Validate providers
-    valid_providers = ["neo4j", "lightrag"]
+    valid_providers = ["neo4j", "postgres", "lightrag", "weaviate"]
     for p in providers_to_clear:
         if p not in valid_providers:
             console.print(f"[bold red]✗ Invalid provider:[/bold red] {p}")
@@ -1755,11 +2357,11 @@ def clear(
         for p in providers_to_clear:
             try:
                 if p == "neo4j":
-                    from agentic_cli.kg.stats import get_graph_stats
-                    stats = get_graph_stats()
+                    from agentic_cli.kg.stats import get_stats
+                    stats = get_stats()
                     console.print(f"[cyan]Neo4j:[/cyan]")
-                    console.print(f"  Nodes: {stats.get('node_count', 0)}")
-                    console.print(f"  Relationships: {stats.get('relationship_count', 0)}")
+                    console.print(f"  Nodes: {stats.get('nodes', 0)}")
+                    console.print(f"  Relationships: {stats.get('relationships', 0)}")
                 elif p == "lightrag":
                     from agentic_cli.kg.lightrag_client import LightRAGClient
                     client = LightRAGClient(base_url=config.lightrag_url, timeout=config.lightrag_timeout)
@@ -1804,6 +2406,25 @@ def clear(
                 client.close()
                 console.print(f"[bold green]✓[/bold green] Neo4j data cleared successfully")
                 
+            elif p == "postgres":
+                # Clear PostgreSQL data
+                from agentic_cli.kg.postgres_client import PostgresClient
+                
+                with console.status("[bold green]Clearing PostgreSQL data..."):
+                    client = PostgresClient(
+                        host=config.postgres_host,
+                        port=config.postgres_port,
+                        user=config.postgres_user,
+                        password=config.postgres_password,
+                        database=config.postgres_database,
+                        graph_name=config.postgres_graph
+                    )
+                    client.connect()
+                    client.clear_graph()
+                    client.close()
+                
+                console.print(f"[bold green]✓[/bold green] PostgreSQL data cleared successfully")
+                
             elif p == "lightrag":
                 # Clear LightRAG data
                 from agentic_cli.kg.lightrag_client import LightRAGClient
@@ -1815,6 +2436,23 @@ def clear(
                 
                 console.print(f"[bold green]✓[/bold green] LightRAG data cleared successfully")
                 
+            elif p == "weaviate":
+                # Clear Weaviate data
+                from agentic_cli.kg.weaviate_client import WeaviateClient
+                
+                with console.status("[bold green]Clearing Weaviate data..."):
+                    client = WeaviateClient(
+                        host=config.weaviate_host,
+                        port=config.weaviate_port,
+                        scheme=config.weaviate_scheme,
+                        api_key=config.weaviate_api_key
+                    )
+                    client.connect()
+                    client.clear_graph()
+                    client.close()
+                
+                console.print(f"[bold green]✓[/bold green] Weaviate data cleared successfully")
+                
         except Exception as e:
             console.print(f"[bold red]✗[/bold red] Error clearing {p}: {str(e)}")
             raise typer.Exit(1)
@@ -1825,8 +2463,8 @@ def clear(
         for p in providers_to_clear:
             try:
                 if p == "neo4j":
-                    from agentic_cli.kg.stats import get_graph_stats
-                    stats = get_graph_stats()
+                    from agentic_cli.kg.stats import get_stats
+                    stats = get_stats()
                     console.print(f"[cyan]Neo4j:[/cyan]")
                     console.print(f"  Nodes: {stats.get('node_count', 0)}")
                     console.print(f"  Relationships: {stats.get('relationship_count', 0)}")
@@ -1844,6 +2482,18 @@ def clear(
                 console.print(f"[yellow]⚠ Could not fetch final stats for {p}: {e}[/yellow]")
     
     console.print(f"\n[bold green]✓ Successfully cleared {' and '.join(providers_to_clear)}[/bold green]")
+    
+    # Reset kg_ingested flag for all domains
+    from agentic_cli.tracker import update_domain, get_domains
+    
+    try:
+        domains = get_domains()
+        for domain in domains:
+            if domain.get("kg_ingested", 0) == 1:
+                update_domain(domain["name"], kg_ingested=0)
+        console.print(f"[dim]Reset KG Ingested flag for {len(domains)} domain(s)[/dim]")
+    except Exception as e:
+        console.print(f"[yellow]⚠ Could not reset kg_ingested flags: {e}[/yellow]")
 
 
 @kg_app.command()
@@ -1933,6 +2583,106 @@ def visualize(
             raise typer.Exit(1)
 
 
+@kg_app.command("check-release-links")
+def check_release_links() -> None:
+    """Check if Release nodes are linked to Document (requirement) nodes."""
+    from agentic_cli.kg.config import KGConfig
+    from agentic_cli.kg.neo4j_client import Neo4jClient
+    
+    console.print("[bold]Checking Release-Document links...[/bold]")
+    
+    try:
+        config = KGConfig.load()
+        
+        with Neo4jClient(config) as client:
+            results = client.check_release_requirement_links()
+            
+            # Display results
+            console.print(f"\n[bold]Release Nodes:[/bold] {results['release_nodes_count']}")
+            console.print(f"[bold]Document Nodes:[/bold] {results['document_nodes_count']}")
+            console.print(f"[bold]Release-Document Links:[/bold] {results['release_document_links_count']}")
+            
+            if results['release_nodes_count'] > 0 and results['release_document_links_count'] == 0:
+                console.print("\n[red]✗ Warning: Release nodes exist but are not linked to documents![/red]")
+            
+            if results['release_nodes_sample']:
+                console.print("\n[bold]Sample Release Nodes:[/bold]")
+                for node in results['release_nodes_sample'][:5]:
+                    console.print(f"  - {node['name']} (id: {node['id']}, labels: {node['labels']})")
+                    if node['metadata']:
+                        import json
+                        try:
+                            metadata = json.loads(node['metadata']) if isinstance(node['metadata'], str) else node['metadata']
+                            console.print(f"    Metadata: {json.dumps(metadata, indent=2)[:200]}...")
+                        except:
+                            console.print(f"    Metadata: {str(node['metadata'])[:200]}...")
+            
+            if results['document_nodes_sample']:
+                console.print("\n[bold]Sample Document Nodes:[/bold]")
+                for node in results['document_nodes_sample'][:5]:
+                    console.print(f"  - {node['name']} (id: {node['id']}, domain: {node['domain']})")
+                    if node['metadata']:
+                        import json
+                        try:
+                            metadata = json.loads(node['metadata']) if isinstance(node['metadata'], str) else node['metadata']
+                            console.print(f"    Metadata: {json.dumps(metadata, indent=2)[:200]}...")
+                        except:
+                            console.print(f"    Metadata: {str(node['metadata'])[:200]}...")
+            
+            if results['release_relationships_sample']:
+                console.print("\n[bold]Sample Release-Document Links:[/bold]")
+                for rel in results['release_relationships_sample'][:10]:
+                    console.print(f"  - {rel['release_name']} -> {rel['doc_name']} ({rel['rel_type']})")
+            else:
+                console.print("\n[yellow]No Release-Document relationships found[/yellow]")
+    
+    except Exception as e:
+        console.print(f"[red]✗ Error:[/red] {e}")
+        raise typer.Exit(1)
+
+
+@kg_app.command("get-release-requirements")
+def get_release_requirements(
+    release_name: Annotated[str, typer.Argument(help="Release name (e.g., 'Release 29')")]
+) -> None:
+    """Get all requirements (FREQ IDs) associated with a specific release."""
+    from agentic_cli.kg.config import KGConfig
+    from agentic_cli.kg.neo4j_client import Neo4jClient
+    
+    console.print(f"[bold]Getting requirements for release: {release_name}[/bold]")
+    
+    try:
+        config = KGConfig.load()
+        
+        with Neo4jClient(config) as client:
+            results = client.get_requirements_by_release(release_name)
+            
+            if "error" in results:
+                console.print(f"[red]✗ {results['error']}[/red]")
+                raise typer.Exit(1)
+            
+            # Display release info
+            console.print(f"\n[bold]Release:[/bold] {results['release']['name']}")
+            
+            # Display documents
+            console.print(f"[bold]Documents:[/bold] {len(results['documents'])}")
+            for doc in results['documents']:
+                console.print(f"  - {doc['name']}")
+                console.print(f"    Source: {doc['source']}")
+            
+            # Display FREQ IDs
+            console.print(f"\n[bold]FREQ Requirements:[/bold] {results['freq_count']}")
+            if results['freq_ids']:
+                for freq_id in results['freq_ids']:
+                    console.print(f"  - {freq_id}")
+            else:
+                console.print("  [yellow]No FREQ IDs found in documents[/yellow]")
+    
+    except Exception as e:
+        console.print(f"[red]✗ Error:[/red] {e}")
+        raise typer.Exit(1)
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # kg link
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1944,6 +2694,8 @@ def link(
     threshold: Annotated[float, typer.Option("--threshold", help="Minimum confidence to write an edge (0.0-1.0)")] = 0.75,
     batch_size: Annotated[int, typer.Option("--batch-size", help="Code entities per Vertex AI call")] = 50,
     show_preview: Annotated[int, typer.Option("--show-preview", help="Number of dry-run candidates to print (0=all)")] = 20,
+    use_lightrag: Annotated[bool, typer.Option("--lightrag/--no-lightrag", help="Use LightRAG for semantic similarity (default: True)")] = True,
+    lightrag_weight: Annotated[float, typer.Option("--lightrag-weight", help="Weight for LightRAG similarity in hybrid scoring (0.0-1.0, default: 0.6)")] = 0.6,
 ):
     """Link Code::* nodes to requirement Document nodes via LLM evaluation.
 
@@ -1952,11 +2704,16 @@ def link(
     code implements/references/tests each requirement. Writes typed relationship edges
     back to Neo4j (idempotent — safe to re-run).
 
+    With LightRAG enabled (default), also ingests entities into LightRAG for semantic
+    embeddings and combines LightRAG similarity scores with LLM evaluation for hybrid
+    confidence scoring.
+
     Run with --dry-run first to preview candidates before committing.
 
     Example:
         dva kg link --domain cwow-facility --dry-run
         dva kg link --domain cwow-facility --threshold 0.8
+        dva kg link --domain cwow-facility --no-lightrag  # LLM-only mode
     """
     from agentic_cli.kg.config import KGConfig
     from agentic_cli.kg.linker import KGLinker
@@ -1976,6 +2733,9 @@ def link(
     console.print(f"\n[bold]{mode_label}KG Linker — domain: [cyan]{domain}[/cyan][/bold]")
     console.print(f"  Confidence threshold: [cyan]{threshold}[/cyan]")
     console.print(f"  Batch size:           [cyan]{batch_size}[/cyan]")
+    console.print(f"  LightRAG:             [cyan]{'enabled' if use_lightrag else 'disabled'}[/cyan]")
+    if use_lightrag:
+        console.print(f"  LightRAG weight:      [cyan]{lightrag_weight}[/cyan]")
     console.print()
 
     linker = KGLinker(
@@ -1983,6 +2743,8 @@ def link(
         config=config,
         confidence_threshold=threshold,
         batch_size=batch_size,
+        use_lightrag=use_lightrag,
+        lightrag_weight=lightrag_weight,
     )
 
     with console.status(f"[bold green]{'Evaluating (dry run)' if dry_run else 'Linking'}..."):
@@ -2053,11 +2815,59 @@ def link(
         status="success" if not result.errors else "partial",
         details={
             "domain": domain,
-            "dry_run": dry_run,
-            "threshold": threshold,
-            "code_entities": result.total_code_entities,
-            "docs": result.total_docs,
-            "candidates": result.candidates_found,
             "edges_written": result.edges_written,
         },
     )
+
+
+@kg_app.command("refresh-links")
+def refresh_links(
+    path: Annotated[
+        str,
+        typer.Option("--path", "-p", help="Path to project directory"),
+    ],
+    domain: Annotated[
+        str,
+        typer.Option("--domain", "-d", help="Domain slug (e.g. cwow-facility)"),
+    ],
+) -> None:
+    """Refresh code-to-requirement links for a project.
+
+    Re-runs LLM-based linking between kg-code-context.md and KG requirements.
+    Useful after code changes or requirement updates.
+
+    Example:
+        dva kg refresh-links --path ./my-project --domain cwow-facility
+    """
+    from pathlib import Path
+    from agentic_cli.kg.context_builder import link_code_to_requirements
+
+    project_path = Path(path).expanduser().resolve()
+    if not project_path.exists():
+        console.print(f"[red]✗[/red] Project path not found: {path}")
+        raise typer.Exit(1)
+
+    console.print(f"[cyan]Refreshing links for:[/cyan] {project_path.name}")
+    console.print(f"[dim]Domain:[/dim] {domain}")
+    console.print()
+
+    try:
+        result = link_code_to_requirements(
+            project_path=project_path,
+            domain_slug=domain,
+        )
+
+        if result["success"]:
+            console.print(f"[green]✓[/green] Links refreshed successfully")
+            console.print(f"  Links created: {result['links_created']}")
+            if result.get("total_identified"):
+                console.print(f"  Total identified: {result['total_identified']}")
+        else:
+            console.print(f"[red]✗[/red] Failed to refresh links")
+            console.print(f"  Error: {result.get('error', 'Unknown error')}")
+            raise typer.Exit(1)
+
+    except Exception as e:
+        console.print(f"[red]✗[/red] Error: {e}")
+        raise typer.Exit(1)
+

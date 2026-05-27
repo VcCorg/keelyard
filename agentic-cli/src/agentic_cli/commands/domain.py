@@ -37,6 +37,7 @@ from agentic_cli.tracker import (
     get_domain_repos,
     get_domain_docs,
     add_domain_doc,
+    remove_domain_doc,
     mark_domain_repo_onboarded,
 )
 from agentic_cli.skill_generator import (
@@ -71,6 +72,7 @@ def create(
     bitbucket_project: Annotated[str, typer.Option("--bb", help="Bitbucket project key")] = None,
     confluence_space: Annotated[str, typer.Option("--confluence", help="Source Confluence space key")] = None,
     jira_dashboard: Annotated[str, typer.Option("--jira-dashboard", help="Jira dashboard URL")] = None,
+    jira_board: Annotated[str, typer.Option("--jira-board", help="Jira board name/ID")] = None,
     confluence_url: Annotated[str, typer.Option("--confluence-url", help="Confluence page/space URL")] = None,
     tags: Annotated[str, typer.Option("--tags", "-t", help="Comma-separated extra tags")] = None,
 ) -> None:
@@ -109,6 +111,7 @@ def create(
         domain=domain,
         description=description,
         jira_project=jira_project,
+        jira_board=jira_board,
         bitbucket_project=bitbucket_project,
         confluence_space=confluence_space,
         jira_dashboard=jira_dashboard,
@@ -134,6 +137,8 @@ def create(
         panel_lines.append(f"[cyan]Confluence Space:[/cyan] {confluence_space}")
     if jira_dashboard:
         panel_lines.append(f"[cyan]Jira Dashboard:[/cyan] {jira_dashboard}")
+    if jira_board:
+        panel_lines.append(f"[cyan]Jira Board:[/cyan] {jira_board}")
     if confluence_url:
         panel_lines.append(f"[cyan]Confluence URL:[/cyan] {confluence_url}")
     if tag_list:
@@ -241,8 +246,13 @@ def show(
         lines.append(f"[cyan]Managed Space:[/cyan] {d['managed_confluence_space']}")
     if d.get("jira_dashboard"):
         lines.append(f"[cyan]Jira Dashboard:[/cyan] {d['jira_dashboard']}")
+    if d.get("jira_board"):
+        lines.append(f"[cyan]Jira Board:[/cyan] {d['jira_board']}")
     if d.get("confluence_url"):
         lines.append(f"[cyan]Confluence URL:[/cyan] {d['confluence_url']}")
+    kg_ingested = d.get("kg_ingested", 0)
+    kg_status = "[green]✓[/green]" if kg_ingested else "[dim]—[/dim]"
+    lines.append(f"[cyan]KG Ingested:[/cyan] {kg_status}")
     tags = d.get("tags") or []
     if tags:
         lines.append(f"[cyan]Tags:[/cyan] {', '.join(tags)}")
@@ -307,6 +317,7 @@ def update(
     bitbucket_project: Annotated[str, typer.Option("--bb", help="Update Bitbucket project key")] = None,
     confluence_space: Annotated[str, typer.Option("--confluence", help="Update Confluence space key")] = None,
     jira_dashboard: Annotated[str, typer.Option("--jira-dashboard", help="Jira dashboard URL")] = None,
+    jira_board: Annotated[str, typer.Option("--jira-board", help="Jira board name/ID")] = None,
     confluence_url: Annotated[str, typer.Option("--confluence-url", help="Confluence page/space URL")] = None,
     tags: Annotated[str, typer.Option("--tags", "-t", help="Replace tags (comma-separated)")] = None,
 ) -> None:
@@ -339,6 +350,8 @@ def update(
         fields["confluence_space"] = confluence_space
     if jira_dashboard:
         fields["jira_dashboard"] = jira_dashboard
+    if jira_board:
+        fields["jira_board"] = jira_board
     if confluence_url:
         fields["confluence_url"] = confluence_url
     if tags:
@@ -438,6 +451,50 @@ def link_repo(
 # ---------------------------------------------------------------------------
 # {CLI_NAME} domain unlink-repo
 # ---------------------------------------------------------------------------
+
+@domain_app.command("reset-repos")
+def fix_repo_urls(
+    domain_name: Annotated[str, typer.Argument(help="Domain name (slug)")],
+) -> None:
+    """
+    Reset/remove all linked repos from a domain.
+    
+    Removes all repos so you can link them again with correct URLs.
+    
+    Examples:
+        {CLI_NAME} domain reset-repos cwow-facility
+    """
+    from agentic_cli.tracker import get_domain_repos, unlink_repo_from_domain
+    
+    d = get_domain(domain_name)
+    if not d:
+        console.print(f"[red]✗ Domain '{domain_name}' not found.[/red]")
+        raise typer.Exit(1)
+    
+    repos = get_domain_repos(domain_name)
+    if not repos:
+        console.print(f"[yellow]No repos linked to domain '{domain_name}'.[/yellow]")
+        return
+    
+    console.print(f"[cyan]Removing all repos from domain '{domain_name}'...[/cyan]")
+    
+    removed_count = 0
+    for repo in repos:
+        removed = unlink_repo_from_domain(domain_name, repo["repo_slug"])
+        if removed:
+            console.print(f"  [green]✓[/green] Removed: {repo['repo_slug']}")
+            removed_count += 1
+    
+    if removed_count > 0:
+        console.print(f"\n[bold green]✓[/bold green] Removed {removed_count} repo(s).")
+        console.print(f"[dim]You can now link repos again using '{CLI_NAME} domain link-repo'[/dim]")
+        record_activity(
+            command="domain", subcommand="reset-repos",
+            args={"domain": domain_name, "removed": removed_count},
+        )
+    else:
+        console.print(f"\n[dim]No repos were removed.[/dim]")
+
 
 @domain_app.command("unlink-repo")
 def unlink_repo(
@@ -615,6 +672,12 @@ def fetch_repos(
         console.print(f"[yellow]No repos found in project '{bb_project}'.[/yellow]")
         return
 
+    # Filter out deprecated repos
+    repos = [r for r in repos if "deprecated" not in r.get("slug", "").lower() and "deprecated" not in r.get("name", "").lower()]
+    if not repos:
+        console.print(f"[yellow]No non-deprecated repos found in project '{bb_project}'.[/yellow]")
+        return
+
     # Apply text filter
     if filter_text:
         repos = [r for r in repos if filter_text.lower() in r.get("slug", r.get("name", "")).lower()]
@@ -737,7 +800,11 @@ def add_docs(
     Fetch pages from the domain's Confluence space and select which to track.
 
     Calls the Confluence MCP server (credentials managed there).
-    The domain must have a Confluence space key (set via --confluence on create/update).
+    The domain must have a Confluence space key (set via --confluence on create/update)
+    or a Confluence URL (set via --confluence-url on create/update).
+
+    When using a page URL, all descendant pages (children of children) are fetched recursively.
+    When using a space key, only pages in that space are fetched (not recursive).
 
     Examples:
         {CLI_NAME} domain add-docs cwow-facility
@@ -745,7 +812,8 @@ def add_docs(
         {CLI_NAME} domain add-docs cwow-facility --all
     """
     from agentic_cli.mcp_tool_client import (
-        MCPToolError, confluence_get_space_pages, parse_space_key,
+        MCPToolError, confluence_get_space_pages, confluence_get_page_children,
+        confluence_get_all_descendants, parse_space_key, parse_confluence_url,
     )
 
     d = get_domain(domain_name)
@@ -753,32 +821,120 @@ def add_docs(
         console.print(f"[red]✗ Domain '{domain_name}' not found.[/red]")
         raise typer.Exit(1)
 
-    space_key = parse_space_key(d.get("confluence_space") or "")
-    if not space_key:
-        console.print(f"[red]✗ Domain '{domain_name}' has no Confluence space key.[/red]")
+    # Try confluence_url first, then confluence_space
+    space_key = ""
+    page_id = ""
+    
+    # Try parsing confluence_url first
+    confluence_url = d.get("confluence_url") or ""
+    if confluence_url:
+        space_key, page_id = parse_confluence_url(confluence_url)
+    
+    # If no URL or URL didn't yield space/page, try confluence_space
+    if not space_key and not page_id:
+        space_key = parse_space_key(d.get("confluence_space") or "")
+    
+    if not space_key and not page_id:
+        console.print(f"[red]✗ Domain '{domain_name}' has no Confluence space key or URL.[/red]")
         console.print(f"[dim]Set one with: {CLI_NAME} domain update {domain_name} --confluence <SPACE_KEY>[/dim]")
+        console.print(f"[dim]Or: {CLI_NAME} domain update {domain_name} --confluence-url <URL>[/dim]")
         raise typer.Exit(1)
 
-    console.print(f"Fetching pages from Confluence space [cyan]{space_key}[/cyan] via MCP...")
-    try:
-        pages = confluence_get_space_pages(space_key, limit=limit)
-    except MCPToolError as e:
-        console.print(f"[red]✗ {e}[/red]")
-        if e.is_connection_error:
-            console.print("[dim]Is the Confluence MCP server running? (docker compose up confluence-mcp)[/dim]")
-        raise typer.Exit(1)
+    # Fetch pages based on what we have
+    if page_id:
+        console.print(f"Fetching all descendant pages from Confluence page [cyan]{page_id}[/cyan] via MCP...")
+        try:
+            pages = confluence_get_all_descendants(page_id)
+        except MCPToolError as e:
+            console.print(f"[red]✗ {e}[/red]")
+            if e.is_connection_error:
+                console.print("[dim]Is the Confluence MCP server running? (docker compose up confluence-mcp)[/dim]")
+            raise typer.Exit(1)
+    else:
+        console.print(f"Fetching pages from Confluence space [cyan]{space_key}[/cyan] via MCP...")
+        try:
+            pages = confluence_get_space_pages(space_key, limit=limit)
+        except MCPToolError as e:
+            console.print(f"[red]✗ {e}[/red]")
+            if e.is_connection_error:
+                console.print("[dim]Is the Confluence MCP server running? (docker compose up confluence-mcp)[/dim]")
+            raise typer.Exit(1)
 
     if not pages:
-        console.print(f"[yellow]No pages found in space '{space_key}'.[/yellow]")
+        source_desc = f"page {page_id}" if page_id else f"space '{space_key}'"
+        console.print(f"[yellow]No pages found in {source_desc}.[/yellow]")
         return
 
     if filter_text:
         pages = [p for p in pages if filter_text.lower() in (p.get("title") or "").lower()]
         if not pages:
-            console.print(f"[yellow]No pages matching '{filter_text}' in space '{space_key}'.[/yellow]")
+            source_desc = f"page {page_id}" if page_id else f"space '{space_key}'"
+            console.print(f"[yellow]No pages matching '{filter_text}' in {source_desc}.[/yellow]")
             return
 
-    console.print(f"Found [bold]{len(pages)}[/bold] pages in space [cyan]{space_key}[/cyan].")
+    # Auto-discover cross-space release pages
+    console.print("[dim]Scanning for cross-space release page links...[/dim]")
+    from agentic_cli.mcp_tool_client import (
+        confluence_get_page, call_mcp_tool, _get_confluence_url, MCPToolError
+    )
+    import re
+    import json
+    
+    cross_space_pages = []
+    for p in pages:
+        try:
+            page = confluence_get_page(str(p["id"]), include_body=True)
+            body_html = page.get("body_html", "")
+            
+            # Extract cross-space page links from storage format
+            # Pattern: <ri:page ri:space-key="CWOV" ri:content-title="Release 27: Patients" />
+            page_links = re.findall(r'<ri:page ri:space-key="([^"]+)" ri:content-title="([^"]+)"', body_html)
+            
+            for link_space, link_title in page_links:
+                # Skip if same space
+                if link_space == space_key:
+                    continue
+                
+                # Search for the linked page
+                try:
+                    cql = f'space="{link_space}" AND title="{link_title}" AND type=page'
+                    search_results = call_mcp_tool(_get_confluence_url(), "search_confluence_cql", {"cql": cql, "limit": 1})
+                    
+                    if search_results and search_results != "0":
+                        try:
+                            results = json.loads(search_results) if isinstance(search_results, str) else search_results
+                            
+                            page_id = None
+                            if isinstance(results, list) and len(results) > 0:
+                                page_id = results[0].get("id")
+                            elif isinstance(results, dict):
+                                if "results" in results and len(results["results"]) > 0:
+                                    page_id = results["results"][0].get("id")
+                                elif "id" in results:
+                                    page_id = results.get("id")
+                            
+                            if page_id:
+                                cross_space_pages.append({
+                                    "id": page_id,
+                                    "title": link_title,
+                                    "space": link_space,
+                                    "version": 0,
+                                    "_cross_space": True
+                                })
+                                console.print(f"  [dim]→ Found cross-space page: {link_title} ({link_space})[/dim]")
+                        except (json.JSONDecodeError, KeyError):
+                            pass
+                except MCPToolError:
+                    pass
+        except MCPToolError:
+            continue
+    
+    if cross_space_pages:
+        console.print(f"[dim]Found [bold]{len(cross_space_pages)}[/bold] cross-space pages to add.[/dim]")
+        pages.extend(cross_space_pages)
+
+    source_desc = f"page {page_id}" if page_id else f"space '{space_key}'"
+    console.print(f"Found [bold]{len(pages)}[/bold] pages in {source_desc}.")
 
     existing = get_domain_docs(domain_name)
     already_tracked = {dd["source_page_id"] for dd in existing}
@@ -794,16 +950,20 @@ def add_docs(
 
     tracked_count = 0
     for p in selected:
+        # Use the page's actual space key for cross-space pages
+        page_space_key = p.get("space", space_key) if p.get("_cross_space") else space_key
+        
         added = add_domain_doc(
             domain_name,
             source_page_id=str(p["id"]),
-            source_space_key=space_key,
+            source_space_key=page_space_key,
             title=p.get("title"),
             source_version=p.get("version", 0),
         )
         if added:
             tracked_count += 1
-            console.print(f"  [green]✓[/green] {p['title'] or p['id']}")
+            space_label = f" [{page_space_key}]" if p.get("_cross_space") else ""
+            console.print(f"  [green]✓[/green] {p['title'] or p['id']}{space_label}")
 
     console.print(
         f"\n[bold green]✓[/bold green] Tracked [bold]{tracked_count}[/bold] docs for [cyan]{domain_name}[/cyan]."
@@ -861,6 +1021,62 @@ def list_docs(
         )
 
     console.print(table)
+
+
+@domain_app.command("remove-docs")
+def remove_docs(
+    domain_name: Annotated[str, typer.Argument(help="Domain name (slug)")],
+    page_ids: Annotated[str, typer.Option("--page-ids", "-p", help="Comma-separated Confluence page IDs to remove (e.g., 1170473595,1170488862)")] = "",
+    all: Annotated[bool, typer.Option("--all", help="Remove all tracked docs from the domain")] = False,
+) -> None:
+    """
+    Remove tracked Confluence docs from a domain.
+
+    Examples:
+        {CLI_NAME} domain remove-docs cwow-facility --page-ids 1170473595,1170488862
+        {CLI_NAME} domain remove-docs cwow-facility --all
+    """
+    d = get_domain(domain_name)
+    if not d:
+        console.print(f"[red]✗ Domain '{domain_name}' not found.[/red]")
+        raise typer.Exit(1)
+
+    if not page_ids and not all:
+        console.print(f"[red]✗ Either --page-ids or --all is required.[/red]")
+        console.print(f"[dim]View docs with: {CLI_NAME} domain docs {domain_name}[/dim]")
+        raise typer.Exit(1)
+
+    if all:
+        # Remove all docs
+        docs = get_domain_docs(domain_name)
+        if not docs:
+            console.print(f"[yellow]No docs tracked for '{domain_name}'.[/yellow]")
+            raise typer.Exit(0)
+        
+        removed_count = 0
+        for doc in docs:
+            if remove_domain_doc(domain_name, doc["source_page_id"]):
+                removed_count += 1
+        
+        console.print(f"[green]✓[/green] Removed {removed_count} doc(s) from '{domain_name}'")
+        record_activity("domain_remove_docs_all", {"domain": domain_name, "count": removed_count})
+    else:
+        # Parse comma-separated page IDs
+        page_id_list = [pid.strip() for pid in page_ids.split(",") if pid.strip()]
+        
+        # Remove specific page IDs
+        removed_count = 0
+        for page_id in page_id_list:
+            if remove_domain_doc(domain_name, page_id):
+                console.print(f"[green]✓[/green] Removed page {page_id}")
+                removed_count += 1
+            else:
+                console.print(f"[yellow]⚠ Page {page_id} not found in '{domain_name}'[/yellow]")
+        
+        if removed_count > 0:
+            record_activity("domain_remove_docs", {"domain": domain_name, "page_ids": page_id_list, "count": removed_count})
+        
+        console.print(f"[dim]Removed {removed_count}/{len(page_id_list)} page(s)[/dim]")
 
 
 # ---------------------------------------------------------------------------
@@ -1157,7 +1373,14 @@ def init_context(
         if has_kg:
             console.print(f"[green]✓ KG domain context retrieved ({sum(1 for v in kg_context.values() if v)}/6 aspects)[/green]")
         else:
-            console.print("[yellow]⚠ No domain context found in KG (LightRAG may not be running or domain not ingested)[/yellow]")
+            # Get the configured KG provider for the warning message
+            try:
+                from agentic_cli.kg.config import KGConfig
+                kg_config = KGConfig.load()
+                provider = kg_config.provider
+                console.print(f"[yellow]⚠ No domain context found in KG ({provider} may not be running or domain not ingested)[/yellow]")
+            except Exception:
+                console.print("[yellow]⚠ No domain context found in KG (provider may not be running or domain not ingested)[/yellow]")
             console.print("[dim]The repo structure will be created with placeholder content.[/dim]")
 
     except Exception as e:

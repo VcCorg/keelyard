@@ -103,13 +103,13 @@ cd ../..
 # Configure CLI for Neo4j
 echo ""
 echo "Configuring agentic-cli for Neo4j..."
-python -m agentic_cli.main kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
+dva kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
 echo -e "${GREEN}✓ CLI configured for Neo4j${NC}"
 
 # Check if we have any data
 echo ""
 echo "Checking for existing KG data..."
-python -m agentic_cli.main kg stats 2>/dev/null || echo "No data yet (expected for first run)"
+dva kg stats 2>/dev/null || echo "No data yet (expected for first run)"
 
 # Check if Vertex AI is configured
 echo ""
@@ -119,7 +119,7 @@ if python -c "from agentic_cli.kg.config import KGConfig; print('✓' if KGConfi
     VERTEX_CONFIGURED=true
 else
     echo -e "${YELLOW}⚠ Vertex AI is not configured${NC}"
-    echo "  To configure: python -m agentic_cli.main init vertex-ai"
+    echo "  To configure: dva init vertex-ai"
     VERTEX_CONFIGURED=false
 fi
 
@@ -132,12 +132,12 @@ echo ""
 
 # Step 1: Check if we have cwow-facility domain
 echo -e "${BLUE}Step 1: Checking cwow-facility domain setup${NC}"
-if python -c "import sys; sys.path.append('mcp-servers/agentic/src'); from agentic_mcp.db import TrackerDB; db = TrackerDB(); print('✓' if db.domain_get('cwow-facility') else '✗')" 2>/dev/null | grep -q "✓"; then
+if python -c "import sys; sys.path.append('mcp-servers/agentic/src'); from pathlib import Path; from agentic_mcp.db import TrackerDB; db = TrackerDB(db_path=Path.home() / '.agent-cli-agentic' / 'tracker.db'); print('✓' if db.domain_get('cwow-facility') else '✗')" 2>/dev/null | grep -q "✓"; then
     echo -e "${GREEN}✓ cwow-facility domain exists${NC}"
     DOMAIN_EXISTS=true
 else
     echo -e "${YELLOW}⚠ cwow-facility domain not found${NC}"
-    echo "  To create: python -m agentic_cli.main domain create --domain Facility --product CWOW"
+    echo "  To create: dva domain create --domain Facility --product CWOW"
     DOMAIN_EXISTS=false
 fi
 
@@ -146,8 +146,9 @@ echo ""
 echo -e "${BLUE}Step 2: Checking onboarded repos${NC}"
 REPOS_COUNT=$(python -c "
 import sys; sys.path.append('mcp-servers/agentic/src'); 
+from pathlib import Path; 
 from agentic_mcp.db import TrackerDB; 
-db = TrackerDB(); 
+db = TrackerDB(db_path=Path.home() / '.agent-cli-agentic' / 'tracker.db'); 
 repos = db.repo_list(); 
 print(len(repos))
 " 2>/dev/null || echo "0")
@@ -157,20 +158,23 @@ if [ "$REPOS_COUNT" -gt 0 ]; then
     REPOS_EXIST=true
 else
     echo -e "${YELLOW}⚠ No repos onboarded yet${NC}"
-    echo "  To onboard: python -m agentic_cli.main code onboard --path <repo-path> --kg --extract-entities"
+    echo "  To onboard: dva code onboard --path <repo-path> --kg --extract-entities"
     REPOS_EXIST=false
 fi
 
 # Step 3: Check if we have business docs
 echo ""
 echo -e "${BLUE}Step 3: Checking business documents${NC}"
-DOCS_COUNT=$(python -m agentic_cli.main domain list-docs cwow-facility 2>/dev/null | grep -c "doc_" || echo "0")
+DOCS_COUNT=$(dva domain docs cwow-facility 2>/dev/null | grep -c "│ " || true)
+if [ -z "$DOCS_COUNT" ] || [ "$DOCS_COUNT" -eq 0 ]; then
+    DOCS_COUNT=0
+fi
 if [ "$DOCS_COUNT" -gt 0 ]; then
     echo -e "${GREEN}✓ Found $DOCS_COUNT business docs${NC}"
     DOCS_EXIST=true
 else
     echo -e "${YELLOW}⚠ No business docs found${NC}"
-    echo "  To add docs: python -m agentic_cli.main domain add-doc cwow-facility --source confluence"
+    echo "  To add docs: dva domain add-docs cwow-facility"
     DOCS_EXIST=false
 fi
 
@@ -187,13 +191,13 @@ if [ "$VERTEX_CONFIGURED" = true ] && [ "$DOMAIN_EXISTS" = true ] && [ "$REPOS_E
     
     # Run dry-run
     echo -e "${BLUE}Running KG linker dry-run for cwow-facility...${NC}"
-    python -m agentic_cli.main kg link --domain cwow-facility --dry-run --threshold 0.75
+    dva kg link --domain cwow-facility --dry-run --threshold 0.75
     
     echo ""
     echo -e "${GREEN}✓ Dry-run completed successfully!${NC}"
     echo ""
     echo "To run the actual linking:"
-    echo "  python -m agentic_cli.main kg link --domain cwow-facility"
+    echo "  dva kg link --domain cwow-facility"
     echo ""
     echo "To test MCP tools (after linking):"
     echo "  1. Start MCP server: cd mcp-servers/agentic && docker-compose up -d"
@@ -204,10 +208,10 @@ else
     echo -e "${YELLOW}⚠ Setup incomplete. Please complete the following:${NC}"
     echo ""
     
-    [ "$VERTEX_CONFIGURED" = false ] && echo "  1. Configure Vertex AI: python -m agentic_cli.main init vertex-ai"
-    [ "$DOMAIN_EXISTS" = false ] && echo "  2. Create domain: python -m agentic_cli.main domain create --domain Facility --product CWOW"
-    [ "$REPOS_EXIST" = false ] && echo "  3. Onboard repos: python -m agentic_cli.main code onboard --path <repo-path> --kg --extract-entities"
-    [ "$DOCS_EXIST" = false ] && echo "  4. Add business docs: python -m agentic_cli.main domain add-doc cwow-facility --source confluence"
+    [ "$VERTEX_CONFIGURED" = false ] && echo "  1. Configure Vertex AI: dva init vertex-ai"
+    [ "$DOMAIN_EXISTS" = false ] && echo "  2. Create domain: dva domain create --domain Facility --product CWOW"
+    [ "$REPOS_EXIST" = false ] && echo "  3. Onboard repos: dva code onboard --path <repo-path> --kg --extract-entities"
+    [ "$DOCS_EXIST" = false ] && echo "  4. Add business docs: dva domain add-docs cwow-facility"
     
     echo ""
     echo "After completing these steps, run this script again to validate."

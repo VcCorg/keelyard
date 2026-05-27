@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 logger = logging.getLogger(__name__)
 
 # Setup file logging for background jobs
-LOG_DIR = Path.home() / ".dva-agentic" / "logs"
+LOG_DIR = Path.home() / ".agent-cli-agentic" / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 # Create file handler for job logs
@@ -46,7 +46,7 @@ class IngestionJob(BaseModel):
     source_type: str  # 'path', 'data_source', 'git'
     format: Optional[str] = None
     provider: str  # 'neo4j', 'lightrag', 'both'
-    status: JobStatus = JobStatus.PENDING
+    status: JobStatus = Field(default=JobStatus.PENDING, description="Job status")
     is_async: bool = Field(default=True, description="True for async, False for sync operations")
     workspace: Optional[str] = Field(None, description="Target workspace (LightRAG only)")
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -57,10 +57,11 @@ class IngestionJob(BaseModel):
     result: Optional[Dict[str, Any]] = None
     metadata: Dict[str, Any] = Field(default_factory=dict)
     
-    class Config:
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
+    # Custom JSON serializer for datetime and JobStatus
+    @classmethod
+    def __get_pydantic_json_schema__(cls, core_schema, handler):
+        json_schema = handler(core_schema)
+        return json_schema
 
 
 class JobQueue:
@@ -71,10 +72,10 @@ class JobQueue:
         Initialize job queue.
         
         Args:
-            storage_path: Path to store job data (default: ~/.dva-agentic/jobs/)
+            storage_path: Path to store job data (default: ~/.agent-cli-agentic/jobs/)
         """
         if storage_path is None:
-            storage_path = Path.home() / ".dva-agentic" / "jobs"
+            storage_path = Path.home() / ".agent-cli-agentic" / "jobs"
         
         self.storage_path = storage_path
         self.storage_path.mkdir(parents=True, exist_ok=True)
@@ -252,7 +253,7 @@ class AsyncIngestionManager:
         worker_script = Path(__file__).parent / "async_worker.py"
         
         # Use nohup and redirect output to log file
-        log_file = Path.home() / ".dva-agentic" / "logs" / f"job_{job.job_id}.log"
+        log_file = Path.home() / ".agent-cli-agentic" / "logs" / f"job_{job.job_id}.log"
         log_file.parent.mkdir(parents=True, exist_ok=True)
         
         # Start subprocess detached from parent
