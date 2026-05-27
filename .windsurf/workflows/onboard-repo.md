@@ -56,6 +56,22 @@ result = skill_available(path="<project-path>", skills=skills.matched)
 This installs all matched skills to `.skills/`, generates `project-context/SKILL.md`,
 and writes `onboard.json`.
 
+### Step A3b: Graphify Update (Optional)
+
+If you want to generate a code structure graph for enhanced analysis:
+
+```bash
+dva code onboard --path <project-path> --graphify
+```
+
+This runs `graphify update` to create a detailed code graph showing:
+- Function-level relationships (calls, imports, uses)
+- Community detection (code modules)
+- Architectural insights (surprises, anomalies)
+- Interactive graph exports
+
+The graph is saved in the project's `graphify-out/` directory.
+
 ### Step A4: Register Centrally (1 MCP call)
 
 ```text
@@ -138,6 +154,16 @@ This mode is fully functional but does NOT track centrally or resolve from marke
 Same as Step A1.
 
 ### Step B2: Detect Tech Stack
+
+Scan the project root for build/config files:
+
+**Optional**: Run graphify update to generate code structure graph:
+
+```bash
+graphify update <project-path>
+```
+
+This creates a detailed code graph showing function relationships, communities, and architectural insights. Use the `--graphify` flag with `dva code onboard` to enable this step automatically.
 
 Scan the project root for build/config files:
 
