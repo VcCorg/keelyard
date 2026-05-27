@@ -407,12 +407,13 @@ def scaffold_domain_context_repo(
     domain_data: Optional[dict] = None,
     kg_context: Optional[dict[str, Any]] = None,
     repos: Optional[list[dict]] = None,
+    code_assist_tool: str = "generic",
 ) -> dict[str, Path]:
     """Create the directory structure for a domain context repository.
 
     Generates:
       .domain/kg-context.md, domain-metadata.json, architecture.md
-      .skills/shared/<domain>-domain-skill/SKILL.md
+      <skills_dir>/<domain>-domain-skill/SKILL.md (or .md for Windsurf)
       README.md
 
     Args:
@@ -421,6 +422,7 @@ def scaffold_domain_context_repo(
         domain_data: Domain registration data.
         kg_context: KG query results.
         repos: Linked repos.
+        code_assist_tool: Code assist tool (windsurf, cursor, or generic).
 
     Returns:
         Dict mapping file names to paths of created files.
@@ -456,13 +458,21 @@ def scaffold_domain_context_repo(
     arch_path.write_text(arch_content)
     created["architecture.md"] = arch_path
 
-    # .skills/shared/ directory
-    shared_skill_dir = output_dir / ".skills" / "shared" / f"{domain}-domain-skill"
-    shared_skill_dir.mkdir(parents=True, exist_ok=True)
+    # Shared domain skill - location depends on code_assist_tool
+    if code_assist_tool == "windsurf":
+        # Windsurf workflow format: .windsurf/workflows/<domain>-domain-skill.md
+        skills_dir = output_dir / ".windsurf" / "workflows"
+        skills_dir.mkdir(parents=True, exist_ok=True)
+        skill_path = skills_dir / f"{domain}-domain-skill.md"
+    else:
+        # Generic/Cursor format: .skills/shared/<domain>-domain-skill/SKILL.md
+        skills_dir = output_dir / ".skills" / "shared"
+        skills_dir.mkdir(parents=True, exist_ok=True)
+        skill_path = skills_dir / f"{domain}-domain-skill" / "SKILL.md"
 
-    # Shared SKILL.md
+    # Shared skill content
     skill_content = build_domain_skill_md(domain, domain_data, kg_context)
-    skill_path = shared_skill_dir / "SKILL.md"
+    skill_path.parent.mkdir(parents=True, exist_ok=True)
     skill_path.write_text(skill_content)
     created["shared-skill.md"] = skill_path
 
@@ -471,15 +481,21 @@ def scaffold_domain_context_repo(
     product = domain_data.get("product", "")
     repo_list = "\n".join(f"- `{r.get('repo_slug', 'unknown')}`" for r in repos) or "- _(none linked yet)_"
 
-    readme_content = f"""# {domain_label} Domain Context
+    # Structure description based on code_assist_tool
+    if code_assist_tool == "windsurf":
+        structure = f"""```
+.domain/
+├── kg-context.md          # Shared business context from Knowledge Graph
+├── domain-metadata.json   # Domain metadata and configuration
+└── architecture.md        # Domain architecture patterns
 
-> Product: {product or '—'} | Domain: {domain}
-
-This repository contains shared domain knowledge and skills for the **{domain_label}** domain.
-
-## Structure
-
-```
+.windsurf/
+└── workflows/
+    ├── {domain}-domain-skill.md  # Domain context skill for AI assistants
+    └── <superpowers-skills>.md  # Superpowers skills (if bootstrapped)
+```"""
+    else:
+        structure = f"""```
 .domain/
 ├── kg-context.md          # Shared business context from Knowledge Graph
 ├── domain-metadata.json   # Domain metadata and configuration
@@ -489,7 +505,17 @@ This repository contains shared domain knowledge and skills for the **{domain_la
 └── shared/
     └── {domain}-domain-skill/
         └── SKILL.md       # Domain context skill for AI assistants
-```
+```"""
+
+    readme_content = f"""# {domain_label} Domain Context
+
+> Product: {product or '—'} | Domain: {domain}
+
+This repository contains shared domain knowledge and skills for the **{domain_label}** domain.
+
+## Structure
+
+{structure}
 
 ## Linked Repositories
 

@@ -37,15 +37,15 @@ code_app = typer.Typer(help="Onboard repos with AI code assist skills", rich_mar
 
 # Default skills registry location
 DEFAULT_REGISTRY = Path.home() / ".dva" / "skills-registry"
-DVA_CONFIG_DIR = Path.home() / ".agent-cli-agentic"
-DVA_CONFIG_FILE = DVA_CONFIG_DIR / "config.json"
+AGENT_CONFIG_DIR = Path.home() / ".agent-cli-agentic"
+AGENT_CONFIG_FILE = AGENT_CONFIG_DIR / "config.json"
 
 
 def _get_config() -> dict:
     """Load CLI global config."""
-    if DVA_CONFIG_FILE.exists():
+    if AGENT_CONFIG_FILE.exists():
         try:
-            return json.loads(DVA_CONFIG_FILE.read_text())
+            return json.loads(AGENT_CONFIG_FILE.read_text())
         except (json.JSONDecodeError, OSError):
             pass
     return {}
@@ -53,8 +53,8 @@ def _get_config() -> dict:
 
 def _save_config(config: dict) -> None:
     """Save CLI global config."""
-    DVA_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    DVA_CONFIG_FILE.write_text(json.dumps(config, indent=2))
+    AGENT_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    AGENT_CONFIG_FILE.write_text(json.dumps(config, indent=2))
 
 
 def _get_registry_path() -> Path:
@@ -574,6 +574,18 @@ def onboard(
                     except Exception as e:
                         console.print(f"[red]✗ Failed to create workspace: {e}[/red]")
                         raise typer.Exit(1)
+
+                # If using --repo-slug with --domain, clone into domain folder
+                if repo_slug and domain:
+                    domain_folder = base / domain
+                    if not domain_folder.exists():
+                        try:
+                            domain_folder.mkdir(parents=True, exist_ok=True)
+                            console.print(f"[green]✓[/green] Created domain folder: {domain_folder}")
+                        except Exception as e:
+                            console.print(f"[red]✗ Failed to create domain folder: {e}[/red]")
+                            raise typer.Exit(1)
+                    base = domain_folder
             else:
                 base = Path.cwd()
             repo_name = repo.rstrip("/").split("/")[-1].replace(".git", "")

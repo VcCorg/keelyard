@@ -1,5 +1,6 @@
 """Agent template management commands."""
 
+import json
 import typer
 from pathlib import Path
 from typing import Optional
@@ -14,6 +15,27 @@ from agentic_cli.tracker import record_activity
 
 console = Console()
 agent_template_app = typer.Typer(help="Manage agent templates", rich_markup_mode=None)
+
+# Configuration directory and file
+AGENT_CONFIG_DIR = Path.home() / ".agent-cli-agentic"
+AGENT_CONFIG_FILE = AGENT_CONFIG_DIR / "config.json"
+
+
+def _load_config() -> dict:
+    """Load configuration from file."""
+    if AGENT_CONFIG_FILE.exists():
+        return json.loads(AGENT_CONFIG_FILE.read_text())
+    return {}
+
+
+def _get_code_workspace() -> Path:
+    """Get the configured code workspace directory."""
+    config = _load_config()
+    workspace = config.get("code_workspace")
+    if workspace:
+        return Path(workspace).expanduser().resolve()
+    # Default to ~/dva-code-workspace
+    return Path.home() / "dva-code-workspace"
 
 
 @agent_template_app.command("list")
@@ -152,7 +174,11 @@ def install_template(
         typer.Option("--registry", "-r", help="Registry name to use"),
     ] = None,
 ) -> None:
-    """Install an agent template."""
+    """Install an agent template.
+
+    By default, the template is installed in the configured code workspace.
+    Use --target to specify a custom location.
+    """
     manager = RegistryManager()
     
     # Get registry
@@ -170,7 +196,20 @@ def install_template(
     if target:
         target_path = Path(target).resolve()
     else:
-        target_path = Path.cwd() / name
+        # Use code workspace as default location
+        workspace = _get_code_workspace()
+        target_path = workspace / name
+        # Ensure workspace directory exists
+        if not workspace.exists():
+            console.print(f"[yellow]Workspace directory does not exist: {workspace}[/yellow]")
+            console.print(f"[dim]Creating workspace directory...[/dim]")
+            try:
+                workspace.mkdir(parents=True, exist_ok=True)
+                console.print(f"[green]✓[/green] Created: {workspace}")
+            except Exception as e:
+                console.print(f"[red]✗ Failed to create workspace: {e}[/red]")
+                console.print(f"[dim]Falling back to current directory[/dim]")
+                target_path = Path.cwd() / name
     
     # Install template
     success = reg.install_item(name, target_path, version)

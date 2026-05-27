@@ -43,6 +43,24 @@ SUPERPOWERS_SKILLS = [
 ]
 
 
+def _get_skills_dir(domain_context_dir: Path, code_assist_tool: str) -> Path:
+    """Get the skills directory based on the code assist tool.
+
+    Args:
+        domain_context_dir: Domain-context repo path.
+        code_assist_tool: Code assist tool (windsurf, cursor, or generic).
+
+    Returns:
+        Path to the skills directory.
+    """
+    if code_assist_tool == "windsurf":
+        return domain_context_dir / ".windsurf" / "workflows"
+    elif code_assist_tool == "cursor":
+        return domain_context_dir / ".cursorrules"
+    else:
+        return domain_context_dir / ".skills"
+
+
 # ---------------------------------------------------------------------------
 # Skill discovery
 # ---------------------------------------------------------------------------
@@ -188,6 +206,7 @@ def inject_skills_copy(
     domain_context_dir: Path,
     superpowers_path: Path,
     skills_to_inject: Optional[list[str]] = None,
+    code_assist_tool: str = "generic",
 ) -> list[str]:
     """Copy superpowers skills into domain-context repo.
 
@@ -195,6 +214,7 @@ def inject_skills_copy(
         domain_context_dir: The domain-context repo path.
         superpowers_path: Path to cloned superpowers repo.
         skills_to_inject: List of skill names to inject (None = all).
+        code_assist_tool: Code assist tool (windsurf, cursor, or generic).
 
     Returns:
         List of injected skill names.
@@ -204,16 +224,27 @@ def inject_skills_copy(
         discovered = [s for s in discovered if s["name"] in skills_to_inject]
 
     injected = []
-    skills_dir = domain_context_dir / ".skills"
+    skills_dir = _get_skills_dir(domain_context_dir, code_assist_tool)
     skills_dir.mkdir(parents=True, exist_ok=True)
 
     for skill in discovered:
         src = Path(skill["path"])
-        dest = skills_dir / skill["name"]
-        if dest.exists():
-            shutil.rmtree(dest)
-        shutil.copytree(src, dest)
-        injected.append(skill["name"])
+        skill_md = src / "SKILL.md"
+
+        if code_assist_tool == "windsurf":
+            # Windsurf workflow format: copy SKILL.md as <skill-name>.md in workflows directory
+            dest = skills_dir / f"{skill['name']}.md"
+            if dest.exists():
+                dest.unlink()
+            shutil.copy(skill_md, dest)
+            injected.append(skill["name"])
+        else:
+            # Generic/Cursor format: copy entire skill directory
+            dest = skills_dir / skill["name"]
+            if dest.exists():
+                shutil.rmtree(dest)
+            shutil.copytree(src, dest)
+            injected.append(skill["name"])
 
     return injected
 
@@ -528,6 +559,7 @@ def bootstrap_domain_skills(
     superpowers_url: str = DEFAULT_SUPERPOWERS_URL,
     use_submodule: bool = True,
     skills_to_inject: Optional[list[str]] = None,
+    code_assist_tool: str = "generic",
 ) -> dict[str, Any]:
     """Full pipeline: inject superpowers skills into a domain-context repo.
 
@@ -539,6 +571,7 @@ def bootstrap_domain_skills(
         superpowers_url: Git URL for superpowers.
         use_submodule: If True, add as git submodule; else copy skills.
         skills_to_inject: Specific skill names to inject (None = all).
+        code_assist_tool: Code assist tool (windsurf, cursor, or generic). Determines where skills are installed.
 
     Returns:
         Dict with injected skills info, manifest path, etc.
@@ -547,35 +580,20 @@ def bootstrap_domain_skills(
 
     injected_skills = []
 
-    if use_submodule:
-        # Add as git submodule
-        try:
-            submodule_path = inject_skills_as_submodule(
-                domain_context_dir, superpowers_url,
-            )
-            # Discover skills from the submodule
-            superpowers_root = submodule_path
-            if (submodule_path / "skills").is_dir():
-                superpowers_root = submodule_path
-            discovered = discover_skills(superpowers_root)
+    # Always use copy approach to get only skills folder content (not entire repo)
+    # Git submodule clones entire repo, which we don't want
+    with tempfile.TemporaryDirectory() as tmp:
+        clone_path = clone_superpowers(Path(tmp), superpowers_url)
+        discovered = discover_skills(clone_path)
 
-            if skills_to_inject:
-                discovered = [s for s in discovered if s["name"] in skills_to_inject]
+        if skills_to_inject:
+            discovered = [s for s in discovered if s["name"] in skills_to_inject]
 
-            injected_skills = discovered
-        except subprocess.CalledProcessError as e:
-            logger.warning(f"Git submodule failed: {e}, falling back to copy")
-            use_submodule = False
-
-    if not use_submodule:
-        # Clone to temp and copy
-        with tempfile.TemporaryDirectory() as tmp:
-            clone_path = clone_superpowers(Path(tmp), superpowers_url)
-            discovered = discover_skills(clone_path)
-            injected_names = inject_skills_copy(
-                domain_context_dir, clone_path, skills_to_inject,
-            )
-            injected_skills = [s for s in discovered if s["name"] in injected_names]
+        injected_names = inject_skills_copy(
+            domain_context_dir, clone_path, skills_to_inject,
+            code_assist_tool=code_assist_tool,
+        )
+        injected_skills = [s for s in discovered if s["name"] in injected_names]
 
     # Generate manifest
     manifest_path = generate_skills_manifest(

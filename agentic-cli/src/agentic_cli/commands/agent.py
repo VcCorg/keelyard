@@ -897,7 +897,7 @@ def test_agent(
             from agentic_cli.agents.onboard.gap_detector import detect_skill_gaps
 
             # Load registry
-            config_data = _load_dva_config()
+            config_data = _load_agent_config()
             reg_path_str = config_data.get("skills_registry")
             if reg_path_str:
                 reg_path = Path(reg_path_str)
@@ -1003,9 +1003,9 @@ def _print_test_summary(results: dict) -> None:
         console.print(f"[dim]Run a single step: {CLI_NAME} agent test --step <step-name>[/dim]")
 
 
-def _load_dva_config() -> dict:
-    """Load DVA CLI config."""
-    config_file = Path.home() / ".dva" / "config.json"
+def _load_agent_config() -> dict:
+    """Load agent CLI config."""
+    config_file = Path.home() / ".agent-cli-agentic" / "config.json"
     if config_file.exists():
         try:
             return json.loads(config_file.read_text())
