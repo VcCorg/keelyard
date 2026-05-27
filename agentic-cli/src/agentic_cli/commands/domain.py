@@ -14,6 +14,7 @@ Hierarchy:
             └── repos: [cwow-facility-service, ...]
 """
 
+import json
 from typing_extensions import Annotated
 
 import typer
@@ -52,6 +53,27 @@ domain_app = typer.Typer(
     rich_markup_mode=None,
 )
 console = Console()
+
+# Configuration directory and file
+AGENT_CONFIG_DIR = Path.home() / ".agent-cli-agentic"
+AGENT_CONFIG_FILE = AGENT_CONFIG_DIR / "config.json"
+
+
+def _load_config() -> dict:
+    """Load configuration from file."""
+    if AGENT_CONFIG_FILE.exists():
+        return json.loads(AGENT_CONFIG_FILE.read_text())
+    return {}
+
+
+def _get_code_workspace() -> Path:
+    """Get the configured code workspace directory."""
+    config = _load_config()
+    workspace = config.get("code_workspace")
+    if workspace:
+        return Path(workspace).expanduser().resolve()
+    # Default to ~/dva-code-workspace
+    return Path.home() / "dva-code-workspace"
 
 
 def _slugify(product: str, domain: str) -> str:
@@ -1314,9 +1336,9 @@ def init_context(
     output: Annotated[str, typer.Option("--output", "-o", help="Output directory for domain context repo")] = None,
     git_init: Annotated[bool, typer.Option("--git-init/--no-git-init", help="Initialize as a git repo")] = True,
     git_remote: Annotated[str, typer.Option("--git-remote", help="Git remote URL to set as origin")] = None,
-    lightrag_url: Annotated[str, typer.Option("--lightrag-url", help="LightRAG server URL")] = "http://localhost:8001",
     bootstrap_skills: Annotated[bool, typer.Option("--bootstrap-skills/--no-bootstrap-skills", help="Inject superpowers skills as baseline")] = True,
     superpowers_url: Annotated[str, typer.Option("--superpowers-url", help="Git URL for superpowers skills repo")] = "https://github.com/venkatchinta/superpowers.git",
+    code_assist_tool: Annotated[str, typer.Option("--code-assist-tool", help="Code assist tool (windsurf, cursor, or generic). Determines where skills are installed.")] = "generic",
 ) -> None:
     """
     Initialize a central domain context repository.
@@ -1325,11 +1347,24 @@ def init_context(
     from the Knowledge Graph, shared skills, and metadata. This repo is
     referenced by individual repos via git submodules.
 
+    The KG provider is determined dynamically from KGConfig (supports Neo4j, LightRAG, etc.).
+
+    By default, the context repo is created in the configured code workspace
+    under a domain folder: <workspace>/<domain>/<domain>-domain-context.
+    All linked repos for the domain can be cloned into the same domain folder.
+    Use --output to specify a custom location.
+
     By default, injects superpowers skills as a baseline. Use --no-bootstrap-skills
     to skip skill injection.
 
+    The --code-assist-tool determines where skills are installed:
+    - windsurf: Skills installed as .windsurf/workflows/*.md (Windsurf workflow format)
+    - cursor: Skills installed as .cursorrules/*.md (Cursor rules format)
+    - generic: Skills installed as .skills/*/SKILL.md (generic format)
+
     Examples:
         {CLI_NAME} domain init-context cwow-facility
+        {CLI_NAME} domain init-context cwow-facility --code-assist-tool windsurf
         {CLI_NAME} domain init-context cwow-facility --output ./facility-domain-context
         {CLI_NAME} domain init-context cwow-facility --git-remote https://github.com/company/facility-domain-context.git
         {CLI_NAME} domain init-context cwow-facility --no-bootstrap-skills
@@ -1346,7 +1381,32 @@ def init_context(
     if output:
         out_dir = Path(output).resolve()
     else:
-        out_dir = Path.cwd() / f"{domain_name}-domain-context"
+        # Use code workspace as default location
+        workspace = _get_code_workspace()
+        # Create domain folder structure: workspace/domain-name/domain-context
+        domain_folder = workspace / domain_name
+        out_dir = domain_folder / f"{domain_name}-domain-context"
+        # Ensure workspace and domain folder exist
+        if not workspace.exists():
+            console.print(f"[yellow]Workspace directory does not exist: {workspace}[/yellow]")
+            console.print(f"[dim]Creating workspace directory...[/dim]")
+            try:
+                workspace.mkdir(parents=True, exist_ok=True)
+                console.print(f"[green]✓[/green] Created: {workspace}")
+            except Exception as e:
+                console.print(f"[red]✗ Failed to create workspace: {e}[/red]")
+                console.print(f"[dim]Falling back to current directory[/dim]")
+                out_dir = Path.cwd() / domain_name / f"{domain_name}-domain-context"
+        else:
+            # Ensure domain folder exists
+            if not domain_folder.exists():
+                try:
+                    domain_folder.mkdir(parents=True, exist_ok=True)
+                    console.print(f"[green]✓[/green] Created domain folder: {domain_folder}")
+                except Exception as e:
+                    console.print(f"[red]✗ Failed to create domain folder: {e}[/red]")
+                    console.print(f"[dim]Falling back to workspace root[/dim]")
+                    out_dir = workspace / f"{domain_name}-domain-context"
 
     if out_dir.exists() and any(out_dir.iterdir()):
         overwrite = typer.confirm(f"Directory {out_dir} is not empty. Overwrite?", default=False)
@@ -1355,6 +1415,17 @@ def init_context(
 
     out_dir.mkdir(parents=True, exist_ok=True)
     console.print(f"[cyan]Initializing domain context repo for '{domain_name}'...[/cyan]")
+
+    # Initialize git repo FIRST (before skill injection, needed for git submodule)
+    if git_init:
+        try:
+            subprocess.run(["git", "init"], cwd=str(out_dir), capture_output=True, check=True)
+            console.print("[dim]Git repo initialized[/dim]")
+        except subprocess.CalledProcessError as e:
+            stderr = e.stderr.decode() if e.stderr else str(e)
+            console.print(f"[yellow]⚠ Git init failed: {stderr}[/yellow]")
+            console.print("[yellow]⚠ Skill injection may fail without git initialization[/yellow]")
+            git_init = False
 
     # Gather domain data
     repos = get_domain_repos(domain_name)
@@ -1367,7 +1438,8 @@ def init_context(
             query_domain_kg,
             scaffold_domain_context_repo,
         )
-        kg_context = query_domain_kg(domain_name, lightrag_url=lightrag_url)
+        # query_domain_kg automatically determines provider from KGConfig
+        kg_context = query_domain_kg(domain_name)
         has_kg = any(kg_context.values())
 
         if has_kg:
@@ -1396,6 +1468,7 @@ def init_context(
             domain_data=d,
             kg_context=kg_context,
             repos=repos,
+            code_assist_tool=code_assist_tool,
         )
 
         for name, path in created.items():
@@ -1417,6 +1490,7 @@ def init_context(
                 domain=domain_name,
                 superpowers_url=superpowers_url,
                 use_submodule=git_init,  # submodule needs git
+                code_assist_tool=code_assist_tool,
             )
 
             for sname in skills_result["injected_skills"]:
@@ -1432,16 +1506,44 @@ def init_context(
             console.print(f"[yellow]⚠ Skill injection failed: {e}[/yellow]")
             console.print("[dim]Domain context repo created without superpowers skills.[/dim]")
 
-    # Initialize git repo
+    # Generate project-context skill (for consistency with code onboard)
+    console.print("\n[cyan]Generating project-context skill...[/cyan]")
+    try:
+        from agentic_cli.commands.code import _generate_project_context_skill
+        from agentic_cli.analyzer.detector import ProjectAnalysis
+
+        # Create minimal analysis for domain context repo
+        analysis = ProjectAnalysis()
+        analysis.languages = ["markdown"]
+        analysis.frameworks = ["domain-context"]
+        analysis.project_files = {
+            "kg-context.md": True,
+            "domain-metadata.json": True,
+            "architecture.md": True,
+        }
+
+        _generate_project_context_skill(
+            project_path=out_dir,
+            analysis=analysis,
+            code_assist_tool=code_assist_tool,
+            domain=domain_name,
+            product=d.get("product"),
+        )
+        console.print("[green]✓ project-context skill generated[/green]")
+
+    except Exception as e:
+        console.print(f"[yellow]⚠ project-context skill generation failed: {e}[/yellow]")
+        console.print("[dim]Domain context repo created without project-context skill.[/dim]")
+
+    # Commit files to git (repo already initialized earlier)
     if git_init:
         try:
-            subprocess.run(["git", "init"], cwd=str(out_dir), capture_output=True, check=True)
             subprocess.run(["git", "add", "."], cwd=str(out_dir), capture_output=True, check=True)
             subprocess.run(
                 ["git", "commit", "-m", f"Initial domain context for {domain_name}"],
                 cwd=str(out_dir), capture_output=True, check=True,
             )
-            console.print("[green]✓ Git repo initialized and committed[/green]")
+            console.print("[green]✓ Git repo committed[/green]")
 
             if git_remote:
                 subprocess.run(
@@ -1453,7 +1555,7 @@ def init_context(
 
         except subprocess.CalledProcessError as e:
             stderr = e.stderr.decode() if e.stderr else str(e)
-            console.print(f"[yellow]⚠ Git init failed: {stderr}[/yellow]")
+            console.print(f"[yellow]⚠ Git commit failed: {stderr}[/yellow]")
 
     # Summary
     domain_label = d.get("domain", domain_name)

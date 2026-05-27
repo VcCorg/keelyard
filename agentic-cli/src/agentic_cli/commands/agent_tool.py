@@ -1,5 +1,6 @@
 """Agent tool management commands."""
 
+import json
 import typer
 from pathlib import Path
 from typing import Optional
@@ -14,6 +15,27 @@ from agentic_cli.tracker import record_activity
 
 console = Console()
 agent_tool_app = typer.Typer(help="Manage agent tools", rich_markup_mode=None)
+
+# Configuration directory and file
+AGENT_CONFIG_DIR = Path.home() / ".agent-cli-agentic"
+AGENT_CONFIG_FILE = AGENT_CONFIG_DIR / "config.json"
+
+
+def _load_config() -> dict:
+    """Load configuration from file."""
+    if AGENT_CONFIG_FILE.exists():
+        return json.loads(AGENT_CONFIG_FILE.read_text())
+    return {}
+
+
+def _get_code_workspace() -> Path:
+    """Get the configured code workspace directory."""
+    config = _load_config()
+    workspace = config.get("code_workspace")
+    if workspace:
+        return Path(workspace).expanduser().resolve()
+    # Default to ~/dva-code-workspace
+    return Path.home() / "dva-code-workspace"
 
 
 @agent_tool_app.command("list")
@@ -132,7 +154,7 @@ def install_tool(
     name: Annotated[str, typer.Argument(help="Tool name")],
     target: Annotated[
         Optional[str],
-        typer.Option("--target", "-t", help="Target directory (default: current directory)"),
+        typer.Option("--target", "-t", help="Target directory (default: code workspace/tools)"),
     ] = None,
     version: Annotated[
         Optional[str],
@@ -143,7 +165,11 @@ def install_tool(
         typer.Option("--registry", "-r", help="Registry name to use"),
     ] = None,
 ) -> None:
-    """Install an agent tool."""
+    """Install an agent tool.
+
+    By default, the tool is installed in the code workspace/tools directory.
+    Use --target to specify a custom location.
+    """
     manager = RegistryManager()
     
     # Get registry
@@ -161,7 +187,20 @@ def install_tool(
     if target:
         target_path = Path(target).resolve()
     else:
-        target_path = Path.cwd() / "tools"
+        # Use code workspace as default location
+        workspace = _get_code_workspace()
+        target_path = workspace / "tools"
+        # Ensure workspace directory exists
+        if not workspace.exists():
+            console.print(f"[yellow]Workspace directory does not exist: {workspace}[/yellow]")
+            console.print(f"[dim]Creating workspace directory...[/dim]")
+            try:
+                workspace.mkdir(parents=True, exist_ok=True)
+                console.print(f"[green]✓[/green] Created: {workspace}")
+            except Exception as e:
+                console.print(f"[red]✗ Failed to create workspace: {e}[/red]")
+                console.print(f"[dim]Falling back to current directory[/dim]")
+                target_path = Path.cwd() / "tools"
     
     # Install tool
     success = reg.install_item(name, target_path, version)
