@@ -512,8 +512,13 @@ def register_repo(
             )
 
 
-def get_repos(name: str = None) -> list[dict]:
-    """Query onboarded repos."""
+def get_repos(name: str = None, check_exists: bool = False) -> list[dict]:
+    """Query onboarded repos.
+
+    Args:
+        name: Filter by project name (substring match)
+        check_exists: If True, add 'exists' field indicating if path exists on disk
+    """
     with _get_conn() as conn:
         if name:
             rows = conn.execute("SELECT * FROM repos WHERE name LIKE ?", (f"%{name}%",)).fetchall()
@@ -528,6 +533,8 @@ def get_repos(name: str = None) -> list[dict]:
                     d[field] = json.loads(d[field])
                 except (json.JSONDecodeError, TypeError):
                     pass
+        if check_exists:
+            d["exists"] = Path(d["path"]).exists()
         results.append(d)
     return results
 
