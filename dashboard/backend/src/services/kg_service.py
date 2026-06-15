@@ -1,5 +1,6 @@
 """KG Context service — reads product/domain knowledge graph data from Neo4j and tracker DB."""
 
+from pathlib import Path
 from typing import Any, Optional
 from pydantic import BaseModel
 
@@ -76,27 +77,37 @@ def _get_neo4j_client():
         from agentic_cli.kg.neo4j_client import Neo4jClient
         from agentic_cli.kg.config import KGConfig
         config = KGConfig.load()
+        print(f"DEBUG: KGConfig provider={config.provider}, is_neo4j_configured={config.is_neo4j_configured()}")
         if not config.is_neo4j_configured():
+            print("DEBUG: Neo4j not configured")
             return None
         client = Neo4jClient(config=config)
         client.connect()
+        print("DEBUG: Neo4j client connected successfully")
         return client
-    except Exception:
+    except Exception as e:
+        print(f"DEBUG: Error getting Neo4j client: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 
 def _get_tracker_db():
     """Get tracker DB instance, or None if unavailable."""
     try:
-        import sys
-        import os
-        mcp_src = os.path.join(
-            os.path.dirname(__file__), "../../../../mcp-servers/agentic/src"
-        )
-        sys.path.insert(0, os.path.abspath(mcp_src))
         from agentic_mcp.db import TrackerDB
-        return TrackerDB()
-    except Exception:
+        from agentic_mcp.config import AgenticConfig
+        config = AgenticConfig()
+        db = TrackerDB(db_path=config.tracker_db)
+        print(f"DEBUG: TrackerDB initialized successfully with path: {config.tracker_db}")
+        return db
+    except ImportError as e:
+        print(f"Failed to import agentic_mcp: {e}")
+        return None
+    except Exception as e:
+        print(f"Error getting tracker DB: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 
@@ -106,6 +117,8 @@ def get_all_products_kg_summary() -> list[ProductKGSummary]:
     """Return KG coverage stats for all products and their domains."""
     db = _get_tracker_db()
     client = _get_neo4j_client()
+    
+    print(f"DEBUG: db={db}, client={client}")
 
     products_map: dict[str, ProductKGSummary] = {}
 
@@ -114,7 +127,9 @@ def get_all_products_kg_summary() -> list[ProductKGSummary]:
     if db:
         try:
             domains = db.domain_list() or []
-        except Exception:
+            print(f"DEBUG: Got {len(domains)} domains from tracker DB")
+        except Exception as e:
+            print(f"DEBUG: Error getting domains from tracker: {e}")
             domains = []
 
     if not domains:
@@ -125,9 +140,11 @@ def get_all_products_kg_summary() -> list[ProductKGSummary]:
                     "MATCH (n) WHERE n._source = 'dva_kg' AND n.domain IS NOT NULL "
                     "RETURN DISTINCT n.domain AS domain LIMIT 100"
                 )
+                print(f"DEBUG: Got {len(rows)} domains from Neo4j")
                 for r in rows:
                     domains.append({"slug": r["domain"], "product": "unknown", "name": r["domain"]})
-            except Exception:
+            except Exception as e:
+                print(f"DEBUG: Error getting domains from Neo4j: {e}")
                 pass
 
     for d in domains:
@@ -164,48 +181,40 @@ def _get_domain_stats(domain: str, client) -> DomainKGStats:
         return stats
 
     try:
+        # Use global stats like CLI - count all nodes regardless of persona/labels
         rows = client.execute_cypher("""
             MATCH (n)
-            WHERE n._source = 'dva_kg' AND n.domain = $domain
-            RETURN
-                count(CASE WHEN n.persona = 'developer' THEN 1 END) AS code_count,
-                count(CASE WHEN n:Document THEN 1 END) AS doc_count
-        """, {"domain": domain})
+            WHERE n._source = 'dva_kg'
+            RETURN count(n) as total_count
+        """)
         if rows:
-            stats.code_entities = rows[0].get("code_count") or 0
-            stats.requirement_docs = rows[0].get("doc_count") or 0
+            total_count = rows[0].get("total_count") or 0
+            # For now, assign all nodes to code_entities since we can't distinguish
+            stats.code_entities = total_count
+            stats.requirement_docs = 0  # Will be refined if we can identify docs
 
         edge_rows = client.execute_cypher("""
-            MATCH (c)-[r]->(d:Document)
-            WHERE c._source = 'dva_kg' AND c.domain = $domain
-              AND type(r) IN ['IMPLEMENTS','REFERENCES','TESTED_BY','CONFIGURES']
-            RETURN type(r) AS rel_type, count(r) AS cnt
-        """, {"domain": domain})
-        total_edges = 0
-        breakdown: dict[str, int] = {}
-        for er in edge_rows:
-            cnt = er.get("cnt") or 0
-            rel = er.get("rel_type") or "UNKNOWN"
-            breakdown[rel] = cnt
-            total_edges += cnt
-        stats.linked_edges = total_edges
-        stats.relationship_breakdown = breakdown
+            MATCH (a)-[r]->(b)
+            WHERE a._source = 'dva_kg'
+            RETURN count(r) as total_edges
+        """)
+        if edge_rows:
+            stats.linked_edges = edge_rows[0].get("total_edges") or 0
 
-        # unlinked docs
-        gap_rows = client.execute_cypher("""
-            MATCH (d:Document)
-            WHERE d._source = 'dva_kg' AND d.domain = $domain
-              AND NOT (d)<-[:IMPLEMENTS|REFERENCES|TESTED_BY|CONFIGURES]-()
-            RETURN count(d) AS gap_count
-        """, {"domain": domain})
-        if gap_rows:
-            stats.unlinked_docs = gap_rows[0].get("gap_count") or 0
+        # Try to get document count specifically
+        doc_rows = client.execute_cypher("""
+            MATCH (n:Document)
+            WHERE n._source = 'dva_kg'
+            RETURN count(n) as doc_count
+        """)
+        if doc_rows:
+            doc_count = doc_rows[0].get("doc_count") or 0
+            stats.requirement_docs = doc_count
+            # Adjust code entities to exclude docs
+            stats.code_entities = max(0, total_count - doc_count)
 
-        if stats.requirement_docs > 0:
-            linked_docs = stats.requirement_docs - stats.unlinked_docs
-            stats.coverage_pct = round(linked_docs / stats.requirement_docs * 100, 1)
-
-        stats.has_data = stats.code_entities > 0 or stats.requirement_docs > 0
+        # Mark as having data if we found anything
+        stats.has_data = (stats.code_entities > 0 or stats.requirement_docs > 0)
     except Exception:
         pass
 

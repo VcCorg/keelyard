@@ -223,6 +223,7 @@ def _find_compose_file() -> Optional[Path]:
     # Try workspace-relative path
     workspace = Path(__file__).resolve().parents[4]
     candidates = [
+        workspace / "mcp-servers" / "docker-compose.yml",
         workspace / "dva-mcp-servers" / "docker-compose.yml",
     ]
 

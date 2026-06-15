@@ -17,10 +17,16 @@ export interface AgentInfo {
 
 export interface MCPServerInfo {
   name: string;
-  status: string;
+  type: string;
+  enabled: boolean;
+  url?: string;
   port?: number;
-  healthy: boolean;
-  last_check?: string;
+  description?: string;
+  tools: string[];
+  health_status: string;
+  health_message: string;
+  container_name?: string;
+  container_status?: string;
 }
 
 export interface ActivityEntry {
@@ -461,7 +467,7 @@ class APIClient {
 
   /* ---- MCP Servers ---- */
   async listMCPServers(): Promise<MCPServerInfo[]> {
-    return this.request("/api/mcp/servers");
+    return this.request("/mcp/servers");
   }
 
   /* ---- Activity ---- */

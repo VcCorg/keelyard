@@ -58,7 +58,15 @@ async def list_skills(
         # Import here to avoid circular imports
         from agentic_cli.analyzer.matcher import load_registry
         from agentic_cli.commands.code import _ensure_registry, _get_registry_path
+    except ImportError as e:
+        # agentic_cli not available - return empty list
+        return SkillListResponse(
+            skills=[],
+            total=0,
+            registry_path=None
+        )
 
+    try:
         # Get registry path
         if registry_path:
             reg_path = Path(registry_path)
@@ -285,7 +293,17 @@ async def get_registry_info():
     try:
         from agentic_cli.commands.code import _ensure_registry, _get_registry_path
         from agentic_cli.analyzer.matcher import load_registry
+    except ImportError:
+        # agentic_cli not available - return basic info
+        return {
+            "registry_path": None,
+            "exists": False,
+            "skills_count": 0,
+            "registry_data": {},
+            "error": "agentic_cli not available"
+        }
 
+    try:
         # Get registry path
         registry_path = _get_registry_path()
 
