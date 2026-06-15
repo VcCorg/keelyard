@@ -10,6 +10,7 @@ import {
   Loader2,
   AlertCircle,
   Database,
+  DatabaseZap,
 } from "lucide-react";
 import { usePolling } from "@/hooks/usePolling";
 import { api, type ProductKGSummary, type DomainKGStats } from "@/lib/api";
@@ -165,14 +166,22 @@ export function KGContext() {
   return (
     <div className="space-y-8">
       {/* Page header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-3">
-          <GitBranch className="h-7 w-7 text-indigo-500" />
-          KG Context
-        </h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Product-level knowledge graph — code entities linked to business requirements
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-3">
+            <GitBranch className="h-7 w-7 text-indigo-500" />
+            KG Context
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Product-level knowledge graph — code entities linked to business requirements
+          </p>
+        </div>
+        <Link
+          to="/kg/ingest"
+          className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 transition-colors"
+        >
+          <DatabaseZap className="h-4 w-4" /> Ingest Data
+        </Link>
       </div>
 
       {/* Top-level stats */}

@@ -1598,6 +1598,156 @@ def init_context(
 
 
 # ---------------------------------------------------------------------------
+# {CLI_NAME} domain init-meta
+# ---------------------------------------------------------------------------
+
+@domain_app.command("init-meta")
+def init_meta(
+    domain_name: Annotated[str, typer.Argument(help="Domain name (slug, e.g. cwow-facility)")],
+    output: Annotated[
+        Path,
+        typer.Option("--output", "-o", help="Output directory for meta-repo (default: workspace/domain-name)"),
+    ] = None,
+    context_repo_url: Annotated[
+        str,
+        typer.Option("--context-repo", help="Git URL of domain-context-repo to add as submodule"),
+    ] = None,
+    git_init: Annotated[
+        bool,
+        typer.Option("--git-init/--no-git-init", help="Initialize as git repo with submodules"),
+    ] = True,
+) -> None:
+    """
+    Initialize a domain meta-repo following meta-repo standards.
+
+    Creates a new git repository with:
+    - .platform/config/ — Domain configuration (domain.yaml, repos.yaml, governance.yaml, skills.yaml)
+    - .agents/ — Domain-specific agents and skills
+    - repos/ — Git submodules for linked domain repositories
+    - docs/ — Documentation (README, ONBOARDING, GOVERNANCE, ARCHITECTURE)
+    - Makefile — Automation targets (init, update, validate)
+
+    The domain must be registered first via `{CLI_NAME} domain create`.
+
+    By default, the meta-repo is created in the configured code workspace
+    under a domain folder: <workspace>/<domain>/domain-<domain>-meta.
+    Use --output to specify a custom location.
+
+    Examples:
+        {CLI_NAME} domain init-meta cwow-facility
+        {CLI_NAME} domain init-meta cwow-facility --context-repo https://github.com/company/facility-domain-context.git
+        {CLI_NAME} domain init-meta cwow-facility --output ./facility-meta
+    """.format(CLI_NAME=CLI_NAME)
+
+    from agentic_cli.meta_repo import scaffold_domain_meta_repo
+
+    d = get_domain(domain_name)
+    if not d:
+        console.print(f"[red]✗ Domain '{domain_name}' not found.[/red]")
+        console.print(f"[dim]Register it first: {CLI_NAME} domain create <DOMAIN> --product <PRODUCT>[/dim]")
+        raise typer.Exit(1)
+
+    # Determine output directory
+    if output:
+        out_dir = output.resolve()
+        meta_repo_path = out_dir
+    else:
+        # Use code workspace as default location
+        workspace = _get_code_workspace()
+        domain_folder = workspace / domain_name
+        meta_repo_path = domain_folder / f"domain-{domain_name}-meta"
+        out_dir = domain_folder
+
+        # Ensure workspace and domain folder exist
+        if not workspace.exists():
+            console.print(f"[yellow]Workspace directory does not exist: {workspace}[/yellow]")
+            console.print(f"[dim]Creating workspace directory...[/dim]")
+            try:
+                workspace.mkdir(parents=True, exist_ok=True)
+                console.print(f"[green]✓[/green] Created: {workspace}")
+            except Exception as e:
+                console.print(f"[red]✗ Failed to create workspace: {e}[/red]")
+                raise typer.Exit(1)
+
+        if not domain_folder.exists():
+            try:
+                domain_folder.mkdir(parents=True, exist_ok=True)
+                console.print(f"[green]✓[/green] Created domain folder: {domain_folder}")
+            except Exception as e:
+                console.print(f"[red]✗ Failed to create domain folder: {e}[/red]")
+                raise typer.Exit(1)
+
+    if meta_repo_path.exists() and any(meta_repo_path.iterdir()):
+        overwrite = typer.confirm(
+            f"Directory {meta_repo_path} is not empty. Overwrite?", default=False
+        )
+        if not overwrite:
+            raise typer.Exit(0)
+
+    console.print(f"[cyan]Initializing domain meta-repo for '{domain_name}'...[/cyan]")
+
+    # Get linked repos for the domain. Tag each with its git host
+    # (bitbucket/gitlab/github) so repos.yaml records provenance; the
+    # submodule branch is auto-detected per host at scaffold time.
+    from agentic_cli.meta_repo.git_utils import detect_git_host
+
+    repos = get_domain_repos(domain_name)
+    repos_config = [
+        {
+            "slug": r["repo_slug"],
+            "clone_url": r["clone_url"],
+            "description": r.get("description", ""),
+            "languages": r.get("languages", []),
+            "frameworks": r.get("frameworks", []),
+            "host": detect_git_host(r.get("clone_url", "")),
+            "branch": r.get("branch"),
+        }
+        for r in repos
+    ]
+
+    # Scaffold the meta-repo
+    try:
+        created = scaffold_domain_meta_repo(
+            output_dir=out_dir,
+            domain=domain_name,
+            product=d.get("product", ""),
+            description=d.get("description", ""),
+            owner=d.get("owner", ""),
+            context_repo_url=context_repo_url,
+            repos=repos_config,
+            git_init=git_init,
+        )
+
+        console.print(f"[green]✓ Domain meta-repo created:[/green] {meta_repo_path}")
+        console.print()
+        console.print("[cyan]Created directories:[/cyan]")
+        for name, path in created.items():
+            if name != "root":
+                console.print(f"  [green]✓[/green] {path.relative_to(meta_repo_path)}")
+
+        console.print()
+        console.print("[cyan]Next steps:[/cyan]")
+        console.print(f"  1. cd {meta_repo_path}")
+        console.print(f"  2. make init          # Initialize submodules")
+        console.print(f"  3. make validate      # Validate repo state")
+        console.print()
+        console.print("[dim]Documentation:[/dim]")
+        console.print(f"  - README.md: {meta_repo_path / 'docs' / 'README.md'}")
+        console.print(f"  - ONBOARDING.md: {meta_repo_path / 'docs' / 'ONBOARDING.md'}")
+        console.print(f"  - GOVERNANCE.md: {meta_repo_path / 'docs' / 'GOVERNANCE.md'}")
+
+    except ValueError as e:
+        console.print(f"[red]✗ {e}[/red]")
+        raise typer.Exit(1)
+    except RuntimeError as e:
+        console.print(f"[red]✗ {e}[/red]")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]✗ Failed to scaffold domain meta-repo: {e}[/red]")
+        raise typer.Exit(1)
+
+
+# ---------------------------------------------------------------------------
 # {CLI_NAME} domain validate-skills
 # ---------------------------------------------------------------------------
 

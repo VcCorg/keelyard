@@ -17,6 +17,22 @@ from agentic_cli.evaluation.skill_registry import (
     SkillVersion,
     RegistryIndex,
 )
+from agentic_cli.evaluation.frameworks import (
+    EvalFramework,
+    EvalRow,
+    EvalScores,
+    BuiltinFramework,
+    get_framework,
+    list_frameworks,
+)
+from agentic_cli.evaluation.eval_config import EvaluationConfig, EvalConfigManager
+from agentic_cli.evaluation.csv_dataset import CsvRow, CsvDatasetManager
+from agentic_cli.evaluation.agent_runner import (
+    AgentResponseCollector,
+    resolve_agent,
+)
+from agentic_cli.evaluation.results import EvalRunResult, EvalResultStore
+from agentic_cli.evaluation.custom_metrics import CustomMetric, CustomMetricManager
 
 __all__ = [
     "SkillValidator",
@@ -48,5 +64,21 @@ __all__ = [
     "SkillMetadata",
     "SkillVersion",
     "RegistryIndex",
+    "EvalFramework",
+    "EvalRow",
+    "EvalScores",
+    "BuiltinFramework",
+    "get_framework",
+    "list_frameworks",
+    "EvaluationConfig",
+    "EvalConfigManager",
+    "CsvRow",
+    "CsvDatasetManager",
+    "AgentResponseCollector",
+    "resolve_agent",
+    "EvalRunResult",
+    "EvalResultStore",
+    "CustomMetric",
+    "CustomMetricManager",
 ]
 
