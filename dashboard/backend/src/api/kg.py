@@ -102,10 +102,22 @@ async def ingest_submit_stream(
     return _sse(args)
 
 
-@router.get("/products", response_model=list[ProductKGSummary])
+@router.get("/products")
 async def list_products():
     """Return all products with per-domain KG coverage stats."""
-    return get_all_products_kg_summary()
+    try:
+        result = get_all_products_kg_summary()
+        print(f"DEBUG: get_all_products_kg_summary returned {len(result)} items")
+        # Convert to dict for JSON serialization
+        dumped = [item.model_dump() for item in result]
+        print(f"DEBUG: Dumped {len(dumped)} items")
+        return dumped
+    except Exception as e:
+        # Log error and return empty list instead of crashing
+        print(f"Error getting KG products: {e}")
+        import traceback
+        traceback.print_exc()
+        return []
 
 
 @router.get("/{domain}/links", response_model=list[KGLinkRow])
