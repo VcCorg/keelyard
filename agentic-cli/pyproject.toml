@@ -39,6 +39,14 @@ dashboard = [
     "fastapi>=0.109.0",
     "uvicorn>=0.27.0",
 ]
+eval = [
+    # Optional agent-evaluation backends (Phase 2+: Ragas framework).
+    # The built-in framework requires none of these.
+    "ragas>=0.2.0",
+    "langchain-google-vertexai>=2.0.0",
+    "pandas>=2.0.0",
+    "datasets>=2.0.0",
+]
 kg = [
     # Knowledge graph dependencies
     "neo4j>=5.14.0",

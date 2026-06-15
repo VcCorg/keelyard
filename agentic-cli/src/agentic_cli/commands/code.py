@@ -497,6 +497,10 @@ def onboard(
         str,
         typer.Option("--code-assist-tool", help="Code assist tool (windsurf, cursor, or generic). Determines where skills are installed."),
     ] = "generic",
+    link_meta_repo: Annotated[
+        bool,
+        typer.Option("--link-meta-repo/--no-link-meta-repo", help="Detect and link domain meta-repo as submodule (requires --domain)"),
+    ] = False,
 ) -> None:
     """
     Onboard a repository for AI code assist.
@@ -862,19 +866,19 @@ def onboard(
             meta_path.write_text(json.dumps(meta, indent=2))
             console.print(f"[green]\u2713 Domain metadata written:[/green] .domain-context.json")
 
-            # Add git submodule reference if --domain-context-repo provided
+            # Add git submodule reference if --domain-context-repo provided.
+            # Branch is auto-detected (host-agnostic: bitbucket/gitlab/github).
             if domain_context_repo:
                 console.print(f"[dim]Adding domain context repo as git submodule...[/dim]")
                 try:
+                    from agentic_cli.meta_repo.git_utils import add_submodule
                     submodule_path = project_path / ".domain-context"
                     if not submodule_path.exists():
-                        subprocess.run(
-                            ["git", "submodule", "add", "--branch", "main",
-                             domain_context_repo, ".domain-context"],
-                            cwd=str(project_path),
-                            capture_output=True, check=True,
+                        used_branch = add_submodule(
+                            project_path, domain_context_repo, ".domain-context",
                         )
-                        console.print(f"[green]\u2713 Git submodule added:[/green] .domain-context -> {domain_context_repo}")
+                        branch_note = f" (branch: {used_branch})" if used_branch else ""
+                        console.print(f"[green]\u2713 Git submodule added:[/green] .domain-context -> {domain_context_repo}{branch_note}")
                     else:
                         console.print(f"[yellow]\u26a0 .domain-context/ already exists, skipping submodule add[/yellow]")
                 except subprocess.CalledProcessError as e:
@@ -901,6 +905,49 @@ def onboard(
         except Exception as e:
             console.print(f"[yellow]\u26a0 Domain context attachment failed: {e}[/yellow]")
             console.print("[dim]Onboarding will continue without domain context.[/dim]")
+
+    # Step 9c-meta: Domain meta-repo detection and linking (optional)
+    meta_repo_result = None
+    if link_meta_repo and domain:
+        console.print()
+        console.print(f"[cyan]Detecting domain meta-repo for '{domain}'...[/cyan]")
+        try:
+            from agentic_cli.meta_repo import detect_domain_meta_repo
+
+            meta_repo_path = detect_domain_meta_repo(domain)
+            if meta_repo_path:
+                console.print(f"[green]✓ Found domain meta-repo:[/green] {meta_repo_path}")
+
+                # Add as git submodule. The meta-repo is typically a local path,
+                # so the branch is auto-detected (works for local paths too).
+                try:
+                    from agentic_cli.meta_repo.git_utils import add_submodule
+                    submodule_path = project_path / ".domain-meta"
+                    if not submodule_path.exists():
+                        used_branch = add_submodule(
+                            project_path, str(meta_repo_path), ".domain-meta",
+                        )
+                        branch_note = f" (branch: {used_branch})" if used_branch else ""
+                        console.print(f"[green]✓ Git submodule added:[/green] .domain-meta -> {meta_repo_path}{branch_note}")
+                    else:
+                        console.print(f"[yellow]⚠ .domain-meta/ already exists, skipping submodule add[/yellow]")
+                except subprocess.CalledProcessError as e:
+                    stderr = e.stderr.decode() if e.stderr else str(e)
+                    console.print(f"[yellow]⚠ Git submodule add failed: {stderr}[/yellow]")
+
+                meta_repo_result = {
+                    "detected": True,
+                    "path": str(meta_repo_path),
+                }
+            else:
+                console.print(f"[yellow]⚠ Domain meta-repo not found for '{domain}'[/yellow]")
+                console.print(f"[dim]Create one with: dva domain init-meta {domain}[/dim]")
+                meta_repo_result = {
+                    "detected": False,
+                }
+
+        except Exception as e:
+            console.print(f"[yellow]⚠ Meta-repo detection failed: {e}[/yellow]")
 
     # Step 9d: KG context pipeline (optional)
     kg_result = None

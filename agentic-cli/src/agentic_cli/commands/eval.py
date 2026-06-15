@@ -15,6 +15,19 @@ from agentic_cli.evaluation.validator import SkillValidator
 from agentic_cli.evaluation.datasets import DatasetManager, EvaluationDataset
 from agentic_cli.evaluation.metrics import get_all_metrics, get_metric
 from agentic_cli.evaluation.runner import SkillImpactEvaluator
+from agentic_cli.evaluation.eval_config import EvaluationConfig, EvalConfigManager
+from agentic_cli.evaluation.csv_dataset import CsvDatasetManager
+from agentic_cli.evaluation.frameworks import get_framework, list_frameworks
+from agentic_cli.evaluation.results import EvalResultStore
+from agentic_cli.evaluation.reporting import compare_runs, write_html_report
+from agentic_cli.evaluation.custom_metrics import CustomMetric, CustomMetricManager
+from agentic_cli.evaluation.csv_dataset import CsvRow
+from agentic_cli.evaluation.generation import (
+    GenerationConfig,
+    GoldenRegistry,
+    get_generator,
+    DEFAULT_PERSONAS,
+)
 from agentic_cli.tracker import record_activity
 
 console = Console()
@@ -25,6 +38,7 @@ dataset_app = typer.Typer(help="Manage evaluation datasets")
 validate_app = typer.Typer(help="Validate agents, skills, and datasets")
 run_app = typer.Typer(help="Run evaluations (agent, skill, model)")
 metrics_app = typer.Typer(help="View evaluation metrics")
+metric_app = typer.Typer(help="Register and manage custom (prompt-based) metrics")
 report_app = typer.Typer(help="View and export evaluation reports")
 
 # Register subcommands
@@ -32,14 +46,23 @@ eval_app.add_typer(dataset_app, name="dataset")
 eval_app.add_typer(validate_app, name="validate")
 eval_app.add_typer(run_app, name="run")
 eval_app.add_typer(metrics_app, name="metrics")
+eval_app.add_typer(metric_app, name="metric")
 eval_app.add_typer(report_app, name="report")
 
 # Default datasets directory
 DATASETS_DIR = Path.home() / ".agentic-cli" / "datasets"
 EVALS_DIR = Path.home() / ".agentic-cli" / "evaluations"
+EVAL_CONFIGS_DIR = Path.home() / ".agentic-cli" / "eval-configs"
+CSV_DATASETS_DIR = Path.home() / ".agentic-cli" / "csv-datasets"
+CUSTOM_METRICS_DIR = Path.home() / ".agentic-cli" / "custom-metrics"
 
 dataset_manager = DatasetManager(DATASETS_DIR)
+config_manager = EvalConfigManager(EVAL_CONFIGS_DIR)
+csv_manager = CsvDatasetManager(CSV_DATASETS_DIR)
 EVALS_DIR.mkdir(parents=True, exist_ok=True)
+result_store = EvalResultStore(EVALS_DIR)
+custom_metric_manager = CustomMetricManager(CUSTOM_METRICS_DIR)
+golden_registry = GoldenRegistry(CSV_DATASETS_DIR)
 
 
 # ==============================================================================
@@ -170,6 +193,86 @@ def show_dataset(
             )
 
         console.print(table)
+
+
+@dataset_app.command("register")
+def register_csv_dataset(
+    name: Annotated[
+        str,
+        typer.Argument(help="Dataset name to register the CSV under"),
+    ],
+    csv_path: Annotated[
+        Path,
+        typer.Argument(help="Path to a CSV with a 'user_input' column (Ragas schema)"),
+    ],
+) -> None:
+    """Register a CSV file as a new (versioned) evaluation dataset.
+
+    Expected columns (only user_input is required):
+      user_input, reference_contexts, reference, response
+
+    Examples:
+        {CLI_NAME} eval dataset register support-qa ./qa.csv
+    """.format(CLI_NAME=CLI_NAME)
+
+    try:
+        version = csv_manager.register_from_file(name, Path(csv_path))
+    except (FileNotFoundError, ValueError) as e:
+        console.print(f"[red]✗ {e}[/red]")
+        raise typer.Exit(1)
+
+    rows = csv_manager.read(name, version)
+    record_activity(
+        command="eval",
+        subcommand="dataset-register",
+        args={"name": name, "version": version},
+        repo_path=str(Path.cwd()),
+    )
+    console.print(
+        Panel.fit(
+            f"[bold green]✓ CSV Dataset Registered[/bold green]\n\n"
+            f"[bold]Name:[/bold] {name}\n"
+            f"[bold]Version:[/bold] v{version}\n"
+            f"[bold]Rows:[/bold] {len(rows)}\n"
+            f"[bold]Location:[/bold] {csv_manager.path_for(name, version)}",
+            border_style="green",
+        )
+    )
+
+
+@dataset_app.command("versions")
+def list_dataset_versions(
+    name: Annotated[
+        Optional[str],
+        typer.Argument(help="Dataset name (omit to list all CSV datasets)"),
+    ] = None,
+) -> None:
+    """List versions of CSV datasets.
+
+    Examples:
+        {CLI_NAME} eval dataset versions
+        {CLI_NAME} eval dataset versions support-qa
+    """.format(CLI_NAME=CLI_NAME)
+
+    if name:
+        versions = csv_manager.list_versions(name)
+        if not versions:
+            console.print(f"[yellow]No versions found for CSV dataset '{name}'[/yellow]")
+            return
+        console.print(f"[bold cyan]{name}[/bold cyan]: " + ", ".join(f"v{v}" for v in versions))
+        return
+
+    datasets = csv_manager.list_datasets()
+    if not datasets:
+        console.print("[yellow]No CSV datasets found[/yellow]")
+        return
+    table = Table(show_header=True, header_style="bold magenta", title="CSV Datasets")
+    table.add_column("Name", style="cyan")
+    table.add_column("Versions", style="green")
+    table.add_column("Latest", justify="right")
+    for ds_name, versions in sorted(datasets.items()):
+        table.add_row(ds_name, ", ".join(f"v{v}" for v in versions), f"v{versions[-1]}")
+    console.print(table)
 
 
 # ==============================================================================
@@ -527,3 +630,803 @@ def list_reports() -> None:
         return
 
     console.print(f"[dim]Found {len(eval_files)} evaluations in {EVALS_DIR}[/dim]")
+
+
+# ==============================================================================
+# EVALUATION CONFIG COMMANDS (create / describe / delete / list)
+# ==============================================================================
+
+@eval_app.command("frameworks")
+def list_frameworks_command() -> None:
+    """List available evaluation frameworks.
+
+    Examples:
+        {CLI_NAME} eval frameworks
+    """.format(CLI_NAME=CLI_NAME)
+
+    table = Table(show_header=True, header_style="bold magenta", title="Evaluation Frameworks")
+    table.add_column("Name", style="cyan")
+    table.add_column("Status", style="green")
+    table.add_column("Notes")
+    for name in list_frameworks():
+        if name == "builtin":
+            table.add_row(name, "available", "Native metrics + LLM judges (no extra deps)")
+        elif name == "ragas":
+            table.add_row(name, "optional", r"Install: pip install 'agentic-cli\[eval]'")
+        else:
+            table.add_row(name, "—", "")
+    console.print(table)
+
+
+@eval_app.command("create")
+def create_eval_config(
+    name: Annotated[str, typer.Argument(help="Evaluation config name")],
+    dataset: Annotated[str, typer.Argument(help="CSV dataset name (see 'eval dataset versions')")],
+    metrics: Annotated[
+        str,
+        typer.Option("--metrics", "-m", help="Comma-separated metric names"),
+    ] = "accuracy,f1_score",
+    framework: Annotated[
+        str,
+        typer.Option("--framework", "-f", help="Framework: builtin or ragas"),
+    ] = "builtin",
+    judge: Annotated[
+        str,
+        typer.Option("--judge", "-j", help="LLM judge for qualitative metrics: vertex-ai, anthropic, openai, none"),
+    ] = "none",
+    llm_model: Annotated[
+        Optional[str],
+        typer.Option("--llm", help="LLM model id (used by ragas)"),
+    ] = None,
+    embedding_model: Annotated[
+        Optional[str],
+        typer.Option("--embedding-model", help="Embedding model id (used by ragas)"),
+    ] = None,
+    description: Annotated[
+        str,
+        typer.Option("--description", "-d", help="Config description"),
+    ] = "",
+    domain: Annotated[
+        Optional[str],
+        typer.Option("--domain", help="Also store this config in the domain meta-repo (.platform/config/eval)"),
+    ] = None,
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Overwrite an existing config"),
+    ] = False,
+) -> None:
+    """Create a reusable evaluation config (dataset + metrics + framework).
+
+    Examples:
+        {CLI_NAME} eval create support-eval support-qa --metrics accuracy,f1_score
+        {CLI_NAME} eval create rag-eval docs-qa -f ragas -m Faithfulness,AnswerCorrectness
+        {CLI_NAME} eval create qa-eval support-qa -m helpfulness,relevance -j vertex-ai
+        {CLI_NAME} eval create facility-eval facility-qa --domain cwow-facility
+    """.format(CLI_NAME=CLI_NAME)
+
+    if config_manager.exists(name) and not force:
+        console.print(f"[red]✗ Config '{name}' already exists. Use --force to overwrite.[/red]")
+        raise typer.Exit(1)
+
+    metric_list = [m.strip() for m in metrics.split(",") if m.strip()]
+    if not metric_list:
+        console.print("[red]✗ At least one metric is required[/red]")
+        raise typer.Exit(1)
+
+    # Validate framework + metrics (builtin validates locally; ragas validates lazily).
+    # Include any registered custom metrics referenced by this config so they
+    # validate as supported.
+    requested_custom = {
+        m.name: m.prompt
+        for m in custom_metric_manager.list()
+        if m.name in metric_list
+    }
+    try:
+        fw = get_framework(
+            framework,
+            judge_type=judge,
+            llm_model=llm_model,
+            custom_metrics=requested_custom or None,
+        )
+    except (ValueError, ImportError) as e:
+        console.print(f"[red]✗ {e}[/red]")
+        raise typer.Exit(1)
+
+    unsupported = fw.validate_metrics(metric_list)
+    if unsupported:
+        console.print(
+            f"[red]✗ Metrics not supported by '{framework}': {', '.join(unsupported)}[/red]"
+        )
+        console.print(f"[dim]Supported: {', '.join(fw.supported_metrics())}[/dim]")
+        raise typer.Exit(1)
+
+    config = EvaluationConfig(
+        name=name,
+        dataset=dataset,
+        metrics=metric_list,
+        framework=framework,
+        judge=judge,
+        llm_model=llm_model,
+        embedding_model=embedding_model,
+        description=description,
+    )
+    path = config_manager.save(config)
+
+    # Optionally persist into the domain meta-repo for team sharing.
+    meta_path = None
+    if domain:
+        from agentic_cli.evaluation.domain_eval import save_config_to_meta_repo
+
+        config.metadata["domain"] = domain
+        config_manager.save(config)
+        meta_path = save_config_to_meta_repo(config, domain)
+        if meta_path:
+            console.print(f"[green]✓ Stored in meta-repo:[/green] {meta_path}")
+        else:
+            console.print(
+                f"[yellow]No domain meta-repo found for '{domain}'; saved locally only.[/yellow]"
+            )
+
+    record_activity(
+        command="eval",
+        subcommand="create",
+        args={"name": name, "dataset": dataset, "framework": framework, "domain": domain},
+        repo_path=str(Path.cwd()),
+    )
+    console.print(
+        Panel.fit(
+            f"[bold green]✓ Evaluation Config Created[/bold green]\n\n"
+            f"[bold]Name:[/bold] {name}\n"
+            f"[bold]Dataset:[/bold] {dataset}\n"
+            f"[bold]Framework:[/bold] {framework}\n"
+            f"[bold]Judge:[/bold] {judge}\n"
+            f"[bold]Metrics:[/bold] {', '.join(metric_list)}\n"
+            f"[bold]Location:[/bold] {path}",
+            border_style="green",
+        )
+    )
+
+
+@eval_app.command("list")
+def list_eval_configs() -> None:
+    """List saved evaluation configs.
+
+    Examples:
+        {CLI_NAME} eval list
+    """.format(CLI_NAME=CLI_NAME)
+
+    configs = config_manager.list()
+    if not configs:
+        console.print("[yellow]No evaluation configs found[/yellow]")
+        return
+    table = Table(show_header=True, header_style="bold magenta", title="Evaluation Configs")
+    table.add_column("Name", style="cyan")
+    table.add_column("Dataset", style="green")
+    table.add_column("Framework")
+    table.add_column("Judge")
+    table.add_column("Metrics")
+    for c in configs:
+        table.add_row(c.name, c.dataset, c.framework, c.judge, ", ".join(c.metrics))
+    console.print(table)
+
+
+@eval_app.command("describe")
+def describe_eval_config(
+    name: Annotated[str, typer.Argument(help="Evaluation config name")],
+) -> None:
+    """Show details of a saved evaluation config.
+
+    Examples:
+        {CLI_NAME} eval describe support-eval
+    """.format(CLI_NAME=CLI_NAME)
+
+    config = config_manager.load(name)
+    if not config:
+        console.print(f"[red]✗ Config not found: {name}[/red]")
+        raise typer.Exit(1)
+    console.print(
+        Panel.fit(
+            f"[bold cyan]{config.name}[/bold cyan]\n\n"
+            f"[bold]Dataset:[/bold] {config.dataset}\n"
+            f"[bold]Framework:[/bold] {config.framework}\n"
+            f"[bold]Judge:[/bold] {config.judge}\n"
+            f"[bold]Metrics:[/bold] {', '.join(config.metrics)}\n"
+            f"[bold]LLM model:[/bold] {config.llm_model or '—'}\n"
+            f"[bold]Embedding model:[/bold] {config.embedding_model or '—'}\n"
+            f"[bold]Description:[/bold] {config.description or '—'}\n"
+            f"[bold]Created:[/bold] {config.created[:19]}\n"
+            f"[bold]Updated:[/bold] {config.updated[:19]}",
+            border_style="cyan",
+        )
+    )
+
+
+@eval_app.command("delete")
+def delete_eval_config(
+    name: Annotated[str, typer.Argument(help="Evaluation config name")],
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Skip confirmation"),
+    ] = False,
+) -> None:
+    """Delete a saved evaluation config.
+
+    Examples:
+        {CLI_NAME} eval delete support-eval --force
+    """.format(CLI_NAME=CLI_NAME)
+
+    if not config_manager.exists(name):
+        console.print(f"[red]✗ Config not found: {name}[/red]")
+        raise typer.Exit(1)
+    if not force and not typer.confirm(f"Delete evaluation config '{name}'?", default=False):
+        raise typer.Exit(0)
+    config_manager.delete(name)
+    console.print(f"[green]✓ Deleted config:[/green] {name}")
+
+
+# ==============================================================================
+# RUN AGENT COMMAND
+# ==============================================================================
+
+@run_app.command("agent")
+def run_agent_eval(
+    agent: Annotated[
+        str,
+        typer.Argument(help="Agent spec: 'module.path:function' or 'mock:<simple|qa|helpful>'"),
+    ],
+    eval_name: Annotated[
+        str,
+        typer.Argument(help="Saved evaluation config name (see 'eval list')"),
+    ],
+    batch_size: Annotated[
+        int,
+        typer.Option("--batch-size", "-b", help="Parallel response-collection batch size (1-20)"),
+    ] = 10,
+    force_response_collection: Annotated[
+        bool,
+        typer.Option("--force-response-collection", help="Re-collect responses even if present"),
+    ] = False,
+    save_report: Annotated[
+        bool,
+        typer.Option("--save/--no-save", help="Save results JSON to the evaluations dir"),
+    ] = True,
+) -> None:
+    """Run a saved evaluation config against a real agent.
+
+    Steps:
+      1. Load the eval config and its CSV dataset (latest version).
+      2. Collect agent responses (writes a new dataset version if any collected).
+      3. Score responses using the config's framework + metrics.
+      4. Print aggregate scores and (optionally) save a results report.
+
+    Examples:
+        {CLI_NAME} eval run agent mock:helpful support-eval
+        {CLI_NAME} eval run agent my_pkg.agents:answer support-eval --batch-size 5
+    """.format(CLI_NAME=CLI_NAME)
+
+    import uuid
+    from datetime import datetime, timezone
+    from agentic_cli.evaluation.agent_runner import AgentResponseCollector, resolve_agent
+    from agentic_cli.evaluation.frameworks import EvalRow
+
+    # 1. Load config
+    config = config_manager.load(eval_name)
+    if not config:
+        console.print(f"[red]✗ Eval config not found: {eval_name}[/red]")
+        raise typer.Exit(1)
+
+    # 2. Load CSV dataset (latest version)
+    try:
+        version = csv_manager.latest_version(config.dataset)
+        if version is None:
+            raise FileNotFoundError(
+                f"No CSV dataset '{config.dataset}'. Register one with "
+                f"'{CLI_NAME} eval dataset register {config.dataset} <file.csv>'"
+            )
+        rows = csv_manager.read(config.dataset, version)
+    except FileNotFoundError as e:
+        console.print(f"[red]✗ {e}[/red]")
+        raise typer.Exit(1)
+
+    if not rows:
+        console.print(f"[red]✗ Dataset '{config.dataset}' v{version} has no rows[/red]")
+        raise typer.Exit(1)
+
+    # Resolve agent
+    try:
+        agent_fn = resolve_agent(agent)
+    except (ValueError, ImportError) as e:
+        console.print(f"[red]✗ {e}[/red]")
+        raise typer.Exit(1)
+
+    console.print(
+        Panel.fit(
+            f"[bold cyan]Agent Evaluation[/bold cyan]\n\n"
+            f"[bold]Agent:[/bold] {agent}\n"
+            f"[bold]Config:[/bold] {eval_name}\n"
+            f"[bold]Dataset:[/bold] {config.dataset} v{version} ({len(rows)} rows)\n"
+            f"[bold]Framework:[/bold] {config.framework}\n"
+            f"[bold]Judge:[/bold] {config.judge}\n"
+            f"[bold]Metrics:[/bold] {', '.join(config.metrics)}",
+            border_style="cyan",
+        )
+    )
+
+    # 2b. Collect responses
+    needs_collection = force_response_collection or not csv_manager.has_responses(rows)
+    if needs_collection:
+        console.print("\n[bold]Collecting agent responses...[/bold]")
+        collector = AgentResponseCollector(agent_fn, batch_size=batch_size)
+
+        def on_progress(done: int, total: int) -> None:
+            console.print(f"[dim]→ {done}/{total} responses collected[/dim]")
+
+        collector.collect(rows, force=force_response_collection, on_progress=on_progress)
+        new_version = csv_manager.write_new_version(config.dataset, rows)
+        console.print(f"[green]✓ Responses saved:[/green] {config.dataset} v{new_version}")
+    else:
+        console.print("[dim]Responses already present; skipping collection "
+                      "(use --force-response-collection to override).[/dim]")
+
+    # 3. Score with framework (include any registered custom metrics in scope)
+    requested_custom = {
+        m.name: m.prompt
+        for m in custom_metric_manager.list()
+        if m.name in config.metrics
+    }
+    try:
+        fw = get_framework(
+            config.framework,
+            judge_type=config.judge,
+            llm_model=config.llm_model,
+            embedding_model=config.embedding_model,
+            custom_metrics=requested_custom or None,
+        )
+    except (ValueError, ImportError) as e:
+        console.print(f"[red]✗ {e}[/red]")
+        raise typer.Exit(1)
+
+    eval_rows = [
+        EvalRow(
+            input_text=r.user_input,
+            reference=r.reference,
+            response=r.response,
+            retrieved_contexts=r.reference_contexts,
+            row_id=str(i),
+        )
+        for i, r in enumerate(rows)
+    ]
+
+    console.print("\n[bold]Scoring responses...[/bold]")
+    try:
+        scores = fw.evaluate(
+            eval_rows,
+            config.metrics,
+            llm_model=config.llm_model,
+            embedding_model=config.embedding_model,
+        )
+    except Exception as e:
+        console.print(f"[red]✗ Scoring failed: {e}[/red]")
+        raise typer.Exit(1)
+
+    # 4. Display + save
+    table = Table(show_header=True, header_style="bold magenta", title="Aggregate Scores")
+    table.add_column("Metric", style="cyan")
+    table.add_column("Score", justify="right", style="green")
+    table.add_column("Range", justify="center")
+    for metric_name in config.metrics:
+        value = scores.aggregate.get(metric_name)
+        rng = scores.metric_ranges.get(metric_name)
+        rng_str = f"{rng[0]}-{rng[1]}" if rng else "—"
+        table.add_row(metric_name, f"{value:.3f}" if value is not None else "—", rng_str)
+    console.print("\n")
+    console.print(table)
+
+    if save_report:
+        result = {
+            "eval_id": f"agenteval-{uuid.uuid4().hex[:8]}",
+            "eval_name": eval_name,
+            "agent": agent,
+            "dataset": config.dataset,
+            "dataset_version": version,
+            "framework": config.framework,
+            "judge": config.judge,
+            "metrics": config.metrics,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "scores": scores.to_dict(),
+            "num_rows": len(rows),
+        }
+        out_path = EVALS_DIR / f"{result['eval_id']}.json"
+        out_path.write_text(json.dumps(result, indent=2))
+        console.print(f"[green]✓ Results saved:[/green] {out_path}")
+
+    record_activity(
+        command="eval",
+        subcommand="run-agent",
+        args={"agent": agent, "eval_name": eval_name},
+        repo_path=str(Path.cwd()),
+    )
+
+
+# ==============================================================================
+# COMPARE COMMAND
+# ==============================================================================
+
+@eval_app.command("compare")
+def compare_eval(
+    eval_name: Annotated[
+        str,
+        typer.Argument(help="Eval config name whose runs should be compared"),
+    ],
+    agents: Annotated[
+        Optional[str],
+        typer.Option("--agents", help="Comma-separated agent names to include (default: all)"),
+    ] = None,
+    compare_versions: Annotated[
+        bool,
+        typer.Option("--compare-versions", help="Compare all runs (label by agent@version) instead of latest-per-agent"),
+    ] = False,
+    output: Annotated[
+        Optional[Path],
+        typer.Option("--output", "-o", help="Optional HTML report output path"),
+    ] = None,
+) -> None:
+    """Compare agent-evaluation runs for an eval config.
+
+    By default compares the latest run per agent. Use --compare-versions to
+    include every run (labeled by agent@dataset-version).
+
+    Examples:
+        {CLI_NAME} eval compare support-eval
+        {CLI_NAME} eval compare support-eval --agents mock:simple,mock:helpful
+        {CLI_NAME} eval compare support-eval --compare-versions -o compare.html
+    """.format(CLI_NAME=CLI_NAME)
+
+    if compare_versions:
+        runs = result_store.for_eval(eval_name)
+    else:
+        runs = list(result_store.latest_per_agent(eval_name).values())
+
+    if agents:
+        wanted = {a.strip() for a in agents.split(",") if a.strip()}
+        runs = [r for r in runs if r.agent in wanted]
+
+    if not runs:
+        console.print(f"[yellow]No runs found for eval '{eval_name}'. Run 'eval run agent' first.[/yellow]")
+        raise typer.Exit(1)
+
+    comparison = compare_runs(runs, by_version=compare_versions)
+
+    # Render comparison table.
+    table = Table(show_header=True, header_style="bold magenta", title=f"Comparison: {eval_name}")
+    table.add_column("Metric", style="cyan")
+    for label in comparison.labels:
+        table.add_column(label, justify="right")
+    for row in comparison.rows:
+        cells = []
+        for label in comparison.labels:
+            score = row.scores.get(label)
+            if score is None:
+                cells.append("—")
+            elif label == row.best_label:
+                cells.append(f"[green]{score:.3f}[/green]")
+            else:
+                cells.append(f"{score:.3f}")
+        table.add_row(row.metric, *cells)
+    overall_cells = [f"{comparison.overall.get(l, 0):.3f}" for l in comparison.labels]
+    table.add_row("[bold]Overall[/bold]", *overall_cells)
+    console.print(table)
+
+    if comparison.ranking:
+        console.print(f"\n[bold]Ranking:[/bold] {' > '.join(comparison.ranking)}")
+
+    if output:
+        path = write_html_report(
+            Path(output),
+            title=f"Comparison: {eval_name}",
+            runs=runs,
+            comparison=comparison,
+        )
+        console.print(f"[green]✓ HTML report written:[/green] {path}")
+
+    record_activity(
+        command="eval",
+        subcommand="compare",
+        args={"eval_name": eval_name, "compare_versions": compare_versions},
+        repo_path=str(Path.cwd()),
+    )
+
+
+# ==============================================================================
+# REPORT GENERATE COMMAND (HTML)
+# ==============================================================================
+
+@report_app.command("generate")
+def report_generate(
+    eval_name: Annotated[
+        str,
+        typer.Argument(help="Eval config name to report on"),
+    ],
+    output: Annotated[
+        Path,
+        typer.Option("--output", "-o", help="HTML report output path"),
+    ] = Path("eval-report.html"),
+    agent: Annotated[
+        Optional[str],
+        typer.Option("--agent", help="Only include runs for this agent"),
+    ] = None,
+    latest_only: Annotated[
+        bool,
+        typer.Option("--latest-only/--all-runs", help="Include only the latest run per agent"),
+    ] = True,
+) -> None:
+    """Generate a self-contained interactive HTML report for an eval config.
+
+    Examples:
+        {CLI_NAME} eval report generate support-eval -o report.html
+        {CLI_NAME} eval report generate support-eval --all-runs
+    """.format(CLI_NAME=CLI_NAME)
+
+    if latest_only:
+        runs = list(result_store.latest_per_agent(eval_name).values())
+    else:
+        runs = result_store.for_eval(eval_name)
+
+    if agent:
+        runs = [r for r in runs if r.agent == agent]
+
+    if not runs:
+        console.print(f"[yellow]No runs found for eval '{eval_name}'.[/yellow]")
+        raise typer.Exit(1)
+
+    comparison = compare_runs(runs) if len(runs) > 1 else None
+    path = write_html_report(
+        Path(output),
+        title=f"Evaluation Report: {eval_name}",
+        runs=runs,
+        comparison=comparison,
+    )
+    console.print(f"[green]✓ HTML report written:[/green] {path}")
+    console.print(f"[dim]Open with: open {path}[/dim]")
+
+    record_activity(
+        command="eval",
+        subcommand="report-generate",
+        args={"eval_name": eval_name, "output": str(output)},
+        repo_path=str(Path.cwd()),
+    )
+
+
+# ==============================================================================
+# DATASET GENERATE COMMAND
+# ==============================================================================
+
+@dataset_app.command("generate")
+def generate_dataset(
+    name: Annotated[
+        str,
+        typer.Argument(help="Dataset name to create/version"),
+    ],
+    source: Annotated[
+        str,
+        typer.Option("--source", "-s", help="Source spec: 'local:<path>' or 'kg:<domain>'"),
+    ],
+    num_questions: Annotated[
+        int,
+        typer.Option("--num-questions", "-n", help="Number of questions to generate"),
+    ] = 10,
+    adversarial_ratio: Annotated[
+        float,
+        typer.Option("--adversarial-ratio", help="Fraction (0-1) of adversarial questions"),
+    ] = 0.0,
+    personas: Annotated[
+        Optional[str],
+        typer.Option("--personas", help="Comma-separated personas (default: end_user,domain_expert,new_employee)"),
+    ] = None,
+    use_ai: Annotated[
+        bool,
+        typer.Option("--ai/--no-ai", help="Use Vertex AI generation (falls back to heuristic on error)"),
+    ] = False,
+    model: Annotated[
+        str,
+        typer.Option("--model", help="Vertex AI model for generation"),
+    ] = "gemini-2.5-flash",
+    golden: Annotated[
+        bool,
+        typer.Option("--golden", help="Mark the generated version as the golden baseline"),
+    ] = False,
+) -> None:
+    """Generate a Q&A evaluation dataset from documents or the domain KG.
+
+    The dataset uses the Ragas schema and is written as a new version. Use
+    'kg:<domain>' to source questions from ingested domain knowledge.
+
+    Examples:
+        {CLI_NAME} eval dataset generate faq --source local:./docs -n 20
+        {CLI_NAME} eval dataset generate facility --source kg:cwow-facility -n 15 --adversarial-ratio 0.2
+        {CLI_NAME} eval dataset generate faq --source local:./docs --ai --golden
+    """.format(CLI_NAME=CLI_NAME)
+
+    # Resolve source (kg: handled by domain_eval, file/placeholder by sources).
+    from agentic_cli.evaluation.domain_eval import resolve_source
+
+    try:
+        doc_source = resolve_source(source)
+    except ValueError as e:
+        console.print(f"[red]✗ {e}[/red]")
+        raise typer.Exit(1)
+
+    console.print(f"[bold]Loading source:[/bold] {source}")
+    try:
+        chunks = doc_source.load_chunks()
+    except (FileNotFoundError, ValueError, NotImplementedError) as e:
+        console.print(f"[red]✗ {e}[/red]")
+        raise typer.Exit(1)
+    console.print(f"[dim]→ {len(chunks)} source chunk(s) loaded[/dim]")
+
+    persona_list = (
+        [p.strip() for p in personas.split(",") if p.strip()] if personas else list(DEFAULT_PERSONAS)
+    )
+    gen_config = GenerationConfig(
+        num_questions=num_questions,
+        adversarial_ratio=adversarial_ratio,
+        personas=persona_list,
+    )
+
+    generator = get_generator(use_ai=use_ai, model=model)
+    console.print(f"[bold]Generating questions[/bold] (generator={'vertex-ai' if use_ai else 'heuristic'})...")
+    rows = generator.generate(chunks, gen_config)
+
+    if not rows:
+        console.print("[red]✗ No questions generated.[/red]")
+        raise typer.Exit(1)
+
+    version = csv_manager.write_new_version(name, rows)
+    console.print(f"[green]✓ Dataset written:[/green] {name} v{version} ({len(rows)} rows)")
+
+    if golden:
+        golden_registry.mark(name, version, note="generated")
+        console.print(f"[green]✓ Marked golden:[/green] {name} v{version}")
+
+    record_activity(
+        command="eval",
+        subcommand="dataset-generate",
+        args={"name": name, "source": source, "num_questions": num_questions},
+        repo_path=str(Path.cwd()),
+    )
+
+
+@dataset_app.command("golden")
+def mark_golden(
+    name: Annotated[str, typer.Argument(help="Dataset name")],
+    version: Annotated[
+        Optional[int],
+        typer.Option("--version", "-v", help="Version to mark (default: latest)"),
+    ] = None,
+    unmark: Annotated[
+        bool,
+        typer.Option("--unmark", help="Remove the golden marker instead"),
+    ] = False,
+) -> None:
+    """Mark (or unmark) a dataset version as the golden baseline.
+
+    Examples:
+        {CLI_NAME} eval dataset golden faq            # mark latest
+        {CLI_NAME} eval dataset golden faq -v 2       # mark version 2
+        {CLI_NAME} eval dataset golden faq --unmark
+    """.format(CLI_NAME=CLI_NAME)
+
+    if unmark:
+        removed = golden_registry.unmark(name)
+        if removed:
+            console.print(f"[green]✓ Removed golden marker for[/green] {name}")
+        else:
+            console.print(f"[yellow]No golden marker for '{name}'.[/yellow]")
+        return
+
+    if version is None:
+        version = csv_manager.latest_version(name)
+    if version is None:
+        console.print(f"[red]✗ No versions found for dataset '{name}'.[/red]")
+        raise typer.Exit(1)
+
+    golden_registry.mark(name, version)
+    console.print(f"[green]✓ Marked golden:[/green] {name} v{version}")
+
+
+# ==============================================================================
+# CUSTOM METRIC COMMANDS
+# ==============================================================================
+
+@metric_app.command("register")
+def register_metric(
+    name: Annotated[str, typer.Argument(help="Custom metric name")],
+    prompt: Annotated[
+        Optional[str],
+        typer.Option("--prompt", "-p", help="Scoring prompt/criteria text"),
+    ] = None,
+    prompt_file: Annotated[
+        Optional[Path],
+        typer.Option("--prompt-file", "-f", help="Read scoring prompt from a file"),
+    ] = None,
+    description: Annotated[
+        str,
+        typer.Option("--description", "-d", help="Short description"),
+    ] = "",
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Overwrite if a metric with this name exists"),
+    ] = False,
+) -> None:
+    """Register a custom prompt-based (LLM-as-Judge) metric (scored 1-5).
+
+    Examples:
+        {CLI_NAME} eval metric register empathy -p "Rate how empathetic the answer is (1-5)."
+        {CLI_NAME} eval metric register policy_adherence -f ./prompts/policy.md
+    """.format(CLI_NAME=CLI_NAME)
+
+    if custom_metric_manager.exists(name) and not force:
+        console.print(f"[red]✗ Metric '{name}' already exists. Use --force to overwrite.[/red]")
+        raise typer.Exit(1)
+
+    text = prompt
+    if prompt_file:
+        if not prompt_file.exists():
+            console.print(f"[red]✗ Prompt file not found: {prompt_file}[/red]")
+            raise typer.Exit(1)
+        text = prompt_file.read_text(encoding="utf-8")
+
+    if not text or not text.strip():
+        console.print("[red]✗ A scoring prompt is required (--prompt or --prompt-file).[/red]")
+        raise typer.Exit(1)
+
+    metric = CustomMetric(name=name, prompt=text.strip(), description=description)
+    path = custom_metric_manager.register(metric)
+    console.print(f"[green]✓ Registered custom metric '{name}'[/green] → {path}")
+
+    record_activity(
+        command="eval",
+        subcommand="metric-register",
+        args={"name": name},
+        repo_path=str(Path.cwd()),
+    )
+
+
+@metric_app.command("unregister")
+def unregister_metric(
+    name: Annotated[str, typer.Argument(help="Custom metric name")],
+) -> None:
+    """Remove a registered custom metric.
+
+    Examples:
+        {CLI_NAME} eval metric unregister empathy
+    """.format(CLI_NAME=CLI_NAME)
+
+    if custom_metric_manager.unregister(name):
+        console.print(f"[green]✓ Unregistered custom metric '{name}'[/green]")
+    else:
+        console.print(f"[yellow]No custom metric named '{name}'.[/yellow]")
+
+
+@metric_app.command("list")
+def list_custom_metrics() -> None:
+    """List registered custom (prompt-based) metrics.
+
+    Examples:
+        {CLI_NAME} eval metric list
+    """.format(CLI_NAME=CLI_NAME)
+
+    metrics = custom_metric_manager.list()
+    if not metrics:
+        console.print("[yellow]No custom metrics registered.[/yellow]")
+        return
+
+    table = Table(show_header=True, header_style="bold magenta", title="Custom Metrics")
+    table.add_column("Name", style="cyan")
+    table.add_column("Scale", justify="center")
+    table.add_column("Description")
+    table.add_column("Prompt (preview)")
+    for m in metrics:
+        preview = (m.prompt[:50] + "…") if len(m.prompt) > 50 else m.prompt
+        table.add_row(m.name, f"{m.scale_min:g}-{m.scale_max:g}", m.description or "—", preview)
+    console.print(table)

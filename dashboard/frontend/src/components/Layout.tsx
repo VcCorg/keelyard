@@ -10,11 +10,18 @@ import {
   Package,
   Rocket,
   GitBranch,
+  Boxes,
+  DatabaseZap,
+  Database,
+  FolderGit2,
+  FlaskConical,
+  SquareTerminal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/onboarding", icon: Boxes, label: "Domain Onboarding" },
   { to: "/agents", icon: Bot, label: "Agents" },
   { to: "/projects", icon: FolderKanban, label: "Agent Projects" },
   { to: "/skills", icon: Package, label: "Skills" },
@@ -24,6 +31,11 @@ const navItems = [
   { to: "/chat", icon: MessageSquare, label: "Chat" },
   { to: "/terminal", icon: TerminalSquare, label: "Terminal" },
   { to: "/kg", icon: GitBranch, label: "KG Context" },
+  { to: "/kg/ingest", icon: DatabaseZap, label: "KG Ingest" },
+  { to: "/data", icon: Database, label: "Data Sources" },
+  { to: "/code-onboard", icon: FolderGit2, label: "Code Onboard" },
+  { to: "/eval", icon: FlaskConical, label: "Evaluation" },
+  { to: "/cli", icon: SquareTerminal, label: "CLI Console" },
 ];
 
 export function Layout() {
