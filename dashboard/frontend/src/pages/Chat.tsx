@@ -68,7 +68,7 @@ export function Chat() {
             <select
               value={selectedAgent}
               onChange={(e) => setSelectedAgent(e.target.value)}
-              className="w-full appearance-none bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs font-medium pr-7 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full appearance-none bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs font-medium pr-7 focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
               <option value="dva-assistant">dva-assistant (default)</option>
               {agents.map((a) => (
@@ -82,7 +82,7 @@ export function Chat() {
           <button
             onClick={handleNewSession}
             disabled={creating}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
           >
             <Plus className="h-3.5 w-3.5" />
             {creating ? "Creating..." : "New Chat"}
@@ -100,7 +100,7 @@ export function Chat() {
               key={session.id}
               className={`group flex items-center gap-2 px-3 py-2.5 cursor-pointer border-b border-gray-100 dark:border-gray-800 transition-colors ${
                 activeSession === session.id
-                  ? "bg-indigo-50 dark:bg-indigo-900/20"
+                  ? "bg-blue-50 dark:bg-blue-900/20"
                   : "hover:bg-gray-50 dark:hover:bg-gray-800/50"
               }`}
               onClick={() => setActiveSession(session.id)}
@@ -131,7 +131,7 @@ export function Chat() {
             {/* Chat header */}
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
               <div className="text-sm font-medium">
-                Session <span className="font-mono text-indigo-600 dark:text-indigo-400">{activeSession}</span>
+                Session <span className="font-mono text-blue-600 dark:text-blue-400">{activeSession}</span>
               </div>
               <button
                 onClick={handleOpenInNewWindow}
@@ -157,7 +157,7 @@ export function Chat() {
               <button
                 onClick={handleNewSession}
                 disabled={creating}
-                className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
               >
                 <Plus className="h-4 w-4" />
                 Start Chatting

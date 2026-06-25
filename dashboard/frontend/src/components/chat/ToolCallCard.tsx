@@ -18,9 +18,9 @@ export function ToolCallCard({ tool, args, result }: ToolCallCardProps) {
         {result ? (
           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
         ) : (
-          <Wrench className="h-3.5 w-3.5 text-indigo-500 animate-spin shrink-0" />
+          <Wrench className="h-3.5 w-3.5 text-blue-500 animate-spin shrink-0" />
         )}
-        <span className="font-mono font-semibold text-indigo-600 dark:text-indigo-400 truncate">
+        <span className="font-mono font-semibold text-blue-600 dark:text-blue-400 truncate">
           {tool}
         </span>
         {expanded ? (

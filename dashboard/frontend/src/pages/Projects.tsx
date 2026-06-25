@@ -92,8 +92,8 @@ export function Projects() {
                   onClick={() => setSelected(p.path)}
                   className={`rounded-xl border bg-white dark:bg-gray-900 p-4 cursor-pointer transition-colors ${
                     selected === p.path
-                      ? "border-indigo-500 dark:border-indigo-400"
-                      : "border-gray-200 dark:border-gray-800 hover:border-indigo-300 dark:hover:border-indigo-700"
+                      ? "border-blue-500 dark:border-blue-400"
+                      : "border-gray-200 dark:border-gray-800 hover:border-blue-300 dark:hover:border-blue-700"
                   }`}
                 >
                   <div className="flex items-center justify-between">
@@ -107,7 +107,7 @@ export function Projects() {
                     {p.domain && (
                       <>
                         <span>·</span>
-                        <span className="flex items-center gap-1 text-indigo-500">
+                        <span className="flex items-center gap-1 text-blue-500">
                           <Globe className="h-3 w-3" />
                           {p.domain}
                         </span>
@@ -125,8 +125,8 @@ export function Projects() {
               <div className="space-y-4">
                 <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-900/30">
-                      <FolderKanban className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                    <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/30">
+                      <FolderKanban className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
                       <h2 className="text-lg font-bold">{proj.name}</h2>

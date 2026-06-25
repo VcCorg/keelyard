@@ -21,6 +21,8 @@ from src.api.code import router as code_router
 from src.api.eval import router as eval_router
 from src.api.cli import router as cli_router
 from src.api.runs import router as runs_router
+from src.api.devin import router as devin_router
+from src.api.integrations import router as integrations_router
 
 
 @asynccontextmanager
@@ -47,8 +49,10 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",  # Vite dev server
+        "http://localhost:5174",  # Vite dev server (fallback port)
         "http://localhost:3000",
         "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
         "http://127.0.0.1:3000",
     ],
     allow_credentials=True,
@@ -71,6 +75,8 @@ app.include_router(code_router)
 app.include_router(eval_router)
 app.include_router(cli_router)
 app.include_router(runs_router)
+app.include_router(devin_router)
+app.include_router(integrations_router)
 
 
 @app.get("/api/health")

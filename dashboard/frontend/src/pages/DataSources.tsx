@@ -101,7 +101,7 @@ export function DataSources() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-3">
-            <Database className="h-7 w-7 text-indigo-500" />
+            <Database className="h-7 w-7 text-blue-500" />
             Data Sources
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -231,7 +231,7 @@ export function DataSources() {
       {/* List */}
       {loading && !sources && (
         <div className="flex justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-indigo-400" />
+          <Loader2 className="h-6 w-6 animate-spin text-blue-400" />
         </div>
       )}
       {error && (
@@ -257,7 +257,7 @@ export function DataSources() {
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2 min-w-0">
-                    <Icon className="h-4 w-4 text-indigo-500 shrink-0" />
+                    <Icon className="h-4 w-4 text-blue-500 shrink-0" />
                     <span className="font-mono text-sm font-semibold truncate">{s.name}</span>
                   </div>
                   <button
@@ -294,7 +294,7 @@ export function DataSources() {
 
       <p className="text-xs text-gray-400">
         Tip: ingest a registered source by name from{" "}
-        <Link to="/kg/ingest" className="text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-1">
+        <Link to="/kg/ingest" className="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1">
           <DatabaseZap className="h-3 w-3" /> KG Ingest
         </Link>
         .

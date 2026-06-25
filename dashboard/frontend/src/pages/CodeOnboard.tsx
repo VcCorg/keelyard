@@ -84,7 +84,7 @@ export function CodeOnboard() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-3">
-          <FolderGit2 className="h-7 w-7 text-indigo-500" />
+          <FolderGit2 className="h-7 w-7 text-blue-500" />
           Code Onboard
         </h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -102,7 +102,7 @@ export function CodeOnboard() {
                 onClick={() => setMode(m)}
                 className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
                   mode === m
-                    ? "border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300"
+                    ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
                     : "border-gray-200 dark:border-gray-700 text-gray-500"
                 }`}
               >

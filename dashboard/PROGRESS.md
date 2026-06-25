@@ -68,3 +68,20 @@
 - [x] Session sidebar with create/delete, active session highlight
 - [x] Pop-out to new window support
 - [x] Vite WS proxy for dev: /api proxied with ws:true
+
+## Management View (Team) — Plan: ~/.windsurf/plans/agentplayground-management-view-ab117b.md
+Hybrid/phased: per-user local app + shared layer; Jira-synced tasks (anchor MCP).
+
+### P0: Nav restructure + local identity ✅ DONE (frontend only)
+- [x] `context/UserContext.tsx` — local current_user seam (localStorage profile, role) + workspace lens ("mine"/"team"). Single seam for future SSO swap.
+- [x] `components/Layout.tsx` — grouped sidebar (Overview/Work/Build/Knowledge/Platform/Admin), collapsible sections, workspace switcher, user footer. Groups filter by lens + minRole.
+- [x] `components/PlaceholderPage.tsx` — shared phased-capability placeholder.
+- [x] New pages: Tasks (visual mockup w/ CWOW-271902 Heparin + Assign modal), Assignments, Sessions (fleet), People, SharedAgents, SharedKG.
+- [x] `App.tsx` — UserProvider wrap + 6 new routes. `npm run build` passes (pre-existing tsconfig baseUrl deprecation only).
+
+### NEXT (backend, not started)
+- P1 Tasks read: `/api/tasks` from anchor Jira MCP + `tasks_cache` table.
+- P2 Assignments + KG binding: `assignments` table, wire Assign → `devin_service.create_session` w/ resolved knowledge_ids.
+- P3 Fleet sessions + `dva task status` local heartbeat.
+- P4 Sharing: `/people`, `shared_kg`, `shared_agents` + Agentic MCP tools.
+- P5 Graduate: swap local identity for SSO/OIDC.

@@ -694,6 +694,55 @@ def set_default_provider(
     )
 
 
+@init_app.command("devin")
+def init_devin(
+    base_url: Annotated[
+        str | None,
+        typer.Option("--base-url", help="Devin API base URL"),
+    ] = None,
+    max_acu: Annotated[
+        int | None,
+        typer.Option("--max-acu", help="Default per-session ACU ceiling"),
+    ] = None,
+    domain: Annotated[
+        str | None,
+        typer.Option("--domain", help="Configure per-domain defaults for this slug"),
+    ] = None,
+    snapshot_id: Annotated[
+        str | None,
+        typer.Option("--snapshot-id", help="Machine snapshot id for the domain"),
+    ] = None,
+    playbook_id: Annotated[
+        str | None,
+        typer.Option("--playbook-id", help="Playbook id for the domain"),
+    ] = None,
+    knowledge_folder: Annotated[
+        str | None,
+        typer.Option("--knowledge-folder", help="Devin folder name for the domain"),
+    ] = None,
+) -> None:
+    """Initialize Devin Cloud configuration.
+
+    Alias of ``dva devin init`` — kept here for consistency with the other
+    provider init commands. The API key is NEVER stored; set $DEVIN_API_KEY.
+    """
+    from agentic_cli.commands.devin import configure_devin
+
+    configure_devin(
+        base_url=base_url,
+        max_acu=max_acu,
+        domain=domain,
+        snapshot_id=snapshot_id,
+        playbook_id=playbook_id,
+        knowledge_folder=knowledge_folder,
+    )
+    record_activity(
+        command="init",
+        subcommand="devin",
+        args={"base_url": base_url, "max_acu": max_acu, "domain": domain},
+    )
+
+
 def get_google_config() -> dict:
     """Get Google configuration for use in other commands."""
     config = load_config()

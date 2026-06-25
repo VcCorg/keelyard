@@ -501,6 +501,18 @@ def onboard(
         bool,
         typer.Option("--link-meta-repo/--no-link-meta-repo", help="Detect and link domain meta-repo as submodule (requires --domain)"),
     ] = False,
+    okf_enrich: Annotated[
+        bool,
+        typer.Option("--okf-enrich/--no-okf-enrich", help="Generate/enrich an OKF knowledge bundle using the enrichment agent (requires --domain, Vertex AI)"),
+    ] = False,
+    okf_model: Annotated[
+        Optional[str],
+        typer.Option("--okf-model", help="Vertex AI model for OKF enrichment (default: gemini-2.5-flash-lite)"),
+    ] = None,
+    okf_no_confluence: Annotated[
+        bool,
+        typer.Option("--okf-no-confluence", help="Skip the Confluence enrichment pass during OKF enrichment"),
+    ] = False,
 ) -> None:
     """
     Onboard a repository for AI code assist.
@@ -530,6 +542,9 @@ def onboard(
         raise typer.Exit(1)
     if link_kg and not kg:
         console.print("[red]--link-kg requires --kg[/red]")
+        raise typer.Exit(1)
+    if okf_enrich and not domain:
+        console.print("[red]--okf-enrich requires --domain[/red]")
         raise typer.Exit(1)
     # Handle repo-slug option
     if repo_slug:
@@ -949,6 +964,59 @@ def onboard(
         except Exception as e:
             console.print(f"[yellow]⚠ Meta-repo detection failed: {e}[/yellow]")
 
+    # Step 9c-okf: OKF knowledge bundle enrichment (optional)
+    okf_result = None
+    if okf_enrich and domain:
+        console.print()
+        console.print(f"[cyan]Generating OKF knowledge bundle for '{domain}'...[/cyan]")
+        try:
+            from agentic_cli.kg.okf.enrichment.domain_paths import (
+                resolve_domain_enrichment_context,
+            )
+            from agentic_cli.kg.okf.enrichment.runner import EnrichmentRunner
+            from agentic_cli.kg.okf.enrichment.sources.code import CodebaseSource
+            from agentic_cli.kg.okf.enrichment.sources.confluence import ConfluenceSource
+            from agentic_cli.kg.okf.schema import OKFSchema
+
+            okf_ctx = resolve_domain_enrichment_context(domain)
+            bundle_dir = okf_ctx.bundle_dir
+
+            # Use the repo being onboarded as the structural source.
+            code_src = CodebaseSource(project_path, analysis)
+            confluence_src = None
+            if not okf_no_confluence and okf_ctx.confluence_docs:
+                confluence_src = ConfluenceSource.from_domain_docs(okf_ctx.confluence_docs)
+
+            # Ensure the bundle carries a canonical schema.
+            schema_path = bundle_dir / "okf.schema.yaml"
+            if not schema_path.exists():
+                bundle_dir.mkdir(parents=True, exist_ok=True)
+                OKFSchema.canonical(domain=domain, product=okf_ctx.product).dump(schema_path)
+
+            runner = EnrichmentRunner(
+                source=code_src,
+                bundle_root=bundle_dir,
+                model_name=okf_model,
+                confluence_source=confluence_src,
+            )
+            res = runner.enrich_all()
+            console.print(
+                f"[green]✓ OKF bundle:[/green] {res.concepts_written} written, "
+                f"{res.concepts_enriched} enriched, {res.pages_processed} Confluence page(s) "
+                f"-> {bundle_dir}"
+            )
+            if res.errors:
+                console.print(f"[yellow]⚠ {len(res.errors)} enrichment warning(s)[/yellow]")
+            okf_result = {
+                "bundle_dir": str(bundle_dir),
+                "written": res.concepts_written,
+                "enriched": res.concepts_enriched,
+                "pages": res.pages_processed,
+            }
+        except Exception as e:
+            console.print(f"[yellow]⚠ OKF enrichment failed: {e}[/yellow]")
+            console.print("[dim]Onboarding will continue without the OKF bundle.[/dim]")
+
     # Step 9d: KG context pipeline (optional)
     kg_result = None
     if kg:
@@ -1040,6 +1108,8 @@ def onboard(
             "domain": domain,
             "domain_context_attached": bool(domain_result),
             "domain_context_repo": domain_context_repo,
+            "okf_enriched": bool(okf_result),
+            "okf": okf_result,
         },
         repo_path=str(project_path),
     )
@@ -1060,7 +1130,8 @@ def onboard(
         + (f"\n[bold]KG Ingested:[/bold] {kg_result.get('provider', 'unknown') if kg_result and kg_result.get('ingested') else ''}" if kg_result and kg_result.get("ingested") else "")
         + (f"\n[bold]Domain:[/bold] {domain}" if domain_result else "")
         + (f"\n[bold]Domain KG Context:[/bold] {domain_result['kg_aspects_found']}/6 aspects" if domain_result else "")
-        + (f"\n[bold]Domain Context Repo:[/bold] Submodule linked" if domain_result and domain_context_repo else ""),
+        + (f"\n[bold]Domain Context Repo:[/bold] Submodule linked" if domain_result and domain_context_repo else "")
+        + (f"\n[bold]OKF Bundle:[/bold] {okf_result['written']} concept(s) -> {okf_result['bundle_dir']}" if okf_result else ""),
         border_style="green",
     ))
 

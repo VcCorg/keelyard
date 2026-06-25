@@ -1,0 +1,160 @@
+{
+  "name": "dva-kg-mcp",
+  "description": "Knowledge graph business context & requirements MCP server",
+  "version": "1.0.0",
+  "transport": "sse",
+  "endpoint": {
+    "host": "localhost",
+    "port": 8131,
+    "url": "http://localhost:8131/sse",
+    "alternative_url": "http://localhost:8131/sse?transport=sse"
+  },
+  "environment_variables": {
+    "MCP_TRANSPORT": "sse",
+    "MCP_PORT": "8131",
+    "MCP_HOST": "0.0.0.0",
+    "KG_NEO4J_URI": "bolt://dva-neo4j:7687",
+    "KG_NEO4J_USER": "neo4j",
+    "KG_NEO4J_PASSWORD": "password",
+    "KG_LIGHTRAG_URL": "http://dva-lightrag:8001",
+    "KG_DEFAULT_PROVIDER": "lightrag",
+    "KG_SOURCE_REGISTRY_PATH": "/root/.dva-agentic/config.json",
+    "CONFLUENCE_PERSONAL_ACCESS_TOKEN": ""
+  },
+  "tools": [
+    {
+      "name": "search_business_context",
+      "description": "Search domain knowledge and business requirements related to the query. Use this when you need to understand business rules, domain concepts, or requirements while writing or reviewing code.",
+      "parameters": {
+        "query": {"type": "string", "required": true, "description": "What to search for (e.g. 'patient eligibility rules', 'care plan requirements')"},
+        "project": {"type": "string", "required": false, "description": "Optional project name to scope results"},
+        "limit": {"type": "integer", "required": false, "default": 10, "description": "Maximum number of results"}
+      }
+    },
+    {
+      "name": "get_project_context",
+      "description": "Get a high-level overview of a project's business domain and requirements. Use this when starting work on a project or when you need to understand its scope, key entities, and domain model before writing code.",
+      "parameters": {
+        "project": {"type": "string", "required": true, "description": "Project name (e.g. 'cwow-patient', 'care-plan-service')"}
+      }
+    },
+    {
+      "name": "query_knowledge_graph",
+      "description": "Query the knowledge graph for entities, relationships, and structured data. Use this for targeted queries when you need specific information from the knowledge graph. Supports natural language (via LightRAG) or Cypher queries (via Neo4j).",
+      "parameters": {
+        "query": {"type": "string", "required": true, "description": "Query text. For Neo4j with format='cypher', use Cypher syntax."},
+        "provider": {"type": "string", "required": false, "default": "lightrag", "description": "Backend to query - 'lightrag' or 'neo4j'"},
+        "format": {"type": "string", "required": false, "default": "natural", "description": "Query format - 'natural' or 'cypher' (Neo4j only)"},
+        "persona": {"type": "string", "required": false, "description": "Filter by perspective - 'developer' or 'business'"},
+        "limit": {"type": "integer", "required": false, "default": 10, "description": "Maximum results"}
+      }
+    },
+    {
+      "name": "get_entity_details",
+      "description": "Get detailed information about a specific business entity. Returns the entity's properties, type, and all its relationships to other entities.",
+      "parameters": {
+        "entity_name": {"type": "string", "required": true, "description": "Name of the entity (e.g. 'Patient', 'Care Plan', 'Eligibility Check')"}
+      }
+    },
+    {
+      "name": "query_domain_context",
+      "description": "Query business context for a specific domain. Returns domain knowledge including SLAs, integration specs, security policies, and performance requirements.",
+      "parameters": {
+        "domain": {"type": "string", "required": true, "description": "Domain slug (e.g. 'cwow-facility', 'cwow-patient')"},
+        "aspect": {"type": "string", "required": false, "default": "all", "description": "What to query — 'all', 'slas', 'integrations', 'security', 'performance', 'architecture'"},
+        "limit": {"type": "integer", "required": false, "default": 20, "description": "Maximum number of results"}
+      }
+    },
+    {
+      "name": "get_domain_slas",
+      "description": "Get SLA requirements for a specific domain. Returns response time, availability, throughput, and other SLA targets that code must satisfy.",
+      "parameters": {
+        "domain": {"type": "string", "required": true, "description": "Domain slug (e.g. 'cwow-facility')"}
+      }
+    },
+    {
+      "name": "get_domain_integrations",
+      "description": "Get integration specifications for a specific domain. Returns API endpoints, authentication methods, data formats, and integration patterns required by the domain.",
+      "parameters": {
+        "domain": {"type": "string", "required": true, "description": "Domain slug (e.g. 'cwow-facility')"}
+      }
+    },
+    {
+      "name": "get_domain_security_policies",
+      "description": "Get security and compliance policies for a specific domain. Returns compliance requirements (HIPAA, SOC2), encryption policies, access control rules, and audit requirements.",
+      "parameters": {
+        "domain": {"type": "string", "required": true, "description": "Domain slug (e.g. 'cwow-facility')"}
+      }
+    },
+    {
+      "name": "list_knowledge_projects",
+      "description": "List all available knowledge base projects and their registered sources. Shows what knowledge is available for querying.",
+      "parameters": {}
+    },
+    {
+      "name": "register_knowledge_source",
+      "description": "How to register a knowledge source for the knowledge graph. Provides instructions for using the DVA CLI to register document or Confluence sources.",
+      "parameters": {}
+    },
+    {
+      "name": "ingest_knowledge_source",
+      "description": "Ingest a registered knowledge source into the knowledge graph. Reads documents or Confluence pages from the registered source and indexes them for search and querying.",
+      "parameters": {
+        "name": {"type": "string", "required": true, "description": "Name of the registered source to ingest"},
+        "extract_entities": {"type": "boolean", "required": false, "default": true, "description": "Whether to use AI to extract entities and relationships"}
+      }
+    }
+  ],
+  "resources": [
+    {
+      "uri": "kg://config",
+      "description": "Current KG MCP Server configuration (without secrets)"
+    },
+    {
+      "uri": "kg://sources",
+      "description": "List of all registered knowledge sources"
+    }
+  ],
+  "dependencies": {
+    "neo4j": {
+      "uri": "bolt://dva-neo4j:7687",
+      "user": "neo4j",
+      "password": "password",
+      "description": "Neo4j graph database for structured entity relationships"
+    },
+    "lightrag": {
+      "url": "http://dva-lightrag:8001",
+      "description": "LightRAG service for semantic search and RAG queries"
+    },
+    "confluence": {
+      "token": "${CONFLUENCE_PERSONAL_ACCESS_TOKEN}",
+      "description": "Confluence REST API for ingesting wiki pages"
+    }
+  },
+  "docker_config": {
+    "container_name": "dva-kg-mcp-new",
+    "image": "dva-kg-mcp-new",
+    "ports": ["8131:8131"],
+    "volumes": ["${HOME}/.dva-agentic:/root/.dva-agentic:ro"],
+    "networks": ["dva-network"],
+    "restart": "unless-stopped",
+    "environment": {
+      "MCP_TRANSPORT": "sse",
+      "MCP_PORT": "8131"
+    }
+  },
+  "health_check": {
+    "test": ["CMD-SHELL", "curl --max-time 2 -s http://localhost:8131/sse > /dev/null 2>&1; test $$? -eq 28"],
+    "interval": "10s",
+    "timeout": "5s",
+    "retries": 5,
+    "start_period": "10s"
+  },
+  "devin_cloud_config": {
+    "mcp_server_name": "dva-kg-mcp",
+    "connection_url": "http://localhost:8131/sse",
+    "transport": "sse",
+    "authentication": "none",
+    "instructions": "This MCP server provides access to domain knowledge, business requirements, and project context from the DVA Knowledge Graph. Use these tools to understand business rules, search requirements, and explore domain entities when writing or reviewing code."
+  }
+}

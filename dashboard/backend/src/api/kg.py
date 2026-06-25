@@ -2,7 +2,7 @@
 
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Body, HTTPException, Query
 from sse_starlette.sse import EventSourceResponse
 
 from src.services.kg_service import (
@@ -16,8 +16,132 @@ from src.services.kg_service import (
     KGNeighborhood,
 )
 from src.services import kg_ingest_service as ingest_svc
+from src.services import okf_service
 
 router = APIRouter(prefix="/api/kg", tags=["kg"])
+
+
+# ── OKF bundles ──────────────────────────────────────────────────────────────
+
+@router.get("/okf/bundles", response_model=list[okf_service.OKFBundleInfo])
+async def list_okf_bundles():
+    """List domains that have an OKF Markdown bundle."""
+    try:
+        return okf_service.list_okf_bundles()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/okf/bundles/{domain}", response_model=okf_service.OKFBundleDetail)
+async def get_okf_bundle(
+    domain: str,
+    source: str = Query("export", description="'export' (generated) or 'authored'"),
+):
+    """Bundle detail: validation report, FREQ traceability, quarantine counts."""
+    try:
+        return okf_service.get_okf_bundle_detail(domain, source=source)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/okf/export/stream")
+async def okf_export_stream(
+    domain: str = Query(..., description="Domain slug to export from Neo4j"),
+    product: Optional[str] = Query(None),
+    mint_freqs: bool = Query(True, description="Mint FREQ concepts from CWOW-NNNNNN"),
+):
+    """Run `dva kg okf export --domain ...` (no reindex) and stream output over SSE."""
+    args = okf_service.okf_export_args(domain, product=product, mint_freqs=mint_freqs)
+    return _sse(args)
+
+
+@router.get("/okf/devin/status")
+async def okf_devin_status():
+    """Whether the backend has a Devin API key (controls live-push availability)."""
+    return {"api_key_present": okf_service.devin_api_key_present()}
+
+
+@router.get("/okf/devin/push/stream")
+async def okf_devin_push_stream(
+    domain: str = Query(..., description="Domain slug whose bundle to push"),
+    source: str = Query("export", description="'export' (generated) or 'authored'"),
+    types: str = Query("FREQ,Requirement", description="Comma-separated concept types"),
+    dry_run: bool = Query(True, description="Preview payloads without calling the Devin API"),
+):
+    """Run `dva kg okf push-devin ...` and stream output over SSE.
+
+    The Devin API key is read from the backend env ($DEVIN_API_KEY) and is never
+    accepted as a query parameter. A live push requires that key to be present.
+    """
+    if not dry_run and not okf_service.devin_api_key_present():
+        raise HTTPException(
+            status_code=400,
+            detail="Live push requires DEVIN_API_KEY in the backend environment. "
+                   "Use dry_run=true to preview payloads.",
+        )
+    args = okf_service.okf_push_devin_args(domain, source=source, types=types, dry_run=dry_run)
+    return _sse(args)
+
+
+@router.get("/okf/devin/knowledge", response_model=okf_service.DevinKnowledgeList)
+async def okf_devin_knowledge():
+    """List all Devin Knowledge entries + folders for management."""
+    if not okf_service.devin_api_key_present():
+        raise HTTPException(status_code=400, detail="DEVIN_API_KEY not set in the backend environment.")
+    try:
+        return okf_service.devin_list_knowledge()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Devin API error: {e}")
+
+
+@router.delete("/okf/devin/knowledge/{note_id}")
+async def okf_devin_delete(note_id: str):
+    """Delete a single Devin Knowledge entry by id."""
+    if not okf_service.devin_api_key_present():
+        raise HTTPException(status_code=400, detail="DEVIN_API_KEY not set in the backend environment.")
+    try:
+        okf_service.devin_delete_knowledge(note_id)
+        return {"deleted": note_id}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Devin API error: {e}")
+
+
+@router.post("/okf/devin/knowledge/{note_id}/move")
+async def okf_devin_move(note_id: str, folder_id: Optional[str] = Query(None)):
+    """Move an entry to a folder (folder_id empty/omitted = root)."""
+    if not okf_service.devin_api_key_present():
+        raise HTTPException(status_code=400, detail="DEVIN_API_KEY not set in the backend environment.")
+    try:
+        okf_service.devin_move_knowledge(note_id, folder_id)
+        return {"moved": note_id, "folder_id": folder_id}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Devin API error: {e}")
+
+
+@router.put("/okf/devin/knowledge/{note_id}")
+async def okf_devin_update(note_id: str, update: okf_service.DevinKnowledgeUpdate):
+    """Partial update of an entry (trigger only, repo link, body, or all fields)."""
+    if not okf_service.devin_api_key_present():
+        raise HTTPException(status_code=400, detail="DEVIN_API_KEY not set in the backend environment.")
+    try:
+        okf_service.devin_update_knowledge(note_id, update)
+        return {"updated": note_id}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Devin API error: {e}")
+
+
+@router.post("/okf/devin/knowledge/bulk-delete")
+async def okf_devin_bulk_delete(payload: dict = Body(...)):
+    """Delete multiple entries. Body: ``{"ids": ["note-...", ...]}``."""
+    if not okf_service.devin_api_key_present():
+        raise HTTPException(status_code=400, detail="DEVIN_API_KEY not set in the backend environment.")
+    ids = payload.get("ids") or []
+    if not ids:
+        raise HTTPException(status_code=400, detail="Provide a non-empty 'ids' list.")
+    try:
+        return okf_service.devin_bulk_delete(ids)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Devin API error: {e}")
 
 
 # ── Ingestion: reads ────────────────────────────────────────────────────────
@@ -69,6 +193,7 @@ def _sse(args: list[str]) -> EventSourceResponse:
 @router.get("/ingest/submit/stream")
 async def ingest_submit_stream(
     domain: Optional[str] = Query(None, description="Domain slug to build KG for"),
+    product: Optional[str] = Query(None, description="Product to tie the KG to (mandatory unless a domain is given)"),
     path: Optional[str] = Query(None, description="Direct path/URL to ingest"),
     source: Optional[str] = Query(None, description="Configured data source name"),
     format: Optional[str] = Query(None, description="Source format override"),
@@ -84,11 +209,21 @@ async def ingest_submit_stream(
             detail="Must provide one of: domain, path, or source.",
         )
 
+    # A knowledge graph must be tied to a product. The domain (which carries a
+    # product) satisfies this; otherwise a product must be supplied explicitly.
+    if not domain and not (product and product.strip()):
+        raise HTTPException(
+            status_code=400,
+            detail="A product is required to ingest into the knowledge graph (domain is optional).",
+        )
+
     args = ["ingest", "submit"]
     if domain:
         args += ["--domain", domain, "--depth", str(depth)]
         if top:
             args += ["--top", str(top)]
+    if product and product.strip():
+        args += ["--product", product.strip()]
     if path:
         args += ["--path", path]
     if source:

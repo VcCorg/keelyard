@@ -159,7 +159,7 @@ export function DomainOnboarding() {
               className={cn(
                 "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                 isActive
-                  ? "bg-indigo-600 text-white"
+                  ? "bg-blue-600 text-white"
                   : disabled
                   ? "text-gray-400 cursor-not-allowed"
                   : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200"
@@ -289,7 +289,7 @@ function DomainStep({
               className={cn(
                 "w-full flex items-center justify-between rounded-md border px-3 py-2 text-left transition-colors",
                 activeSlug === d.name
-                  ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
+                  ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
                   : "border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800"
               )}
             >

@@ -15,12 +15,12 @@ export function MessageBubble({ role, content, timestamp, isStreaming }: Message
       <div
         className={`shrink-0 h-8 w-8 rounded-full flex items-center justify-center ${
           isUser
-            ? "bg-indigo-100 dark:bg-indigo-900/40"
+            ? "bg-blue-100 dark:bg-blue-900/40"
             : "bg-emerald-100 dark:bg-emerald-900/40"
         }`}
       >
         {isUser ? (
-          <User className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+          <User className="h-4 w-4 text-blue-600 dark:text-blue-400" />
         ) : (
           <Bot className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
         )}
@@ -30,7 +30,7 @@ export function MessageBubble({ role, content, timestamp, isStreaming }: Message
         <div
           className={`inline-block rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
             isUser
-              ? "bg-indigo-600 text-white rounded-tr-sm"
+              ? "bg-blue-600 text-white rounded-tr-sm"
               : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 rounded-tl-sm"
           }`}
         >

@@ -30,6 +30,13 @@ cd "$BACKEND_DIR"
 uv pip install -e . --python "$PROJECT_VENV/bin/python" --native-tls > /dev/null 2>&1
 echo -e "${GREEN}✓${NC} Dashboard backend installed"
 
+# Load .env file if it exists
+if [ -f "$BACKEND_DIR/.env" ]; then
+    echo -e "${BLUE}▸${NC} Loading environment variables from .env..."
+    export $(cat "$BACKEND_DIR/.env" | grep -v '^#' | xargs)
+    echo -e "${GREEN}✓${NC} Environment variables loaded"
+fi
+
 # Start the backend server
 echo -e "${BLUE}▸${NC} Starting backend server on http://localhost:8000..."
 "$PROJECT_VENV/bin/python" -m uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000

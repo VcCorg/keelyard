@@ -122,7 +122,7 @@ export function Eval() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-3">
-          <FlaskConical className="h-7 w-7 text-indigo-500" />
+          <FlaskConical className="h-7 w-7 text-blue-500" />
           Evaluation
         </h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -201,7 +201,7 @@ export function Eval() {
                       const cur = metricsText.split(",").map((x) => x.trim()).filter(Boolean);
                       if (!cur.includes(m.name)) setMetricsText([...cur, m.name].join(","));
                     }}
-                    className="text-xs font-mono px-2 py-0.5 rounded-full border border-gray-200 dark:border-gray-700 text-gray-500 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                    className="text-xs font-mono px-2 py-0.5 rounded-full border border-gray-200 dark:border-gray-700 text-gray-500 hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                   >
                     +{m.name}
                   </button>
@@ -259,7 +259,7 @@ export function Eval() {
               href={api.evalReportViewUrl(selectedConfig)}
               target="_blank"
               rel="noreferrer"
-              className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-1.5 mr-auto"
+              className="text-sm text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1.5 mr-auto"
             >
               <ExternalLink className="h-4 w-4" /> View latest report
             </a>
@@ -297,8 +297,8 @@ export function Eval() {
               key={value}
               value={value}
               className="px-4 py-2 text-sm font-medium text-gray-500 border-b-2 border-transparent -mb-px
-                         data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-700
-                         dark:data-[state=active]:text-indigo-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+                         data-[state=active]:border-blue-600 data-[state=active]:text-blue-700
+                         dark:data-[state=active]:text-blue-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
             >
               {label}
             </Tabs.Trigger>
@@ -333,7 +333,7 @@ export function Eval() {
                     <td className="px-4 py-3 text-xs text-gray-400">{r.framework}</td>
                     <td className="px-4 py-3 text-xs text-gray-400">{r.num_rows}</td>
                     <td className="px-4 py-3">
-                      <span className="font-mono text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+                      <span className="font-mono text-sm font-semibold text-blue-600 dark:text-blue-400">
                         {(r.overall_score * 100).toFixed(0)}%
                       </span>
                     </td>
@@ -358,7 +358,7 @@ export function Eval() {
                   <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500">{c.framework}</span>
                   <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500">judge: {c.judge}</span>
                   {c.metrics.map((m) => (
-                    <span key={m} className="text-xs px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400">
+                    <span key={m} className="text-xs px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
                       {m}
                     </span>
                   ))}

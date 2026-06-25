@@ -7,7 +7,7 @@ import { api, type KGLinkRow, type KGGapRow } from "@/lib/api";
 import { KGGraphPanel } from "@/components/KGGraphPanel";
 
 const REL_COLORS: Record<string, string> = {
-  IMPLEMENTS: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300",
+  IMPLEMENTS: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
   REFERENCES: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
   TESTED_BY: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
   CONFIGURES: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",
@@ -49,7 +49,7 @@ export function KGDomain() {
       <div className="flex items-center gap-4">
         <Link
           to="/kg"
-          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" /> KG Context
         </Link>
@@ -91,8 +91,8 @@ export function KGDomain() {
               key={value}
               value={value}
               className="px-4 py-2 text-sm font-medium text-gray-500 border-b-2 border-transparent -mb-px
-                         data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-700
-                         dark:data-[state=active]:text-indigo-400 hover:text-gray-900 dark:hover:text-gray-100
+                         data-[state=active]:border-blue-600 data-[state=active]:text-blue-700
+                         dark:data-[state=active]:text-blue-400 hover:text-gray-900 dark:hover:text-gray-100
                          transition-colors"
             >
               {label}
@@ -104,7 +104,7 @@ export function KGDomain() {
         <Tabs.Content value="links">
           {linksLoading && (
             <div className="flex justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-indigo-400" />
+              <Loader2 className="h-6 w-6 animate-spin text-blue-400" />
             </div>
           )}
           {linksError && (
@@ -144,7 +144,7 @@ export function KGDomain() {
                           <td className="px-4 py-3">
                             <button
                               onClick={() => setGraphPanel({ nodeId: row.code_id, nodeName: row.code_name, nodeType: "code" })}
-                              className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline text-left truncate max-w-[160px] block"
+                              className="font-medium text-blue-600 dark:text-blue-400 hover:underline text-left truncate max-w-[160px] block"
                               title={row.code_name}
                             >
                               {row.code_name}
@@ -179,7 +179,7 @@ export function KGDomain() {
                           </td>
                         </tr>
                         {expanded && (
-                          <tr key={`${evidenceKey}-evidence`} className="bg-indigo-50 dark:bg-indigo-900/10">
+                          <tr key={`${evidenceKey}-evidence`} className="bg-blue-50 dark:bg-blue-900/10">
                             <td colSpan={5} className="px-6 py-3 text-xs text-gray-600 dark:text-gray-300 italic">
                               {row.evidence || "No evidence recorded."}
                             </td>
@@ -198,7 +198,7 @@ export function KGDomain() {
         <Tabs.Content value="gaps">
           {gapsLoading && (
             <div className="flex justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-indigo-400" />
+              <Loader2 className="h-6 w-6 animate-spin text-blue-400" />
             </div>
           )}
           {gapsError && (
@@ -231,7 +231,7 @@ export function KGDomain() {
                       <td className="px-4 py-3">
                         <button
                           onClick={() => setGraphPanel({ nodeId: row.doc_id, nodeName: row.doc_name, nodeType: "document" })}
-                          className="font-medium text-gray-800 dark:text-gray-200 hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline text-left truncate max-w-[220px] block"
+                          className="font-medium text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 hover:underline text-left truncate max-w-[220px] block"
                           title={row.doc_name}
                         >
                           {row.doc_name}

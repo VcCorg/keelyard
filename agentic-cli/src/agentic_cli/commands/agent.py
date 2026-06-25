@@ -2,12 +2,13 @@
 
 import json
 import os
+import shutil
 import signal
 import subprocess
 import sys
 import typer
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -46,6 +47,153 @@ def _save_state(state: dict) -> None:
     _get_state_file().write_text(json.dumps(state, indent=2))
 
 
+# ---------------------------------------------------------------------------
+# Imported agents (fetched via `agent import` into ~/.dva/agents/imported/)
+# ---------------------------------------------------------------------------
+def _imported_dir() -> Path:
+    return AGENT_STATE_DIR / "imported"
+
+
+def _imported_registry_file() -> Path:
+    return _imported_dir() / "registry.json"
+
+
+def _load_imported_agents() -> dict:
+    """Load the imported-agents registry (name -> manifest)."""
+    f = _imported_registry_file()
+    if f.exists():
+        try:
+            return json.loads(f.read_text())
+        except Exception:
+            return {}
+    return {}
+
+
+def _resolve_imported_entrypoint(local_path: Path) -> dict:
+    """Determine how to run an imported agent package.
+
+    Returns a dict with:
+      src             - directory to put on PYTHONPATH (src/ or repo root)
+      package         - top-level package name (dir with __init__.py)
+      module          - package runnable via `python -m` (has __main__.py)
+      console_scripts - {name: target} from pyproject [project.scripts]
+    """
+    info: dict = {"src": None, "package": None, "module": None, "console_scripts": {}}
+    src_dir = local_path / "src"
+    info["src"] = src_dir if src_dir.exists() else local_path
+
+    pyproject = local_path / "pyproject.toml"
+    if pyproject.exists():
+        try:
+            import tomllib
+            data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+            info["console_scripts"] = data.get("project", {}).get("scripts", {}) or {}
+        except Exception:
+            pass
+
+    search_root = info["src"]
+    for cand in sorted(search_root.glob("*/__main__.py")):
+        info["module"] = cand.parent.name
+        info["package"] = cand.parent.name
+        break
+    if not info["package"]:
+        for cand in sorted(search_root.glob("*/__init__.py")):
+            info["package"] = cand.parent.name
+            break
+    return info
+
+
+def _run_imported_agent(name: str, extra_args: list[str]) -> None:
+    """Run an imported agent package by name, passing through extra_args.
+
+    Entrypoint resolution order:
+      1. console script (if the agent was installed with --install)
+      2. python -m <package>  (package exposing __main__.py), PYTHONPATH=src
+    """
+    imported = _load_imported_agents()
+    manifest = imported.get(name)
+    if not manifest:
+        console.print(f"[red]✗ Error:[/red] Imported agent '{name}' not found.")
+        if imported:
+            console.print(f"[dim]Available: {', '.join(sorted(imported))}[/dim]")
+        else:
+            console.print(f"[dim]Import one with: {CLI_NAME} agent import --from-git <url> --path <subpath>[/dim]")
+        raise typer.Exit(1)
+
+    local_path = Path(manifest.get("local_path", ""))
+    if not local_path.exists():
+        console.print(f"[red]✗ Error:[/red] Imported agent files missing at {local_path}.")
+        console.print(f"[dim]Re-import with: {CLI_NAME} agent import --from-git {manifest.get('git_url', '<url>')} --path {manifest.get('subpath', '')} --name {name} --force[/dim]")
+        raise typer.Exit(1)
+
+    ep = _resolve_imported_entrypoint(local_path)
+    scripts = ep.get("console_scripts") or {}
+
+    # Build the command.
+    cmd: list[str] = []
+    run_desc = ""
+    if manifest.get("installed") and scripts:
+        script_name = next(iter(scripts))
+        if shutil.which(script_name):
+            cmd = [script_name, *extra_args]
+            run_desc = script_name
+    if not cmd:
+        if not ep.get("module"):
+            console.print(
+                f"[red]✗ Error:[/red] No runnable entrypoint for '{name}' "
+                f"(no installed console script and no package with __main__.py)."
+            )
+            if scripts and not manifest.get("installed"):
+                console.print(f"[dim]Install it first: {CLI_NAME} agent import --from-git {manifest.get('git_url')} --path {manifest.get('subpath','')} --name {name} --install --force[/dim]")
+            raise typer.Exit(1)
+        cmd = [sys.executable, "-m", ep["module"], *extra_args]
+        run_desc = f"python -m {ep['module']}"
+
+    env = os.environ.copy()
+    src = str(ep.get("src") or local_path)
+    env["PYTHONPATH"] = src + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
+
+    # No passthrough args: many agent CLIs require a subcommand and would die
+    # with a cryptic argparse error. Show their help and guide the user instead.
+    no_args = len(extra_args) == 0
+    run_cmd = cmd if not no_args else [*cmd, "--help"]
+
+    console.print(Panel.fit(
+        f"[bold cyan]Running Imported Agent[/bold cyan]\n\n"
+        f"[bold]Name:[/bold] {name}\n"
+        f"[bold]Entrypoint:[/bold] {run_desc}\n"
+        f"[bold]Path:[/bold] {local_path}"
+        + ("\n[dim]No arguments given — showing the agent's help.[/dim]" if no_args else ""),
+        border_style="cyan",
+    ))
+
+    record_activity(
+        command="agent", subcommand="run-imported",
+        args={"name": name, "entrypoint": run_desc, "args": extra_args},
+        details={"local_path": str(local_path)},
+    )
+
+    try:
+        result = subprocess.run(run_cmd, cwd=local_path, env=env, check=False)
+    except FileNotFoundError as e:
+        console.print(f"[red]✗ Error:[/red] Could not execute entrypoint: {e}")
+        raise typer.Exit(1)
+
+    if no_args:
+        console.print(
+            f"\n[yellow]![/yellow] This agent needs a command/arguments. "
+            f"Pass them after [bold]--[/bold]:\n"
+            f"[dim]  {CLI_NAME} agent run --imported {name} -- <command> [args...][/dim]\n"
+            f"[dim]  e.g. {CLI_NAME} agent run --imported {name} -- enrich --help[/dim]"
+        )
+        return
+
+    if result.returncode not in (0, 130):
+        console.print(f"\n[red]✗ Agent exited with code {result.returncode}[/red]")
+        raise typer.Exit(result.returncode)
+    console.print("\n[green]✓ Imported agent finished.[/green]")
+
+
 @agent_app.command("run")
 def run_agent(
     path: Annotated[
@@ -76,16 +224,31 @@ def run_agent(
             help="Override poll interval in seconds (pr-reviewer only)",
         ),
     ] = None,
+    imported: Annotated[
+        Optional[str],
+        typer.Option(
+            "--imported", "-i",
+            help="Run an imported agent by name (from `agent import`) instead of a project",
+        ),
+    ] = None,
+    agent_args: Annotated[
+        Optional[List[str]],
+        typer.Argument(help="Extra arguments passed through to the imported agent"),
+    ] = None,
 ) -> None:
     """
-    Run an agent project.
+    Run an agent project, or an imported agent with --imported.
 
     Examples:
         {CLI_NAME} agent run --path ./my-pr-bot
         {CLI_NAME} agent run --path ./my-pr-bot --mode daemon
         {CLI_NAME} agent run --path ./my-pr-bot --mode once
-        {CLI_NAME} agent run --path ./my-pr-bot --mode daemon --review-mode auto-approve
+        {CLI_NAME} agent run --imported okf_enrichment_agent -- --help
     """.format(CLI_NAME=CLI_NAME)
+    if imported:
+        _run_imported_agent(imported, list(agent_args or []))
+        return
+
     path = path.resolve()
 
     if not path.exists():
@@ -438,20 +601,51 @@ def list_agents(
         raise typer.Exit(1)
 
     agents = discover_agents(path)
-    if not agents:
+    if agents:
+        table = Table(show_header=True, header_style="bold magenta", title="Project Agents")
+        table.add_column("Agent", style="cyan")
+        table.add_column("File", style="green")
+        table.add_column("Description")
+
+        for agent in agents:
+            desc = agent["description"][:70] + "..." if len(agent["description"]) > 70 else agent["description"]
+            table.add_row(agent["name"], agent["file"], desc)
+        console.print(table)
+    else:
         console.print("[yellow]No agents found in this project.[/yellow]")
-        return
 
-    table = Table(show_header=True, header_style="bold magenta")
-    table.add_column("Agent", style="cyan")
-    table.add_column("File", style="green")
-    table.add_column("Description")
+    # Imported agents (global, fetched via `agent import`)
+    imported = _load_imported_agents()
+    if imported:
+        itable = Table(show_header=True, header_style="bold cyan", title="Imported Agents")
+        itable.add_column("Name", style="cyan")
+        itable.add_column("Source", style="dim")
+        itable.add_column("Ref", style="dim")
+        itable.add_column("Installed", justify="center")
+        itable.add_column("Run via", style="green")
 
-    for agent in agents:
-        desc = agent["description"][:70] + "..." if len(agent["description"]) > 70 else agent["description"]
-        table.add_row(agent["name"], agent["file"], desc)
-
-    console.print(table)
+        for name, m in sorted(imported.items()):
+            local_path = Path(m.get("local_path", ""))
+            ep = _resolve_imported_entrypoint(local_path) if local_path.exists() else {}
+            scripts = ep.get("console_scripts") or {}
+            if m.get("installed") and scripts:
+                run_via = next(iter(scripts))
+            elif ep.get("module"):
+                run_via = f"python -m {ep['module']}"
+            else:
+                run_via = "—"
+            src = m.get("git_url", "")
+            if m.get("subpath"):
+                src = f"{src}#{m['subpath']}"
+            itable.add_row(
+                name,
+                src[:50],
+                m.get("ref", "—"),
+                "[green]✓[/green]" if m.get("installed") else "[dim]—[/dim]",
+                run_via,
+            )
+        console.print(itable)
+        console.print(f"[dim]Run an imported agent: {CLI_NAME} agent run --imported <name>[/dim]")
 
 
 @agent_app.command("add")
@@ -628,6 +822,154 @@ def _show_agent_types(agent_types: dict, get_tools_fn) -> None:
     console.print(
         f"\n[dim]Usage: {CLI_NAME} agent add <name> --type <type> --path <project>[/dim]"
     )
+
+
+@agent_app.command("import")
+def import_agent(
+    from_git: Annotated[
+        str,
+        typer.Option("--from-git", help="Git repository URL to import the agent from"),
+    ],
+    path: Annotated[
+        Optional[str],
+        typer.Option("--path", help="Subpath within the repo that holds the agent (e.g. 'okf')"),
+    ] = None,
+    name: Annotated[
+        Optional[str],
+        typer.Option("--name", "-n", help="Local name for the imported agent (default: derived from path/repo)"),
+    ] = None,
+    ref: Annotated[
+        str,
+        typer.Option("--ref", help="Git branch, tag, or commit to fetch"),
+    ] = "main",
+    install: Annotated[
+        bool,
+        typer.Option("--install", help="pip install the imported agent (editable) after fetching"),
+    ] = False,
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Overwrite an existing local agent of the same name"),
+    ] = False,
+) -> None:
+    """
+    Import an external agent from a git repository as a local reference agent.
+
+    Sparse-fetches the given repo (optionally a subpath) into the local agent
+    registry at ~/.dva/agents/imported/<name>/, records provenance, and can pip
+    install it. Used to bring in reference agents such as the GCP OKF enrichment
+    agent so the CLI can build on them.
+
+    Examples:
+        {CLI_NAME} agent import --from-git https://github.com/GoogleCloudPlatform/knowledge-catalog --path okf --name okf-enrichment
+        {CLI_NAME} agent import --from-git https://github.com/GoogleCloudPlatform/knowledge-catalog --path okf --name okf-enrichment --install
+    """.format(CLI_NAME=CLI_NAME)
+    import shutil
+    import tempfile
+
+    # Derive a local name if not supplied.
+    local_name = name or (path.rstrip("/").split("/")[-1] if path else from_git.rstrip("/").split("/")[-1].replace(".git", ""))
+    dest_root = AGENT_STATE_DIR / "imported"
+    dest_root.mkdir(parents=True, exist_ok=True)
+    dest = dest_root / local_name
+
+    if dest.exists():
+        if not force:
+            console.print(f"[red]✗ Error:[/red] Agent '{local_name}' already imported at {dest}.")
+            console.print("[dim]Use --force to overwrite.[/dim]")
+            raise typer.Exit(1)
+        shutil.rmtree(dest)
+
+    console.print(Panel.fit(
+        f"[bold cyan]Importing Agent[/bold cyan]\n\n"
+        f"[bold]Repo:[/bold] {from_git}\n"
+        f"[bold]Subpath:[/bold] {path or '(repo root)'}\n"
+        f"[bold]Ref:[/bold] {ref}\n"
+        f"[bold]Local name:[/bold] {local_name}",
+        border_style="cyan",
+    ))
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        # Shallow clone (sparse if a subpath is requested).
+        try:
+            if path:
+                subprocess.run(
+                    ["git", "clone", "--depth", "1", "--branch", ref,
+                     "--filter=blob:none", "--sparse", from_git, str(tmp_path / "repo")],
+                    check=True, capture_output=True, text=True,
+                )
+                subprocess.run(
+                    ["git", "-C", str(tmp_path / "repo"), "sparse-checkout", "set", path],
+                    check=True, capture_output=True, text=True,
+                )
+            else:
+                subprocess.run(
+                    ["git", "clone", "--depth", "1", "--branch", ref, from_git, str(tmp_path / "repo")],
+                    check=True, capture_output=True, text=True,
+                )
+        except subprocess.CalledProcessError as e:
+            console.print(f"[red]✗ git clone failed:[/red] {e.stderr or e}")
+            raise typer.Exit(1)
+
+        src = (tmp_path / "repo" / path) if path else (tmp_path / "repo")
+        if not src.exists():
+            console.print(f"[red]✗ Error:[/red] Subpath '{path}' not found in repository.")
+            raise typer.Exit(1)
+        shutil.copytree(src, dest, ignore=shutil.ignore_patterns(".git"))
+
+    # Provenance manifest.
+    manifest = {
+        "name": local_name,
+        "git_url": from_git,
+        "subpath": path or "",
+        "ref": ref,
+        "local_path": str(dest),
+        "installed": False,
+    }
+
+    if install:
+        pyproject = dest / "pyproject.toml"
+        setup_py = dest / "setup.py"
+        if pyproject.exists() or setup_py.exists():
+            console.print("[dim]Installing imported agent (pip install -e)...[/dim]")
+            res = subprocess.run(
+                [sys.executable, "-m", "pip", "install", "-e", str(dest)],
+                capture_output=True, text=True,
+            )
+            if res.returncode == 0:
+                manifest["installed"] = True
+                console.print("[green]✓[/green] Installed.")
+            else:
+                console.print(f"[yellow]⚠ pip install failed:[/yellow] {res.stderr[-500:]}")
+        else:
+            console.print("[yellow]⚠[/yellow] No pyproject.toml/setup.py found — skipping install.")
+
+    # Update the imported-agents registry.
+    registry_file = dest_root / "registry.json"
+    registry = {}
+    if registry_file.exists():
+        try:
+            registry = json.loads(registry_file.read_text())
+        except Exception:
+            registry = {}
+    registry[local_name] = manifest
+    registry_file.write_text(json.dumps(registry, indent=2))
+
+    record_activity(
+        command="agent", subcommand="import",
+        args={"from_git": from_git, "path": path, "name": local_name, "ref": ref},
+        details={"local_path": str(dest), "installed": manifest["installed"]},
+    )
+
+    console.print(Panel.fit(
+        f"[bold green]✓ Agent imported[/bold green]\n\n"
+        f"[bold]Name:[/bold] {local_name}\n"
+        f"[bold]Location:[/bold] {dest}\n"
+        f"[bold]Installed:[/bold] {'✓' if manifest['installed'] else '✗'}\n\n"
+        f"[dim]Registry:[/dim] {registry_file}\n"
+        f"[dim]Next:[/dim] {CLI_NAME} kg okf enrich --domain <slug>",
+        border_style="green",
+    ))
 
 
 @agent_app.command("register")

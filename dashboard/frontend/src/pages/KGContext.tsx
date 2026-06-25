@@ -67,7 +67,7 @@ function DomainRow({ d }: { d: DomainKGStats }) {
           <Share2 className="h-3 w-3" /> {d.linked_edges}
         </span>
       </div>
-      <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-indigo-500 transition-colors shrink-0" />
+      <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-blue-500 transition-colors shrink-0" />
     </Link>
   );
 }
@@ -83,8 +83,8 @@ function ProductCard({ product }: { product: ProductKGSummary }) {
         className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors"
       >
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-900/30">
-            <Database className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+          <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/30">
+            <Database className="h-5 w-5 text-blue-600 dark:text-blue-400" />
           </div>
           <div className="text-left">
             <h2 className="font-bold text-gray-900 dark:text-white">{product.product}</h2>
@@ -169,7 +169,7 @@ export function KGContext() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-3">
-            <GitBranch className="h-7 w-7 text-indigo-500" />
+            <GitBranch className="h-7 w-7 text-blue-500" />
             KG Context
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -178,7 +178,7 @@ export function KGContext() {
         </div>
         <Link
           to="/kg/ingest"
-          className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 transition-colors"
+          className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
         >
           <DatabaseZap className="h-4 w-4" /> Ingest Data
         </Link>
@@ -188,7 +188,7 @@ export function KGContext() {
       {!loading && !error && products && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: "Products", value: products.length, icon: Database, color: "text-indigo-500" },
+            { label: "Products", value: products.length, icon: Database, color: "text-blue-500" },
             { label: "Domains", value: totalDomains, icon: GitBranch, color: "text-violet-500" },
             { label: "Code Entities", value: totalCode, icon: Code2, color: "text-blue-500" },
             { label: "Requirements", value: totalDocs, icon: FileText, color: "text-emerald-500" },
@@ -210,7 +210,7 @@ export function KGContext() {
       {/* Loading */}
       {loading && (
         <div className="flex items-center justify-center py-24">
-          <Loader2 className="h-7 w-7 animate-spin text-indigo-400" />
+          <Loader2 className="h-7 w-7 animate-spin text-blue-400" />
         </div>
       )}
 
