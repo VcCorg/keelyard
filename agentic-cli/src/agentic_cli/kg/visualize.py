@@ -10,6 +10,7 @@ from agentic_cli.kg.neo4j_client import Neo4jClient
 def create_visualization(
     output: Path,
     filter: Optional[str] = None,
+    domain: Optional[str] = None,
     depth: int = 2,
 ) -> None:
     """
@@ -18,6 +19,7 @@ def create_visualization(
     Args:
         output: Output file path
         filter: Filter nodes by type or property
+        domain: Filter nodes by domain slug
         depth: Maximum depth for graph traversal
     """
     try:
@@ -29,14 +31,46 @@ def create_visualization(
     
     config = KGConfig.load()
     
+    # Build WHERE clause for filtering
+    where_conditions = []
+    if domain:
+        where_conditions.append(f"(n.domain = '{domain}' OR m.domain = '{domain}')")
+    
+    where_clause = ""
+    if where_conditions:
+        where_clause = "WHERE " + " AND ".join(where_conditions)
+    
     # Fetch graph data
     with Neo4jClient(config) as client:
-        if filter:
+        if filter and domain:
+            query = f"""
+            MATCH (n:{filter})-[r*1..{depth}]-(m)
+            {where_clause}
+            RETURN n, r, m
+            LIMIT 500
+            """
+        elif filter:
             query = f"""
             MATCH (n:{filter})-[r*1..{depth}]-(m)
             RETURN n, r, m
             LIMIT 500
             """
+        elif domain:
+            # For domain visualization, exclude the problematic VALIDATES_CONFIGURATION_FOR relationships
+            if where_clause:
+                query = f"""
+                MATCH (n)-[r]-(m)
+                {where_clause} AND type(r) <> 'VALIDATES_CONFIGURATION_FOR'
+                RETURN n, r, m
+                LIMIT 500
+                """
+            else:
+                query = f"""
+                MATCH (n)-[r]-(m)
+                WHERE type(r) <> 'VALIDATES_CONFIGURATION_FOR'
+                RETURN n, r, m
+                LIMIT 500
+                """
         else:
             query = f"""
             MATCH (n)-[r]-(m)
@@ -74,38 +108,55 @@ def create_visualization(
     nodes_added = set()
     
     for result in results:
-        # Add source node
-        if "n" in result:
+        # Handle case where result is just a node (domain-only visualization)
+        if "n" in result and "m" not in result and "r" not in result:
             node = result["n"]
-            node_id = node.get("id", str(hash(str(node))))
+            if node is not None:
+                node_id = node.get("nodeId", node.get("id", str(hash(str(node)))))
+                
+                if node_id not in nodes_added:
+                    net.add_node(
+                        node_id,
+                        label=node.get("name", "Unknown"),
+                        title=node.get("description", "")[:200],
+                        color=get_node_color(node.get("type", "Entity")),
+                    )
+                    nodes_added.add(node_id)
+            continue
+        
+        # Handle case where result has nodes and relationships
+        # Add source node
+        if "n" in result and result["n"] is not None:
+            node = result["n"]
+            node_id = node.get("nodeId", node.get("id", str(hash(str(node)))))
             
             if node_id not in nodes_added:
                 net.add_node(
                     node_id,
                     label=node.get("name", "Unknown"),
-                    title=node.get("content", "")[:200],
+                    title=node.get("description", "")[:200],
                     color=get_node_color(node.get("type", "Entity")),
                 )
                 nodes_added.add(node_id)
         
         # Add target node
-        if "m" in result:
+        if "m" in result and result["m"] is not None:
             node = result["m"]
-            node_id = node.get("id", str(hash(str(node))))
+            node_id = node.get("nodeId", node.get("id", str(hash(str(node)))))
             
             if node_id not in nodes_added:
                 net.add_node(
                     node_id,
                     label=node.get("name", "Unknown"),
-                    title=node.get("content", "")[:200],
+                    title=node.get("description", "")[:200],
                     color=get_node_color(node.get("type", "Entity")),
                 )
                 nodes_added.add(node_id)
         
         # Add relationship
-        if "r" in result and "n" in result and "m" in result:
-            source_id = result["n"].get("id", str(hash(str(result["n"]))))
-            target_id = result["m"].get("id", str(hash(str(result["m"]))))
+        if "r" in result and result["r"] is not None and "n" in result and result["n"] is not None and "m" in result and result["m"] is not None:
+            source_id = result["n"].get("nodeId", result["n"].get("id", str(hash(str(result["n"])))))
+            target_id = result["m"].get("nodeId", result["m"].get("id", str(hash(str(result["m"])))))
             
             net.add_edge(
                 source_id,

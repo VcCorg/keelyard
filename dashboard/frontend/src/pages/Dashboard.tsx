@@ -39,20 +39,20 @@ export function Dashboard() {
         {/* Agents */}
         <Link
           to="/agents"
-          className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-700 transition-all group"
+          className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all group"
           aria-label="View agents"
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-900/30">
-                <Bot className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+              <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/30">
+                <Bot className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-500">Agents</p>
                 <p className="text-2xl font-bold">{d.agents.total}</p>
               </div>
             </div>
-            <ArrowRight className="h-4 w-4 text-gray-300 group-hover:text-indigo-500 transition-colors" />
+            <ArrowRight className="h-4 w-4 text-gray-300 group-hover:text-blue-500 transition-colors" />
           </div>
           <div className="mt-3 flex gap-3 text-xs text-gray-500">
             <span className="text-emerald-600">{d.agents.running} running</span>
@@ -63,7 +63,7 @@ export function Dashboard() {
         {/* MCP Servers */}
         <Link
           to="/mcp"
-          className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-700 transition-all group"
+          className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all group"
           aria-label="View MCP servers"
         >
           <div className="flex items-center justify-between">
@@ -76,7 +76,7 @@ export function Dashboard() {
                 <p className="text-2xl font-bold">{d.mcp_servers.total}</p>
               </div>
             </div>
-            <ArrowRight className="h-4 w-4 text-gray-300 group-hover:text-indigo-500 transition-colors" />
+            <ArrowRight className="h-4 w-4 text-gray-300 group-hover:text-blue-500 transition-colors" />
           </div>
           <div className="mt-3 flex gap-3 text-xs text-gray-500">
             <span className="text-emerald-600">{d.mcp_servers.healthy} healthy</span>
@@ -87,7 +87,7 @@ export function Dashboard() {
         {/* Projects */}
         <Link
           to="/projects"
-          className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-700 transition-all group"
+          className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all group"
           aria-label="View agent projects"
         >
           <div className="flex items-center justify-between">
@@ -100,7 +100,7 @@ export function Dashboard() {
                 <p className="text-2xl font-bold">{d.projects.total}</p>
               </div>
             </div>
-            <ArrowRight className="h-4 w-4 text-gray-300 group-hover:text-indigo-500 transition-colors" />
+            <ArrowRight className="h-4 w-4 text-gray-300 group-hover:text-blue-500 transition-colors" />
           </div>
           <div className="mt-3 flex gap-3 text-xs text-gray-500">
             <span className="text-emerald-600">{d.projects.valid} valid</span>
@@ -111,7 +111,7 @@ export function Dashboard() {
         {/* Activity */}
         <Link
           to="/activity"
-          className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-700 transition-all group"
+          className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all group"
           aria-label="View activity"
         >
           <div className="flex items-center justify-between">
@@ -124,7 +124,7 @@ export function Dashboard() {
                 <p className="text-2xl font-bold">{d.activity.total_commands}</p>
               </div>
             </div>
-            <ArrowRight className="h-4 w-4 text-gray-300 group-hover:text-indigo-500 transition-colors" />
+            <ArrowRight className="h-4 w-4 text-gray-300 group-hover:text-blue-500 transition-colors" />
           </div>
           <div className="mt-3 text-xs text-gray-500">
             {d.activity.total_errors > 0 && (
@@ -142,7 +142,7 @@ export function Dashboard() {
       <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
         <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white">Recent Activity</h2>
-          <Link to="/activity" className="text-sm font-medium text-indigo-600 hover:text-indigo-700 dark:hover:text-indigo-400 transition-colors">
+          <Link to="/activity" className="text-sm font-medium text-blue-600 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">
             View all →
           </Link>
         </div>

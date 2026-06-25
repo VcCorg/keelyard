@@ -74,7 +74,7 @@ export function Terminal() {
               <TerminalSquare className="h-12 w-12 mx-auto mb-3 opacity-30" />
               <p className="text-sm font-medium">Inline Terminal</p>
               <p className="text-xs text-slate-600 mt-1 max-w-xs">
-                Run <code className="text-indigo-400">dva</code> commands
+                Run <code className="text-blue-400">dva</code> commands
                 directly from the dashboard.
               </p>
               {tabs.length > 0 && (
@@ -85,7 +85,7 @@ export function Terminal() {
               <button
                 onClick={createTab}
                 disabled={creating || tabs.length >= 4}
-                className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
               >
                 <Plus className="h-3.5 w-3.5" />
                 {creating ? "Opening..." : "New Terminal"}

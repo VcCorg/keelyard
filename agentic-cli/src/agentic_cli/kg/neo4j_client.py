@@ -210,13 +210,26 @@ class Neo4jClient:
             result = session.run(query, **params)
             return [dict(record["n"]) for record in result]
     
-    def get_stats(self) -> Dict[str, Any]:
-        """Get graph statistics."""
+    def get_stats(self, domain: str | None = None) -> Dict[str, Any]:
+        """Get graph statistics.
+        
+        Args:
+            domain: Optional domain slug to filter statistics
+        """
+        # Build WHERE clause for domain filtering
+        if domain:
+            # When filtering by domain, don't filter by _source to include all domain-tagged nodes
+            where_clause = f"WHERE n.domain = '{domain}'"
+            where_clause_rel = f"WHERE a.domain = '{domain}' OR b.domain = '{domain}'"
+        else:
+            where_clause = "WHERE n._source = 'dva_kg'"
+            where_clause_rel = "WHERE a._source = 'dva_kg'"
+        
         queries = {
-            "nodes": "MATCH (n) WHERE n._source = 'dva_kg' RETURN count(n) as count",
-            "relationships": "MATCH (a)-[r]->(b) WHERE a._source = 'dva_kg' RETURN count(r) as count",
-            "node_types": "MATCH (n) WHERE n._source = 'dva_kg' RETURN DISTINCT labels(n) as labels",
-            "relationship_types": "MATCH (a)-[r]->(b) WHERE a._source = 'dva_kg' RETURN DISTINCT type(r) as type",
+            "nodes": f"MATCH (n) {where_clause} RETURN count(n) as count",
+            "relationships": f"MATCH (a)-[r]->(b) {where_clause_rel} RETURN count(r) as count",
+            "node_types": f"MATCH (n) {where_clause} RETURN DISTINCT labels(n) as labels",
+            "relationship_types": f"MATCH (a)-[r]->(b) {where_clause_rel} RETURN DISTINCT type(r) as type",
         }
         
         stats = {}
@@ -242,14 +255,24 @@ class Neo4jClient:
             stats["relationship_types"] = len([record["type"] for record in result])
             
             # Get top entities by connection count
-            top_entities_query = """
-            MATCH (n) WHERE n._source = 'dva_kg'
-            OPTIONAL MATCH (n)-[r]-()
-            WITH n, count(r) as connections
-            ORDER BY connections DESC
-            LIMIT 10
-            RETURN n.name as name, n.id as id, connections
-            """
+            if domain:
+                top_entities_query = f"""
+                MATCH (n) {where_clause}
+                OPTIONAL MATCH (n)-[r]-()
+                WITH n, count(r) as connections
+                ORDER BY connections DESC
+                LIMIT 10
+                RETURN n.name as name, n.id as id, connections
+                """
+            else:
+                top_entities_query = """
+                MATCH (n) WHERE n._source = 'dva_kg'
+                OPTIONAL MATCH (n)-[r]-()
+                WITH n, count(r) as connections
+                ORDER BY connections DESC
+                LIMIT 10
+                RETURN n.name as name, n.id as id, connections
+                """
             result = session.run(top_entities_query)
             stats["top_entities"] = [
                 {"name": record["name"], "id": record["id"], "connections": record["connections"]}

@@ -55,8 +55,8 @@ export function Agents() {
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-900/30">
-                    <Bot className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                  <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/30">
+                    <Bot className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div>
                     <h3 className="font-semibold">{agent.name}</h3>
@@ -74,7 +74,7 @@ export function Agents() {
                       href={`/chat?agent=${agent.name}`}
                       target="_blank"
                       rel="noopener"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-300 dark:hover:bg-indigo-900/50 transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50 transition-colors"
                     >
                       <MessageSquare className="h-3.5 w-3.5" />
                       Chat

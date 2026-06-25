@@ -20,6 +20,7 @@ import {
   type IngestableDomain,
   type IngestSubmitParams,
   type DataSourceInfo,
+  type ProductInfo,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -114,6 +115,67 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+/* ── Product (required) + Domain (optional) binding for an ingest ─────────── */
+function ProductDomainPicker({
+  products,
+  domains,
+  product,
+  domain,
+  onProduct,
+  onDomain,
+}: {
+  products?: ProductInfo[];
+  domains?: IngestableDomain[];
+  product: string;
+  domain: string;
+  onProduct: (v: string) => void;
+  onDomain: (v: string) => void;
+}) {
+  const scopedDomains = (domains ?? []).filter((d) => !product || d.product === product);
+  const selectCls =
+    "w-full h-10 rounded-md border border-input bg-background px-3 text-sm";
+  return (
+    <>
+      <div className="w-full sm:w-44">
+        <label className="text-xs text-gray-500 block mb-1">
+          Product <span className="text-red-500">*</span>
+        </label>
+        <select
+          value={product}
+          onChange={(e) => {
+            onProduct(e.target.value);
+            onDomain("");
+          }}
+          className={cn(selectCls, !product && "border-red-300 dark:border-red-800")}
+        >
+          <option value="">Select product…</option>
+          {(products ?? []).map((p) => (
+            <option key={p.name} value={p.name}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="w-full sm:w-44">
+        <label className="text-xs text-gray-500 block mb-1">Domain (optional)</label>
+        <select
+          value={domain}
+          onChange={(e) => onDomain(e.target.value)}
+          disabled={!product}
+          className={cn(selectCls, !product && "opacity-50 cursor-not-allowed")}
+        >
+          <option value="">— none —</option>
+          {scopedDomains.map((d) => (
+            <option key={d.slug} value={d.slug}>
+              {d.slug}
+            </option>
+          ))}
+        </select>
+      </div>
+    </>
+  );
+}
+
 export function KGIngest() {
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
@@ -125,14 +187,20 @@ export function KGIngest() {
   // Path/URL ingest form
   const [path, setPath] = useState("");
   const [format, setFormat] = useState("");
+  const [pathProduct, setPathProduct] = useState("");
+  const [pathDomain, setPathDomain] = useState("");
 
   // Registered data-source ingest
   const [selectedSource, setSelectedSource] = useState("");
+  const [srcProduct, setSrcProduct] = useState("");
+  const [srcDomain, setSrcDomain] = useState("");
 
   const domainsFetcher = useCallback(() => api.listIngestableDomains(), []);
   const jobsFetcher = useCallback(() => api.listKGIngestJobs({ limit: 25 }), []);
   const sourcesFetcher = useCallback(() => api.listDataSources(), []);
+  const productsFetcher = useCallback(() => api.listProducts(), []);
   const { data: sources } = usePolling<DataSourceInfo[]>(sourcesFetcher, 30000);
+  const { data: products } = usePolling<ProductInfo[]>(productsFetcher, 30000);
 
   const {
     data: domains,
@@ -164,13 +232,22 @@ export function KGIngest() {
   };
 
   const ingestPath = () => {
-    if (!path.trim()) return;
-    startStream({ path: path.trim(), format: format.trim() || undefined });
+    if (!path.trim() || !pathProduct) return;
+    startStream({
+      path: path.trim(),
+      format: format.trim() || undefined,
+      product: pathProduct,
+      domain: pathDomain || undefined,
+    });
   };
 
   const ingestSource = () => {
-    if (!selectedSource) return;
-    startStream({ source: selectedSource });
+    if (!selectedSource || !srcProduct) return;
+    startStream({
+      source: selectedSource,
+      product: srcProduct,
+      domain: srcDomain || undefined,
+    });
   };
 
   return (
@@ -181,13 +258,13 @@ export function KGIngest() {
           <div className="flex items-center gap-3">
             <Link
               to="/kg"
-              className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+              className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
             >
               <ArrowLeft className="h-4 w-4" /> KG Context
             </Link>
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-3 mt-2">
-            <Database className="h-7 w-7 text-indigo-500" />
+            <Database className="h-7 w-7 text-blue-500" />
             KG Ingest
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -231,7 +308,7 @@ export function KGIngest() {
 
         {domainsLoading && !domains && (
           <div className="flex justify-center py-10">
-            <Loader2 className="h-6 w-6 animate-spin text-indigo-400" />
+            <Loader2 className="h-6 w-6 animate-spin text-blue-400" />
           </div>
         )}
 
@@ -246,7 +323,7 @@ export function KGIngest() {
             <p className="font-medium text-gray-500">No domains registered</p>
             <p className="text-sm text-gray-400 mt-1">
               Create a domain and track docs in{" "}
-              <Link to="/onboarding" className="text-indigo-600 dark:text-indigo-400 hover:underline">
+              <Link to="/onboarding" className="text-blue-600 dark:text-blue-400 hover:underline">
                 Domain Onboarding
               </Link>{" "}
               first.
@@ -322,7 +399,15 @@ export function KGIngest() {
               onChange={(e) => setFormat(e.target.value)}
             />
           </div>
-          <Button disabled={running || !path.trim()} onClick={ingestPath}>
+          <ProductDomainPicker
+            products={products ?? undefined}
+            domains={domains ?? undefined}
+            product={pathProduct}
+            domain={pathDomain}
+            onProduct={setPathProduct}
+            onDomain={setPathDomain}
+          />
+          <Button disabled={running || !path.trim() || !pathProduct} onClick={ingestPath}>
             <Play className="h-4 w-4 mr-1.5" /> Ingest
           </Button>
         </div>
@@ -332,7 +417,7 @@ export function KGIngest() {
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Ingest a Registered Source</h2>
-          <Link to="/data" className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline">
+          <Link to="/data" className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
             Manage data sources
           </Link>
         </div>
@@ -352,7 +437,15 @@ export function KGIngest() {
               ))}
             </select>
           </div>
-          <Button disabled={running || !selectedSource} onClick={ingestSource}>
+          <ProductDomainPicker
+            products={products ?? undefined}
+            domains={domains ?? undefined}
+            product={srcProduct}
+            domain={srcDomain}
+            onProduct={setSrcProduct}
+            onDomain={setSrcDomain}
+          />
+          <Button disabled={running || !selectedSource || !srcProduct} onClick={ingestSource}>
             <Play className="h-4 w-4 mr-1.5" /> Ingest
           </Button>
         </div>
@@ -365,7 +458,7 @@ export function KGIngest() {
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Recent Ingest Jobs</h2>
-          {jobsLoading && <Loader2 className="h-4 w-4 animate-spin text-indigo-400" />}
+          {jobsLoading && <Loader2 className="h-4 w-4 animate-spin text-blue-400" />}
         </div>
         <div className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
           <table className="w-full text-sm">

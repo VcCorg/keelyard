@@ -24,10 +24,10 @@ export function ThinkingPanel({ isThinking, toolCalls }: ThinkingPanelProps) {
         onClick={() => setCollapsed(!collapsed)}
         className="flex items-center gap-2 px-4 py-3 border-b border-gray-200 dark:border-gray-800 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
       >
-        <Brain className="h-4 w-4 text-indigo-500" />
+        <Brain className="h-4 w-4 text-blue-500" />
         Thinking
         {isThinking && (
-          <span className="ml-1 h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
+          <span className="ml-1 h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
         )}
         <span className="ml-auto text-xs text-gray-400">{toolCalls.length} calls</span>
         {collapsed ? (

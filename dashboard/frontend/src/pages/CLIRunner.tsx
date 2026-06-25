@@ -40,7 +40,7 @@ export function CLIRunner() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-3">
-          <TerminalSquare className="h-7 w-7 text-indigo-500" />
+          <TerminalSquare className="h-7 w-7 text-blue-500" />
           CLI Console
         </h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -73,7 +73,7 @@ export function CLIRunner() {
             <button
               key={ex}
               onClick={() => setCommand(ex)}
-              className="text-xs font-mono px-2 py-1 rounded-md border border-gray-200 dark:border-gray-700 text-gray-500 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+              className="text-xs font-mono px-2 py-1 rounded-md border border-gray-200 dark:border-gray-700 text-gray-500 hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
             >
               {ex}
             </button>

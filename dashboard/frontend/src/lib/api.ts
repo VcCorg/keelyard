@@ -198,6 +198,7 @@ export interface IngestableDomain {
 
 export interface IngestSubmitParams {
   domain?: string;
+  product?: string;
   path?: string;
   source?: string;
   format?: string;
@@ -205,6 +206,164 @@ export interface IngestSubmitParams {
   workspace?: string;
   depth?: number;
   top?: number;
+}
+
+/* ============ OKF (Open Knowledge Format) Types ============ */
+
+export interface OKFBundleInfo {
+  domain: string;
+  source: "authored" | "export";
+  product: string;
+  path: string;
+  exists: boolean;
+  concepts: number;
+  freqs: number;
+  has_report: boolean;
+}
+
+export interface OKFFreqRow {
+  freq_id: string;
+  title: string;
+  dev_gap: boolean;
+  qa_gap: boolean;
+  acceptance_criteria: number;
+}
+
+export interface OKFValidation {
+  ok: boolean;
+  concepts: number;
+  links: number;
+  typed_links: number;
+  error_count: number;
+  errors: string[];
+}
+
+export interface OKFBundleDetail {
+  info: OKFBundleInfo;
+  validation: OKFValidation;
+  freqs: OKFFreqRow[];
+  gap_count: number;
+  unmapped_labels: number;
+  unmapped_rels: number;
+  quarantined_triples: number;
+}
+
+export interface OKFExportParams {
+  domain: string;
+  product?: string;
+  mint_freqs?: boolean;
+}
+
+export interface OKFDevinStatus {
+  api_key_present: boolean;
+}
+
+export interface OKFDevinPushParams {
+  domain: string;
+  source?: "authored" | "export";
+  types?: string;
+  dry_run?: boolean;
+}
+
+export interface DevinFolder {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export interface DevinKnowledgeItem {
+  id: string;
+  name: string;
+  body: string;
+  trigger_description: string;
+  pinned_repo: string | null;
+  parent_folder_id: string | null;
+  folder_name: string | null;
+  created_by: string | null;
+  created_at: string | null;
+}
+
+export interface DevinKnowledgeUpdate {
+  name?: string;
+  body?: string;
+  trigger_description?: string;
+  pinned_repo?: string;
+  parent_folder_id?: string;
+}
+
+export interface DevinKnowledgeList {
+  folders: DevinFolder[];
+  knowledge: DevinKnowledgeItem[];
+}
+
+/* ---- Integration status ---- */
+export type IntegrationState = "ok" | "warn" | "error" | "unknown";
+
+export interface IntegrationStatus {
+  key: string;
+  label: string;
+  status: IntegrationState;
+  detail: string;
+  hint: string;
+}
+
+export interface IntegrationsResponse {
+  integrations: IntegrationStatus[];
+}
+
+/* ---- Devin Sessions (standalone /api/devin) ---- */
+export interface DevinStatus {
+  api_key_present: boolean;
+  base_url: string;
+  default_max_acu: number;
+  domains: Record<string, unknown>;
+}
+
+export interface DevinSession {
+  session_id: string;
+  url?: string | null;
+  status?: string | null;
+  title?: string | null;
+  domain?: string | null;
+  jira?: string | null;
+  tags: string[];
+  created_at?: string | null;
+}
+
+export interface CreateDevinSessionRequest {
+  prompt: string;
+  title?: string;
+  domain?: string | null;
+  jira?: string;
+  bundle?: string | null;
+  knowledge_from_sync?: boolean;
+  knowledge_ids?: string[];
+  snapshot_id?: string | null;
+  playbook_id?: string | null;
+  tags?: string[];
+  max_acu?: number | null;
+  idempotent?: boolean;
+  unlisted?: boolean;
+  dry_run?: boolean;
+}
+
+export interface CreateDevinSessionResponse {
+  dry_run: boolean;
+  session_id?: string | null;
+  url?: string | null;
+  status?: string | null;
+  is_new: boolean;
+  reused_local: boolean;
+  payload: Record<string, unknown>;
+  knowledge_count: number;
+}
+
+export interface DevinSessionDetail {
+  session_id: string;
+  url?: string | null;
+  status?: string | null;
+  structured_output?: unknown;
+  raw: Record<string, unknown>;
 }
 
 /* ============ Domain Onboarding Types ============ */
@@ -582,6 +741,7 @@ class APIClient {
   kgIngestStreamUrl(params: IngestSubmitParams): string {
     const q = new URLSearchParams();
     if (params.domain) q.append("domain", params.domain);
+    if (params.product) q.append("product", params.product);
     if (params.path) q.append("path", params.path);
     if (params.source) q.append("source", params.source);
     if (params.format) q.append("format", params.format);
@@ -590,6 +750,76 @@ class APIClient {
     if (params.depth) q.append("depth", params.depth.toString());
     if (params.top) q.append("top", params.top.toString());
     return this.streamUrl(`/kg/ingest/submit/stream?${q.toString()}`);
+  }
+
+  /* ---- OKF Bundles ---- */
+  async listOKFBundles(): Promise<OKFBundleInfo[]> {
+    return this.request("/kg/okf/bundles");
+  }
+
+  async getOKFBundle(domain: string, source: "authored" | "export" = "export"): Promise<OKFBundleDetail> {
+    return this.request(`/kg/okf/bundles/${encodeURIComponent(domain)}?source=${source}`);
+  }
+
+  /** Build an SSE URL for `dva kg okf export ...` (no reindex). */
+  okfExportStreamUrl(params: OKFExportParams): string {
+    const q = new URLSearchParams();
+    q.append("domain", params.domain);
+    if (params.product) q.append("product", params.product);
+    q.append("mint_freqs", String(params.mint_freqs ?? true));
+    return this.streamUrl(`/kg/okf/export/stream?${q.toString()}`);
+  }
+
+  /** Whether the backend has a Devin API key (gates live push). */
+  async getOKFDevinStatus(): Promise<OKFDevinStatus> {
+    return this.request("/kg/okf/devin/status");
+  }
+
+  /** Build an SSE URL for `dva kg okf push-devin ...`. */
+  okfDevinPushStreamUrl(params: OKFDevinPushParams): string {
+    const q = new URLSearchParams();
+    q.append("domain", params.domain);
+    q.append("source", params.source ?? "export");
+    q.append("types", params.types ?? "FREQ,Requirement");
+    q.append("dry_run", String(params.dry_run ?? true));
+    return this.streamUrl(`/kg/okf/devin/push/stream?${q.toString()}`);
+  }
+
+  /** List all Devin Knowledge entries + folders. */
+  async listDevinKnowledge(): Promise<DevinKnowledgeList> {
+    return this.request("/kg/okf/devin/knowledge");
+  }
+
+  /** Delete a single Devin Knowledge entry. */
+  async deleteDevinKnowledge(noteId: string): Promise<{ deleted: string }> {
+    return this.request(`/kg/okf/devin/knowledge/${encodeURIComponent(noteId)}`, {
+      method: "DELETE",
+    });
+  }
+
+  /** Move a Devin Knowledge entry to a folder (empty folderId = root). */
+  async moveDevinKnowledge(noteId: string, folderId?: string): Promise<{ moved: string }> {
+    const q = new URLSearchParams();
+    if (folderId) q.append("folder_id", folderId);
+    return this.request(`/kg/okf/devin/knowledge/${encodeURIComponent(noteId)}/move?${q.toString()}`, {
+      method: "POST",
+    });
+  }
+
+  /** Partial update of a Devin Knowledge entry (trigger only, repo, body, or all). */
+  async updateDevinKnowledge(noteId: string, fields: DevinKnowledgeUpdate): Promise<{ updated: string }> {
+    return this.request(`/kg/okf/devin/knowledge/${encodeURIComponent(noteId)}`, {
+      method: "PUT",
+      body: JSON.stringify(fields),
+    });
+  }
+
+  /** Delete multiple Devin Knowledge entries at once. */
+  async bulkDeleteDevinKnowledge(ids: string[]): Promise<{ deleted: string[]; failed: [string, string][] }> {
+    return this.request(`/kg/okf/devin/knowledge/bulk-delete`, {
+      method: "POST",
+      body: JSON.stringify({ ids }),
+    });
   }
 
   /* ---- Data Sources ---- */
@@ -794,6 +1024,38 @@ class APIClient {
 
   async removeDoc(slug: string, pageId: string): Promise<{ success: boolean; message: string }> {
     return this.request(`/domains/${slug}/docs/${pageId}`, { method: "DELETE" });
+  }
+
+  /* ---- Integrations ---- */
+  async getIntegrations(): Promise<IntegrationsResponse> {
+    return this.request("/integrations/status");
+  }
+
+  /* ---- Devin ---- */
+  async getDevinStatus(): Promise<DevinStatus> {
+    return this.request("/devin/status");
+  }
+
+  async listDevinSessions(): Promise<DevinSession[]> {
+    return this.request("/devin/sessions");
+  }
+
+  async createDevinSession(body: CreateDevinSessionRequest): Promise<CreateDevinSessionResponse> {
+    return this.request("/devin/sessions", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  }
+
+  async getDevinSession(sessionId: string): Promise<DevinSessionDetail> {
+    return this.request(`/devin/sessions/${sessionId}`);
+  }
+
+  async sendDevinMessage(sessionId: string, message: string): Promise<unknown> {
+    return this.request(`/devin/sessions/${sessionId}/message`, {
+      method: "POST",
+      body: JSON.stringify({ message }),
+    });
   }
 
   /** Build an absolute URL for an SSE streaming endpoint. */

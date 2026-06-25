@@ -19,6 +19,10 @@ from agentic_cli.commands.kg_workspace import workspace_app
 from agentic_cli.config import CLI_NAME
 kg_app.add_typer(workspace_app, name="workspace", help="Workspace management (LightRAG only)")
 
+# Register OKF bundle subcommand
+from agentic_cli.commands.kg_okf import okf_app
+kg_app.add_typer(okf_app, name="okf", help="Open Knowledge Format (OKF) bundle commands")
+
 # Configuration file location (shared with data commands)
 CONFIG_DIR = Path.home() / ".agent-cli-agentic"
 CONFIG_FILE = CONFIG_DIR / "config.json"
@@ -769,6 +773,11 @@ def ingest_submit(
         "--domain",
         help="Domain slug — auto-fetches tracked Confluence docs, tags with domain metadata, defaults workspace to domain slug",
     ),
+    product: str | None = typer.Option(
+        None,
+        "--product",
+        help="Product name to tag ingested nodes/job with (e.g. CWOW). Derived from --domain if omitted.",
+    ),
     depth: int = typer.Option(
         3,
         "--depth",
@@ -908,7 +917,27 @@ def ingest_submit(
         console.print("[red]✗ Error:[/red] Must specify either --source (data source name), --path (direct path), or --domain.")
         console.print(f"[dim]Use '{CLI_NAME} data list' to see configured data sources.[/dim]")
         raise typer.Exit(1)
-    
+
+    # Tag the ingestion with product (and domain). A knowledge graph should be
+    # tied to a product; the domain is optional. When --domain is given we can
+    # derive the product from the registered domain if it wasn't passed explicitly.
+    if source_metadata is None:
+        source_metadata = {}
+    resolved_product = product
+    if not resolved_product and domain:
+        try:
+            from agentic_cli.tracker import get_domain as _get_domain
+            _d = _get_domain(domain)
+            if _d and _d.get("product"):
+                resolved_product = _d.get("product")
+        except Exception:
+            pass
+    if resolved_product:
+        source_metadata["product"] = resolved_product
+        console.print(f"[cyan]ℹ[/cyan] Tagging ingestion with product: {resolved_product}")
+    if domain:
+        source_metadata.setdefault("domain", domain)
+
     # Handle negation flags
     if no_extract_entities:
         extract_entities = False
@@ -2140,6 +2169,10 @@ def search(
 
 @kg_app.command()
 def stats(
+    domain: str = typer.Option(
+        default=None,
+        help="Domain slug to filter statistics (only shows nodes with matching domain property)",
+    ),
     skip_validation: bool = typer.Option(
         default=False,
         help="Skip connection validation",
@@ -2197,9 +2230,13 @@ def stats(
         if config.provider == "neo4j":
             from agentic_cli.kg.stats import get_stats
             
-            stats = get_stats()
+            stats = get_stats(domain=domain)
             
-            table = Table(title="Knowledge Graph Statistics (Neo4j)")
+            title = "Knowledge Graph Statistics (Neo4j)"
+            if domain:
+                title = f"Knowledge Graph Statistics (Neo4j) - Domain: {domain}"
+            
+            table = Table(title=title)
             table.add_column("Metric", style="cyan")
             table.add_column("Count", style="green", justify="right")
             
@@ -2298,6 +2335,10 @@ def clear(
         default=None,
         help="Provider to clear (neo4j, postgres, lightrag, or both). If not specified, uses configured provider.",
     ),
+    domain: str = typer.Option(
+        default=None,
+        help="Domain slug to clear (only deletes nodes with matching domain property). If not specified, clears all data.",
+    ),
     yes: bool = typer.Option(
         default=False,
         help="Skip confirmation prompt",
@@ -2379,7 +2420,10 @@ def clear(
     # Confirmation prompt
     if not yes:
         provider_names = " and ".join(providers_to_clear)
-        console.print(f"[bold yellow]⚠ Warning:[/bold yellow] This will delete ALL data from {provider_names}.")
+        if domain:
+            console.print(f"[bold yellow]⚠ Warning:[/bold yellow] This will delete ALL data with domain='{domain}' from {provider_names}.")
+        else:
+            console.print(f"[bold yellow]⚠ Warning:[/bold yellow] This will delete ALL data from {provider_names}.")
         console.print("[dim]This operation cannot be undone.[/dim]\n")
         
         confirm = typer.confirm("Are you sure you want to continue?")
@@ -2399,12 +2443,22 @@ def clear(
                 client = Neo4jClient(config)
                 client.connect()
                 
-                # Delete all nodes and relationships
-                with console.status("[bold green]Deleting all nodes and relationships..."):
-                    result = client.execute_cypher("MATCH (n) WHERE n._source = 'dva_kg' DETACH DELETE n")
+                # Delete nodes by domain or all data
+                if domain:
+                    with console.status(f"[bold green]Deleting nodes with domain='{domain}'..."):
+                        # First delete relationships between domain nodes
+                        client.execute_cypher(f"MATCH (n)-[r]-(m) WHERE n.domain = '{domain}' DELETE r")
+                        # Then delete the domain nodes
+                        result = client.execute_cypher(f"MATCH (n) WHERE n.domain = '{domain}' DELETE n")
+                else:
+                    with console.status("[bold green]Deleting all nodes and relationships..."):
+                        result = client.execute_cypher("MATCH (n) WHERE n._source = 'dva_kg' DETACH DELETE n")
                 
                 client.close()
-                console.print(f"[bold green]✓[/bold green] Neo4j data cleared successfully")
+                if domain:
+                    console.print(f"[bold green]✓[/bold green] Neo4j data for domain='{domain}' cleared successfully")
+                else:
+                    console.print(f"[bold green]✓[/bold green] Neo4j data cleared successfully")
                 
             elif p == "postgres":
                 # Clear PostgreSQL data
@@ -2542,6 +2596,10 @@ def visualize(
         default=None,
         help="Filter nodes by type or property",
     ),
+    domain: str | None = typer.Option(
+        default=None,
+        help="Filter nodes by domain slug",
+    ),
     depth: int = typer.Option(
         default=2,
         help="Maximum depth for graph traversal",
@@ -2551,6 +2609,19 @@ def visualize(
     Generate an interactive visualization of the knowledge graph.
     
     Note: This command currently only supports Neo4j provider.
+    
+    Examples:
+        # Visualize entire graph
+        {CLI_NAME} kg visualize
+        
+        # Visualize by domain
+        {CLI_NAME} kg visualize --domain cwow-facility
+        
+        # Visualize by node type
+        {CLI_NAME} kg visualize --filter Document
+        
+        # Visualize by domain with custom depth
+        {CLI_NAME} kg visualize --domain cwow-patient --depth 3
     """
     from agentic_cli.kg.config import KGConfig
     
@@ -2574,7 +2645,7 @@ def visualize(
     
     with console.status("[bold green]Creating visualization..."):
         try:
-            create_visualization(output=output, filter=filter, depth=depth)
+            create_visualization(output=output, filter=filter, domain=domain, depth=depth)
             console.print(f"[bold green]✓[/bold green] Visualization saved: {output}")
             console.print(f"  Open in browser: file://{output.absolute()}")
             
@@ -2869,5 +2940,262 @@ def refresh_links(
 
     except Exception as e:
         console.print(f"[red]✗[/red] Error: {e}")
+        raise typer.Exit(1)
+
+
+@kg_app.command()
+def execute(
+    file: str | None = typer.Option(
+        None,
+        "--file",
+        "-f",
+        help="Path to Cypher script file to execute",
+    ),
+    query: str | None = typer.Option(
+        None,
+        "--query",
+        "-q",
+        help="Single Cypher query to execute",
+    ),
+    domain: str | None = typer.Option(
+        None,
+        "--domain",
+        help="Domain slug to tag executed nodes with domain metadata",
+    ),
+    source: str = typer.Option(
+        "cypher_execute",
+        "--source",
+        help="Source name to tag with _source metadata (default: cypher_execute)",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Show what would be executed without running",
+    ),
+    continue_on_error: bool = typer.Option(
+        False,
+        "--continue-on-error",
+        help="Continue execution if one query fails",
+    ),
+    skip_validation: bool = typer.Option(
+        False,
+        help="Skip connection validation",
+        hidden=True,
+    ),
+) -> None:
+    """
+    Execute Cypher scripts or queries with optional domain tagging.
+    
+    This command allows you to execute Cypher scripts or single queries directly against Neo4j.
+    You can tag executed nodes with domain and source metadata for better data management.
+    
+    Examples:
+        # Execute Cypher script file
+        {CLI_NAME} kg execute --file script.cypher
+        
+        # Execute with domain tagging
+        {CLI_NAME} kg execute --file script.cypher --domain cwow-facility
+        
+        # Execute single query
+        {CLI_NAME} kg execute --query "MATCH (n) RETURN n LIMIT 10"
+        
+        # Dry run to preview
+        {CLI_NAME} kg execute --file script.cypher --dry-run
+        
+        # Continue on errors
+        {CLI_NAME} kg execute --file script.cypher --continue-on-error
+    """
+    from agentic_cli.kg.config import KGConfig
+    from agentic_cli.kg.neo4j_client import Neo4jClient
+    
+    # Validate that either file or query is provided
+    if not file and not query:
+        console.print("[bold red]✗ Error:[/bold red] Either --file or --query must be specified")
+        raise typer.Exit(1)
+    
+    if file and query:
+        console.print("[bold red]✗ Error:[/bold red] Cannot specify both --file and --query")
+        raise typer.Exit(1)
+    
+    # Load configuration
+    config = KGConfig.load()
+    
+    # Validate Neo4j connection
+    if config.provider != "neo4j":
+        console.print(f"[bold red]✗ Error:[/bold red] Execute command only supports Neo4j provider")
+        console.print(f"[dim]Current provider: {config.provider}[/dim]")
+        raise typer.Exit(1)
+    
+    if not validate_neo4j_connection(skip_check=skip_validation):
+        raise typer.Exit(1)
+    
+    # Prepare queries
+    queries = []
+    if file:
+        # Read Cypher script file
+        file_path = Path(file)
+        if not file_path.exists():
+            console.print(f"[bold red]✗ Error:[/bold red] File not found: {file}")
+            raise typer.Exit(1)
+        
+        script_content = file_path.read_text()
+        
+        # Better parsing: handle multi-line CREATE statements and semicolon-terminated statements
+        queries = []
+        current_query = []
+        
+        for line in script_content.split("\n"):
+            stripped = line.strip()
+            
+            # Skip comment lines
+            if stripped.startswith("//"):
+                # If we have a current query, add it
+                if current_query:
+                    query = "\n".join(current_query).strip()
+                    if query:
+                        queries.append(query)
+                    current_query = []
+                continue
+            
+            # Remove inline comments
+            if "//" in line:
+                line = line.split("//")[0].strip()
+            
+            # Skip empty lines
+            if not line.strip():
+                continue
+            
+            current_query.append(line)
+            
+            # Check if line ends with semicolon (end of query)
+            if line.strip().endswith(";"):
+                query = "\n".join(current_query).strip()
+                if query:
+                    queries.append(query)
+                current_query = []
+        
+        # Add any remaining query (multi-line CREATE without semicolon)
+        if current_query:
+            query = "\n".join(current_query).strip()
+            if query:
+                queries.append(query)
+        
+        console.print(f"[cyan]Loaded {len(queries)} queries from:[/cyan] {file}")
+    else:
+        queries = [query]
+        console.print(f"[cyan]Executing single query[/cyan]")
+    
+    # Add domain metadata information
+    if domain:
+        console.print(f"[dim]Domain tagging:[/dim] {domain}")
+    console.print(f"[dim]Source tagging:[/dim] {source}")
+    
+    if dry_run:
+        console.print("\n[bold yellow]Dry run - queries that would be executed:[/bold yellow]\n")
+        for i, q in enumerate(queries, 1):
+            console.print(f"[cyan]{i}.[/cyan] {q}")
+            # Show how domain metadata would be added (using same logic as execution)
+            if domain:
+                q_upper = q.upper()
+                # Skip CONSTRAINT and INDEX statements entirely
+                if "CONSTRAINT" in q_upper or "INDEX" in q_upper:
+                    pass  # Don't add domain metadata to constraints/indexes
+                # Skip MATCH + CREATE relationship patterns
+                elif "MATCH" in q_upper and "CREATE" in q_upper:
+                    pass  # Don't add domain metadata to relationship creation
+                # Only apply to pure CREATE/MERGE node statements
+                elif ("CREATE" in q_upper or "MERGE" in q_upper):
+                    console.print(f"   [dim]Would add: SET n._source = '{source}', n.domain = '{domain}'[/dim]")
+        console.print(f"\n[dim]Total queries: {len(queries)}[/dim]")
+        return
+    
+    # Execute queries
+    console.print("\n[bold]Executing queries...[/bold]\n")
+    
+    client = Neo4jClient(config=config)
+    client.connect()
+    
+    success_count = 0
+    error_count = 0
+    
+    try:
+        for i, original_query in enumerate(queries, 1):
+            query = original_query
+            
+            # Add domain metadata to CREATE/MERGE statements for nodes only
+            # Skip CONSTRAINT, INDEX, and relationship creation statements
+            if domain:
+                query_upper = query.upper()
+                # Skip CONSTRAINT and INDEX statements entirely
+                if "CONSTRAINT" in query_upper or "INDEX" in query_upper:
+                    pass  # Don't add domain metadata to constraints/indexes
+                # Skip MATCH + CREATE relationship patterns
+                elif "MATCH" in query_upper and "CREATE" in query_upper:
+                    pass  # Don't add domain metadata to relationship creation
+                # Only apply to pure CREATE/MERGE node statements
+                elif ("CREATE" in query_upper or "MERGE" in query_upper):
+                    # Skip if this creates multiple nodes (multiple CREATE statements)
+                    # Count CREATE keywords - if more than 1, skip domain tagging
+                    create_count = query_upper.count("CREATE")
+                    if create_count > 1:
+                        pass  # Skip domain tagging for multi-CREATE statements
+                    # Check if this creates a node with properties (not just a label)
+                    elif "(" in query and ")" in query:
+                        # Insert SET clause before the semicolon, not after
+                        # This works for: CREATE (n:Label {props}) SET n.domain = 'x';
+                        # And for: CREATE (n:Label) SET n.domain = 'x';
+                        
+                        # Handle RETURN statement by inserting SET before RETURN
+                        if "RETURN" in query_upper:
+                            # Split on RETURN and insert SET clause before it
+                            parts = query.split("RETURN", 1)
+                            before_return = parts[0].strip()
+                            after_return = parts[1].strip() if len(parts) > 1 else ""
+                            
+                            if "SET" not in before_return.upper():
+                                query = f"{before_return} SET n._source = '{source}', n.domain = '{domain}' RETURN {after_return}"
+                            else:
+                                query = f"{before_return}, n._source = '{source}', n.domain = '{domain}' RETURN {after_return}"
+                        else:
+                            # No RETURN, insert SET clause before semicolon
+                            if query.strip().endswith(";"):
+                                # Remove semicolon, add SET, add semicolon back
+                                query_without_semi = query.rstrip().rstrip(";").strip()
+                                if "SET" not in query_without_semi.upper():
+                                    query = f"{query_without_semi} SET n._source = '{source}', n.domain = '{domain}';"
+                                else:
+                                    query = f"{query_without_semi}, n._source = '{source}', n.domain = '{domain}';"
+                            else:
+                                # No semicolon, just append
+                                if "SET" not in query_upper:
+                                    query += f" SET n._source = '{source}', n.domain = '{domain}'"
+                                else:
+                                    query += f", n._source = '{source}', n.domain = '{domain}'"
+            
+            console.print(f"[cyan]{i}.[/cyan] {original_query[:100]}{'...' if len(original_query) > 100 else ''}")
+            
+            try:
+                result = client.execute_cypher(query, parameters={})
+                rows_affected = len(result) if result else 0
+                console.print(f"   [green]✓[/green] Success - {rows_affected} rows affected")
+                success_count += 1
+            except Exception as e:
+                console.print(f"   [red]✗[/red] Error: {str(e)}")
+                error_count += 1
+                if not continue_on_error:
+                    console.print("\n[bold red]Stopping execution due to error[/bold red]")
+                    console.print("[dim]Use --continue-on-error to continue on failures[/dim]")
+                    break
+    finally:
+        client.close()
+    
+    # Summary
+    console.print(f"\n[bold]Execution Summary:[/bold]")
+    console.print(f"  Total queries: {len(queries)}")
+    console.print(f"  [green]Successful:[/green] {success_count}")
+    if error_count > 0:
+        console.print(f"  [red]Failed:[/red] {error_count}")
+    
+    if error_count > 0:
         raise typer.Exit(1)
 

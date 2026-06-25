@@ -115,6 +115,176 @@ async def list_skills(
         raise HTTPException(status_code=500, detail=f"Failed to list skills: {str(e)}")
 
 
+class IntegrationTarget(BaseModel):
+    """A place a skill can be installed/integrated into."""
+    id: str
+    label: str
+    type: str  # "project" | "domain" | "custom"
+    path: str
+    available: bool = True
+    detail: str = ""
+
+
+class IntegrationTargetsResponse(BaseModel):
+    targets: List[IntegrationTarget]
+
+
+def _resolve_domain_repo_path(workspace: Path, slug: str) -> Optional[Path]:
+    """Best-effort resolution of a domain's local context/meta repo on disk."""
+    candidates = [
+        workspace / slug / f"{slug}-domain-context",
+        workspace / slug / "repos" / "domain-context",
+        workspace / slug / f"domain-{slug}-meta",
+        workspace / slug,
+    ]
+    for c in candidates:
+        if c.exists() and c.is_dir():
+            return c
+    return None
+
+
+class ValidateWithDevinRequest(BaseModel):
+    """Request to validate a skill with a Devin session."""
+    skill_name: str
+    target_path: Optional[str] = None
+    extra_instructions: Optional[str] = None
+    dry_run: bool = False
+
+
+def _load_skill(skill_name: str) -> Dict[str, Any]:
+    """Load a skill's metadata + SKILL.md content from the registry."""
+    from agentic_cli.analyzer.matcher import load_registry
+    from agentic_cli.commands.code import _ensure_registry
+
+    reg_path = _ensure_registry()
+    registry_data = load_registry(reg_path)
+    skill = next((s for s in registry_data.get("skills", []) if s["name"] == skill_name), None)
+    if not skill:
+        raise HTTPException(status_code=404, detail=f"Skill '{skill_name}' not found in registry")
+
+    skill_file = reg_path / "skills" / skill_name / "SKILL.md"
+    content = skill_file.read_text() if skill_file.exists() else ""
+    return {
+        "name": skill["name"],
+        "description": skill.get("description", ""),
+        "tags": skill.get("tags", []),
+        "mcp": skill.get("mcp"),
+        "content": content,
+    }
+
+
+def _build_validation_prompt(skill: Dict[str, Any], target_path: Optional[str], extra: Optional[str]) -> str:
+    """Construct a structured skill-validation prompt for Devin."""
+    parts = [
+        f"You are validating an Agent Skill named **{skill['name']}**.",
+        "",
+        "## Goal",
+        "Exercise this skill end-to-end and assess whether it works as documented.",
+        "Follow the skill's own instructions, run any scripts or steps it defines, and",
+        "test realistic and edge-case inputs.",
+        "",
+    ]
+    if target_path:
+        parts += [f"## Target repository / working directory\n`{target_path}`", ""]
+    if extra:
+        parts += [f"## Additional instructions\n{extra}", ""]
+    parts += [
+        "## Required structured output",
+        "When finished, return a `structured_output` JSON object with exactly these fields:",
+        "```json",
+        "{",
+        '  "verdict": "PASS | FAIL | PARTIAL",',
+        '  "summary": "one-paragraph result",',
+        '  "what_worked": ["..."],',
+        '  "issues": ["..."],',
+        '  "edge_cases_tested": ["..."],',
+        '  "suggested_skill_edits": ["concrete SKILL.md improvements"]',
+        "}",
+        "```",
+        "",
+        "## SKILL.md under test",
+        "```markdown",
+        skill["content"] or "(SKILL.md content unavailable — fetch from the skill source.)",
+        "```",
+    ]
+    return "\n".join(parts)
+
+
+@router.post("/validate-with-devin")
+async def validate_skill_with_devin(req: ValidateWithDevinRequest):
+    """Create a Devin session that validates the given skill. Available to all users."""
+    try:
+        from src.services.devin_service import CreateSessionRequest, create_session
+    except ImportError as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"Devin service unavailable: {e}")
+
+    skill = _load_skill(req.skill_name)
+    prompt = _build_validation_prompt(skill, req.target_path, req.extra_instructions)
+
+    session_req = CreateSessionRequest(
+        prompt=prompt,
+        title=f"Validate skill · {skill['name']}",
+        tags=["skill-validation", skill["name"]],
+        idempotent=True,
+        dry_run=req.dry_run,
+    )
+    try:
+        res = create_session(session_req)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"Failed to create Devin session: {e}")
+
+    return {
+        "skill_name": skill["name"],
+        "dry_run": res.dry_run,
+        "session_id": res.session_id,
+        "url": res.url,
+        "status": res.status,
+        "is_new": res.is_new,
+    }
+
+
+@router.get("/targets", response_model=IntegrationTargetsResponse)
+async def list_integration_targets():
+    """List places a skill can be integrated into: the current project and any
+    on-disk domain repos under the configured code workspace."""
+    targets: List[IntegrationTarget] = [
+        IntegrationTarget(
+            id="cwd",
+            label="Current project",
+            type="project",
+            path=str(Path.cwd()),
+            available=True,
+            detail="Backend working directory",
+        )
+    ]
+
+    # Resolve domain repos under the configured code workspace.
+    try:
+        from agentic_cli.commands.code import _get_config
+        from src.services import domain_service as dsvc
+
+        workspace_raw = (_get_config() or {}).get("code_workspace")
+        workspace = Path(workspace_raw).expanduser() if workspace_raw else None
+
+        for d in dsvc.list_domains():
+            path = _resolve_domain_repo_path(workspace, d.name) if workspace else None
+            targets.append(
+                IntegrationTarget(
+                    id=f"domain:{d.name}",
+                    label=f"{d.domain} ({d.name})",
+                    type="domain",
+                    path=str(path) if path else "",
+                    available=path is not None,
+                    detail="Domain context repo" if path else "Repo not found locally",
+                )
+            )
+    except Exception:  # noqa: BLE001
+        # Domains are a best-effort convenience; never block the project target.
+        pass
+
+    return IntegrationTargetsResponse(targets=targets)
+
+
 @router.get("/project/{project_name:path}", response_model=ProjectSkillsResponse)
 async def get_project_skills(project_name: str):
     """Get skills installed and suggested for a specific project."""

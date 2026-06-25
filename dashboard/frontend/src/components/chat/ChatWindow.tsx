@@ -191,12 +191,12 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
               placeholder={wsConnected ? "Type a message... (Enter to send)" : "Connecting..."}
               disabled={!wsConnected || sending}
               rows={1}
-              className="flex-1 resize-none rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-600 disabled:opacity-50 placeholder-gray-400"
+              className="flex-1 resize-none rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 disabled:opacity-50 placeholder-gray-400"
             />
             <button
               onClick={handleSend}
               disabled={!input.trim() || !wsConnected || sending}
-              className="shrink-0 h-10 w-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 flex items-center justify-center transition-colors"
+              className="shrink-0 h-10 w-10 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 flex items-center justify-center transition-colors"
             >
               {sending ? (
                 <Loader2 className="h-4 w-4 text-white animate-spin" />

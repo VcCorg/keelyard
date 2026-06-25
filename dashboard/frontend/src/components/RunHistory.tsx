@@ -70,7 +70,7 @@ export function RunHistory({
                     onClick={() => open(r.id)}
                     className={cn(
                       "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors",
-                      selected?.id === r.id && "bg-indigo-50 dark:bg-indigo-900/20"
+                      selected?.id === r.id && "bg-blue-50 dark:bg-blue-900/20"
                     )}
                   >
                     <td className="px-3 py-2.5 w-8">

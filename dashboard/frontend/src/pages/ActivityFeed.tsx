@@ -30,7 +30,7 @@ export function ActivityFeed() {
             onClick={() => setFilter(cmd)}
             className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
               filter === cmd
-                ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
+                ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
                 : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
             }`}
           >
@@ -60,7 +60,7 @@ export function ActivityFeed() {
                   <StatusBadge status={entry.status} />
                   <div className="min-w-0">
                     <div className="text-sm font-medium">
-                      <span className="text-indigo-600 dark:text-indigo-400">{entry.command}</span>
+                      <span className="text-blue-600 dark:text-blue-400">{entry.command}</span>
                       {entry.subcommand && (
                         <span className="text-gray-500"> / {entry.subcommand}</span>
                       )}

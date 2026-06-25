@@ -85,7 +85,7 @@ export function DeploymentForm({ onSubmit, onCancel }: DeploymentFormProps) {
               }
             }}
             placeholder="Enter agent name"
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           {errors.agentName && (
             <p className="text-xs text-red-500 mt-1">{errors.agentName}</p>
@@ -105,8 +105,8 @@ export function DeploymentForm({ onSubmit, onCancel }: DeploymentFormProps) {
                 onClick={() => setTarget(t.value)}
                 className={`p-3 rounded-lg border-2 text-left transition-all ${
                   target === t.value
-                    ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30"
-                    : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-indigo-300"
+                    ? "border-blue-500 bg-blue-50 dark:bg-blue-900/30"
+                    : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-blue-300"
                 }`}
               >
                 <p className="font-medium text-gray-900 dark:text-white">{t.label}</p>
@@ -124,7 +124,7 @@ export function DeploymentForm({ onSubmit, onCancel }: DeploymentFormProps) {
           <select
             value={environment}
             onChange={(e) => setEnvironment(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {environments.map((e) => (
               <option key={e.value} value={e.value}>
@@ -164,7 +164,7 @@ export function DeploymentForm({ onSubmit, onCancel }: DeploymentFormProps) {
         <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
           <button
             type="submit"
-            className="flex-1 px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors"
+            className="flex-1 px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors"
           >
             Create Deployment
           </button>

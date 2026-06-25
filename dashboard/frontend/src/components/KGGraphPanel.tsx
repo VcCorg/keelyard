@@ -111,7 +111,7 @@ export function KGGraphPanel({ nodeId, nodeName, nodeType, domain, onClose }: Pr
         {/* Legend */}
         <div className="px-5 py-2 border-b border-gray-800 flex gap-4 text-xs text-gray-400">
           <span className="flex items-center gap-1">
-            <span className="inline-block w-3 h-3 rounded-full bg-indigo-500" /> Code
+            <span className="inline-block w-3 h-3 rounded-full bg-blue-500" /> Code
           </span>
           <span className="flex items-center gap-1">
             <span className="inline-block w-3 h-3 rounded-full bg-emerald-500" /> Document
@@ -127,7 +127,7 @@ export function KGGraphPanel({ nodeId, nodeName, nodeType, domain, onClose }: Pr
         <div ref={containerRef} className="flex-1 bg-gray-950 relative min-h-0">
           {loading && (
             <div className="absolute inset-0 flex items-center justify-center">
-              <Loader2 className="h-6 w-6 text-indigo-400 animate-spin" />
+              <Loader2 className="h-6 w-6 text-blue-400 animate-spin" />
             </div>
           )}
           {error && (
