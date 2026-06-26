@@ -1,6 +1,9 @@
 // API client for Agent Playground dashboard.
 
-const API_BASE = "http://localhost:8000/api";
+// Configurable at build time via VITE_API_BASE.
+//  - Dev (default): talk directly to the local backend.
+//  - Production (nginx): set VITE_API_BASE=/api so requests are reverse-proxied.
+const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api";
 
 /* ============ Types ============ */
 
@@ -371,7 +374,19 @@ export interface DevinSessionDetail {
 export interface ProductInfo {
   name: string;
   description?: string;
+  tags: string[];
   domain_count: number;
+}
+
+export interface CreateProductBody {
+  name: string;
+  description?: string;
+  tags?: string[];
+}
+
+export interface UpdateProductBody {
+  description?: string;
+  tags?: string[];
 }
 
 export interface RepoInfo {
@@ -396,6 +411,7 @@ export interface DomainInfo {
   jira_project?: string;
   jira_board?: string;
   bitbucket_project?: string;
+  bitbucket_url?: string;
   confluence_space?: string;
   confluence_url?: string;
   jira_dashboard?: string;
@@ -432,6 +448,7 @@ export interface CreateDomainBody {
   jira_project?: string;
   jira_board?: string;
   bitbucket_project?: string;
+  bitbucket_url?: string;
   confluence_space?: string;
   confluence_url?: string;
   jira_dashboard?: string;
@@ -959,6 +976,26 @@ class APIClient {
   /* ---- Domain Onboarding ---- */
   async listProducts(): Promise<ProductInfo[]> {
     return this.request("/domains/products");
+  }
+
+  async createProduct(body: CreateProductBody): Promise<ProductInfo> {
+    return this.request("/domains/products", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  }
+
+  async updateProduct(name: string, body: UpdateProductBody): Promise<ProductInfo> {
+    return this.request(`/domains/products/${encodeURIComponent(name)}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    });
+  }
+
+  async deleteProduct(name: string): Promise<{ success: boolean; message: string }> {
+    return this.request(`/domains/products/${encodeURIComponent(name)}`, {
+      method: "DELETE",
+    });
   }
 
   async listDomains(product?: string): Promise<DomainInfo[]> {

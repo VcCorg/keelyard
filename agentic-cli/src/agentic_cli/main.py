@@ -106,6 +106,34 @@ def dashboard(
 
 
 @app.command()
+def doctor(
+    probe: Annotated[
+        bool,
+        typer.Option("--probe", help="Also test network reachability of integration hosts"),
+    ] = False,
+    strict: Annotated[
+        bool,
+        typer.Option("--strict", help="Exit non-zero if ANY check fails (not just required)"),
+    ] = False,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit machine-readable JSON instead of tables"),
+    ] = False,
+) -> None:
+    """
+    Run preflight diagnostics on your environment.
+
+    Validates Python runtime, skills registry, integration credentials
+    (Bitbucket/Jira/Confluence), MCP server reachability, Knowledge Graph
+    connection, and optional tooling (Devin, Docker). Reports actionable fixes.
+    """
+    from agentic_cli.doctor import run_doctor
+
+    exit_code = run_doctor(probe=probe, as_json=json_output, strict=strict)
+    raise typer.Exit(exit_code)
+
+
+@app.command()
 def hello(
     name: Annotated[str, typer.Argument(help="Name to greet")] = "World",
 ) -> None:

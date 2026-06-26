@@ -34,6 +34,33 @@ make backend   # Terminal 1
 make frontend  # Terminal 2
 ```
 
+## Production (Docker)
+
+A production stack is provided via `docker-compose.prod.yml`: the backend runs
+FastAPI under uvicorn, and the frontend is built to static assets and served by
+nginx, which also reverse-proxies `/api` (incl. SSE streams) to the backend.
+
+```bash
+# From the dashboard/ directory
+docker compose -f docker-compose.prod.yml up -d --build
+# Open http://localhost:8080
+```
+
+Configuration:
+
+- **Backend env** — pass integration credentials via environment or an `.env`
+  file in `dashboard/` (e.g. `BITBUCKET_SERVER_URL`, `JIRA_SERVER_URL`,
+  `CONFLUENCE_SERVER_URL` and their `*_PERSONAL_ACCESS_TOKEN`s, `DEVIN_API_KEY`).
+  All are optional for the UI itself.
+- **Frontend API base** — baked at build time via the `VITE_API_BASE` build arg
+  (default `/api`, proxied by nginx). Override in the compose file if needed.
+- **MCP management** — the dashboard's MCP start/stop endpoints shell out to
+  `docker`. To enable them in the container, uncomment the Docker socket mount
+  in `docker-compose.prod.yml`.
+
+> The backend image build context is the **repository root** (it installs the
+> local `agentic-cli` package); the compose file sets this automatically.
+
 ## API Endpoints
 
 ### Agents
