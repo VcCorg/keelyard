@@ -1,0 +1,58 @@
+# Production deployment for the Agentic Dashboard (backend + frontend).
+#
+# Run from the dashboard/ directory:
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Then open http://localhost:8080
+#
+# The frontend (nginx) serves the built SPA and reverse-proxies /api to the
+# backend, so only the frontend port needs to be published.
+
+services:
+  backend:
+    build:
+      # Build context is the repository root so the image can install the
+      # local agentic-cli package the backend depends on.
+      context: ..
+      dockerfile: dashboard/backend/Dockerfile
+    image: agentic-dashboard-backend
+    container_name: agentic-dashboard-backend
+    environment:
+      # Override these as needed; integration creds are optional for the UI.
+      - DEVIN_API_KEY=${DEVIN_API_KEY:-}
+      - DEVIN_VERIFY_SSL=${DEVIN_VERIFY_SSL:-true}
+      - BITBUCKET_SERVER_URL=${BITBUCKET_SERVER_URL:-}
+      - BITBUCKET_PERSONAL_ACCESS_TOKEN=${BITBUCKET_PERSONAL_ACCESS_TOKEN:-}
+      - JIRA_SERVER_URL=${JIRA_SERVER_URL:-}
+      - JIRA_PERSONAL_ACCESS_TOKEN=${JIRA_PERSONAL_ACCESS_TOKEN:-}
+      - CONFLUENCE_SERVER_URL=${CONFLUENCE_SERVER_URL:-}
+      - CONFLUENCE_PERSONAL_ACCESS_TOKEN=${CONFLUENCE_PERSONAL_ACCESS_TOKEN:-}
+    # The dashboard's MCP-management endpoints shell out to `docker`. To enable
+    # those in production, uncomment the socket mount below (host-dependent).
+    # volumes:
+    #   - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    expose:
+      - "8000"
+    networks:
+      - dashboard-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE: /api
+    image: agentic-dashboard-frontend
+    container_name: agentic-dashboard-frontend
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    networks:
+      - dashboard-net
+
+networks:
+  dashboard-net:
+    driver: bridge

@@ -1,0 +1,43 @@
+# Keep the Docker build context small. Used by dashboard/backend/Dockerfile,
+# whose build context is the repository root (it installs ./agentic-cli).
+
+# Virtual environments / caches
+.venv/
+**/.venv/
+**/__pycache__/
+**/*.pyc
+.pytest_cache/
+**/.pytest_cache/
+.ruff_cache/
+
+# Node / frontend build artifacts (frontend has its own image)
+**/node_modules/
+dashboard/frontend/dist/
+
+# Generated knowledge-graph exports & visualizations (huge, not needed)
+knowledge-export/
+*.html
+
+# VCS / IDE / OS
+.git/
+.idea/
+.vscode/
+.cursor/
+.windsurf/
+.devin/
+**/.DS_Store
+
+# Local env & secrets (never bake into images)
+**/.env
+**/.env.*
+!**/.env.example
+
+# Docs & infra not needed to run the backend
+docs/
+doc/
+kg-infrastructure/
+skills/
+agent-templates/
+agent-tools/
+*.md
+*.txt

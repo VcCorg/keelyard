@@ -94,10 +94,10 @@ python smoke_eval_phase1.py
 Covers: register CSV v1 → create config → run `mock:simple` → response
 collection (writes v2) → aggregate scores printed.
 
-### 3.2 Phases 2–5 smoke — `smoke_eval_phase2_5.py`
+### 3.2 Phases 2–5 smoke — `scripts/dev/smoke_eval_phase2_5.py`
 
 ```bash
-python smoke_eval_phase2_5.py
+python scripts/dev/smoke_eval_phase2_5.py
 ```
 
 Covers (against a temp store, no home pollution):
@@ -195,6 +195,6 @@ automated tests via monkeypatch).
 
 - [ ] `48 passed` for the three test files.
 - [ ] `smoke_eval_phase1.py` prints success.
-- [ ] `smoke_eval_phase2_5.py` prints `SMOKE OK; html exists: True True`.
+- [ ] `scripts/dev/smoke_eval_phase2_5.py` prints `SMOKE OK; html exists: True True`.
 - [ ] `dva eval` help commands all exit 0.
 - [ ] (Optional) Ragas/Vertex/KG manual paths validated in a configured env.

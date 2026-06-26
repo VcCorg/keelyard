@@ -28,29 +28,45 @@ agentic-project/              ← This workspace (not a repo itself)
 
 ## Quick Start
 
+**Prerequisites:** [`uv`](https://docs.astral.sh/uv/) (Python 3.12), and Docker (optional, for MCP/KG infrastructure).
+
 ```bash
-# Clone all repos into workspace
-mkdir agentic-project && cd agentic-project
-git clone <repo-url>/agentic-cli.git
-git clone <repo-url>/agent-skills.git skills
-git clone <repo-url>/agent-mcp-servers.git mcp-servers
-git clone <repo-url>/agent-kg-infra.git kg-infrastructure
+# 1. Clone the repo
+git clone <your-fork-or-repo-url> agentic-project
+cd agentic-project
 
-# Install CLI (uses project-level uv venv with Python 3.12)
-./install-agentic-cli.sh --project --native-tls
+# 2. One-shot setup: installs the CLI, configures the skills registry,
+#    bootstraps mcp-servers/.env, and runs preflight diagnostics.
+./setup.sh                 # add --with-mcp to also start the MCP Docker stack
 
-# Activate project venv
+# 3. Activate the project venv
 source .venv/bin/activate
 
-# Configure skills registry
-dva code config --registry ./skills
+# 4. Configure integration credentials in mcp-servers/.env
+#    (set *_SERVER_URL and *_PERSONAL_ACCESS_TOKEN for Bitbucket/Jira/Confluence)
 
-# Start MCP servers
-cd mcp-servers && cp .env.example .env && docker compose up -d && cd ..
+# 5. Verify your environment anytime
+dva doctor                 # add --probe to test host reachability
 
-# Onboard any project
+# 6. Onboard any project
 dva code onboard --path ./some-project
 ```
+
+### Manual setup (if you prefer step-by-step)
+
+```bash
+./install-agentic-cli.sh --project --native-tls   # install CLI into ./.venv
+source .venv/bin/activate
+dva code config --registry ./skills                # configure skills registry
+cp mcp-servers/.env.example mcp-servers/.env       # then edit with your URLs/tokens
+cd mcp-servers && docker compose up -d && cd ..    # start MCP servers
+dva doctor                                         # validate everything
+```
+
+> All base URLs are configuration-driven. Set `BITBUCKET_SERVER_URL`,
+> `JIRA_SERVER_URL`, and `CONFLUENCE_SERVER_URL` (with matching
+> `*_PERSONAL_ACCESS_TOKEN`s) via `mcp-servers/.env` — there are no
+> vendor-specific defaults baked into the code.
 
 ## Development
 
