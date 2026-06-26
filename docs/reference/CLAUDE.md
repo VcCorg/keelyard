@@ -32,4 +32,4 @@ All are Docker containers on shared network. Start with `cd mcp-servers && docke
 - MCP servers use dual transport: `stdio` for local dev, `sse` for Docker.
 - Tokens live in `mcp-servers/.env` (git-ignored). Never commit secrets.
 - CLI installs globally via `uv tool install --force ./agentic-cli`.
-- Full operations guide: `docs/LOCAL_DEV_OPS_GUIDE.md`.
+- Full operations guide: `docs/guides/LOCAL_DEV_OPS_GUIDE.md`.

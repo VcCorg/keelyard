@@ -411,4 +411,4 @@ git submodule update --remote .skills/superpowers
 - **Superpowers Repo**: https://github.com/venkatchinta/superpowers
 - **Superpowers Methodology**: See `superpowers/docs/METHODOLOGY.md`
 - **Skill Development Guide**: See `superpowers/docs/SKILL_DEVELOPMENT.md`
-- **MyAgentPG Domain Context**: See `doc/DOMAIN_SKILLS_INTEGRATION_PLAN.md`
+- **MyAgentPG Domain Context**: See `docs/plans/DOMAIN_SKILLS_INTEGRATION_PLAN.md`

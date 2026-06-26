@@ -559,8 +559,8 @@ dva eval report trends --skill <s> --period "30d"
 
 ## Resources
 
-- **Main Plan**: `docs/EVALUATION_FRAMEWORK_PLAN.md`
-- **OpenSkill Mapping**: `docs/OPENSKILL_COMPLIANCE_MAPPING.md`
+- **Main Plan**: `docs/plans/EVALUATION_FRAMEWORK_PLAN.md`
+- **OpenSkill Mapping**: `docs/reference/OPENSKILL_COMPLIANCE_MAPPING.md`
 - **Implementation**: `agentic-cli/src/agentic_cli/evaluation/`
 - **CLI Commands**: `agentic-cli/src/agentic_cli/commands/eval.py`
 

@@ -76,4 +76,4 @@ These skills teach AI assistants how to use Agentic Platform MCP tools:
 
 ## Operations Guide
 
-For detailed setup, troubleshooting, and day-to-day workflow: `docs/LOCAL_DEV_OPS_GUIDE.md`
+For detailed setup, troubleshooting, and day-to-day workflow: `docs/guides/LOCAL_DEV_OPS_GUIDE.md`
