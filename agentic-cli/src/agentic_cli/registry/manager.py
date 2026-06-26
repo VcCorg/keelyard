@@ -1,6 +1,7 @@
 """Registry manager for unified registry system."""
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Type
 
@@ -54,21 +55,31 @@ class RegistryManager:
         self.config_path.write_text(json.dumps(self._config, indent=2))
     
     def _get_default_config(self) -> Dict[str, Any]:
-        """Get default registry configuration."""
+        """Get default registry configuration.
+
+        Registry URLs are sourced from environment variables so the tool ships
+        without any vendor-specific defaults. Configure them with:
+            DVA_AGENT_TEMPLATES_REGISTRY_URL
+            DVA_AGENT_TOOLS_REGISTRY_URL
+        A registry is enabled only once its URL is set (or via
+        '{CLI_NAME} code config --registry <url>').
+        """
+        templates_url = os.environ.get("DVA_AGENT_TEMPLATES_REGISTRY_URL", "")
+        tools_url = os.environ.get("DVA_AGENT_TOOLS_REGISTRY_URL", "")
         return {
             "registries": {
                 "agent-templates": {
                     "type": "agent-templates",
-                    "url": "https://bitbucket.example.com/scm/~your-user/dva-agent-templates.git",
+                    "url": templates_url,
                     "path": str(Path.home() / ".dva" / "registries" / "dva-agent-templates"),
-                    "enabled": True,
+                    "enabled": bool(templates_url),
                     "default": True
                 },
                 "agent-tools": {
                     "type": "agent-tools", 
-                    "url": "https://bitbucket.example.com/scm/~your-user/dva-agent-tools.git",
+                    "url": tools_url,
                     "path": str(Path.home() / ".dva" / "registries" / "dva-agent-tools"),
-                    "enabled": True,
+                    "enabled": bool(tools_url),
                     "default": True
                 }
             },

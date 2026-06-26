@@ -24,18 +24,32 @@ class CreateDomainRequest(BaseModel):
     jira_project: Optional[str] = None
     jira_board: Optional[str] = None
     bitbucket_project: Optional[str] = None
+    bitbucket_url: Optional[str] = None
     confluence_space: Optional[str] = None
     confluence_url: Optional[str] = None
     jira_dashboard: Optional[str] = None
     tags: list[str] = []
 
 
+class CreateProductRequest(BaseModel):
+    name: str
+    description: Optional[str] = None
+    tags: list[str] = []
+
+
+class UpdateProductRequest(BaseModel):
+    description: Optional[str] = None
+    tags: Optional[list[str]] = None
+
+
 class UpdateDomainRequest(BaseModel):
     domain: Optional[str] = None
+    product: Optional[str] = None
     description: Optional[str] = None
     jira_project: Optional[str] = None
     jira_board: Optional[str] = None
     bitbucket_project: Optional[str] = None
+    bitbucket_url: Optional[str] = None
     confluence_space: Optional[str] = None
     confluence_url: Optional[str] = None
     jira_dashboard: Optional[str] = None
@@ -71,6 +85,35 @@ async def api_list_products():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/products", response_model=svc.ProductInfo)
+async def api_create_product(req: CreateProductRequest):
+    try:
+        return svc.create_product(req.name, description=req.description, tags=req.tags)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.patch("/products/{name}", response_model=svc.ProductInfo)
+async def api_update_product(name: str, req: UpdateProductRequest):
+    updated = svc.update_product(name, description=req.description, tags=req.tags)
+    if not updated:
+        raise HTTPException(status_code=404, detail=f"Product '{name}' not found")
+    return updated
+
+
+@router.delete("/products/{name}", response_model=ActionResponse)
+async def api_delete_product(name: str):
+    try:
+        result = svc.delete_product(name)
+    except svc.ProductInUseError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"Product '{name}' not found")
+    return ActionResponse(success=True, message=f"Product '{name.upper()}' removed")
+
+
 # ── Domains CRUD ────────────────────────────────────────────────────────────
 
 @router.get("", response_model=list[svc.DomainInfo])
@@ -101,7 +144,10 @@ async def api_get_domain(slug: str):
 
 @router.patch("/{slug}", response_model=svc.DomainDetail)
 async def api_update_domain(slug: str, req: UpdateDomainRequest):
-    detail = svc.update_domain(slug, **req.model_dump(exclude_none=True))
+    try:
+        detail = svc.update_domain(slug, **req.model_dump(exclude_none=True))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     if not detail:
         raise HTTPException(status_code=404, detail=f"Domain '{slug}' not found")
     return detail

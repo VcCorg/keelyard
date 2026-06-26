@@ -522,7 +522,7 @@ def onboard(
 
     Examples:
         {CLI_NAME} code onboard --path ./my-repo
-        {CLI_NAME} code onboard --repo https://bitbucket.example.com/scm/CGP/my-repo.git
+        {CLI_NAME} code onboard --repo https://bitbucket.example.com/scm/PROJ/my-repo.git
         {CLI_NAME} code onboard --repo <url> --target ./workspace
         {CLI_NAME} code onboard --path ./my-repo --registry /path/to/skills
         {CLI_NAME} code onboard --path ./my-repo --kg

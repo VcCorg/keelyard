@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings
 class BitbucketConfig(BaseSettings):
     """Bitbucket Server connection configuration."""
 
-    server_url: str = "https://bitbucket.example.com"
+    server_url: str = ""  # required via BITBUCKET_SERVER_URL (e.g. https://bitbucket.example.com)
     personal_access_token: str = ""
     default_project: str = ""
     default_repo: str = ""

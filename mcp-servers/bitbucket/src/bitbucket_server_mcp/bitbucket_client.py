@@ -142,8 +142,8 @@ class BitbucketClient:
         """Parse a Bitbucket PR URL into (project, repo, pr_id).
 
         Supports:
-          https://bitbucket.example.com/projects/CGP/repos/cwow-patient-query-spanner/pull-requests/1936/overview
-          https://bitbucket.example.com/projects/CGP/repos/cwow-patient-query-spanner/pull-requests/1936
+          https://bitbucket.example.com/projects/PROJ/repos/my-repo/pull-requests/1936/overview
+          https://bitbucket.example.com/projects/PROJ/repos/my-repo/pull-requests/1936
         """
         parsed = urlparse(url)
         parts = [p for p in parsed.path.split("/") if p]

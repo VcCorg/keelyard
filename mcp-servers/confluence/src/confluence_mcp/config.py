@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings
 class ConfluenceConfig(BaseSettings):
     """Confluence Server connection configuration."""
 
-    server_url: str = "https://confluence.example.com"
+    server_url: str = ""  # required via CONFLUENCE_SERVER_URL (e.g. https://confluence.example.com)
     personal_access_token: str = ""
     default_space: str = ""
     verify_ssl: bool = True

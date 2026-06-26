@@ -92,6 +92,7 @@ def create(
     description: Annotated[str, typer.Option("--description", "-d", help="Description of this domain")] = None,
     jira_project: Annotated[str, typer.Option("--jira", help="Jira project key")] = None,
     bitbucket_project: Annotated[str, typer.Option("--bb", help="Bitbucket project key")] = None,
+    bitbucket_url: Annotated[str, typer.Option("--bb-url", help="Bitbucket project/repo URL")] = None,
     confluence_space: Annotated[str, typer.Option("--confluence", help="Source Confluence space key")] = None,
     jira_dashboard: Annotated[str, typer.Option("--jira-dashboard", help="Jira dashboard URL")] = None,
     jira_board: Annotated[str, typer.Option("--jira-board", help="Jira board name/ID")] = None,
@@ -135,6 +136,7 @@ def create(
         jira_project=jira_project,
         jira_board=jira_board,
         bitbucket_project=bitbucket_project,
+        bitbucket_url=bitbucket_url,
         confluence_space=confluence_space,
         jira_dashboard=jira_dashboard,
         confluence_url=confluence_url,
@@ -155,6 +157,8 @@ def create(
         panel_lines.append(f"[cyan]Jira Project:[/cyan] {jira_project}")
     if bitbucket_project:
         panel_lines.append(f"[cyan]Bitbucket Project:[/cyan] {bitbucket_project}")
+    if bitbucket_url:
+        panel_lines.append(f"[cyan]Bitbucket URL:[/cyan] {bitbucket_url}")
     if confluence_space:
         panel_lines.append(f"[cyan]Confluence Space:[/cyan] {confluence_space}")
     if jira_dashboard:
@@ -337,6 +341,7 @@ def update(
     description: Annotated[str, typer.Option("--description", "-d", help="Update description")] = None,
     jira_project: Annotated[str, typer.Option("--jira", help="Update Jira project key")] = None,
     bitbucket_project: Annotated[str, typer.Option("--bb", help="Update Bitbucket project key")] = None,
+    bitbucket_url: Annotated[str, typer.Option("--bb-url", help="Update Bitbucket project/repo URL")] = None,
     confluence_space: Annotated[str, typer.Option("--confluence", help="Update Confluence space key")] = None,
     jira_dashboard: Annotated[str, typer.Option("--jira-dashboard", help="Jira dashboard URL")] = None,
     jira_board: Annotated[str, typer.Option("--jira-board", help="Jira board name/ID")] = None,
@@ -368,6 +373,8 @@ def update(
         fields["jira_project"] = jira_project
     if bitbucket_project:
         fields["bitbucket_project"] = bitbucket_project
+    if bitbucket_url:
+        fields["bitbucket_url"] = bitbucket_url
     if confluence_space:
         fields["confluence_space"] = confluence_space
     if jira_dashboard:
