@@ -145,11 +145,11 @@ dva kg init --provider postgres \
 - Query operation: ✗ Fails with "LightRAG not initialized"
 - Stats operation: ✗ Fails with "LightRAG not initialized"
 
-**Known Issues (from kg-infrastructure/lightrag/):**
-- DOCUMENT_STATUS_FIX.md - Status value mismatch
-- GOOGLE_AUTH_FIX.md - Authentication issues
-- QUERY_SEARCH_FIX.md - Query/search problems
-- QUICK_FIX.md - General fixes
+**Known Issues:**
+- Document status value mismatches
+- Authentication setup complexity
+- Query/search reliability problems
+- Requires manual initialization
 
 **Best For:**
 - Document Q&A systems

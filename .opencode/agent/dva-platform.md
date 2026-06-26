@@ -61,7 +61,7 @@ docker compose logs -f <service>
 
 ## Key Files
 
-- `docs/LOCAL_DEV_OPS_GUIDE.md` — Operations guide (setup, troubleshooting)
+- `docs/guides/LOCAL_DEV_OPS_GUIDE.md` — Operations guide (setup, troubleshooting)
 - `agentic-cli/docs/AGENT_DEVELOPMENT.md` — CLI architecture reference
 - `mcp-servers/docker-compose.yml` — All MCP services
 - `skills/registry.json` — Skills auto-detect rules
