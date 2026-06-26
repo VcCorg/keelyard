@@ -19,9 +19,8 @@ COPY . .
 # Requests are reverse-proxied through nginx in production.
 ARG VITE_API_BASE=/api
 ENV VITE_API_BASE=${VITE_API_BASE}
-# Use Vite directly to emit the production bundle. (The package `build` script
-# also runs `tsc -b` type-checking, which is decoupled from bundle emission.)
-RUN npx vite build
+# Type-check (tsc -b) and emit the production bundle (vite build).
+RUN npm run build
 
 # ---- Serve stage ----
 FROM nginx:alpine AS serve

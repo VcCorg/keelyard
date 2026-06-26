@@ -39,6 +39,7 @@ export interface ActivityEntry {
   status: string;
   timestamp: string;
   duration_ms?: number;
+  repo_path?: string;
 }
 
 export interface OverviewData {
@@ -584,6 +585,61 @@ export interface TerminalSession {
   created_at: string;
 }
 
+/* ============ Chat Types ============ */
+
+export interface ChatSessionInfo {
+  id: string;
+  agent_name: string;
+  created_at: string;
+  message_count?: number;
+}
+
+export type ChatStreamEventType =
+  | "thinking_start"
+  | "tool_call"
+  | "tool_result"
+  | "thinking_end"
+  | "agent_response"
+  | "agent_response_end"
+  | "error";
+
+export interface ChatStreamEvent {
+  type: ChatStreamEventType;
+  data: Record<string, any>;
+}
+
+/* ============ Agent Project Types ============ */
+
+export interface ProjectValidation {
+  path_exists?: boolean;
+  has_src?: boolean;
+  has_pyproject?: boolean;
+  has_env?: boolean;
+  has_domain_context?: boolean;
+  has_persona_skills?: boolean;
+  has_mcp_clients?: boolean | null;
+  has_sprint_manager?: boolean | null;
+  has_standup_generator?: boolean | null;
+  has_domain_loader?: boolean | null;
+  has_watcher?: boolean | null;
+  has_reviewer?: boolean | null;
+  score: number;
+  total: number;
+  [check: string]: boolean | number | null | undefined;
+}
+
+export interface AgentProject {
+  name: string;
+  path: string;
+  framework?: string;
+  use_case?: string;
+  tools: string[];
+  agent_type: string;
+  created_at?: string;
+  domain?: string;
+  validation?: ProjectValidation;
+}
+
 /* ============ API Client ============ */
 
 class APIClient {
@@ -644,6 +700,14 @@ class APIClient {
   /* ---- MCP Servers ---- */
   async listMCPServers(): Promise<MCPServerInfo[]> {
     return this.request("/mcp/servers");
+  }
+
+  async startMCPServer(name: string): Promise<{ success: boolean; message: string }> {
+    return this.request(`/mcp/servers/${encodeURIComponent(name)}/start`, { method: "POST" });
+  }
+
+  async stopMCPServer(name: string): Promise<{ success: boolean; message: string }> {
+    return this.request(`/mcp/servers/${encodeURIComponent(name)}/stop`, { method: "POST" });
   }
 
   /* ---- Activity ---- */
@@ -1093,6 +1157,36 @@ class APIClient {
       method: "POST",
       body: JSON.stringify({ message }),
     });
+  }
+
+  /* ---- Agent Projects ---- */
+  async discoverProjects(workspace?: string): Promise<AgentProject[]> {
+    const q = workspace ? `?workspace=${encodeURIComponent(workspace)}` : "";
+    return this.request(`/agents/projects${q}`);
+  }
+
+  /* ---- Chat ---- */
+  async listChatSessions(): Promise<ChatSessionInfo[]> {
+    return this.request("/chat/sessions");
+  }
+
+  async createChatSession(agentName: string = "dva-assistant"): Promise<ChatSessionInfo> {
+    return this.request("/chat/sessions", {
+      method: "POST",
+      body: JSON.stringify({ agent_name: agentName }),
+    });
+  }
+
+  async deleteChatSession(id: string): Promise<{ success: boolean; message: string }> {
+    return this.request(`/chat/sessions/${encodeURIComponent(id)}`, { method: "DELETE" });
+  }
+
+  /** Build a WebSocket URL for the streaming chat endpoint. */
+  chatWebSocketUrl(sessionId: string): string {
+    const base = this.baseUrl.startsWith("http")
+      ? this.baseUrl
+      : `${window.location.origin}${this.baseUrl}`;
+    return `${base.replace(/^http/, "ws")}/chat/${encodeURIComponent(sessionId)}/stream`;
   }
 
   /** Build an absolute URL for an SSE streaming endpoint. */

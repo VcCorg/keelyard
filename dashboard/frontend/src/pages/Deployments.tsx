@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { usePolling } from "@/hooks/usePolling";
 import { api, type Deployment } from "@/lib/api";
 import { DeploymentCard } from "@/components/DeploymentCard";
@@ -9,7 +9,6 @@ export function Deployments() {
   const fetcher = useCallback(() => api.listDeployments(), []);
   const { data: deployments, loading, refresh } = usePolling<Deployment[]>(fetcher, 10000);
   const [showForm, setShowForm] = useState(false);
-  const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
 
   const handleCreateDeployment = async (data: {
     agentName: string;

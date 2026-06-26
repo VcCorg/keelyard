@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { MessageSquare, Plus, Trash2, ExternalLink, Bot, ChevronDown } from "lucide-react";
+import { MessageSquare, Plus, Trash2, ExternalLink, ChevronDown } from "lucide-react";
 import { api, type ChatSessionInfo, type AgentInfo } from "@/lib/api";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 
