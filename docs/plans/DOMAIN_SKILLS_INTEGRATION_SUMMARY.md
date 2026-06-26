@@ -279,10 +279,10 @@ dva domain contribute-skill cwow-facility \
 
 For detailed information, see:
 
-- **Full Plan**: `doc/DOMAIN_SKILLS_INTEGRATION_PLAN.md`
-- **Superpowers Reference**: `doc/SUPERPOWERS_INTEGRATION_REFERENCE.md`
-- **User Guide** (TBD): `doc/DOMAIN_SKILLS_USER_GUIDE.md`
-- **Contribution Guide** (TBD): `doc/SKILL_CONTRIBUTION_GUIDE.md`
+- **Full Plan**: `docs/plans/DOMAIN_SKILLS_INTEGRATION_PLAN.md`
+- **Superpowers Reference**: `docs/reference/SUPERPOWERS_INTEGRATION_REFERENCE.md`
+- **User Guide** (TBD): `docs/guides/DOMAIN_SKILLS_USER_GUIDE.md`
+- **Contribution Guide** (TBD): `docs/plans/SKILL_CONTRIBUTION_GUIDE.md`
 
 ---
 

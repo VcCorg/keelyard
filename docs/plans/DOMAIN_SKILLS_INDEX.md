@@ -325,8 +325,8 @@ A: Yes. `code onboard` without `--domain` works exactly as before. Domain skills
 
 - **Domain Context Workflow**: `.windsurf/workflows/domain-context.md`
 - **Code Onboard Workflow**: `.windsurf/workflows/code-onboard.md` (TBD)
-- **Skill Contribution Guide**: `doc/SKILL_CONTRIBUTION_GUIDE.md` (TBD)
-- **Domain Skills User Guide**: `doc/DOMAIN_SKILLS_USER_GUIDE.md` (TBD)
+- **Skill Contribution Guide**: `docs/plans/SKILL_CONTRIBUTION_GUIDE.md` (TBD)
+- **Domain Skills User Guide**: `docs/guides/DOMAIN_SKILLS_USER_GUIDE.md` (TBD)
 
 ---
 
