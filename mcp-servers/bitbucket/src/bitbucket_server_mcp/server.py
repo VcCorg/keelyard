@@ -79,7 +79,7 @@ def get_pr_overview(
     """Get pull request overview including title, description, author, reviewers, and status.
 
     Provide either:
-      - pr_url: Full Bitbucket PR URL (e.g. https://bitbucket.example.com/projects/CGP/repos/my-repo/pull-requests/123)
+      - pr_url: Full Bitbucket PR URL (e.g. https://bitbucket.example.com/projects/PROJ/repos/my-repo/pull-requests/123)
       - OR project + repo + pr_id separately
 
     Returns PR metadata, branch info, reviewer statuses, and merge readiness.

@@ -162,6 +162,50 @@ def parse_project_key(value: str) -> str:
         return value
 
 
+def parse_bitbucket_url(value: str) -> tuple[str, str]:
+    """Extract (project_key, repo_slug) from a Bitbucket URL.
+
+    Supports both web and SCM URL shapes:
+        .../projects/CGF/repos/my-repo            -> ("CGF", "my-repo")
+        .../projects/CGF                          -> ("CGF", "")
+        .../scm/CGF/my-repo.git                   -> ("CGF", "my-repo")
+
+    Returns:
+        tuple: (project_key, repo_slug) - either may be empty if not found.
+    """
+    if not value or "/" not in value:
+        return ("", "")
+
+    parts = [p for p in urlparse(value).path.split("/") if p]
+    project_key = ""
+    repo_slug = ""
+
+    # Web URL: /projects/KEY/repos/REPO
+    try:
+        idx = parts.index("projects")
+        if idx + 1 < len(parts):
+            project_key = parts[idx + 1]
+        if "repos" in parts:
+            ridx = parts.index("repos")
+            if ridx + 1 < len(parts):
+                repo_slug = parts[ridx + 1]
+        return (project_key, repo_slug.removesuffix(".git"))
+    except ValueError:
+        pass
+
+    # SCM URL: /scm/KEY/REPO.git
+    try:
+        idx = parts.index("scm")
+        if idx + 1 < len(parts):
+            project_key = parts[idx + 1]
+        if idx + 2 < len(parts):
+            repo_slug = parts[idx + 2]
+    except ValueError:
+        pass
+
+    return (project_key, repo_slug.removesuffix(".git"))
+
+
 def parse_space_key(value: str) -> str:
     """Extract Confluence space key from URL or return as-is."""
     if not value or "/" not in value:

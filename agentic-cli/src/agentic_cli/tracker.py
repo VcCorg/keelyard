@@ -19,7 +19,7 @@ from typing import Any, Optional
 DB_DIR = Path.home() / ".agent-cli-agentic"
 DB_PATH = DB_DIR / "tracker.db"
 
-_SCHEMA_VERSION = 9
+_SCHEMA_VERSION = 10
 
 _SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -95,6 +95,7 @@ CREATE TABLE IF NOT EXISTS domains (
     jira_project            TEXT,                      -- Jira project key, e.g. 'CWOW'
     jira_board              TEXT,                      -- Jira board name/ID
     bitbucket_project       TEXT,                      -- Bitbucket project key, e.g. 'CGF'
+    bitbucket_url           TEXT,                      -- Bitbucket project/repo URL
     confluence_space        TEXT,                      -- source Confluence space, e.g. 'MTT'
     managed_confluence_space TEXT,                     -- agent-owned space, e.g. 'DVACWOWFAC'
     jira_dashboard          TEXT,                      -- Jira dashboard URL
@@ -274,6 +275,11 @@ def _ensure_db() -> Path:
                 # Add kg_ingested column to domains table
                 conn.execute("ALTER TABLE domains ADD COLUMN kg_ingested INTEGER DEFAULT 0")
                 conn.execute("UPDATE schema_version SET version = 9")
+                current_version = 9
+            if current_version < 10:
+                # Add bitbucket_url column to domains table
+                conn.execute("ALTER TABLE domains ADD COLUMN bitbucket_url TEXT")
+                conn.execute("UPDATE schema_version SET version = 10")
         conn.commit()
     finally:
         conn.close()
@@ -786,6 +792,7 @@ def register_domain(
     jira_project: str = None,
     jira_board: str = None,
     bitbucket_project: str = None,
+    bitbucket_url: str = None,
     confluence_space: str = None,
     managed_confluence_space: str = None,
     jira_dashboard: str = None,
@@ -801,13 +808,13 @@ def register_domain(
             conn.execute(
                 """UPDATE domains SET
                        product=?, domain=?, description=?,
-                       jira_project=?, jira_board=?, bitbucket_project=?,
+                       jira_project=?, jira_board=?, bitbucket_project=?, bitbucket_url=?,
                        confluence_space=?, managed_confluence_space=?,
                        jira_dashboard=?, confluence_url=?, tags=?, kg_ingested=?, updated_at=?
                    WHERE name=?""",
                 (
                     product, domain, description,
-                    jira_project, jira_board, bitbucket_project,
+                    jira_project, jira_board, bitbucket_project, bitbucket_url,
                     confluence_space, managed_confluence_space,
                     jira_dashboard, confluence_url, _json_dumps(tags), kg_ingested, now, name,
                 ),
@@ -817,12 +824,12 @@ def register_domain(
             cur = conn.execute(
                 """INSERT INTO domains
                    (name, product, domain, description, jira_project, jira_board,
-                    bitbucket_project, confluence_space, managed_confluence_space,
+                    bitbucket_project, bitbucket_url, confluence_space, managed_confluence_space,
                     jira_dashboard, confluence_url, tags, kg_ingested, created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     name, product, domain, description,
-                    jira_project, jira_board, bitbucket_project,
+                    jira_project, jira_board, bitbucket_project, bitbucket_url,
                     confluence_space, managed_confluence_space,
                     jira_dashboard, confluence_url, _json_dumps(tags), kg_ingested, now, now,
                 ),
@@ -865,7 +872,7 @@ def update_domain(name: str, **fields) -> bool:
     """Update specific fields on a domain."""
     allowed = {
         "product", "domain", "description", "jira_project", "jira_board",
-        "bitbucket_project", "confluence_space", "managed_confluence_space",
+        "bitbucket_project", "bitbucket_url", "confluence_space", "managed_confluence_space",
         "jira_dashboard", "confluence_url", "tags", "kg_ingested",
     }
     updates = {k: v for k, v in fields.items() if k in allowed and v is not None}
@@ -924,29 +931,32 @@ def link_repo_to_domain(domain_name: str, repo_slug: str, repo_name: str = None,
 
 def _normalize_bitbucket_clone_url(url: str) -> str:
     """
-    Convert Bitbucket web URLs to git clone URLs.
-    
+    Convert Bitbucket Server web URLs to git clone (SCM) URLs.
+
+    Works with any Bitbucket Server host (the scheme + host are preserved).
+
     Examples:
         https://bitbucket.example.com/projects/CGF/repos/my-repo
         -> https://bitbucket.example.com/scm/CGF/my-repo.git
-        
+
         https://bitbucket.example.com/projects/CGF/repos/my-repo.git
         -> https://bitbucket.example.com/scm/CGF/my-repo.git
     """
     if not url:
         return url
-    
-    # Pattern: https://bitbucket.example.com/projects/{PROJECT}/repos/{REPO}
-    # Convert to: https://bitbucket.example.com/scm/{PROJECT}/{REPO}.git
+
+    # Pattern: <scheme>://<host>/projects/{PROJECT}/repos/{REPO}
+    # Convert to: <scheme>://<host>/scm/{PROJECT}/{REPO}.git
     import re
-    pattern = r'https://bitbucket\.example\.com/projects/([^/]+)/repos/([^/]+)(\.git)?'
+    pattern = r'^(https?://[^/]+)/projects/([^/]+)/repos/([^/?#]+?)(?:\.git)?/?$'
     match = re.match(pattern, url)
-    
+
     if match:
-        project = match.group(1)
-        repo = match.group(2)
-        return f"https://bitbucket.example.com/scm/{project}/{repo}.git"
-    
+        base = match.group(1)
+        project = match.group(2)
+        repo = match.group(3)
+        return f"{base}/scm/{project}/{repo}.git"
+
     return url
 
 

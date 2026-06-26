@@ -63,8 +63,8 @@ class JiraClient:
         """Parse a Jira issue URL into an issue key.
 
         Supports:
-          https://jira.example.com/browse/CWHE-12345
-          https://jira.example.com/browse/CWHE-12345?...
+          https://jira.example.com/browse/PROJ-12345
+          https://jira.example.com/browse/PROJ-12345?...
         """
         parsed = urlparse(url)
         parts = [p for p in parsed.path.split("/") if p]

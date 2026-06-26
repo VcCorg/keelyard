@@ -1036,9 +1036,9 @@ def ingest_submit(
             failed_count = 0
             
             try:
-                conf_base = config.confluence_url or "https://confluence.example.com"
+                conf_base = config.confluence_url or ""
             except Exception:
-                conf_base = "https://confluence.example.com"
+                conf_base = ""
             
             for doc_rec in docs:
                 page_id = doc_rec.get("source_page_id")
@@ -1238,9 +1238,9 @@ def ingest_submit(
                         if docs:
                             console.print(f"[dim]Fetching {len(docs)} tracked docs for domain '{domain}'...[/dim]")
                             try:
-                                conf_base = config.confluence_url or "https://confluence.example.com"
+                                conf_base = config.confluence_url or ""
                             except Exception:
-                                conf_base = "https://confluence.example.com"
+                                conf_base = ""
 
                             for doc_rec in docs:
                                 page_id = doc_rec.get("source_page_id")

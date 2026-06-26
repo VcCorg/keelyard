@@ -67,7 +67,7 @@ def get_issue(
 
     Provide either:
       - issue_key: Jira issue key (e.g. CWHE-12345)
-      - OR issue_url: Full Jira URL (e.g. https://jira.example.com/browse/CWHE-12345)
+      - OR issue_url: Full Jira URL (e.g. https://jira.example.com/browse/PROJ-12345)
 
     Returns issue summary, description, status, priority, assignee, reporter,
     labels, components, fix versions, subtasks, and linked issues.

@@ -10,6 +10,9 @@ import {
   Plus,
   Trash2,
   RefreshCw,
+  Pencil,
+  X,
+  Package,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -203,6 +206,10 @@ export function DomainOnboarding() {
             await refreshActive(slug);
             setStep("repos");
           }}
+          onChanged={async (deletedSlug?: string) => {
+            if (deletedSlug && active?.name === deletedSlug) setActive(null);
+            await refreshLists();
+          }}
           onError={setError}
         />
       )}
@@ -222,6 +229,328 @@ export function DomainOnboarding() {
   );
 }
 
+/* ── Products management (list / create / edit / delete) ─────────────────── */
+function ProductsPanel({
+  products,
+  onChanged,
+  onError,
+}: {
+  products: ProductInfo[];
+  onChanged: () => void;
+  onError: (e: string) => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState("");
+  const [desc, setDesc] = useState("");
+  const [tags, setTags] = useState("");
+  const [editing, setEditing] = useState<string | null>(null);
+  const [editDesc, setEditDesc] = useState("");
+  const [editTags, setEditTags] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const parseTags = (s: string) =>
+    s.split(",").map((t) => t.trim()).filter(Boolean);
+
+  const create = async () => {
+    if (!name.trim()) {
+      onError("Product name is required.");
+      return;
+    }
+    setBusy("__create__");
+    try {
+      await api.createProduct({
+        name: name.trim(),
+        description: desc.trim() || undefined,
+        tags: parseTags(tags),
+      });
+      setName("");
+      setDesc("");
+      setTags("");
+      setAdding(false);
+      onChanged();
+    } catch (e) {
+      onError(String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const beginEdit = (p: ProductInfo) => {
+    setEditing(p.name);
+    setEditDesc(p.description ?? "");
+    setEditTags((p.tags ?? []).join(", "));
+  };
+
+  const saveEdit = async (productName: string) => {
+    setBusy(productName);
+    try {
+      await api.updateProduct(productName, {
+        description: editDesc.trim(),
+        tags: parseTags(editTags),
+      });
+      setEditing(null);
+      onChanged();
+    } catch (e) {
+      onError(String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const remove = async (p: ProductInfo) => {
+    if (p.domain_count > 0) return;
+    if (!window.confirm(`Remove product "${p.name}"? This cannot be undone.`)) return;
+    setBusy(p.name);
+    try {
+      await api.deleteProduct(p.name);
+      onChanged();
+    } catch (e) {
+      onError(String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-semibold flex items-center gap-2">
+          <Package className="h-4 w-4" /> Products ({products.length})
+        </h2>
+        <Button variant="outline" size="sm" onClick={() => setAdding((v) => !v)}>
+          {adding ? <X className="h-4 w-4 mr-1" /> : <Plus className="h-4 w-4 mr-1" />}
+          {adding ? "Cancel" : "New product"}
+        </Button>
+      </div>
+
+      {adding && (
+        <div className="rounded-md border border-dashed border-gray-300 dark:border-gray-700 p-3 mb-3 grid grid-cols-1 sm:grid-cols-3 gap-2 items-end">
+          <div>
+            <label className="text-xs text-gray-500">Name * (e.g. CWOW)</label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="CWOW" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500">Description</label>
+            <Input value={desc} onChange={(e) => setDesc(e.target.value)} />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500">Tags (comma-separated)</label>
+            <div className="flex gap-2">
+              <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="healthcare, gcp" />
+              <Button onClick={create} disabled={busy === "__create__"}>
+                {busy === "__create__" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-2 max-h-72 overflow-y-auto">
+        {products.length === 0 && (
+          <p className="text-sm text-gray-500">No products yet. Create one to onboard domains.</p>
+        )}
+        {products.map((p) => (
+          <div
+            key={p.name}
+            className="rounded-md border border-gray-200 dark:border-gray-800 px-3 py-2"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <div className="font-medium text-sm flex items-center gap-2">
+                  {p.name}
+                  <Badge variant="secondary">{p.domain_count} domains</Badge>
+                </div>
+                {p.description && (
+                  <div className="text-xs text-gray-500 truncate">{p.description}</div>
+                )}
+                {(p.tags?.length ?? 0) > 0 && (
+                  <div className="text-xs text-gray-400 mt-0.5">{p.tags.join(", ")}</div>
+                )}
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => (editing === p.name ? setEditing(null) : beginEdit(p))}
+                  title="Edit product"
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => remove(p)}
+                  disabled={p.domain_count > 0 || busy === p.name}
+                  title={
+                    p.domain_count > 0
+                      ? `Reassign or delete its ${p.domain_count} domain(s) first`
+                      : "Remove product"
+                  }
+                >
+                  <Trash2 className={cn("h-4 w-4", p.domain_count > 0 ? "text-gray-300" : "text-red-500")} />
+                </Button>
+              </div>
+            </div>
+
+            {editing === p.name && (
+              <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 items-end">
+                <div>
+                  <label className="text-xs text-gray-500">Description</label>
+                  <Input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Tags (comma-separated)</label>
+                  <Input value={editTags} onChange={(e) => setEditTags(e.target.value)} />
+                </div>
+                <Button onClick={() => saveEdit(p.name)} disabled={busy === p.name}>
+                  {busy === p.name ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
+                  Save
+                </Button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── A single existing-domain row with select / edit / delete ────────────── */
+function DomainRow({
+  domain,
+  products,
+  active,
+  onSelect,
+  onChanged,
+  onError,
+}: {
+  domain: DomainInfo;
+  products: ProductInfo[];
+  active: boolean;
+  onSelect: (slug: string) => void;
+  onChanged: (deletedSlug?: string) => void;
+  onError: (e: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({
+    product: domain.product,
+    description: domain.description ?? "",
+    jira_project: domain.jira_project ?? "",
+    bitbucket_project: domain.bitbucket_project ?? "",
+    bitbucket_url: domain.bitbucket_url ?? "",
+    confluence_space: domain.confluence_space ?? "",
+    confluence_url: domain.confluence_url ?? "",
+  });
+
+  const save = async () => {
+    if (!form.bitbucket_project.trim() && !form.bitbucket_url.trim()) {
+      onError("A Bitbucket project key or a Bitbucket repo/project URL is required.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await api.updateDomain(domain.name, {
+        product: form.product || undefined,
+        description: form.description,
+        jira_project: form.jira_project,
+        bitbucket_project: form.bitbucket_project,
+        bitbucket_url: form.bitbucket_url,
+        confluence_space: form.confluence_space,
+        confluence_url: form.confluence_url,
+      });
+      setEditing(false);
+      onChanged();
+    } catch (e) {
+      onError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async () => {
+    if (
+      !window.confirm(
+        `Delete domain "${domain.name}"? This also removes its ${domain.repo_count} linked repo(s) and ${domain.doc_count} tracked doc(s).`
+      )
+    )
+      return;
+    setBusy(true);
+    try {
+      await api.deleteDomain(domain.name);
+      onChanged(domain.name);
+    } catch (e) {
+      onError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      className={cn(
+        "rounded-md border px-3 py-2 transition-colors",
+        active
+          ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+          : "border-gray-200 dark:border-gray-800"
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <button onClick={() => onSelect(domain.name)} className="text-left min-w-0 flex-1">
+          <div className="font-medium text-sm truncate">{domain.name}</div>
+          <div className="text-xs text-gray-500">
+            {domain.product} · {domain.repo_count} repos · {domain.doc_count} docs
+          </div>
+        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          <Badge variant="secondary">{domain.product}</Badge>
+          <Button variant="ghost" size="icon" onClick={() => setEditing((v) => !v)} title="Edit domain">
+            {editing ? <X className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
+          </Button>
+          <Button variant="ghost" size="icon" onClick={remove} disabled={busy} title="Delete domain">
+            <Trash2 className="h-4 w-4 text-red-500" />
+          </Button>
+        </div>
+      </div>
+
+      {editing && (
+        <div className="mt-3 space-y-2">
+          <div>
+            <label className="text-xs text-gray-500">Product</label>
+            <select
+              value={form.product}
+              onChange={(e) => setForm({ ...form, product: e.target.value })}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              {products.map((p) => (
+                <option key={p.name} value={p.name}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Field label="Description" value={form.description} onChange={(v) => setForm({ ...form, description: v })} />
+          <Field label="Jira project" value={form.jira_project} onChange={(v) => setForm({ ...form, jira_project: v })} />
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Bitbucket project key *" value={form.bitbucket_project} onChange={(v) => setForm({ ...form, bitbucket_project: v })} />
+            <Field label="Bitbucket URL *" value={form.bitbucket_url} onChange={(v) => setForm({ ...form, bitbucket_url: v })} />
+          </div>
+          <p className="text-xs text-gray-400">Provide a Bitbucket project key or a repo/project URL.</p>
+          <Field label="Confluence space" value={form.confluence_space} onChange={(v) => setForm({ ...form, confluence_space: v })} />
+          <Field label="Confluence URL" value={form.confluence_url} onChange={(v) => setForm({ ...form, confluence_url: v })} />
+          <Button onClick={save} disabled={busy} size="sm">
+            {busy ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
+            Save changes
+          </Button>
+          <p className="text-xs text-gray-400">
+            Note: the slug ({domain.name}) does not change when reassigning the product.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Step 1: select or create domain ─────────────────────────────────────── */
 function DomainStep({
   products,
@@ -229,6 +558,7 @@ function DomainStep({
   activeSlug,
   onSelect,
   onCreated,
+  onChanged,
   onError,
 }: {
   products: ProductInfo[];
@@ -236,6 +566,7 @@ function DomainStep({
   activeSlug: string | null;
   onSelect: (slug: string) => void;
   onCreated: (slug: string) => void;
+  onChanged: (deletedSlug?: string) => void;
   onError: (e: string) => void;
 }) {
   const [form, setForm] = useState({
@@ -244,6 +575,7 @@ function DomainStep({
     description: "",
     jira_project: "",
     bitbucket_project: "",
+    bitbucket_url: "",
     confluence_space: "",
     confluence_url: "",
   });
@@ -254,6 +586,10 @@ function DomainStep({
       onError("Product and Domain name are required.");
       return;
     }
+    if (!form.bitbucket_project.trim() && !form.bitbucket_url.trim()) {
+      onError("A Bitbucket project key or a Bitbucket repo/project URL is required.");
+      return;
+    }
     setSaving(true);
     try {
       const created = await api.createDomain({
@@ -262,6 +598,7 @@ function DomainStep({
         description: form.description || undefined,
         jira_project: form.jira_project || undefined,
         bitbucket_project: form.bitbucket_project || undefined,
+        bitbucket_url: form.bitbucket_url || undefined,
         confluence_space: form.confluence_space || undefined,
         confluence_url: form.confluence_url || undefined,
       });
@@ -274,36 +611,30 @@ function DomainStep({
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Existing domains */}
-      <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-        <h2 className="font-semibold mb-3">Continue an existing domain</h2>
-        <div className="space-y-2 max-h-96 overflow-y-auto">
-          {domains.length === 0 && (
-            <p className="text-sm text-gray-500">No domains yet. Create one →</p>
-          )}
-          {domains.map((d) => (
-            <button
-              key={d.name}
-              onClick={() => onSelect(d.name)}
-              className={cn(
-                "w-full flex items-center justify-between rounded-md border px-3 py-2 text-left transition-colors",
-                activeSlug === d.name
-                  ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                  : "border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800"
-              )}
-            >
-              <div>
-                <div className="font-medium text-sm">{d.name}</div>
-                <div className="text-xs text-gray-500">
-                  {d.product} · {d.repo_count} repos · {d.doc_count} docs
-                </div>
-              </div>
-              <Badge variant="secondary">{d.product}</Badge>
-            </button>
-          ))}
+    <div className="space-y-6">
+      <ProductsPanel products={products} onChanged={onChanged} onError={onError} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Existing domains */}
+        <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-4">
+          <h2 className="font-semibold mb-3">Continue / manage existing domains</h2>
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {domains.length === 0 && (
+              <p className="text-sm text-gray-500">No domains yet. Create one →</p>
+            )}
+            {domains.map((d) => (
+              <DomainRow
+                key={d.name}
+                domain={d}
+                products={products}
+                active={activeSlug === d.name}
+                onSelect={onSelect}
+                onChanged={onChanged}
+                onError={onError}
+              />
+            ))}
+          </div>
         </div>
-      </div>
 
       {/* Create new */}
       <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-4">
@@ -330,16 +661,26 @@ function DomainStep({
             onChange={(v) => setForm({ ...form, domain: v })} />
           <Field label="Description" value={form.description}
             onChange={(v) => setForm({ ...form, description: v })} />
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Jira project" value={form.jira_project}
-              onChange={(v) => setForm({ ...form, jira_project: v })} />
-            <Field label="Bitbucket project" value={form.bitbucket_project}
+          <Field label="Jira project" value={form.jira_project}
+            onChange={(v) => setForm({ ...form, jira_project: v })} />
+          <div className="rounded-md border border-gray-200 dark:border-gray-800 p-3 space-y-2">
+            <p className="text-xs font-medium text-gray-600 dark:text-gray-300">
+              Bitbucket * <span className="font-normal text-gray-400">— provide a project key or a repo/project URL</span>
+            </p>
+            <Field label="Bitbucket project key (e.g. CGF)" value={form.bitbucket_project}
               onChange={(v) => setForm({ ...form, bitbucket_project: v })} />
+            <Field label="Bitbucket repo/project URL" value={form.bitbucket_url}
+              onChange={(v) => setForm({ ...form, bitbucket_url: v })} />
           </div>
-          <Field label="Confluence space" value={form.confluence_space}
-            onChange={(v) => setForm({ ...form, confluence_space: v })} />
-          <Field label="Confluence URL (optional)" value={form.confluence_url}
-            onChange={(v) => setForm({ ...form, confluence_url: v })} />
+          <div className="rounded-md border border-gray-200 dark:border-gray-800 p-3 space-y-2">
+            <p className="text-xs font-medium text-gray-600 dark:text-gray-300">
+              Confluence <span className="font-normal text-gray-400">— optional, space key or page/space URL</span>
+            </p>
+            <Field label="Confluence space" value={form.confluence_space}
+              onChange={(v) => setForm({ ...form, confluence_space: v })} />
+            <Field label="Confluence URL" value={form.confluence_url}
+              onChange={(v) => setForm({ ...form, confluence_url: v })} />
+          </div>
           <Button onClick={submit} disabled={saving} className="w-full">
             {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
             Create & continue
@@ -348,6 +689,7 @@ function DomainStep({
             Slug is auto-generated as <code>product-domain</code> (matches the CLI).
           </p>
         </div>
+      </div>
       </div>
     </div>
   );
@@ -428,7 +770,7 @@ function ReposStep({
       <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-4">
         <h2 className="font-semibold mb-1">Linked repos ({domain.repos.length})</h2>
         <p className="text-xs text-gray-500 mb-3">
-          Bitbucket project: {domain.bitbucket_project || "— (set it in step 1)"}
+          Bitbucket: {domain.bitbucket_project || domain.bitbucket_url || "— (set it in step 1)"}
         </p>
         <div className="space-y-2 max-h-96 overflow-y-auto">
           {domain.repos.length === 0 && (

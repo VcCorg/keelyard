@@ -9,6 +9,7 @@ stable knowledge + anchors are written.
 """
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -237,7 +238,8 @@ def export_domain(
                     if fid in freq_concepts:
                         fnode = freq_concepts[fid]
                     else:
-                        jira = f"https://jira.example.com/browse/{fid}"
+                        _jira_base = os.environ.get("JIRA_SERVER_URL", "").rstrip("/")
+                        jira = f"{_jira_base}/browse/{fid}" if _jira_base else fid
                         fnode = _Node(
                             node_id=f"freq:{fid}", ctype="FREQ", mapped=True,
                             slug=f"freq-{fid.lower()}",

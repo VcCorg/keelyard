@@ -18,11 +18,26 @@ from typing import AsyncGenerator, Optional
 from pydantic import BaseModel
 
 
+# ── Errors ──────────────────────────────────────────────────────────────────
+
+class ProductInUseError(Exception):
+    """Raised when a product cannot be removed because domains still reference it."""
+
+    def __init__(self, product: str, domains: list[str]):
+        self.product = product
+        self.domains = domains
+        super().__init__(
+            f"Product '{product}' has {len(domains)} domain(s) assigned: "
+            f"{', '.join(domains)}. Reassign or delete them first."
+        )
+
+
 # ── Pydantic models (transport shapes only — not logic) ─────────────────────
 
 class ProductInfo(BaseModel):
     name: str
     description: Optional[str] = None
+    tags: list[str] = []
     domain_count: int = 0
 
 
@@ -48,6 +63,7 @@ class DomainInfo(BaseModel):
     jira_project: Optional[str] = None
     jira_board: Optional[str] = None
     bitbucket_project: Optional[str] = None
+    bitbucket_url: Optional[str] = None
     confluence_space: Optional[str] = None
     confluence_url: Optional[str] = None
     jira_dashboard: Optional[str] = None
@@ -115,10 +131,25 @@ def list_products() -> list[ProductInfo]:
         ProductInfo(
             name=p["name"],
             description=p.get("description"),
+            tags=p.get("tags") or [],
             domain_count=counts.get(p["name"], 0),
         )
         for p in products
     ]
+
+
+def _product_info(name: str) -> Optional[ProductInfo]:
+    t = _tracker()
+    p = t.get_product(name)
+    if not p:
+        return None
+    domains = t.get_domains(product=p["name"]) or []
+    return ProductInfo(
+        name=p["name"],
+        description=p.get("description"),
+        tags=p.get("tags") or [],
+        domain_count=len(domains),
+    )
 
 
 def _to_domain_info(d: dict, t) -> DomainInfo:
@@ -133,6 +164,7 @@ def _to_domain_info(d: dict, t) -> DomainInfo:
         jira_project=d.get("jira_project"),
         jira_board=d.get("jira_board"),
         bitbucket_project=d.get("bitbucket_project"),
+        bitbucket_url=d.get("bitbucket_url"),
         confluence_space=d.get("confluence_space"),
         confluence_url=d.get("confluence_url"),
         jira_dashboard=d.get("jira_dashboard"),
@@ -176,6 +208,74 @@ def get_domain_detail(slug: str) -> Optional[DomainDetail]:
     return DomainDetail(**base.model_dump(), repos=repos, docs=docs)
 
 
+# ── Product mutations (library import — single source of truth) ─────────────
+
+def create_product(
+    name: str,
+    description: Optional[str] = None,
+    tags: Optional[list[str]] = None,
+) -> ProductInfo:
+    """Register a product. Raises ValueError if it already exists."""
+    t = _tracker()
+    name_upper = name.strip().upper()
+    if not name_upper:
+        raise ValueError("Product name is required.")
+    if t.get_product(name_upper):
+        raise ValueError(f"Product '{name_upper}' already exists.")
+    t.register_product(name=name_upper, description=description, tags=tags or [])
+    t.record_activity(
+        command="product", subcommand="create",
+        args={"name": name_upper, "via": "dashboard"},
+    )
+    return _product_info(name_upper)
+
+
+def update_product(
+    name: str,
+    description: Optional[str] = None,
+    tags: Optional[list[str]] = None,
+) -> Optional[ProductInfo]:
+    """Update a product's description/tags. Returns None if not found."""
+    t = _tracker()
+    name_upper = name.strip().upper()
+    if not t.get_product(name_upper):
+        return None
+    fields = {}
+    if description is not None:
+        fields["description"] = description
+    if tags is not None:
+        fields["tags"] = tags
+    if fields:
+        t.update_product(name_upper, **fields)
+        t.record_activity(
+            command="product", subcommand="update",
+            args={"name": name_upper, "fields": list(fields.keys()), "via": "dashboard"},
+        )
+    return _product_info(name_upper)
+
+
+def delete_product(name: str) -> Optional[bool]:
+    """Remove a product.
+
+    Returns None if the product doesn't exist. Raises ProductInUseError if any
+    domains still reference it (mirrors `dva product remove`, which blocks).
+    """
+    t = _tracker()
+    name_upper = name.strip().upper()
+    if not t.get_product(name_upper):
+        return None
+    domains = t.get_domains(product=name_upper) or []
+    if domains:
+        raise ProductInUseError(name_upper, [d.get("name", "") for d in domains])
+    removed = t.remove_product(name_upper)
+    if removed:
+        t.record_activity(
+            command="product", subcommand="remove",
+            args={"name": name_upper, "via": "dashboard"},
+        )
+    return removed
+
+
 # ── Simple mutations (library import) ───────────────────────────────────────
 
 def create_domain(
@@ -185,17 +285,25 @@ def create_domain(
     jira_project: Optional[str] = None,
     jira_board: Optional[str] = None,
     bitbucket_project: Optional[str] = None,
+    bitbucket_url: Optional[str] = None,
     confluence_space: Optional[str] = None,
     confluence_url: Optional[str] = None,
     jira_dashboard: Optional[str] = None,
     tags: Optional[list[str]] = None,
 ) -> DomainDetail:
-    """Register a domain. Raises ValueError if the product is unknown."""
+    """Register a domain. Raises ValueError if the product is unknown or if
+    neither a Bitbucket project key nor a Bitbucket URL is provided."""
     t = _tracker()
     product_upper = product.upper()
     if not t.get_product(product_upper):
         raise ValueError(
             f"Product '{product_upper}' not found. Register it first via 'dva product create {product_upper}'."
+        )
+    if not (bitbucket_project and bitbucket_project.strip()) and not (
+        bitbucket_url and bitbucket_url.strip()
+    ):
+        raise ValueError(
+            "A Bitbucket project key or a Bitbucket repo/project URL is required."
         )
     slug = _slugify(product_upper, domain)
     t.register_domain(
@@ -206,6 +314,7 @@ def create_domain(
         jira_project=jira_project,
         jira_board=jira_board,
         bitbucket_project=bitbucket_project,
+        bitbucket_url=bitbucket_url,
         confluence_space=confluence_space,
         jira_dashboard=jira_dashboard,
         confluence_url=confluence_url,
@@ -223,6 +332,14 @@ def update_domain(slug: str, **fields) -> Optional[DomainDetail]:
     if not t.get_domain(slug):
         return None
     clean = {k: v for k, v in fields.items() if v is not None}
+    # Reassigning to another product: validate it exists and normalize casing.
+    if clean.get("product"):
+        product_upper = clean["product"].upper()
+        if not t.get_product(product_upper):
+            raise ValueError(
+                f"Product '{product_upper}' not found. Register it first."
+            )
+        clean["product"] = product_upper
     if clean:
         t.update_domain(slug, **clean)
         t.record_activity(
@@ -288,11 +405,16 @@ def list_bitbucket_candidates(slug: str, limit: int = 500,
     if not d:
         raise ValueError(f"Domain '{slug}' not found.")
 
-    from agentic_cli.mcp_tool_client import bb_list_project_repos, parse_project_key
+    from agentic_cli.mcp_tool_client import (
+        bb_list_project_repos, parse_project_key, parse_bitbucket_url,
+    )
 
     bb_project = parse_project_key(d.get("bitbucket_project") or "")
     if not bb_project:
-        raise ValueError(f"Domain '{slug}' has no Bitbucket project key.")
+        # Fall back to deriving the project key from the Bitbucket URL.
+        bb_project, _ = parse_bitbucket_url(d.get("bitbucket_url") or "")
+    if not bb_project:
+        raise ValueError(f"Domain '{slug}' has no Bitbucket project key or URL.")
 
     repos = bb_list_project_repos(bb_project, limit=limit) or []
     repos = [

@@ -149,9 +149,9 @@ def run_ingestion_job(job_id: str):
                         all_documents = []
                         
                         try:
-                            conf_base = config.confluence_url or "https://confluence.example.com"
+                            conf_base = config.confluence_url or ""
                         except Exception:
-                            conf_base = "https://confluence.example.com"
+                            conf_base = ""
                         
                         depth = job.metadata.get("depth", 3)
                         
