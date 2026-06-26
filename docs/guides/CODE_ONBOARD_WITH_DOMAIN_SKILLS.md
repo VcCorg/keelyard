@@ -525,7 +525,7 @@ The changes are fully backward compatible:
 
 ## References
 
-- **Domain Skills Integration Plan**: `doc/DOMAIN_SKILLS_INTEGRATION_PLAN.md`
-- **Superpowers Reference**: `doc/SUPERPOWERS_INTEGRATION_REFERENCE.md`
+- **Domain Skills Integration Plan**: `docs/plans/DOMAIN_SKILLS_INTEGRATION_PLAN.md`
+- **Superpowers Reference**: `docs/reference/SUPERPOWERS_INTEGRATION_REFERENCE.md`
 - **Current Code Onboard**: `agentic_cli/commands/code.py`
 - **Skill Matching**: `agentic_cli/analyzer/matcher.py`

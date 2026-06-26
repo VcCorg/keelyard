@@ -753,7 +753,7 @@ myAgentPG/
 │
 ├── ide-configs/                       ← NEW: shareable IDE configs
 │
-└── doc/HYBRID_DISTRIBUTION_PLAN.md    ← THIS DOCUMENT (v2)
+└── docs/plans/HYBRID_DISTRIBUTION_PLAN.md  ← THIS DOCUMENT (v2)
 ```
 
 ### Per-Project Structure After Onboard (NEW)

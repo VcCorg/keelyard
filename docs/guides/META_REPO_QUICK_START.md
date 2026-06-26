@@ -244,7 +244,6 @@ make update
 
 ## References
 
-- Full documentation: `doc/DOMAIN_META_REPO_PHASE1_IMPLEMENTATION.md`
 - Plan: `.windsurf/plans/domain-meta-repo-integration-733edb.md`
-- Domain skills: `doc/DOMAIN_SKILLS_INTEGRATION_PLAN.md`
-- Code onboarding: `doc/CODE_ONBOARD_WITH_DOMAIN_SKILLS.md`
+- Domain skills: `docs/plans/DOMAIN_SKILLS_INTEGRATION_PLAN.md`
+- Code onboarding: `docs/guides/CODE_ONBOARD_WITH_DOMAIN_SKILLS.md`

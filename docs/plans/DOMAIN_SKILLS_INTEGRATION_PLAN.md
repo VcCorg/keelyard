@@ -309,7 +309,7 @@ dva domain contribute-skill <domain-slug> \
 3. Outputs PR URL for manual review & submission
 
 #### 4.2 Skill Merge Strategy
-Document in: `doc/SKILL_CONTRIBUTION_GUIDE.md`
+Document in: `docs/plans/SKILL_CONTRIBUTION_GUIDE.md`
 
 ```markdown
 # Contributing Domain Skills Back to Superpowers
@@ -367,7 +367,7 @@ git submodule update --remote .skills/superpowers
 ### Week 5: Integration & Polish
 - [ ] End-to-end testing across all phases
 - [ ] Update workflows (`.windsurf/workflows/domain-context.md`)
-- [ ] Create user guide: `doc/DOMAIN_SKILLS_USER_GUIDE.md`
+- [ ] Create user guide: `docs/guides/DOMAIN_SKILLS_USER_GUIDE.md`
 - [ ] Performance optimization & edge case handling
 
 ---
