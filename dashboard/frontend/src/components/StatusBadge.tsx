@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 
 interface StatusBadgeProps {
-  status: "running" | "stopped" | "healthy" | "unhealthy" | "unknown" | "success" | "error";
+  status: string;
   className?: string;
 }
 
@@ -25,12 +25,13 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
       )}
     >
       <span
-        className={cn("h-1.5 w-1.5 rounded-full", {
-          "bg-emerald-500": status === "running" || status === "healthy" || status === "success",
-          "bg-gray-400": status === "stopped",
-          "bg-yellow-500": status === "unknown",
-          "bg-red-500": status === "unhealthy" || status === "error",
-        })}
+        className={cn(
+          "h-1.5 w-1.5 rounded-full",
+          (status === "running" || status === "healthy" || status === "success") && "bg-emerald-500",
+          status === "stopped" && "bg-gray-400",
+          status === "unknown" && "bg-yellow-500",
+          (status === "unhealthy" || status === "error") && "bg-red-500"
+        )}
       />
       {status}
     </span>
