@@ -308,6 +308,69 @@ async def api_init_context_stream(slug: str):
 
 
 @router.get("/{slug}/init-meta/stream")
-async def api_init_meta_stream(slug: str):
-    """Run `dva domain init-meta <slug>` and stream output."""
-    return _sse(["init-meta", slug])
+async def api_init_meta_stream(slug: str, product_meta: Optional[str] = Query(None)):
+    """Run `dva domain init-meta <slug>` and stream output.
+
+    Pass `product_meta` (URL/path) to reference the product meta-repo as a
+    submodule (threads the outer-loop shared tier into the domain meta).
+    """
+    args = ["init-meta", slug]
+    if product_meta:
+        args += ["--product-meta", product_meta]
+    return _sse(args)
+
+
+# ── Product tier (meta-repo, governance, exceptions) ─────────────────────────
+
+def _sse_product(args: list[str]) -> EventSourceResponse:
+    async def gen():
+        async for line in svc.stream_product_command(args):
+            if line.startswith("__EXIT__"):
+                yield {"event": "done", "data": line.split(" ", 1)[1].strip()}
+            else:
+                yield {"event": "log", "data": line}
+
+    return EventSourceResponse(gen())
+
+
+@router.get("/products/{name}/init-meta/stream")
+async def api_product_init_meta_stream(
+    name: str, org_methodology: Optional[str] = Query(None)
+):
+    """Run `dva product init-meta <name>` and stream output."""
+    args = ["init-meta", name]
+    if org_methodology:
+        args += ["--org-methodology", org_methodology]
+    return _sse_product(args)
+
+
+class AddExceptionRequest(BaseModel):
+    rule: str
+    reason: str
+    scope: str
+    owner: str
+    expires: Optional[str] = None
+
+
+@router.get("/products/{name}/governance", response_model=svc.GovernanceInfo)
+async def api_product_governance(name: str):
+    """Read governance.yaml + crosswalk.yaml from the product meta-repo."""
+    return svc.get_product_governance(name)
+
+
+@router.get("/products/{name}/exceptions", response_model=list[svc.ExceptionInfo])
+async def api_product_exceptions(name: str):
+    """List waivers in the product exceptions ledger."""
+    return svc.list_product_exceptions(name)
+
+
+@router.post("/products/{name}/exceptions", response_model=svc.ExceptionInfo)
+async def api_product_add_exception(name: str, req: AddExceptionRequest):
+    """Record a governance waiver in the product exceptions ledger."""
+    try:
+        return svc.add_product_exception(
+            product=name, rule=req.rule, reason=req.reason,
+            scope=req.scope, owner=req.owner, expires=req.expires or "",
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))

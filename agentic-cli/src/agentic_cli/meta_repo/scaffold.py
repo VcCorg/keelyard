@@ -21,6 +21,7 @@ def scaffold_domain_meta_repo(
     description: str = "",
     owner: str = "",
     context_repo_url: Optional[str] = None,
+    product_meta_url: Optional[str] = None,
     repos: Optional[list[dict]] = None,
     git_init: bool = True,
     code_assist_tool: str = "generic",
@@ -135,7 +136,7 @@ def scaffold_domain_meta_repo(
 
         # Initialize git repository if requested
         if git_init:
-            _init_git_repo(meta_repo_path, context_repo_url, repos or [])
+            _init_git_repo(meta_repo_path, context_repo_url, repos or [], product_meta_url)
 
         logger.info(f"Created domain meta-repo at {meta_repo_path}")
         return created
@@ -280,7 +281,8 @@ See `.platform/config/skills.yaml` for domain skills configuration.
 - Read `ONBOARDING.md` for repo onboarding guide
 - Read `GOVERNANCE.md` for branch/workflow rules
 - Read `ARCHITECTURE.md` for domain architecture
-"""
+""",
+        encoding="utf-8",
     )
 
     # ONBOARDING.md
@@ -339,7 +341,8 @@ The domain meta-repo provides:
 ## Support
 
 For issues or questions, contact the domain owner or team.
-"""
+""",
+        encoding="utf-8",
     )
 
     # GOVERNANCE.md
@@ -392,7 +395,8 @@ All pull requests require:
 ## Questions?
 
 Contact the domain owner for clarification on governance rules.
-"""
+""",
+        encoding="utf-8",
     )
 
     # ARCHITECTURE.md
@@ -446,7 +450,8 @@ Deployment procedures are repository-specific. See individual repository documen
 ## Support
 
 For architecture questions, contact the domain owner.
-"""
+""",
+        encoding="utf-8",
     )
 
     logger.debug(f"Wrote documentation files to {docs_dir}")
@@ -508,7 +513,8 @@ help:
 	@echo "  make setup-hooks - Configure git hooks path"
 	@echo "  make validate    - Validate repo state"
 	@echo "  make help        - Show this help message"
-"""
+""",
+        encoding="utf-8",
     )
 
     logger.debug(f"Wrote Makefile to {meta_repo_path}")
@@ -545,7 +551,8 @@ repos_cfg = load_config(config_dir, "repos.yaml")
 ```
 
 These configs are consumed by the `dva code onboard --use-meta-config` workflow.
-"""
+""",
+        encoding="utf-8",
     )
     logger.debug(f"Wrote .platform/README.md to {platform_dir}")
 
@@ -589,7 +596,8 @@ make update      # Update all submodules
 - [docs/GOVERNANCE.md](docs/GOVERNANCE.md) — Branch/workflow rules
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — Domain architecture
 - [.platform/README.md](.platform/README.md) — Config structure
-"""
+""",
+        encoding="utf-8",
     )
     logger.debug(f"Wrote root README.md to {meta_repo_path}")
 
@@ -635,7 +643,8 @@ make update                         # Update all submodules
 - Branch naming and review rules are enforced via `.githooks/pre-push` and CI.
 - See `docs/GOVERNANCE.md` for the full ruleset.
 - Never commit secrets or `.env` files.
-"""
+""",
+        encoding="utf-8",
     )
     logger.debug(f"Wrote AGENTS.md to {meta_repo_path}")
 
@@ -667,7 +676,8 @@ if [[ ! "$branch" =~ $pattern ]]; then
 fi
 
 exit 0
-"""
+""",
+        encoding="utf-8",
     )
     try:
         hook.chmod(0o755)
@@ -711,14 +721,18 @@ Thumbs.db
 dist/
 build/
 *.egg-info/
-"""
+""",
+        encoding="utf-8",
     )
 
     logger.debug(f"Wrote .gitignore to {meta_repo_path}")
 
 
 def _init_git_repo(
-    meta_repo_path: Path, context_repo_url: Optional[str], repos: list[dict]
+    meta_repo_path: Path,
+    context_repo_url: Optional[str],
+    repos: list[dict],
+    product_meta_url: Optional[str] = None,
 ) -> None:
     """Initialize git repository with submodules.
 
@@ -726,6 +740,8 @@ def _init_git_repo(
         meta_repo_path: Path to meta-repo
         context_repo_url: Git URL of domain-context-repo (optional)
         repos: List of linked repo configs
+        product_meta_url: Git URL/path of the product meta-repo (outer-loop
+            shared tier) to reference as a submodule (optional)
 
     Raises:
         RuntimeError: If git operations fail
@@ -756,6 +772,13 @@ def _init_git_repo(
             context_submodule_path = "repos/domain-context"
             add_submodule(meta_repo_path, context_repo_url, context_submodule_path)
             logger.debug(f"Added domain-context submodule: {context_submodule_path}")
+
+        # Reference the product meta-repo (outer-loop shared tier) as a submodule
+        # so the domain inherits product governance + crosswalk + exceptions.
+        if product_meta_url:
+            product_submodule_path = "repos/product-meta"
+            add_submodule(meta_repo_path, product_meta_url, product_submodule_path)
+            logger.debug(f"Added product-meta submodule: {product_submodule_path}")
 
         # Add linked repos as submodules
         for repo in repos:

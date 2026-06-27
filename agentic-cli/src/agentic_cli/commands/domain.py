@@ -1619,6 +1619,10 @@ def init_meta(
         str,
         typer.Option("--context-repo", help="Git URL of domain-context-repo to add as submodule"),
     ] = None,
+    product_meta_url: Annotated[
+        str,
+        typer.Option("--product-meta", help="Git URL/path of the product meta-repo to reference as submodule (outer-loop shared tier)"),
+    ] = None,
     git_init: Annotated[
         bool,
         typer.Option("--git-init/--no-git-init", help="Initialize as git repo with submodules"),
@@ -1721,6 +1725,7 @@ def init_meta(
             description=d.get("description", ""),
             owner=d.get("owner", ""),
             context_repo_url=context_repo_url,
+            product_meta_url=product_meta_url,
             repos=repos_config,
             git_init=git_init,
         )

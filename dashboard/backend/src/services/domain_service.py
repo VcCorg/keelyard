@@ -491,13 +491,8 @@ def list_confluence_candidates(slug: str, limit: int = 200,
 
 # ── Long-running steps (subprocess + streaming) ─────────────────────────────
 
-async def stream_domain_command(args: list[str]) -> AsyncGenerator[str, None]:
-    """Run `dva domain <args>` and yield stdout/stderr lines as they arrive.
-
-    This is the proxy mechanism for steps whose logic must not be duplicated
-    (fetch-repos, add-docs, gen-skills, init-context, init-meta).
-    """
-    cmd = resolve_cli_command() + ["domain"] + args
+async def _stream_cli(cmd: list[str]) -> AsyncGenerator[str, None]:
+    """Run a resolved CLI command and yield stdout/stderr lines as they arrive."""
     yield f"$ {' '.join(cmd)}"
 
     env = os.environ.copy()
@@ -520,3 +515,133 @@ async def stream_domain_command(args: list[str]) -> AsyncGenerator[str, None]:
 
     rc = await proc.wait()
     yield f"__EXIT__ {rc}"
+
+
+async def stream_domain_command(args: list[str]) -> AsyncGenerator[str, None]:
+    """Run `dva domain <args>` and yield stdout/stderr lines as they arrive.
+
+    This is the proxy mechanism for steps whose logic must not be duplicated
+    (fetch-repos, add-docs, gen-skills, init-context, init-meta).
+    """
+    async for line in _stream_cli(resolve_cli_command() + ["domain"] + args):
+        yield line
+
+
+async def stream_product_command(args: list[str]) -> AsyncGenerator[str, None]:
+    """Run `dva product <args>` and yield stdout/stderr lines as they arrive.
+
+    Proxy for product-tier steps (init-meta, exceptions add) whose scaffolding
+    and git logic must live in exactly one place (the CLI).
+    """
+    async for line in _stream_cli(resolve_cli_command() + ["product"] + args):
+        yield line
+
+
+# ── Product meta-repo reads (library import — governance + exceptions) ───────
+
+class GovernanceInfo(BaseModel):
+    found: bool = False
+    path: Optional[str] = None
+    governance: Optional[dict] = None
+    crosswalk: Optional[dict] = None
+
+
+class ExceptionInfo(BaseModel):
+    id: str
+    rule: str
+    reason: str
+    scope: str
+    owner: str
+    created_at: str = ""
+    expires_at: str = ""
+    status: str = "active"
+    effective: bool = True
+
+
+def _resolve_product_meta_path(product: str):
+    """Resolve the on-disk product meta-repo path (mirrors the CLI rule)."""
+    from agentic_cli.commands.domain import _get_code_workspace
+
+    slug = product.lower()
+    workspace = _get_code_workspace()
+    return workspace / slug / f"product-{slug}-meta"
+
+
+def get_product_governance(product: str) -> GovernanceInfo:
+    """Read governance.yaml + crosswalk.yaml from the product meta-repo."""
+    import yaml
+
+    meta_path = _resolve_product_meta_path(product)
+    config_dir = meta_path / ".platform" / "config"
+    if not config_dir.exists():
+        return GovernanceInfo(found=False, path=str(meta_path))
+
+    governance = None
+    crosswalk = None
+    gov_file = config_dir / "governance.yaml"
+    cw_file = config_dir / "crosswalk.yaml"
+    if gov_file.exists():
+        governance = yaml.safe_load(gov_file.read_text(encoding="utf-8")) or {}
+    if cw_file.exists():
+        crosswalk = yaml.safe_load(cw_file.read_text(encoding="utf-8")) or {}
+    return GovernanceInfo(
+        found=True, path=str(meta_path), governance=governance, crosswalk=crosswalk
+    )
+
+
+def list_product_exceptions(product: str) -> list[ExceptionInfo]:
+    """List waivers from the product meta-repo's exceptions ledger."""
+    from agentic_cli.meta_repo import list_exceptions
+
+    meta_path = _resolve_product_meta_path(product)
+    if not meta_path.exists():
+        return []
+    entries = list_exceptions(meta_path)
+    return [
+        ExceptionInfo(
+            id=e.id, rule=e.rule, reason=e.reason, scope=e.scope, owner=e.owner,
+            created_at=e.created_at, expires_at=e.expires_at, status=e.status,
+            effective=e.is_effective(),
+        )
+        for e in entries
+    ]
+
+
+def add_product_exception(
+    product: str,
+    rule: str,
+    reason: str,
+    scope: str,
+    owner: str,
+    expires: str = "",
+) -> ExceptionInfo:
+    """Record a governance waiver (library import — local file write).
+
+    Raises ValueError if the product meta-repo doesn't exist yet.
+    """
+    from agentic_cli.meta_repo import add_exception
+    from agentic_cli import tracker
+
+    meta_path = _resolve_product_meta_path(product)
+    if not meta_path.exists():
+        raise ValueError(
+            f"Product meta-repo not found at {meta_path}. "
+            f"Create it first (product init-meta)."
+        )
+    e = add_exception(
+        meta_repo_path=meta_path, rule=rule, reason=reason,
+        scope=scope, owner=owner, expires_at=expires,
+    )
+    try:
+        tracker.record_activity(
+            command="product", subcommand="exceptions-add",
+            args={"name": product.upper(), "rule": rule, "scope": scope,
+                  "id": e.id, "via": "dashboard"},
+        )
+    except Exception:
+        pass
+    return ExceptionInfo(
+        id=e.id, rule=e.rule, reason=e.reason, scope=e.scope, owner=e.owner,
+        created_at=e.created_at, expires_at=e.expires_at, status=e.status,
+        effective=e.is_effective(),
+    )
