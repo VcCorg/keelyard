@@ -9,6 +9,8 @@ Hierarchy:
       └── Domain (e.g. Facility)  ← created via {CLI_NAME} domain create
 """
 
+from pathlib import Path
+
 from typing_extensions import Annotated
 
 import typer
@@ -259,3 +261,215 @@ def remove(
     else:
         console.print(f"[red]✗ Failed to remove '{p['name']}'.[/red]")
         raise typer.Exit(1)
+
+
+# ---------------------------------------------------------------------------
+# {CLI_NAME} product init-meta
+# ---------------------------------------------------------------------------
+
+@product_app.command("init-meta")
+def init_meta(
+    name: Annotated[str, typer.Argument(help="Product name (e.g. ABC, CWOW)")],
+    output: Annotated[
+        Path, typer.Option("--output", "-o", help="Output directory for the product meta-repo")
+    ] = None,
+    org_methodology: Annotated[
+        str,
+        typer.Option(
+            "--org-methodology",
+            help="Git URL of the org-wide methodology (inner loop) to pin as a submodule",
+        ),
+    ] = "https://github.com/venkatchinta/superpowers.git",
+    git_init: Annotated[
+        bool, typer.Option("--git-init/--no-git-init", help="Initialize as a git repo")
+    ] = True,
+) -> None:
+    """
+    Initialize a product meta-repo (top-level outer-loop tier).
+
+    Creates `product-<name>-meta` holding the shared outer-loop governance for
+    all domains under the product, the inner↔outer crosswalk, and the
+    exceptions ledger. Pins the org-wide methodology (inner loop) as a submodule.
+
+    The product must be registered first via `{CLI_NAME} product create`.
+
+    Examples:
+        {CLI_NAME} product init-meta ABC
+        {CLI_NAME} product init-meta ABC --org-methodology https://github.com/acme/methodology.git
+        {CLI_NAME} product init-meta ABC --output ./abc-meta
+    """
+    from pathlib import Path
+
+    from agentic_cli.meta_repo import scaffold_product_meta_repo
+    from agentic_cli.commands.domain import _get_code_workspace
+
+    name_upper = name.upper()
+    p = get_product(name_upper)
+    if not p:
+        console.print(f"[red]✗ Product '{name_upper}' not found.[/red]")
+        console.print(f"[dim]Register it first: {CLI_NAME} product create {name_upper}[/dim]")
+        raise typer.Exit(1)
+
+    if output:
+        out_dir = Path(output).resolve()
+    else:
+        workspace = _get_code_workspace()
+        out_dir = workspace / name_upper.lower()
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+    console.print(f"[cyan]Initializing product meta-repo for '{name_upper}'...[/cyan]")
+    try:
+        created = scaffold_product_meta_repo(
+            output_dir=out_dir,
+            product=name_upper,
+            description=p.get("description", ""),
+            owner=p.get("owner", ""),
+            org_methodology_url=org_methodology,
+            git_init=git_init,
+        )
+    except ValueError as e:
+        console.print(f"[red]✗ {e}[/red]")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]✗ Failed to scaffold product meta-repo: {e}[/red]")
+        raise typer.Exit(1)
+
+    meta_path = created["root"]
+    console.print(f"[green]✓ Product meta-repo created:[/green] {meta_path}")
+    for label, path in created.items():
+        if label != "root":
+            console.print(f"  [green]✓[/green] {path.relative_to(meta_path)}")
+
+    console.print()
+    console.print(Panel(
+        f"[cyan]Product:[/cyan] {name_upper}\n"
+        f"[cyan]Location:[/cyan] {meta_path}\n"
+        f"[cyan]Inner loop:[/cyan] {org_methodology}\n"
+        f"[cyan]Git:[/cyan] {'initialized' if git_init else 'skipped'}",
+        title="Product Meta-Repo",
+        border_style="green",
+    ))
+    console.print(f"\n[dim]Next: link domains to this product meta:[/dim]")
+    console.print(
+        f"[dim]  {CLI_NAME} domain init-meta <slug> --product-meta {meta_path}[/dim]"
+    )
+
+    record_activity(
+        command="product", subcommand="init-meta",
+        args={"name": name_upper, "output": str(meta_path), "org_methodology": org_methodology},
+    )
+
+
+# ---------------------------------------------------------------------------
+# {CLI_NAME} product exceptions
+# ---------------------------------------------------------------------------
+
+exceptions_app = typer.Typer(
+    help="Manage the product governance exceptions ledger (override-with-justification)",
+    rich_markup_mode=None,
+)
+product_app.add_typer(exceptions_app, name="exceptions")
+
+
+def _resolve_product_meta(name_upper: str, meta: str = None):
+    """Resolve the product meta-repo path. Uses --meta if given, else workspace."""
+    from pathlib import Path
+    from agentic_cli.commands.domain import _get_code_workspace
+
+    if meta:
+        return Path(meta).resolve()
+    workspace = _get_code_workspace()
+    return workspace / name_upper.lower() / f"product-{name_upper.lower()}-meta"
+
+
+@exceptions_app.command("add")
+def exceptions_add(
+    name: Annotated[str, typer.Argument(help="Product name")],
+    rule: Annotated[str, typer.Option("--rule", help="Rule being relaxed (e.g. tdd, spec-first)")],
+    reason: Annotated[str, typer.Option("--reason", help="Justification for the waiver")],
+    scope: Annotated[str, typer.Option("--scope", help="Scope, e.g. domain:<slug> or repo:<slug>")],
+    owner: Annotated[str, typer.Option("--owner", help="Owner email")],
+    expires: Annotated[str, typer.Option("--expires", help="Expiry date (ISO, e.g. 2026-07-27)")] = "",
+    meta: Annotated[str, typer.Option("--meta", help="Path to product meta-repo (override)")] = None,
+) -> None:
+    """Record a governance waiver in the product exceptions ledger.
+
+    Examples:
+        {CLI_NAME} product exceptions add ABC --rule tdd --reason "spike" \\
+            --scope domain:abc-a1 --owner you@example.com --expires 2026-07-27
+    """
+    from agentic_cli.meta_repo import add_exception
+
+    name_upper = name.upper()
+    meta_path = _resolve_product_meta(name_upper, meta)
+    if not meta_path.exists():
+        console.print(f"[red]✗ Product meta-repo not found at {meta_path}[/red]")
+        console.print(f"[dim]Create it first: {CLI_NAME} product init-meta {name_upper}[/dim]")
+        raise typer.Exit(1)
+
+    try:
+        entry = add_exception(
+            meta_repo_path=meta_path, rule=rule, reason=reason,
+            scope=scope, owner=owner, expires_at=expires,
+        )
+    except ValueError as e:
+        console.print(f"[red]✗ {e}[/red]")
+        raise typer.Exit(1)
+
+    console.print(f"[bold green]✓[/bold green] Exception [cyan]{entry.id}[/cyan] recorded.")
+    console.print(Panel(
+        f"[cyan]Rule:[/cyan] {entry.rule}\n"
+        f"[cyan]Reason:[/cyan] {entry.reason}\n"
+        f"[cyan]Scope:[/cyan] {entry.scope}\n"
+        f"[cyan]Owner:[/cyan] {entry.owner}\n"
+        f"[cyan]Expires:[/cyan] {entry.expires_at or '(none — discouraged)'}",
+        title=f"Exception {entry.id}",
+    ))
+    if not expires:
+        console.print("[yellow]⚠ No expiry set — waivers without an expiry are discouraged.[/yellow]")
+
+    record_activity(
+        command="product", subcommand="exceptions-add",
+        args={"name": name_upper, "rule": rule, "scope": scope, "id": entry.id},
+    )
+
+
+@exceptions_app.command("list")
+def exceptions_list(
+    name: Annotated[str, typer.Argument(help="Product name")],
+    meta: Annotated[str, typer.Option("--meta", help="Path to product meta-repo (override)")] = None,
+) -> None:
+    """List all waivers in the product exceptions ledger.
+
+    Examples:
+        {CLI_NAME} product exceptions list ABC
+    """
+    from agentic_cli.meta_repo import list_exceptions
+
+    name_upper = name.upper()
+    meta_path = _resolve_product_meta(name_upper, meta)
+    if not meta_path.exists():
+        console.print(f"[red]✗ Product meta-repo not found at {meta_path}[/red]")
+        raise typer.Exit(1)
+
+    entries = list_exceptions(meta_path)
+    if not entries:
+        console.print("[dim]No exceptions recorded.[/dim]")
+        return
+
+    table = Table(title=f"{name_upper} — Exceptions Ledger")
+    table.add_column("ID", style="cyan")
+    table.add_column("Rule")
+    table.add_column("Scope")
+    table.add_column("Owner")
+    table.add_column("Expires")
+    table.add_column("Status")
+    for e in entries:
+        effective = e.is_effective()
+        status = e.status if effective else (e.status if e.status != "active" else "expired")
+        style = "green" if effective else "red"
+        table.add_row(
+            e.id, e.rule, e.scope, e.owner, e.expires_at or "—",
+            f"[{style}]{status}[/{style}]",
+        )
+    console.print(table)

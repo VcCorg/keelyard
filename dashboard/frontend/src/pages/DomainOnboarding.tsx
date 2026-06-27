@@ -13,6 +13,8 @@ import {
   Pencil,
   X,
   Package,
+  ShieldCheck,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +26,8 @@ import {
   type DomainDetail,
   type BitbucketRepoCandidate,
   type ConfluencePageCandidate,
+  type GovernanceInfo,
+  type ExceptionInfo,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -100,6 +104,7 @@ function StreamConsole({
 }
 
 const STEPS = [
+  { key: "product", label: "Product", icon: Package },
   { key: "domain", label: "Domain", icon: Boxes },
   { key: "repos", label: "Repos", icon: GitBranch },
   { key: "docs", label: "Docs", icon: FileText },
@@ -110,10 +115,11 @@ const STEPS = [
 type StepKey = (typeof STEPS)[number]["key"];
 
 export function DomainOnboarding() {
-  const [step, setStep] = useState<StepKey>("domain");
+  const [step, setStep] = useState<StepKey>("product");
   const [products, setProducts] = useState<ProductInfo[]>([]);
   const [domains, setDomains] = useState<DomainInfo[]>([]);
   const [active, setActive] = useState<DomainDetail | null>(null);
+  const [activeProduct, setActiveProduct] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const refreshLists = async () => {
@@ -152,7 +158,8 @@ export function DomainOnboarding() {
       <div className="flex items-center gap-2">
         {STEPS.map((s, i) => {
           const Icon = s.icon;
-          const disabled = s.key !== "domain" && !active;
+          const disabled =
+            s.key !== "product" && s.key !== "domain" && !active;
           const isActive = step === s.key;
           return (
             <button
@@ -192,6 +199,17 @@ export function DomainOnboarding() {
         </div>
       )}
 
+      {step === "product" && (
+        <ProductStep
+          products={products}
+          activeProduct={activeProduct}
+          onSelectProduct={setActiveProduct}
+          onChanged={refreshLists}
+          onError={setError}
+          onContinue={() => setStep("domain")}
+        />
+      )}
+
       {step === "domain" && (
         <DomainStep
           products={products}
@@ -224,7 +242,9 @@ export function DomainOnboarding() {
 
       {step === "skills" && active && <SkillsStep slug={active.name} />}
 
-      {step === "scaffold" && active && <ScaffoldStep slug={active.name} />}
+      {step === "scaffold" && active && (
+        <ScaffoldStep slug={active.name} product={active.product} />
+      )}
     </div>
   );
 }
@@ -1007,31 +1027,409 @@ function SkillsStep({ slug }: { slug: string }) {
   );
 }
 
-/* ── Step 5: scaffold ────────────────────────────────────────────────────── */
-function ScaffoldStep({ slug }: { slug: string }) {
+/* ── Step 6: scaffold ────────────────────────────────────────────────────── */
+function ScaffoldStep({ slug, product }: { slug: string; product: string }) {
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
+  const [productMetaPath, setProductMetaPath] = useState<string | null>(null);
+  const [linkProduct, setLinkProduct] = useState(true);
+
+  // Resolve the product meta-repo path (if it was scaffolded) so we can thread
+  // it into the domain meta as a submodule (the outer-loop shared tier).
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getProductGovernance(product)
+      .then((g) => {
+        if (!cancelled) setProductMetaPath(g.found ? g.path ?? null : null);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [product]);
+
+  const initMetaUrl = () => {
+    const base = `/domains/${slug}/init-meta/stream`;
+    if (linkProduct && productMetaPath) {
+      return api.streamUrl(
+        `${base}?product_meta=${encodeURIComponent(productMetaPath)}`
+      );
+    }
+    return api.streamUrl(base);
+  };
 
   return (
     <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-4">
       <h2 className="font-semibold mb-3">Scaffold repos</h2>
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         <Button
           variant="outline"
           onClick={() => setStreamUrl(api.streamUrl(`/domains/${slug}/init-context/stream`))}
         >
           Init context repo
         </Button>
-        <Button
-          variant="outline"
-          onClick={() => setStreamUrl(api.streamUrl(`/domains/${slug}/init-meta/stream`))}
-        >
+        <Button variant="outline" onClick={() => setStreamUrl(initMetaUrl())}>
           Init meta repo
         </Button>
       </div>
+
+      <label className="flex items-center gap-2 mt-3 text-sm text-gray-600 dark:text-gray-300">
+        <input
+          type="checkbox"
+          checked={linkProduct}
+          onChange={(e) => setLinkProduct(e.target.checked)}
+          disabled={!productMetaPath}
+        />
+        Link product meta-repo (outer-loop shared tier)
+        {productMetaPath ? (
+          <Badge className="ml-1">{product} meta found</Badge>
+        ) : (
+          <span className="text-xs text-amber-500">
+            no product meta — scaffold it in the Product step first
+          </span>
+        )}
+      </label>
+
       <p className="text-xs text-gray-400 mt-2">
         Runs <code>dva domain init-context / init-meta {slug}</code> via the CLI.
+        When linked, the domain meta references the product meta as a submodule
+        so it inherits shared governance, the crosswalk, and the exceptions ledger.
       </p>
       <StreamConsole url={streamUrl} />
+    </div>
+  );
+}
+
+/* ── Step 1 (NEW): product — scaffold product meta + governance + exceptions ── */
+function ProductStep({
+  products,
+  activeProduct,
+  onSelectProduct,
+  onChanged,
+  onError,
+  onContinue,
+}: {
+  products: ProductInfo[];
+  activeProduct: string | null;
+  onSelectProduct: (name: string) => void;
+  onChanged: () => Promise<void> | void;
+  onError: (e: string) => void;
+  onContinue: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [streamUrl, setStreamUrl] = useState<string | null>(null);
+
+  const create = async () => {
+    if (!name.trim()) return;
+    setCreating(true);
+    try {
+      await api.createProduct({ name: name.trim(), description: description.trim() || undefined });
+      setName("");
+      setDescription("");
+      await onChanged();
+      onSelectProduct(name.trim().toUpperCase());
+    } catch (e) {
+      onError(String(e));
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Create product */}
+      <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-4">
+        <h2 className="font-semibold mb-3">Register a product</h2>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Input
+            placeholder="Product name (e.g. ABC)"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="sm:w-48"
+          />
+          <Input
+            placeholder="Description (optional)"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="flex-1"
+          />
+          <Button onClick={create} disabled={creating || !name.trim()}>
+            {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            Create
+          </Button>
+        </div>
+      </div>
+
+      {/* Select product */}
+      <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-4">
+        <h2 className="font-semibold mb-3">Select a product</h2>
+        {products.length === 0 ? (
+          <p className="text-sm text-gray-400">No products yet — create one above.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {products.map((p) => (
+              <button
+                key={p.name}
+                onClick={() => onSelectProduct(p.name)}
+                className={cn(
+                  "px-3 py-2 rounded-lg text-sm border transition-colors",
+                  activeProduct === p.name
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800"
+                )}
+              >
+                <Package className="h-4 w-4 inline mr-1" />
+                {p.name}
+                <span className="ml-2 text-xs opacity-70">{p.domain_count} domains</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {activeProduct && (
+        <>
+          {/* Scaffold product meta */}
+          <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-4">
+            <h2 className="font-semibold mb-3">Scaffold product meta-repo</h2>
+            <p className="text-xs text-gray-400 mb-3">
+              Creates <code>product-{activeProduct.toLowerCase()}-meta</code> with the
+              shared outer-loop governance, the inner↔outer crosswalk, and the
+              exceptions ledger. Pins the org-wide methodology (inner loop) as a submodule.
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => setStreamUrl(api.productInitMetaStreamUrl(activeProduct))}
+            >
+              <FolderGit2 className="h-4 w-4" /> Init product meta
+            </Button>
+            <StreamConsole url={streamUrl} />
+          </div>
+
+          <GovernancePanel product={activeProduct} reloadKey={streamUrl} />
+          <ExceptionsPanel product={activeProduct} onError={onError} />
+
+          <div className="flex justify-end">
+            <Button onClick={onContinue}>Continue to Domain →</Button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ── Governance viewer (gates + crosswalk) ───────────────────────────────── */
+function GovernancePanel({
+  product,
+  reloadKey,
+}: {
+  product: string;
+  reloadKey?: string | null;
+}) {
+  const [info, setInfo] = useState<GovernanceInfo | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getProductGovernance(product)
+      .then((g) => !cancelled && setInfo(g))
+      .catch(() => !cancelled && setInfo(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [product, reloadKey]);
+
+  if (!info) return null;
+  if (!info.found) {
+    return (
+      <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-4">
+        <h2 className="font-semibold mb-1 flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4" /> Governance
+        </h2>
+        <p className="text-sm text-amber-500">
+          No product meta-repo yet — scaffold it above to define governance.
+        </p>
+      </div>
+    );
+  }
+
+  const g = info.governance ?? {};
+  const crosswalk = info.crosswalk?.checkpoint_gate_map ?? g.checkpoint_gate_map ?? [];
+  const promotion = info.crosswalk?.promotion_path ?? g.promotion_path ?? [];
+
+  return (
+    <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-4 space-y-3">
+      <h2 className="font-semibold flex items-center gap-2">
+        <ShieldCheck className="h-4 w-4" /> Governance (product tier)
+      </h2>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
+        <Gate label="CI gates" on={!!g.require_ci_gates} />
+        <Gate label="Code review" on={!!g.require_code_review} />
+        <Gate label="Tests" on={!!g.require_tests} />
+        <div className="text-gray-500">
+          Min reviewers: <span className="text-gray-800 dark:text-gray-200">{g.min_reviewers ?? "—"}</span>
+        </div>
+        <div className="text-gray-500">
+          Coverage min: <span className="text-gray-800 dark:text-gray-200">{g.test_coverage_min ?? "—"}%</span>
+        </div>
+      </div>
+
+      {promotion.length > 0 && (
+        <div className="text-sm">
+          <span className="text-gray-500">Promotion path: </span>
+          <span className="font-mono">{promotion.join(" → ")}</span>
+        </div>
+      )}
+
+      {crosswalk.length > 0 && (
+        <div>
+          <div className="text-xs text-gray-500 mb-1">Inner ↔ Outer crosswalk</div>
+          <table className="w-full text-sm border border-gray-200 dark:border-gray-800 rounded">
+            <thead>
+              <tr className="text-left text-xs text-gray-500 border-b border-gray-200 dark:border-gray-800">
+                <th className="px-2 py-1">Checkpoint (inner)</th>
+                <th className="px-2 py-1">Gate (outer)</th>
+                <th className="px-2 py-1">Blocking</th>
+              </tr>
+            </thead>
+            <tbody>
+              {crosswalk.map((c, i) => (
+                <tr key={i} className="border-b border-gray-100 dark:border-gray-900">
+                  <td className="px-2 py-1 font-mono">{c.checkpoint}</td>
+                  <td className="px-2 py-1 font-mono">{c.gate}</td>
+                  <td className="px-2 py-1">{c.blocking ? "yes" : "no"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Gate({ label, on }: { label: string; on: boolean }) {
+  return (
+    <div className="flex items-center gap-1">
+      {on ? (
+        <Check className="h-3.5 w-3.5 text-emerald-500" />
+      ) : (
+        <X className="h-3.5 w-3.5 text-gray-400" />
+      )}
+      <span className={on ? "" : "text-gray-400"}>{label}</span>
+    </div>
+  );
+}
+
+/* ── Exceptions ledger (override-with-justification) ─────────────────────── */
+function ExceptionsPanel({
+  product,
+  onError,
+}: {
+  product: string;
+  onError: (e: string) => void;
+}) {
+  const [items, setItems] = useState<ExceptionInfo[]>([]);
+  const [rule, setRule] = useState("");
+  const [reason, setReason] = useState("");
+  const [scope, setScope] = useState("");
+  const [owner, setOwner] = useState("");
+  const [expires, setExpires] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const reload = async () => {
+    try {
+      setItems(await api.listProductExceptions(product));
+    } catch (e) {
+      onError(String(e));
+    }
+  };
+
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product]);
+
+  const add = async () => {
+    if (!rule.trim() || !reason.trim() || !scope.trim() || !owner.trim()) return;
+    setSaving(true);
+    try {
+      await api.addProductException(product, {
+        rule: rule.trim(),
+        reason: reason.trim(),
+        scope: scope.trim(),
+        owner: owner.trim(),
+        expires: expires.trim() || undefined,
+      });
+      setRule("");
+      setReason("");
+      setScope("");
+      setOwner("");
+      setExpires("");
+      await reload();
+    } catch (e) {
+      onError(String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-4 space-y-3">
+      <h2 className="font-semibold flex items-center gap-2">
+        <AlertTriangle className="h-4 w-4" /> Exceptions ledger
+        <span className="text-xs font-normal text-gray-400">(override with justification)</span>
+      </h2>
+
+      {/* File a waiver */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <Input placeholder="Rule (e.g. tdd)" value={rule} onChange={(e) => setRule(e.target.value)} />
+        <Input placeholder="Scope (e.g. domain:abc-a1)" value={scope} onChange={(e) => setScope(e.target.value)} />
+        <Input placeholder="Reason / justification" value={reason} onChange={(e) => setReason(e.target.value)} />
+        <Input placeholder="Owner (email)" value={owner} onChange={(e) => setOwner(e.target.value)} />
+        <Input placeholder="Expires (YYYY-MM-DD)" value={expires} onChange={(e) => setExpires(e.target.value)} />
+        <Button onClick={add} disabled={saving}>
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+          File waiver
+        </Button>
+      </div>
+
+      {/* List */}
+      {items.length === 0 ? (
+        <p className="text-sm text-gray-400">No exceptions recorded.</p>
+      ) : (
+        <table className="w-full text-sm border border-gray-200 dark:border-gray-800 rounded">
+          <thead>
+            <tr className="text-left text-xs text-gray-500 border-b border-gray-200 dark:border-gray-800">
+              <th className="px-2 py-1">ID</th>
+              <th className="px-2 py-1">Rule</th>
+              <th className="px-2 py-1">Scope</th>
+              <th className="px-2 py-1">Owner</th>
+              <th className="px-2 py-1">Expires</th>
+              <th className="px-2 py-1">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((e) => (
+              <tr key={e.id} className="border-b border-gray-100 dark:border-gray-900">
+                <td className="px-2 py-1 font-mono">{e.id}</td>
+                <td className="px-2 py-1">{e.rule}</td>
+                <td className="px-2 py-1 font-mono text-xs">{e.scope}</td>
+                <td className="px-2 py-1 text-xs">{e.owner}</td>
+                <td className="px-2 py-1">{e.expires_at || "—"}</td>
+                <td className="px-2 py-1">
+                  <Badge className={e.effective ? "" : "opacity-60"}>
+                    {e.effective ? "active" : e.status === "active" ? "expired" : e.status}
+                  </Badge>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }

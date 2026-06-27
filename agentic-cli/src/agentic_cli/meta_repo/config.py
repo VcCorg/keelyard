@@ -94,9 +94,32 @@ class DomainConfig:
         }
 
 
+def _default_promotion_path() -> list[str]:
+    """Default environment promotion path (outer-loop)."""
+    return ["dev", "qa", "uat", "prd"]
+
+
+def _default_checkpoint_gate_map() -> list[dict]:
+    """Default inner↔outer crosswalk: methodology checkpoints → promotion gates.
+
+    Each entry maps an inner-loop engineering checkpoint to the outer-loop
+    environment gate it reinforces. This is the product-level "crosswalk".
+    """
+    return [
+        {"checkpoint": "spec-approved", "gate": "dev", "blocking": True},
+        {"checkpoint": "tests-green", "gate": "qa", "blocking": True},
+        {"checkpoint": "code-review-passed", "gate": "uat", "blocking": True},
+        {"checkpoint": "governance-gates-passed", "gate": "prd", "blocking": True},
+    ]
+
+
 @dataclass
 class GovernanceConfig:
-    """Configuration for domain governance rules."""
+    """Configuration for governance rules (domain or product scope).
+
+    Extended for the methodology+governance integration with the outer-loop
+    promotion path and the inner↔outer crosswalk (checkpoint_gate_map).
+    """
 
     branch_pattern: str = "^(feat|fix|docs|style|refactor|test|chore)/[A-Z]+-[0-9]+-.*$"
     require_pre_push_hook: bool = True
@@ -105,6 +128,15 @@ class GovernanceConfig:
     min_reviewers: int = 1
     require_tests: bool = True
     test_coverage_min: float = 80.0
+    # Outer-loop environment promotion path (progressively stricter gates).
+    promotion_path: list[str] = field(default_factory=_default_promotion_path)
+    # Inner↔outer crosswalk: methodology checkpoints mapped to promotion gates.
+    checkpoint_gate_map: list[dict] = field(default_factory=_default_checkpoint_gate_map)
+    # Inner-loop floor: rules that may only be tightened, never loosened,
+    # without a recorded exception (see ExceptionEntry).
+    inner_loop_floor: list[str] = field(
+        default_factory=lambda: ["spec-first", "tdd", "two-stage-review"]
+    )
 
     @classmethod
     def from_dict(cls, data: dict) -> "GovernanceConfig":
@@ -117,6 +149,13 @@ class GovernanceConfig:
             min_reviewers=data.get("min_reviewers", 1),
             require_tests=data.get("require_tests", True),
             test_coverage_min=data.get("test_coverage_min", 80.0),
+            promotion_path=data.get("promotion_path", _default_promotion_path()),
+            checkpoint_gate_map=data.get(
+                "checkpoint_gate_map", _default_checkpoint_gate_map()
+            ),
+            inner_loop_floor=data.get(
+                "inner_loop_floor", ["spec-first", "tdd", "two-stage-review"]
+            ),
         )
 
     def to_dict(self) -> dict:
@@ -129,7 +168,98 @@ class GovernanceConfig:
             "min_reviewers": self.min_reviewers,
             "require_tests": self.require_tests,
             "test_coverage_min": self.test_coverage_min,
+            "promotion_path": self.promotion_path,
+            "checkpoint_gate_map": self.checkpoint_gate_map,
+            "inner_loop_floor": self.inner_loop_floor,
         }
+
+
+@dataclass
+class ProductConfig:
+    """Configuration for a product (top-level grouping over domains)."""
+
+    product: str
+    description: str = ""
+    owner: str = ""
+    created_at: str = ""
+    tags: list[str] = field(default_factory=list)
+    # Pinned org-wide methodology (inner-loop) reference.
+    org_methodology_url: str = ""
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "ProductConfig":
+        return cls(
+            product=data.get("product", ""),
+            description=data.get("description", ""),
+            owner=data.get("owner", ""),
+            created_at=data.get("created_at", ""),
+            tags=data.get("tags", []),
+            org_methodology_url=data.get("org_methodology_url", ""),
+        )
+
+    def to_dict(self) -> dict:
+        return {
+            "product": self.product,
+            "description": self.description,
+            "owner": self.owner,
+            "created_at": self.created_at,
+            "tags": self.tags,
+            "org_methodology_url": self.org_methodology_url,
+        }
+
+
+@dataclass
+class ExceptionEntry:
+    """A recorded, auditable waiver that loosens an inner-loop/product rule.
+
+    Domains/products may *tighten* governance freely; *loosening* requires one
+    of these entries ("override with justification"). Stored as
+    ``exceptions/<id>.yaml`` in the product meta-repo.
+    """
+
+    id: str
+    rule: str
+    reason: str
+    scope: str  # e.g. "domain:cwow-facility" or "repo:cwow-facility-ui"
+    owner: str
+    created_at: str = ""
+    expires_at: str = ""  # ISO date; empty = no expiry (discouraged)
+    status: str = "active"  # active | expired | revoked
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "ExceptionEntry":
+        return cls(
+            id=data.get("id", ""),
+            rule=data.get("rule", ""),
+            reason=data.get("reason", ""),
+            scope=data.get("scope", ""),
+            owner=data.get("owner", ""),
+            created_at=data.get("created_at", ""),
+            expires_at=data.get("expires_at", ""),
+            status=data.get("status", "active"),
+        )
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "rule": self.rule,
+            "reason": self.reason,
+            "scope": self.scope,
+            "owner": self.owner,
+            "created_at": self.created_at,
+            "expires_at": self.expires_at,
+            "status": self.status,
+        }
+
+    def is_effective(self, today: Optional[str] = None) -> bool:
+        """True if the waiver is active and not past its expiry date."""
+        if self.status != "active":
+            return False
+        if not self.expires_at:
+            return True
+        from datetime import date
+        ref = today or date.today().isoformat()
+        return ref <= self.expires_at
 
 
 @dataclass

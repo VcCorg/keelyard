@@ -456,6 +456,49 @@ export interface CreateDomainBody {
   tags?: string[];
 }
 
+/* ============ Product Meta-Repo / Governance / Exceptions Types ============ */
+
+export interface GovernanceInfo {
+  found: boolean;
+  path?: string;
+  governance?: {
+    branch_pattern?: string;
+    require_ci_gates?: boolean;
+    require_code_review?: boolean;
+    min_reviewers?: number;
+    require_tests?: boolean;
+    test_coverage_min?: number;
+    promotion_path?: string[];
+    checkpoint_gate_map?: { checkpoint: string; gate: string; blocking?: boolean }[];
+    inner_loop_floor?: string[];
+    [k: string]: unknown;
+  } | null;
+  crosswalk?: {
+    promotion_path?: string[];
+    checkpoint_gate_map?: { checkpoint: string; gate: string; blocking?: boolean }[];
+  } | null;
+}
+
+export interface ExceptionInfo {
+  id: string;
+  rule: string;
+  reason: string;
+  scope: string;
+  owner: string;
+  created_at: string;
+  expires_at: string;
+  status: string;
+  effective: boolean;
+}
+
+export interface AddExceptionBody {
+  rule: string;
+  reason: string;
+  scope: string;
+  owner: string;
+  expires?: string;
+}
+
 /* ============ Data Source Types ============ */
 
 export interface DataSourceInfo {
@@ -1125,6 +1168,33 @@ class APIClient {
 
   async removeDoc(slug: string, pageId: string): Promise<{ success: boolean; message: string }> {
     return this.request(`/domains/${slug}/docs/${pageId}`, { method: "DELETE" });
+  }
+
+  /* ---- Product Meta-Repo / Governance / Exceptions ---- */
+
+  /** Build an SSE URL for `dva product init-meta <name>`. */
+  productInitMetaStreamUrl(name: string, orgMethodology?: string): string {
+    const q = new URLSearchParams();
+    if (orgMethodology) q.append("org_methodology", orgMethodology);
+    const qs = q.toString();
+    return this.streamUrl(
+      `/domains/products/${encodeURIComponent(name)}/init-meta/stream${qs ? "?" + qs : ""}`
+    );
+  }
+
+  async getProductGovernance(name: string): Promise<GovernanceInfo> {
+    return this.request(`/domains/products/${encodeURIComponent(name)}/governance`);
+  }
+
+  async listProductExceptions(name: string): Promise<ExceptionInfo[]> {
+    return this.request(`/domains/products/${encodeURIComponent(name)}/exceptions`);
+  }
+
+  async addProductException(name: string, body: AddExceptionBody): Promise<ExceptionInfo> {
+    return this.request(`/domains/products/${encodeURIComponent(name)}/exceptions`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
   }
 
   /* ---- Integrations ---- */
