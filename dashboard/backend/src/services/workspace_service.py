@@ -1,0 +1,342 @@
+"""Persona-tiered workspace service — thin proxy over the agentic-cli core.
+
+Mirrors the `dva workspace` / `dva domain sync` model in the dashboard:
+
+- Reads (tracker + path resolution) import the CLI library directly.
+- Long-running steps (`dva workspace open`, `dva domain sync`) shell out to the
+  real CLI and stream stdout so the worktree/graphify logic lives in one place.
+- "Open in IDE" launches a local editor (windsurf / code / cursor) at the folder
+  that matches the chosen persona's tier:
+    * solutions-architect -> product meta-repo  (product tier)
+    * tech-lead           -> domain meta-repo   (domain tier)
+    * dev                 -> repo worktree       (repo tier)
+"""
+
+import asyncio
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+from typing import AsyncGenerator, Optional
+
+from pydantic import BaseModel
+
+
+# ── Models ───────────────────────────────────────────────────────────────────
+
+class WorkspaceInfo(BaseModel):
+    tier: str
+    persona: str
+    root_path: str
+    product: Optional[str] = None
+    domain: Optional[str] = None
+    store_path: Optional[str] = None
+    repos: list[dict] = []
+    created_at: Optional[str] = None
+    last_active: Optional[str] = None
+
+
+class WorkspaceTarget(BaseModel):
+    persona: str
+    tier: str                       # product | domain | repo
+    path: Optional[str] = None      # folder to open in the IDE
+    exists: bool = False            # folder is present on disk
+    ready: bool = False             # registered workspace exists for this target
+    needs: Optional[str] = None     # suggested action: "sync" | "open" | None
+    hint: str = ""                  # human-readable guidance
+
+
+class OpenIdeResult(BaseModel):
+    success: bool
+    editor: str
+    command: str
+    path: str
+    message: str
+
+
+# ── CLI access helpers ─────────────────────────────────────────────────────--
+
+def _tracker():
+    from agentic_cli import tracker
+    return tracker
+
+
+def _pw():
+    from agentic_cli import persona_workspace
+    return persona_workspace
+
+
+def resolve_cli_command() -> list[str]:
+    dva = shutil.which("dva")
+    if dva:
+        return [dva]
+    return [sys.executable, "-m", "agentic_cli.main"]
+
+
+# ── Persona → tier mapping ─────────────────────────────────────────────────--
+
+PERSONA_TIER = {
+    "solutions-architect": "product",
+    "tech-lead": "domain",
+    "dev": "repo",
+}
+
+PERSONA_LABELS = {
+    "solutions-architect": "Solutions Architect",
+    "tech-lead": "Tech Lead",
+    "dev": "Developer",
+}
+
+
+# ── Reads ───────────────────────────────────────────────────────────────────
+
+def list_workspaces(tier: Optional[str] = None) -> list[WorkspaceInfo]:
+    t = _tracker()
+    rows = t.get_workspaces(tier=tier)
+    return [
+        WorkspaceInfo(
+            tier=r.get("tier"),
+            persona=r.get("persona"),
+            root_path=r.get("root_path"),
+            product=r.get("product"),
+            domain=r.get("domain"),
+            store_path=r.get("store_path"),
+            repos=r.get("repos") or [],
+            created_at=r.get("created_at"),
+            last_active=r.get("last_active"),
+        )
+        for r in rows
+    ]
+
+
+def resolve_target(
+    persona: str,
+    product: Optional[str] = None,
+    domain: Optional[str] = None,
+    repo: Optional[str] = None,
+) -> WorkspaceTarget:
+    """Resolve the folder a persona should open, and whether it's ready."""
+    pw = _pw()
+    tier = PERSONA_TIER.get(persona)
+    if not tier:
+        raise ValueError(f"Unknown persona '{persona}'.")
+
+    from agentic_cli.meta_repo.detector import detect_domain_meta_repo
+
+    path: Optional[Path] = None
+    needs: Optional[str] = None
+    hint = ""
+
+    if tier == "product":
+        if not product:
+            raise ValueError("Solutions Architect requires a product.")
+        path = pw.find_product_meta(product)
+        hint = (
+            "Product meta-repo (governance, crosswalk, persona catalog). "
+            "Tracker-only — no code checkout."
+        )
+        if not path:
+            needs = "onboard"
+            hint = f"No product meta-repo found for '{product}'. Onboard the product first."
+
+    elif tier == "domain":
+        if not domain:
+            raise ValueError("Tech Lead requires a domain.")
+        meta = detect_domain_meta_repo(domain)
+        path = meta
+        hint = (
+            "Domain meta-repo with federated graph references across all repos "
+            "(.graph/graph-refs.json) — no code checkout."
+        )
+        if meta is None:
+            needs = "onboard"
+            hint = f"No domain meta-repo found for '{domain}'. Onboard the domain first."
+        else:
+            refs = meta / pw.GRAPH_DIR_NAME / pw.GRAPH_REFS_FILENAME
+            if not refs.exists():
+                needs = "sync"
+                hint = (
+                    "Domain meta-repo found, but graphs aren't synced yet. "
+                    "Run 'Sync (Tech Lead)' to build .graph/graph-refs.json."
+                )
+
+    elif tier == "repo":
+        if not (domain and repo):
+            raise ValueError("Developer requires a domain and a repo.")
+        path = pw.get_workspace_base() / domain / "repos" / repo
+        hint = "Editable git worktree of a single repo (branch ws/dev/<repo>)."
+        if not (path.exists() and any(path.iterdir()) if path.exists() else False):
+            needs = "open"
+            hint = (
+                "Worktree not created yet. Run 'Open (Developer)' to materialize a "
+                "worktree from the canonical store."
+            )
+
+    exists = bool(path and Path(path).exists())
+    ready = exists and needs is None
+    return WorkspaceTarget(
+        persona=persona, tier=tier,
+        path=str(path) if path else None,
+        exists=exists, ready=ready, needs=needs, hint=hint,
+    )
+
+
+# ── Open in IDE ──────────────────────────────────────────────────────────────
+
+# Editor key → the `code_assist_tool` value that controls where persona skills
+# are written so the editor actually picks them up:
+#   devin    → .devin/skills/<name>/SKILL.md  (Devin project skills)
+#   windsurf → .windsurf/workflows/<name>.md
+#   cursor   → .cursor/rules/<name>.md
+#   code     → .skills/<name>/SKILL.md        (generic/portable)
+EDITOR_TOOL = {
+    "windsurf": "windsurf",
+    "cursor": "cursor",
+    "devin": "devin",
+    "code": "generic",
+}
+
+# Preference order when no editor is explicitly chosen.
+_EDITOR_ORDER = ["devin", "windsurf", "cursor", "code"]
+
+_DEVIN_APP = Path("/Applications/Devin.app")
+
+
+def tool_for_editor(editor: Optional[str]) -> str:
+    """Map a launcher/editor key to its `dva --code-assist-tool` value."""
+    return EDITOR_TOOL.get((editor or "").lower(), "generic")
+
+
+def _devin_available() -> bool:
+    """Devin counts as available via its CLI or the macOS desktop app."""
+    if shutil.which("devin"):
+        return True
+    return sys.platform == "darwin" and _DEVIN_APP.exists()
+
+
+def _editor_available(editor: str) -> bool:
+    if editor == "devin":
+        return _devin_available()
+    return bool(shutil.which(editor))
+
+
+def detect_editors() -> list[str]:
+    """Return available editor keys, in preference order (devin first)."""
+    return [e for e in _EDITOR_ORDER if _editor_available(e)]
+
+
+def _editor_command(editor: str, target: Path) -> Optional[list[str]]:
+    """Build the launch command for an editor, or None if unavailable.
+
+    Devin is a terminal/cloud agent (no `devin <path>` GUI open), so on macOS we
+    open its desktop app at the folder via `open -a Devin <path>`; otherwise we
+    fall back to launching the `devin` CLI in that directory.
+    """
+    p = str(target)
+    if editor == "devin":
+        if sys.platform == "darwin" and _DEVIN_APP.exists():
+            return ["open", "-a", "Devin", p]
+        if shutil.which("devin"):
+            return ["devin", p]
+        return None
+    if shutil.which(editor):
+        return [editor, p]
+    return None
+
+
+def open_in_ide(path: str, editor: Optional[str] = None) -> OpenIdeResult:
+    """Launch a local editor/agent at ``path``.
+
+    Picks the requested editor if available, else the first detected one
+    (Devin preferred). Falls back to the OS opener on macOS.
+    """
+    target = Path(path).expanduser()
+    if not target.exists():
+        raise ValueError(f"Path does not exist: {target}")
+
+    available = detect_editors()
+    chosen = (editor or "").lower() if (editor and (editor or "").lower() in available) else (
+        available[0] if available else None
+    )
+
+    cmd = _editor_command(chosen, target) if chosen else None
+    if cmd is None:
+        if sys.platform == "darwin":
+            # No editor CLI/app resolved — fall back to Finder/default app.
+            chosen = "open"
+            cmd = ["open", str(target)]
+        else:
+            raise ValueError(
+                "No supported editor found (devin/windsurf/cursor/code). "
+                "Install the editor's shell command, or open the path manually."
+            )
+
+    try:
+        subprocess.Popen(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except Exception as e:  # noqa: BLE001
+        raise ValueError(f"Failed to launch '{chosen}': {e}") from e
+
+    return OpenIdeResult(
+        success=True, editor=chosen, command=" ".join(cmd), path=str(target),
+        message=f"Opening {target} in {chosen}.",
+    )
+
+
+# ── Streaming actions (shell out to the real CLI) ───────────────────────────--
+
+async def _stream_cli(args: list[str]) -> AsyncGenerator[str, None]:
+    cmd = resolve_cli_command() + args
+    yield f"$ {' '.join(cmd)}"
+
+    env = os.environ.copy()
+    env["NO_COLOR"] = "1"
+    env["TERM"] = "dumb"
+
+    proc = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+        env=env,
+    )
+    assert proc.stdout is not None
+    while True:
+        raw = await proc.stdout.readline()
+        if not raw:
+            break
+        yield raw.decode(errors="replace").rstrip("\n")
+    rc = await proc.wait()
+    yield f"__EXIT__ {rc}"
+
+
+def stream_sync_domain(domain: str, persona: str = "tech-lead",
+                       graphify: bool = True,
+                       tool: str = "generic") -> AsyncGenerator[str, None]:
+    """Stream `dva domain sync <domain>` (tech-lead domain-tier assembly).
+
+    ``tool`` is the resolved `code_assist_tool` (e.g. ``devin``) controlling
+    where the tech-lead persona skill is written.
+    """
+    args = ["domain", "sync", domain, "--persona", persona]
+    args += ["--graphify"] if graphify else ["--no-graphify"]
+    args += ["--code-assist-tool", tool]
+    return _stream_cli(args)
+
+
+def stream_open_workspace(domain: str, repo: str, persona: str = "dev",
+                          graphify: bool = False,
+                          tool: str = "generic") -> AsyncGenerator[str, None]:
+    """Stream `dva workspace open <domain> <repo>` (dev repo-tier worktree).
+
+    ``tool`` is the resolved `code_assist_tool` (e.g. ``devin``) controlling
+    where the dev persona skill is written.
+    """
+    args = ["workspace", "open", domain, repo, "--persona", persona]
+    args += ["--graphify"] if graphify else ["--no-graphify"]
+    args += ["--code-assist-tool", tool]
+    return _stream_cli(args)

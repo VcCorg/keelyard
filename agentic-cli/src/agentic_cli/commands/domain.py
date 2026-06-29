@@ -40,7 +40,10 @@ from agentic_cli.tracker import (
     add_domain_doc,
     remove_domain_doc,
     mark_domain_repo_onboarded,
+    register_workspace,
 )
+from agentic_cli import persona_workspace as pw
+from agentic_cli.meta_repo.detector import detect_domain_meta_repo
 from agentic_cli.skill_generator import (
     ROLES,
     ROLE_LABELS,
@@ -1333,6 +1336,85 @@ def gen_skills(
     )
 
 
+@domain_app.command("regen-personas")
+def regen_personas(
+    domain_name: Annotated[str, typer.Argument(help="Domain name (slug, e.g. cwow-facility)")],
+    persona: Annotated[list[str], typer.Option("--persona", "-p", help="Only regenerate these persona ids (repeatable)")] = None,
+    product_meta: Annotated[str, typer.Option("--product-meta", help="Path/URL of the product meta-repo (to read personas.yaml)")] = None,
+    output: Annotated[str, typer.Option("--output", "-o", help="Meta-repo path (default: workspace/<domain>/domain-<domain>-meta)")] = None,
+    enrich: Annotated[bool, typer.Option("--enrich/--no-enrich", help="AI-enrich custom personas marked ai_enrich")] = False,
+) -> None:
+    """
+    (Re)generate persona skills into an existing domain meta-repo.
+
+    Resolves the effective persona catalog (built-in defaults + product-specific
+    personas from the product meta-repo's personas.yaml) and renders each into
+    <meta-repo>/.agents/skills/personas/<id>/SKILL.md. Safe to re-run; existing
+    persona files are overwritten.
+
+    Examples:
+        {CLI_NAME} domain regen-personas cwow-facility
+        {CLI_NAME} domain regen-personas cwow-facility --persona tech-lead
+        {CLI_NAME} domain regen-personas cwow-facility --enrich
+    """
+    from agentic_cli.persona_catalog import resolve_personas
+    from agentic_cli.skill_generator import generate_personas
+
+    d = get_domain(domain_name)
+    if not d:
+        console.print(f"[red]✗ Domain '{domain_name}' not found.[/red]")
+        raise typer.Exit(1)
+
+    # Locate the domain meta-repo.
+    if output:
+        meta_repo_path = Path(output).resolve()
+    else:
+        workspace = _get_code_workspace()
+        meta_repo_path = workspace / domain_name / f"domain-{domain_name}-meta"
+    if not meta_repo_path.exists():
+        console.print(f"[red]✗ Domain meta-repo not found at {meta_repo_path}[/red]")
+        console.print(f"[dim]Create it first: {CLI_NAME} domain init-meta {domain_name}[/dim]")
+        raise typer.Exit(1)
+
+    # Resolve the product meta path to read the persona catalog.
+    product = d.get("product", "")
+    product_meta_path = None
+    if product_meta and Path(product_meta).exists():
+        product_meta_path = Path(product_meta)
+    elif product:
+        slug = product.lower()
+        product_meta_path = _get_code_workspace() / slug / f"product-{slug}-meta"
+
+    personas = resolve_personas(product_meta_path)
+    if persona:
+        wanted = set(persona)
+        personas = [p for p in personas if p.id in wanted]
+        if not personas:
+            console.print(f"[red]✗ No matching personas for: {', '.join(persona)}[/red]")
+            raise typer.Exit(1)
+
+    repos = get_domain_repos(domain_name)
+    docs = get_domain_docs(domain_name)
+    ctx = gather_domain_context(d, repos, docs)
+
+    personas_dir = meta_repo_path / ".agents" / "skills" / "personas"
+    console.print(f"Regenerating personas for [cyan]{domain_name}[/cyan]...")
+    written = generate_personas(personas, ctx, personas_dir, enrich=enrich)
+
+    lines = []
+    for spec in personas:
+        path = written.get(spec.id)
+        if path:
+            lines.append(f"[green]✓[/green] {spec.label:<22s} → {path.relative_to(meta_repo_path)}")
+    lines.append(f"\n[dim]Output: {personas_dir}[/dim]")
+    console.print(Panel("\n".join(lines), title=f"Personas — {domain_name}", border_style="green"))
+
+    record_activity(
+        command="domain", subcommand="regen-personas",
+        args={"domain": domain_name, "personas": [p.id for p in personas], "enrich": enrich},
+    )
+
+
 # ---------------------------------------------------------------------------
 # {CLI_NAME} domain init-context
 # ---------------------------------------------------------------------------
@@ -1716,18 +1798,37 @@ def init_meta(
         for r in repos
     ]
 
+    # Resolve the effective persona catalog (built-in defaults + product-specific
+    # personas from the product meta-repo) and build the rendering context so the
+    # scaffolder can generate persona skills into .agents/skills/personas/.
+    from agentic_cli.persona_catalog import resolve_personas
+
+    product = d.get("product", "")
+    product_meta_path = None
+    if product_meta_url and Path(product_meta_url).exists():
+        product_meta_path = Path(product_meta_url)
+    elif product:
+        slug = product.lower()
+        product_meta_path = _get_code_workspace() / slug / f"product-{slug}-meta"
+
+    personas = resolve_personas(product_meta_path)
+    docs = get_domain_docs(domain_name)
+    persona_context = gather_domain_context(d, repos, docs)
+
     # Scaffold the meta-repo
     try:
         created = scaffold_domain_meta_repo(
             output_dir=out_dir,
             domain=domain_name,
-            product=d.get("product", ""),
+            product=product,
             description=d.get("description", ""),
             owner=d.get("owner", ""),
             context_repo_url=context_repo_url,
             product_meta_url=product_meta_url,
             repos=repos_config,
             git_init=git_init,
+            personas=personas,
+            persona_context=persona_context,
         )
 
         console.print(f"[green]✓ Domain meta-repo created:[/green] {meta_repo_path}")
@@ -1995,3 +2096,93 @@ def _resolve_domain_context_dir(domain_name: str, context_dir: str = None) -> Pa
     console.print(f"[red]✗ Cannot find domain context repo for '{domain_name}'[/red]")
     console.print(f"[dim]Use --context-dir to specify the path, or run from the workspace root[/dim]")
     raise typer.Exit(1)
+
+
+# ---------------------------------------------------------------------------
+# {CLI_NAME} domain sync  (tech-lead / domain-tier workspace)
+# ---------------------------------------------------------------------------
+
+@domain_app.command("sync")
+def sync_domain(
+    domain_name: Annotated[str, typer.Argument(help="Domain slug (e.g. cwow-facility)")],
+    persona: Annotated[str, typer.Option("--persona", help="Domain-tier persona (default: tech-lead)")] = "tech-lead",
+    graphify: Annotated[bool, typer.Option("--graphify/--no-graphify", help="Run graphify update per repo to refresh code graphs")] = True,
+    code_assist_tool: Annotated[str, typer.Option("--code-assist-tool", help="devin | windsurf | cursor | generic (where the persona skill is written)")] = "windsurf",
+) -> None:
+    """Assemble the tech-lead (domain-tier) workspace.
+
+    Ensures a canonical store clone for every linked repo, refreshes each repo's
+    graphify graph, writes a federated reference manifest
+    (``<domain-meta>/.graph/graph-refs.json``) — no code copied into the meta-repo —
+    and installs the tech-lead persona skill. Registers the workspace.
+    """
+    d = get_domain(domain_name)
+    if not d:
+        console.print(f"[red]✗ Domain '{domain_name}' not found.[/red]")
+        raise typer.Exit(1)
+
+    product = d.get("product")
+    domain_label = d.get("domain", domain_name)
+
+    repos = get_domain_repos(domain_name)
+    if not repos:
+        console.print(f"[yellow]⚠ No repos linked to '{domain_name}'. Use 'dva domain link-repo' first.[/yellow]")
+        raise typer.Exit(0)
+
+    meta = detect_domain_meta_repo(domain_name)
+    if not meta:
+        console.print(f"[red]✗ Domain meta-repo not found for '{domain_name}'.[/red]")
+        console.print(f"[dim]Run: {CLI_NAME} domain init-meta {domain_name} --product-meta <url>[/dim]")
+        raise typer.Exit(1)
+
+    if graphify and not pw.graphify_available():
+        console.print("[yellow]⚠ graphify CLI not found; writing graph references without graphs.[/yellow]")
+        console.print("[dim]Install with: pip install graphifyy[/dim]")
+
+    console.print(f"[cyan]Syncing {len(repos)} repo(s) into the store for '{domain_name}'...[/cyan]")
+    manifest = pw.build_graph_refs(domain_name, product, repos, run_graphify=graphify)
+
+    for entry in manifest["repos"]:
+        if entry["status"] == "ready":
+            graph = "graph ✓" if entry["graph"].get("has_graph") else "graph ✗"
+            console.print(f"  [green]✓[/green] {entry['slug']} ({graph})")
+        else:
+            console.print(f"  [red]✗[/red] {entry['slug']}: {entry.get('error', 'failed')}")
+
+    refs_path = pw.write_graph_refs(meta, manifest)
+    console.print(f"[green]✓[/green] Federated manifest: {refs_path}")
+
+    # Install the tech-lead persona skill into the domain meta-repo.
+    skill = pw.assemble_persona_skill(
+        meta, persona,
+        pw.render_tech_lead_skill({
+            "domain": domain_name, "domain_label": domain_label,
+            "product": product, "repos": manifest["repos"],
+        }),
+        code_assist_tool,
+    )
+    console.print(f"[green]✓[/green] Persona skill: {skill}")
+
+    ready = sum(1 for e in manifest["repos"] if e["status"] == "ready")
+    graphs = sum(1 for e in manifest["repos"] if e["graph"].get("has_graph"))
+    register_workspace(
+        tier="domain", persona=persona, root_path=str(meta),
+        product=product, domain=domain_name, store_path=str(pw.get_store_base()),
+        repos=[
+            {"slug": e["slug"], "mode": "graph-ref", "path": e.get("store_path")}
+            for e in manifest["repos"]
+        ],
+    )
+    record_activity(
+        command="domain", subcommand="sync",
+        args={"domain": domain_name, "persona": persona, "repos": len(repos)},
+    )
+
+    console.print(Panel.fit(
+        f"[bold green]✓ Tech-lead workspace ready[/bold green]\n\n"
+        f"[bold]Persona:[/bold] {persona} (domain tier)\n"
+        f"[bold]Open in IDE:[/bold] {meta}\n"
+        f"[bold]Repos:[/bold] {ready}/{len(repos)} in store, {graphs} graph(s) ready\n\n"
+        f"[dim]Federated cross-repo reasoning via .graph/graph-refs.json — no code checkout.[/dim]",
+        border_style="green",
+    ))

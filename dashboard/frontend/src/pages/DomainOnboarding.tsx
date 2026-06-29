@@ -29,6 +29,7 @@ import {
   type GovernanceInfo,
   type ExceptionInfo,
 } from "@/lib/api";
+import { PersonaSkillsPanel } from "@/components/PersonaSkillsPanel";
 import { cn } from "@/lib/utils";
 
 /* ── Streaming console (handles both `log` and `done` SSE events) ─────────── */
@@ -240,7 +241,9 @@ export function DomainOnboarding() {
         <DocsStep domain={active} onChanged={() => refreshActive(active.name)} />
       )}
 
-      {step === "skills" && active && <SkillsStep slug={active.name} />}
+      {step === "skills" && active && (
+        <SkillsStep slug={active.name} product={active.product} />
+      )}
 
       {step === "scaffold" && active && (
         <ScaffoldStep slug={active.name} product={active.product} />
@@ -267,6 +270,8 @@ function ProductsPanel({
   const [editDesc, setEditDesc] = useState("");
   const [editTags, setEditTags] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  const [wipeMeta, setWipeMeta] = useState(false);
 
   const parseTags = (s: string) =>
     s.split(",").map((t) => t.trim()).filter(Boolean);
@@ -317,12 +322,18 @@ function ProductsPanel({
     }
   };
 
+  const openConfirm = (p: ProductInfo) => {
+    setEditing(null);
+    setWipeMeta(false);
+    setConfirmDel((cur) => (cur === p.name ? null : p.name));
+  };
+
   const remove = async (p: ProductInfo) => {
-    if (p.domain_count > 0) return;
-    if (!window.confirm(`Remove product "${p.name}"? This cannot be undone.`)) return;
     setBusy(p.name);
     try {
-      await api.deleteProduct(p.name);
+      await api.deleteProduct(p.name, { cascade: true, wipeMeta });
+      setConfirmDel(null);
+      setWipeMeta(false);
       onChanged();
     } catch (e) {
       onError(String(e));
@@ -399,18 +410,62 @@ function ProductsPanel({
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => remove(p)}
-                  disabled={p.domain_count > 0 || busy === p.name}
-                  title={
-                    p.domain_count > 0
-                      ? `Reassign or delete its ${p.domain_count} domain(s) first`
-                      : "Remove product"
-                  }
+                  onClick={() => openConfirm(p)}
+                  disabled={busy === p.name}
+                  title={p.domain_count > 0 ? "Force delete product + domains" : "Remove product"}
                 >
-                  <Trash2 className={cn("h-4 w-4", p.domain_count > 0 ? "text-gray-300" : "text-red-500")} />
+                  <Trash2 className="h-4 w-4 text-red-500" />
                 </Button>
               </div>
             </div>
+
+            {confirmDel === p.name && (
+              <div className="mt-2 rounded-md border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/30 p-3 space-y-2">
+                <div className="flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div>
+                    {p.domain_count > 0 ? (
+                      <>
+                        This will remove <strong>{p.name}</strong> and its{" "}
+                        <strong>{p.domain_count} domain(s)</strong> from the tracker.
+                      </>
+                    ) : (
+                      <>
+                        This will remove <strong>{p.name}</strong> from the tracker.
+                      </>
+                    )}{" "}
+                    This cannot be undone.
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 text-xs text-red-700 dark:text-red-300">
+                  <input
+                    type="checkbox"
+                    checked={wipeMeta}
+                    onChange={(e) => setWipeMeta(e.target.checked)}
+                  />
+                  Also delete on-disk meta-repos (<code>domain-*-meta</code>, <code>product-*-meta</code>) —
+                  for a clean re-onboard
+                </label>
+                <div className="flex gap-2">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => remove(p)}
+                    disabled={busy === p.name}
+                  >
+                    {busy === p.name ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                    ) : (
+                      <Trash2 className="h-4 w-4 mr-1" />
+                    )}
+                    {p.domain_count > 0 ? "Force delete" : "Delete"}
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setConfirmDel(null)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {editing === p.name && (
               <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 items-end">
@@ -991,40 +1046,9 @@ function DocsStep({
   );
 }
 
-/* ── Step 4: skills ──────────────────────────────────────────────────────── */
-function SkillsStep({ slug }: { slug: string }) {
-  const [role, setRole] = useState("");
-  const [streamUrl, setStreamUrl] = useState<string | null>(null);
-
-  const run = () => {
-    const q = role ? `?role=${encodeURIComponent(role)}` : "";
-    setStreamUrl(api.streamUrl(`/domains/${slug}/gen-skills/stream${q}`));
-  };
-
-  return (
-    <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-      <h2 className="font-semibold mb-3">Generate persona skills</h2>
-      <div className="flex gap-2 items-center">
-        <select
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-          className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-        >
-          <option value="">All roles</option>
-          <option value="domain">Domain overview</option>
-          <option value="dev">Developer</option>
-          <option value="qa">QA</option>
-          <option value="sm">Scrum Master</option>
-          <option value="ba">Business Analyst</option>
-        </select>
-        <Button onClick={run}>Generate</Button>
-      </div>
-      <p className="text-xs text-gray-400 mt-2">
-        Runs <code>dva domain gen-skills {slug}</code> via the CLI.
-      </p>
-      <StreamConsole url={streamUrl} />
-    </div>
-  );
+/* ── Step 4: skills (review + role-aware regeneration) ────────────────────── */
+function SkillsStep({ slug, product }: { slug: string; product: string }) {
+  return <PersonaSkillsPanel slug={slug} product={product} />;
 }
 
 /* ── Step 6: scaffold ────────────────────────────────────────────────────── */

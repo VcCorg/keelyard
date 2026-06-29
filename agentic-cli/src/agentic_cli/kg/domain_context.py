@@ -464,6 +464,11 @@ def scaffold_domain_context_repo(
         skills_dir = output_dir / ".windsurf" / "workflows"
         skills_dir.mkdir(parents=True, exist_ok=True)
         skill_path = skills_dir / f"{domain}-domain-skill.md"
+    elif code_assist_tool == "devin":
+        # Devin project skill format: .devin/skills/<domain>-domain-skill/SKILL.md
+        skills_dir = output_dir / ".devin" / "skills"
+        skills_dir.mkdir(parents=True, exist_ok=True)
+        skill_path = skills_dir / f"{domain}-domain-skill" / "SKILL.md"
     else:
         # Generic/Cursor format: .skills/shared/<domain>-domain-skill/SKILL.md
         skills_dir = output_dir / ".skills" / "shared"

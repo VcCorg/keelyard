@@ -12,6 +12,10 @@ from .config import (
     GovernanceConfig,
     ProductConfig,
     ExceptionEntry,
+    PersonaSpec,
+    PersonaSection,
+    PersonasConfig,
+    BUILTIN_PERSONA_IDS,
 )
 from .scaffold import scaffold_domain_meta_repo
 from .product_scaffold import (
@@ -27,6 +31,10 @@ __all__ = [
     "GovernanceConfig",
     "ProductConfig",
     "ExceptionEntry",
+    "PersonaSpec",
+    "PersonaSection",
+    "PersonasConfig",
+    "BUILTIN_PERSONA_IDS",
     "scaffold_domain_meta_repo",
     "scaffold_product_meta_repo",
     "add_exception",

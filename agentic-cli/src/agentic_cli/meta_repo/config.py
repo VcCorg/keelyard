@@ -295,6 +295,96 @@ class SkillsConfig:
         }
 
 
+# Built-in persona ids shipped with the platform. Product teams toggle these
+# via ``defaults_enabled`` and add their own under ``personas`` in personas.yaml.
+BUILTIN_PERSONA_IDS = ("domain", "dev", "qa", "sm", "ba")
+
+
+@dataclass
+class PersonaSection:
+    """A titled content block within a persona skill document."""
+
+    title: str
+    body: str = ""
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "PersonaSection":
+        return cls(title=data.get("title", ""), body=data.get("body", ""))
+
+    def to_dict(self) -> dict:
+        return {"title": self.title, "body": self.body}
+
+
+@dataclass
+class PersonaSpec:
+    """Declarative definition of a single persona (role-based skill).
+
+    Built-in personas (``builtin=True``) render via the platform's rich
+    generators. Custom personas render their ``sections`` deterministically and,
+    when ``ai_enrich`` is set and a model is available, may be AI-enriched.
+    """
+
+    id: str
+    label: str
+    description: str = ""
+    sections: list[PersonaSection] = field(default_factory=list)
+    ai_enrich: bool = False
+    builtin: bool = False
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "PersonaSpec":
+        return cls(
+            id=data.get("id", ""),
+            label=data.get("label", data.get("id", "")),
+            description=data.get("description", ""),
+            sections=[PersonaSection.from_dict(s) for s in (data.get("sections") or [])],
+            ai_enrich=bool(data.get("ai_enrich", False)),
+            builtin=bool(data.get("builtin", False)),
+        )
+
+    def to_dict(self) -> dict:
+        result: dict[str, Any] = {
+            "id": self.id,
+            "label": self.label,
+            "description": self.description,
+        }
+        if self.sections:
+            result["sections"] = [s.to_dict() for s in self.sections]
+        if self.ai_enrich:
+            result["ai_enrich"] = True
+        return result
+
+
+@dataclass
+class PersonasConfig:
+    """Product-tier persona catalog (``.platform/config/personas.yaml``).
+
+    ``defaults_enabled`` selects which built-in personas to generate; ``personas``
+    holds product-specific additions (e.g. tech-lead, product-owner).
+    """
+
+    version: int = 1
+    defaults_enabled: list[str] = field(
+        default_factory=lambda: list(BUILTIN_PERSONA_IDS)
+    )
+    personas: list[PersonaSpec] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "PersonasConfig":
+        return cls(
+            version=int(data.get("version", 1)),
+            defaults_enabled=data.get("defaults_enabled", list(BUILTIN_PERSONA_IDS)),
+            personas=[PersonaSpec.from_dict(p) for p in (data.get("personas") or [])],
+        )
+
+    def to_dict(self) -> dict:
+        return {
+            "version": self.version,
+            "defaults_enabled": self.defaults_enabled,
+            "personas": [p.to_dict() for p in self.personas],
+        }
+
+
 class MetaRepoConfig:
     """Load and manage domain meta-repo configurations."""
 
@@ -311,6 +401,7 @@ class MetaRepoConfig:
         self.repos: list[RepoConfig] = []
         self.governance: Optional[GovernanceConfig] = None
         self.skills: Optional[SkillsConfig] = None
+        self.personas: Optional[PersonasConfig] = None
 
         self._load_all()
 
@@ -320,6 +411,7 @@ class MetaRepoConfig:
         self._load_repos_config()
         self._load_governance_config()
         self._load_skills_config()
+        self._load_personas_config()
 
     def _load_domain_config(self) -> None:
         """Load domain.yaml configuration."""
@@ -386,6 +478,21 @@ class MetaRepoConfig:
             logger.error(f"Failed to load skills.yaml: {e}")
             self.skills = SkillsConfig()
 
+    def _load_personas_config(self) -> None:
+        """Load personas.yaml configuration (optional)."""
+        config_file = self.config_dir / "personas.yaml"
+        if not config_file.exists():
+            logger.debug(f"personas.yaml not found at {config_file}")
+            return
+
+        try:
+            with open(config_file) as f:
+                data = yaml.safe_load(f) or {}
+            self.personas = PersonasConfig.from_dict(data)
+            logger.debug("Loaded personas config")
+        except Exception as e:
+            logger.error(f"Failed to load personas.yaml: {e}")
+
     def get_repo(self, slug: str) -> Optional[RepoConfig]:
         """Get repo config by slug.
 
@@ -411,6 +518,7 @@ class MetaRepoConfig:
             "repos": [r.to_dict() for r in self.repos],
             "governance": self.governance.to_dict() if self.governance else None,
             "skills": self.skills.to_dict() if self.skills else None,
+            "personas": self.personas.to_dict() if self.personas else None,
         }
 
     def to_json(self) -> str:

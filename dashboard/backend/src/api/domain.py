@@ -104,7 +104,27 @@ async def api_update_product(name: str, req: UpdateProductRequest):
 
 
 @router.delete("/products/{name}", response_model=ActionResponse)
-async def api_delete_product(name: str):
+async def api_delete_product(
+    name: str,
+    cascade: bool = Query(False),
+    wipe_meta: bool = Query(False),
+):
+    """Remove a product.
+
+    By default this blocks (409) if the product still has domains. Pass
+    ``cascade=true`` to also remove all of its domains, and ``wipe_meta=true``
+    to additionally delete the on-disk meta-repos (testing/cleanup helper).
+    """
+    if cascade:
+        result = svc.delete_product_cascade(name, wipe_meta=wipe_meta)
+        if result is None:
+            raise HTTPException(status_code=404, detail=f"Product '{name}' not found")
+        n = len(result["domains_removed"])
+        wiped = len(result["wiped_paths"])
+        msg = f"Product '{result['product']}' removed (+{n} domain(s)"
+        msg += f", wiped {wiped} meta-repo(s))" if wipe_meta else ")"
+        return ActionResponse(success=True, message=msg)
+
     try:
         result = svc.delete_product(name)
     except svc.ProductInUseError as e:
@@ -301,6 +321,47 @@ async def api_gen_skills_stream(slug: str, role: Optional[str] = Query(None)):
     return _sse(args)
 
 
+# ── Persona skills: review + regenerate ─────────────────────────────────────
+
+class PersonaContent(BaseModel):
+    id: str
+    content: str
+
+
+@router.get("/{slug}/personas", response_model=list[svc.GeneratedPersonaInfo])
+async def api_list_generated_personas(slug: str):
+    """Review: list persona skills generated into the domain meta-repo."""
+    return svc.list_generated_personas(slug)
+
+
+@router.get("/{slug}/personas/{persona_id}", response_model=PersonaContent)
+async def api_get_persona_content(slug: str, persona_id: str):
+    """Review: read a single generated persona's SKILL.md content."""
+    content = svc.get_persona_content(slug, persona_id)
+    if content is None:
+        raise HTTPException(status_code=404, detail=f"Persona '{persona_id}' not found for '{slug}'")
+    return PersonaContent(id=persona_id, content=content)
+
+
+@router.get("/{slug}/regen-personas/stream")
+async def api_regen_personas_stream(
+    slug: str,
+    persona: Optional[list[str]] = Query(None),
+    enrich: bool = Query(False),
+):
+    """Repo/domain-level: regenerate personas into the domain meta-repo.
+
+    Available to all users — regenerates the effective catalog (or a subset)
+    into <domain-meta>/.agents/skills/personas/.
+    """
+    args = ["regen-personas", slug]
+    for pid in persona or []:
+        args += ["--persona", pid]
+    if enrich:
+        args.append("--enrich")
+    return _sse(args)
+
+
 @router.get("/{slug}/init-context/stream")
 async def api_init_context_stream(slug: str):
     """Run `dva domain init-context <slug>` and stream output."""
@@ -374,3 +435,68 @@ async def api_product_add_exception(name: str, req: AddExceptionRequest):
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+# ── Product persona catalog (admin tier) ────────────────────────────────────
+
+class PersonaSectionBody(BaseModel):
+    title: str
+    body: str = ""
+
+
+class AddPersonaRequest(BaseModel):
+    id: str
+    label: str
+    description: Optional[str] = None
+    sections: list[PersonaSectionBody] = []
+    ai_enrich: bool = False
+
+
+@router.get("/products/{name}/personas", response_model=list[svc.PersonaCatalogInfo])
+async def api_product_personas(name: str):
+    """List the effective persona catalog (built-ins + product customs)."""
+    return svc.list_product_personas_catalog(name)
+
+
+@router.post("/products/{name}/personas", response_model=svc.PersonaCatalogInfo)
+async def api_product_add_persona(name: str, req: AddPersonaRequest):
+    """Add (or replace) a product-specific persona. Admin action."""
+    try:
+        return svc.add_product_persona_entry(
+            product=name,
+            persona_id=req.id,
+            label=req.label,
+            description=req.description,
+            sections=[s.model_dump() for s in req.sections],
+            ai_enrich=req.ai_enrich,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.delete("/products/{name}/personas/{persona_id}", response_model=ActionResponse)
+async def api_product_remove_persona(name: str, persona_id: str):
+    """Remove a product-specific persona. Admin action."""
+    if svc.remove_product_persona_entry(name, persona_id):
+        return ActionResponse(success=True, message=f"Persona '{persona_id}' removed")
+    raise HTTPException(
+        status_code=404,
+        detail=f"No custom persona '{persona_id}' in product '{name.upper()}'",
+    )
+
+
+@router.get("/products/{name}/regen-personas/stream")
+async def api_product_regen_personas_stream(name: str, enrich: bool = Query(False)):
+    """Product-level: regenerate personas across all domains in the product.
+
+    Admin action — iterates every domain under the product and runs
+    `dva domain regen-personas <slug>`, streaming a combined log.
+    """
+    async def gen():
+        async for line in svc.stream_product_regen_personas(name, enrich=enrich):
+            if line.startswith("__EXIT__"):
+                yield {"event": "done", "data": line.split(" ", 1)[1].strip()}
+            else:
+                yield {"event": "log", "data": line}
+
+    return EventSourceResponse(gen())

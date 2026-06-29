@@ -25,6 +25,9 @@ def scaffold_domain_meta_repo(
     repos: Optional[list[dict]] = None,
     git_init: bool = True,
     code_assist_tool: str = "generic",
+    personas: Optional[list] = None,
+    persona_context: Optional[dict] = None,
+    enrich_personas: bool = False,
 ) -> dict[str, Path]:
     """Create domain meta-repo directory structure.
 
@@ -38,6 +41,11 @@ def scaffold_domain_meta_repo(
         repos: List of linked repo configs (optional)
         git_init: Initialize as git repo with submodules
         code_assist_tool: Code assist tool (windsurf, cursor, or generic)
+        personas: Resolved list of PersonaSpec to generate into
+            ``.agents/skills/personas/<id>/SKILL.md`` (optional)
+        persona_context: Domain context dict (from gather_domain_context) used
+            to render personas. Required for persona generation.
+        enrich_personas: Whether to AI-enrich custom personas marked ai_enrich.
 
     Returns:
         Dictionary mapping directory names to created paths.
@@ -125,6 +133,14 @@ def scaffold_domain_meta_repo(
         _write_root_readme(meta_repo_path, domain, product, description)
         _write_agents_md(meta_repo_path, domain)
 
+        # Generate persona skills into .agents/skills/personas/<id>/SKILL.md
+        if personas and persona_context:
+            persona_paths = _generate_personas(
+                skills_subdir, personas, persona_context, enrich_personas
+            )
+            if persona_paths:
+                created["personas"] = skills_subdir / "personas"
+
         # Write git hooks (pre-push branch-naming enforcement)
         _write_pre_push_hook(githooks_dir)
 
@@ -196,6 +212,24 @@ def _write_skills_config(config_dir: Path) -> None:
         yaml.dump(skills.to_dict(), f, default_flow_style=False, sort_keys=False)
 
     logger.debug(f"Wrote skills config: {config_file}")
+
+
+def _generate_personas(
+    skills_subdir: Path,
+    personas: list,
+    persona_context: dict,
+    enrich: bool,
+) -> dict:
+    """Render persona skills into .agents/skills/personas/<id>/SKILL.md.
+
+    Lazy-imported to avoid an import cycle during meta_repo package init.
+    """
+    from agentic_cli.skill_generator import generate_personas
+
+    personas_dir = skills_subdir / "personas"
+    written = generate_personas(personas, persona_context, personas_dir, enrich=enrich)
+    logger.debug("Generated %d persona skills in %s", len(written), personas_dir)
+    return written
 
 
 def _write_platform_common(common_dir: Path) -> None:

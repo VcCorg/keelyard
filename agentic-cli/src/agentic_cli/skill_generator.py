@@ -416,3 +416,144 @@ def generate_skill_files(
         written[role] = filepath
 
     return written
+
+
+# ---------------------------------------------------------------------------
+# Persona catalog rendering (data-driven, supports custom product personas)
+# ---------------------------------------------------------------------------
+
+# Short descriptions for the built-in personas, surfaced in personas.yaml and
+# the generic renderer's front-matter.
+BUILTIN_PERSONA_DESCRIPTIONS = {
+    "domain": "Overview — repos, docs, tech stack, links",
+    "dev": "Developer — code patterns, PR conventions, build/deploy",
+    "qa": "QA — test strategy, frameworks, coverage targets",
+    "sm": "Scrum Master — Jira workflow, sprint cadence, ceremonies",
+    "ba": "Business Analyst — domain glossary, AC templates, docs",
+}
+
+
+def builtin_persona_specs() -> list["PersonaSpec"]:
+    """Return PersonaSpec entries for the built-in roles (rendered via GENERATORS)."""
+    from agentic_cli.meta_repo.config import PersonaSpec
+
+    specs = []
+    for role in ROLES:
+        specs.append(
+            PersonaSpec(
+                id=role,
+                label=ROLE_LABELS.get(role, role.title()),
+                description=BUILTIN_PERSONA_DESCRIPTIONS.get(role, ""),
+                builtin=True,
+            )
+        )
+    return specs
+
+
+def _generic_header(spec: "PersonaSpec", ctx: dict) -> str:
+    """YAML front-matter for an arbitrary (custom) persona."""
+    return textwrap.dedent(f"""\
+        ---
+        name: {ctx['name']}-{spec.id}
+        description: >-
+          {spec.label} persona skill for the {ctx['domain_label']} domain
+          ({ctx['product']} product).
+        domain: {ctx['name']}
+        product: {ctx['product']}
+        role: {spec.id}
+        generated: {ctx['generated_at']}
+        ---
+    """)
+
+
+def _domain_context_appendix(ctx: dict) -> list[str]:
+    """Shared context block appended to custom personas."""
+    lines = ["## Domain Context\n"]
+    if ctx.get("description"):
+        lines.append(f"{ctx['description']}\n")
+    links = []
+    if ctx.get("jira_project"):
+        links.append(f"- **Jira Project:** {ctx['jira_project']}")
+    if ctx.get("bitbucket_project"):
+        links.append(f"- **Bitbucket Project:** {ctx['bitbucket_project']}")
+    if ctx.get("confluence_space"):
+        links.append(f"- **Confluence Space:** {ctx['confluence_space']}")
+    if links:
+        lines.extend(links)
+        lines.append("")
+    repos = ctx.get("repos") or []
+    if repos:
+        lines.append(f"**Repositories ({len(repos)} linked):**")
+        for r in repos:
+            lines.append(f"- `{r.get('repo_slug', '')}`")
+        lines.append("")
+    return lines
+
+
+def render_persona(spec: "PersonaSpec", ctx: dict) -> str:
+    """Render a persona to Markdown.
+
+    Built-in personas use the platform's rich generators. Custom personas are
+    rendered deterministically from their declared sections plus a shared
+    domain-context appendix.
+    """
+    if spec.builtin and spec.id in GENERATORS:
+        return GENERATORS[spec.id](ctx)
+
+    lines = [_generic_header(spec, ctx)]
+    lines.append(f"# {spec.label} Guide — {ctx['domain_label']} Domain\n")
+    if spec.description:
+        lines.append(f"{spec.description}\n")
+    for section in spec.sections:
+        lines.append(f"## {section.title}\n")
+        if section.body:
+            lines.append(section.body.rstrip() + "\n")
+    lines.extend(_domain_context_appendix(ctx))
+    return "\n".join(lines)
+
+
+def generate_personas(
+    specs: list["PersonaSpec"],
+    ctx: dict,
+    output_dir: Path,
+    enrich: bool = False,
+) -> dict[str, Path]:
+    """Render personas into ``output_dir/<id>/SKILL.md``. Returns {id: path}.
+
+    When ``enrich`` is set, custom personas with ``ai_enrich=True`` are passed
+    through the onboard agent's content generator; any failure falls back to the
+    deterministic skeleton so generation never blocks scaffolding.
+    """
+    output_dir.mkdir(parents=True, exist_ok=True)
+    written: dict[str, Path] = {}
+
+    for spec in specs:
+        content = render_persona(spec, ctx)
+        if enrich and spec.ai_enrich and not spec.builtin:
+            content = _maybe_ai_enrich(spec, ctx, content)
+        persona_dir = output_dir / spec.id
+        persona_dir.mkdir(parents=True, exist_ok=True)
+        filepath = persona_dir / "SKILL.md"
+        filepath.write_text(content, encoding="utf-8")
+        written[spec.id] = filepath
+
+    return written
+
+
+def _maybe_ai_enrich(spec: "PersonaSpec", ctx: dict, skeleton: str) -> str:
+    """Best-effort AI enrichment of a custom persona; falls back to skeleton."""
+    try:
+        from agentic_cli.agents.onboard.skill_generator import generate_skill_content
+
+        enriched = generate_skill_content(
+            skill_name=f"{ctx['name']}-{spec.id}",
+            description=spec.description or f"{spec.label} persona for {ctx['domain_label']}",
+            tags=[spec.id, ctx["product"], ctx["name"]],
+            reason=(
+                f"{spec.label} persona skill for the {ctx['domain_label']} domain "
+                f"({ctx['product']} product). Deterministic skeleton:\n\n{skeleton}"
+            ),
+        )
+        return enriched or skeleton
+    except Exception:
+        return skeleton

@@ -19,7 +19,7 @@ from typing import Any, Optional
 DB_DIR = Path.home() / ".agent-cli-agentic"
 DB_PATH = DB_DIR / "tracker.db"
 
-_SCHEMA_VERSION = 10
+_SCHEMA_VERSION = 11
 
 _SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -131,6 +131,22 @@ CREATE TABLE IF NOT EXISTS domain_docs (
     UNIQUE(domain_id, source_page_id)
 );
 
+-- Persona-scoped development workspaces across tiers (repo/domain/product).
+-- Records which persona opened which root, the canonical store, and the set of
+-- repos present (either as editable worktrees or graph-only references).
+CREATE TABLE IF NOT EXISTS workspaces (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    tier        TEXT    NOT NULL,          -- repo | domain | product
+    persona     TEXT    NOT NULL,          -- dev | tech-lead | solutions-architect | ...
+    root_path   TEXT    NOT NULL UNIQUE,   -- workspace root the persona opens
+    product     TEXT,
+    domain      TEXT,
+    store_path  TEXT,                       -- canonical store base (worktrees + graphs)
+    repos       TEXT,                       -- JSON list of {slug, mode, branch, path}
+    created_at  TEXT    NOT NULL,
+    last_active TEXT    NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_activity_timestamp ON activity_log(timestamp);
 CREATE INDEX IF NOT EXISTS idx_activity_command   ON activity_log(command);
 CREATE INDEX IF NOT EXISTS idx_repos_name         ON repos(name);
@@ -140,6 +156,8 @@ CREATE INDEX IF NOT EXISTS idx_domains_product    ON domains(product);
 CREATE INDEX IF NOT EXISTS idx_domains_name       ON domains(name);
 CREATE INDEX IF NOT EXISTS idx_domain_repos_did   ON domain_repos(domain_id);
 CREATE INDEX IF NOT EXISTS idx_domain_docs_did    ON domain_docs(domain_id);
+CREATE INDEX IF NOT EXISTS idx_workspaces_tier    ON workspaces(tier);
+CREATE INDEX IF NOT EXISTS idx_workspaces_domain  ON workspaces(domain);
 """
 
 _MIGRATION_V2 = """
@@ -227,6 +245,24 @@ _MIGRATION_V7 = """
 ALTER TABLE projects ADD COLUMN working_location TEXT;
 """
 
+_MIGRATION_V11 = """
+-- v11: Add persona-scoped workspaces registry
+CREATE TABLE IF NOT EXISTS workspaces (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    tier        TEXT    NOT NULL,
+    persona     TEXT    NOT NULL,
+    root_path   TEXT    NOT NULL UNIQUE,
+    product     TEXT,
+    domain      TEXT,
+    store_path  TEXT,
+    repos       TEXT,
+    created_at  TEXT    NOT NULL,
+    last_active TEXT    NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_workspaces_tier   ON workspaces(tier);
+CREATE INDEX IF NOT EXISTS idx_workspaces_domain ON workspaces(domain);
+"""
+
 
 def _ensure_db() -> Path:
     """Create the database and schema if they don't exist. Run migrations."""
@@ -280,6 +316,10 @@ def _ensure_db() -> Path:
                 # Add bitbucket_url column to domains table
                 conn.execute("ALTER TABLE domains ADD COLUMN bitbucket_url TEXT")
                 conn.execute("UPDATE schema_version SET version = 10")
+                current_version = 10
+            if current_version < 11:
+                conn.executescript(_MIGRATION_V11)
+                conn.execute("UPDATE schema_version SET version = 11")
         conn.commit()
     finally:
         conn.close()
@@ -1079,6 +1119,110 @@ def remove_domain_doc(domain_name: str, source_page_id: str) -> bool:
             (dom["id"], source_page_id),
         )
         return cursor.rowcount > 0
+
+
+# ---------------------------------------------------------------------------
+# Persona-scoped Workspaces
+# ---------------------------------------------------------------------------
+
+def register_workspace(
+    tier: str,
+    persona: str,
+    root_path: str,
+    product: Optional[str] = None,
+    domain: Optional[str] = None,
+    store_path: Optional[str] = None,
+    repos: Optional[list[dict]] = None,
+) -> int:
+    """Register (or upsert by root_path) a persona-scoped workspace.
+
+    Args:
+        tier: One of ``repo`` | ``domain`` | ``product``.
+        persona: Persona id (e.g. ``dev``, ``tech-lead``, ``solutions-architect``).
+        root_path: Absolute path of the folder the persona opens.
+        product: Product name (optional).
+        domain: Domain slug (optional).
+        store_path: Canonical store base used for worktrees/graphs (optional).
+        repos: List of ``{slug, mode, branch, path}`` dicts (optional). ``mode``
+            is ``code`` (editable worktree/clone) or ``graph-ref`` (graph only).
+
+    Returns:
+        The workspace row id.
+    """
+    now = _now_iso()
+    repos_json = _json_dumps(repos)
+    with _get_conn() as conn:
+        row = conn.execute(
+            "SELECT id FROM workspaces WHERE root_path = ?", (root_path,)
+        ).fetchone()
+        if row:
+            conn.execute(
+                """UPDATE workspaces SET
+                       tier=?, persona=?, product=?, domain=?,
+                       store_path=?, repos=?, last_active=?
+                   WHERE id=?""",
+                (tier, persona, product, domain, store_path,
+                 repos_json, now, row["id"]),
+            )
+            return row["id"]
+        cur = conn.execute(
+            """INSERT INTO workspaces
+                   (tier, persona, root_path, product, domain,
+                    store_path, repos, created_at, last_active)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (tier, persona, root_path, product, domain,
+             store_path, repos_json, now, now),
+        )
+        return cur.lastrowid
+
+
+def get_workspaces(
+    tier: Optional[str] = None,
+    domain: Optional[str] = None,
+    product: Optional[str] = None,
+    persona: Optional[str] = None,
+) -> list[dict]:
+    """List registered workspaces, optionally filtered. Parses ``repos`` JSON."""
+    clauses, params = [], []
+    if tier:
+        clauses.append("tier = ?"); params.append(tier)
+    if domain:
+        clauses.append("domain = ?"); params.append(domain)
+    if product:
+        clauses.append("product = ?"); params.append(product)
+    if persona:
+        clauses.append("persona = ?"); params.append(persona)
+    where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+    with _get_conn() as conn:
+        rows = conn.execute(
+            f"SELECT * FROM workspaces{where} ORDER BY last_active DESC", params
+        ).fetchall()
+    result = []
+    for r in rows:
+        d = dict(r)
+        try:
+            d["repos"] = json.loads(d["repos"]) if d.get("repos") else []
+        except (json.JSONDecodeError, TypeError):
+            d["repos"] = []
+        result.append(d)
+    return result
+
+
+def touch_workspace(root_path: str) -> bool:
+    """Bump a workspace's last_active timestamp."""
+    with _get_conn() as conn:
+        cur = conn.execute(
+            "UPDATE workspaces SET last_active = ? WHERE root_path = ?",
+            (_now_iso(), root_path),
+        )
+        return cur.rowcount > 0
+
+
+def remove_workspace(root_path: str) -> bool:
+    """Remove a workspace registration by root_path."""
+    with _get_conn() as conn:
+        cur = conn.execute("DELETE FROM workspaces WHERE root_path = ?", (root_path,))
+        return cur.rowcount > 0
 
 
 # ---------------------------------------------------------------------------

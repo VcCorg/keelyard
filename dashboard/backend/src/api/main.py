@@ -16,6 +16,7 @@ from src.api.skills import router as skills_router
 from src.api.deployments import router as deployments_router
 from src.api.kg import router as kg_router
 from src.api.domain import router as domain_router
+from src.api.workspace import router as workspace_router
 from src.api.data import router as data_router
 from src.api.code import router as code_router
 from src.api.eval import router as eval_router
@@ -70,6 +71,7 @@ app.include_router(skills_router)
 app.include_router(deployments_router)
 app.include_router(kg_router)
 app.include_router(domain_router)
+app.include_router(workspace_router)
 app.include_router(data_router)
 app.include_router(code_router)
 app.include_router(eval_router)

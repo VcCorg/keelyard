@@ -427,6 +427,45 @@ export interface DomainDetail extends DomainInfo {
   docs: DocInfo[];
 }
 
+/* ---- Persona-tiered workspaces ---- */
+
+export interface WorkspaceRepoRef {
+  slug?: string;
+  mode?: string;        // code | graph-ref
+  branch?: string;
+  path?: string | null;
+}
+
+export interface WorkspaceInfo {
+  tier: string;         // repo | domain | product
+  persona: string;      // dev | tech-lead | solutions-architect
+  root_path: string;
+  product?: string | null;
+  domain?: string | null;
+  store_path?: string | null;
+  repos: WorkspaceRepoRef[];
+  created_at?: string | null;
+  last_active?: string | null;
+}
+
+export interface WorkspaceTarget {
+  persona: string;
+  tier: string;                  // product | domain | repo
+  path?: string | null;
+  exists: boolean;
+  ready: boolean;
+  needs?: string | null;         // sync | open | onboard | null
+  hint: string;
+}
+
+export interface OpenIdeResult {
+  success: boolean;
+  editor: string;
+  command: string;
+  path: string;
+  message: string;
+}
+
 export interface BitbucketRepoCandidate {
   slug: string;
   name?: string;
@@ -454,6 +493,31 @@ export interface CreateDomainBody {
   confluence_url?: string;
   jira_dashboard?: string;
   tags?: string[];
+}
+
+/* ============ Persona Skills Types ============ */
+
+export interface GeneratedPersonaInfo {
+  id: string;
+  title: string;
+  source: "built-in" | "product";
+  path: string;
+  bytes: number;
+}
+
+export interface PersonaCatalogInfo {
+  id: string;
+  label: string;
+  source: "built-in" | "product";
+  ai_enrich: boolean;
+}
+
+export interface AddPersonaBody {
+  id: string;
+  label: string;
+  description?: string;
+  sections?: { title: string; body: string }[];
+  ai_enrich?: boolean;
 }
 
 /* ============ Product Meta-Repo / Governance / Exceptions Types ============ */
@@ -1099,15 +1163,76 @@ class APIClient {
     });
   }
 
-  async deleteProduct(name: string): Promise<{ success: boolean; message: string }> {
-    return this.request(`/domains/products/${encodeURIComponent(name)}`, {
-      method: "DELETE",
-    });
+  async deleteProduct(
+    name: string,
+    opts?: { cascade?: boolean; wipeMeta?: boolean }
+  ): Promise<{ success: boolean; message: string }> {
+    const q = new URLSearchParams();
+    if (opts?.cascade) q.append("cascade", "true");
+    if (opts?.wipeMeta) q.append("wipe_meta", "true");
+    const qs = q.toString();
+    return this.request(
+      `/domains/products/${encodeURIComponent(name)}${qs ? "?" + qs : ""}`,
+      { method: "DELETE" }
+    );
   }
 
   async listDomains(product?: string): Promise<DomainInfo[]> {
     const q = product ? `?product=${encodeURIComponent(product)}` : "";
     return this.request(`/domains${q}`);
+  }
+
+  /* ---- Persona-tiered workspaces ---- */
+
+  /** List tracked persona workspaces (optionally by tier). */
+  async listWorkspaces(tier?: string): Promise<WorkspaceInfo[]> {
+    const q = tier ? `?tier=${encodeURIComponent(tier)}` : "";
+    return this.request(`/workspaces${q}`);
+  }
+
+  /** Editor CLIs available on the backend's PATH. */
+  async listEditors(): Promise<{ editors: string[] }> {
+    return this.request(`/workspaces/editors`);
+  }
+
+  /** Resolve the folder a persona should open + whether an action is needed. */
+  async resolveWorkspaceTarget(params: {
+    persona: string;
+    product?: string;
+    domain?: string;
+    repo?: string;
+  }): Promise<WorkspaceTarget> {
+    const q = new URLSearchParams({ persona: params.persona });
+    if (params.product) q.append("product", params.product);
+    if (params.domain) q.append("domain", params.domain);
+    if (params.repo) q.append("repo", params.repo);
+    return this.request(`/workspaces/target?${q.toString()}`);
+  }
+
+  /** Launch a local editor/agent (devin/windsurf/cursor/code) at a folder. */
+  async openInIde(path: string, editor?: string): Promise<OpenIdeResult> {
+    return this.request(`/workspaces/open-ide`, {
+      method: "POST",
+      body: JSON.stringify({ path, editor }),
+    });
+  }
+
+  /** SSE: `dva domain sync` (tech-lead domain-tier assembly). */
+  workspaceSyncStreamUrl(domain: string, opts?: { persona?: string; graphify?: boolean; editor?: string }): string {
+    const q = new URLSearchParams({ domain });
+    if (opts?.persona) q.append("persona", opts.persona);
+    q.append("graphify", String(opts?.graphify ?? true));
+    if (opts?.editor) q.append("editor", opts.editor);
+    return this.streamUrl(`/workspaces/sync/stream?${q.toString()}`);
+  }
+
+  /** SSE: `dva workspace open` (dev repo-tier worktree). */
+  workspaceOpenStreamUrl(domain: string, repo: string, opts?: { persona?: string; graphify?: boolean; editor?: string }): string {
+    const q = new URLSearchParams({ domain, repo });
+    if (opts?.persona) q.append("persona", opts.persona);
+    q.append("graphify", String(opts?.graphify ?? false));
+    if (opts?.editor) q.append("editor", opts.editor);
+    return this.streamUrl(`/workspaces/open/stream?${q.toString()}`);
   }
 
   async getDomain(slug: string): Promise<DomainDetail> {
@@ -1168,6 +1293,58 @@ class APIClient {
 
   async removeDoc(slug: string, pageId: string): Promise<{ success: boolean; message: string }> {
     return this.request(`/domains/${slug}/docs/${pageId}`, { method: "DELETE" });
+  }
+
+  /* ---- Persona Skills (review + regenerate) ---- */
+
+  /** Review: list persona skills generated into a domain meta-repo. */
+  async listGeneratedPersonas(slug: string): Promise<GeneratedPersonaInfo[]> {
+    return this.request(`/domains/${slug}/personas`);
+  }
+
+  /** Review: read one generated persona's SKILL.md content. */
+  async getPersonaContent(slug: string, personaId: string): Promise<{ id: string; content: string }> {
+    return this.request(`/domains/${slug}/personas/${encodeURIComponent(personaId)}`);
+  }
+
+  /** Repo/domain-level regenerate (all users). */
+  regenPersonasStreamUrl(slug: string, opts?: { personas?: string[]; enrich?: boolean }): string {
+    const q = new URLSearchParams();
+    for (const p of opts?.personas ?? []) q.append("persona", p);
+    if (opts?.enrich) q.append("enrich", "true");
+    const qs = q.toString();
+    return this.streamUrl(`/domains/${slug}/regen-personas/stream${qs ? "?" + qs : ""}`);
+  }
+
+  /** Effective persona catalog for a product (built-ins + customs). */
+  async listProductPersonas(name: string): Promise<PersonaCatalogInfo[]> {
+    return this.request(`/domains/products/${encodeURIComponent(name)}/personas`);
+  }
+
+  /** Admin: add (or replace) a product-specific persona. */
+  async addProductPersona(name: string, body: AddPersonaBody): Promise<PersonaCatalogInfo> {
+    return this.request(`/domains/products/${encodeURIComponent(name)}/personas`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  }
+
+  /** Admin: remove a product-specific persona. */
+  async removeProductPersona(name: string, personaId: string): Promise<{ success: boolean; message: string }> {
+    return this.request(
+      `/domains/products/${encodeURIComponent(name)}/personas/${encodeURIComponent(personaId)}`,
+      { method: "DELETE" }
+    );
+  }
+
+  /** Admin: regenerate personas across all domains in a product (SSE). */
+  productRegenPersonasStreamUrl(name: string, enrich = false): string {
+    const q = new URLSearchParams();
+    if (enrich) q.append("enrich", "true");
+    const qs = q.toString();
+    return this.streamUrl(
+      `/domains/products/${encodeURIComponent(name)}/regen-personas/stream${qs ? "?" + qs : ""}`
+    );
   }
 
   /* ---- Product Meta-Repo / Governance / Exceptions ---- */

@@ -57,6 +57,9 @@ def _get_skills_dir(domain_context_dir: Path, code_assist_tool: str) -> Path:
         return domain_context_dir / ".windsurf" / "workflows"
     elif code_assist_tool == "cursor":
         return domain_context_dir / ".cursorrules"
+    elif code_assist_tool == "devin":
+        # Devin loads project skills from .devin/skills/<name>/SKILL.md
+        return domain_context_dir / ".devin" / "skills"
     else:
         return domain_context_dir / ".skills"
 
