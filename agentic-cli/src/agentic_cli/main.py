@@ -16,6 +16,7 @@ from agentic_cli.commands.skill import skill_app
 from agentic_cli.commands.code import code_app
 from agentic_cli.commands.domain import domain_app
 from agentic_cli.commands.product import product_app
+from agentic_cli.commands.workspace import workspace_app
 from agentic_cli.commands.history import history_app
 from agentic_cli.commands.agent_template import agent_template_app
 from agentic_cli.commands.agent_tool import agent_tool_app
@@ -42,6 +43,7 @@ app.add_typer(skill_app, name="skill")
 app.add_typer(code_app, name="code")
 app.add_typer(domain_app, name="domain")
 app.add_typer(product_app, name="product")
+app.add_typer(workspace_app, name="workspace")
 app.add_typer(history_app, name="history")
 app.add_typer(agent_template_app, name="agent-template")
 app.add_typer(agent_tool_app, name="agent-tool")

@@ -101,6 +101,7 @@ def scaffold_product_meta_repo(
         _write_product_config(config_dir, product, description, owner, org_methodology_url)
         _write_governance_config(config_dir)
         _write_crosswalk_config(config_dir)
+        _write_personas_config(config_dir)
 
         # Write outer-loop product files
         _write_outer_loop_product(outer_dir, product)
@@ -158,6 +159,62 @@ def _write_crosswalk_config(config_dir: Path) -> None:
     }
     with open(config_dir / "crosswalk.yaml", "w") as f:
         yaml.dump(crosswalk, f, default_flow_style=False, sort_keys=False)
+
+
+def _write_personas_config(config_dir: Path) -> None:
+    """Write a starter personas.yaml catalog with built-in defaults enabled.
+
+    Product teams edit this to enable/disable built-ins and to add their own
+    personas (e.g. tech-lead, product-owner). Written with explanatory comments
+    plus a commented example so it is self-documenting.
+    """
+    content = """\
+# Persona catalog for this product.
+#
+# `defaults_enabled` selects which built-in personas are generated into each
+# domain meta-repo (.agents/skills/personas/<id>/SKILL.md) during scaffolding.
+# Built-ins: domain, dev, qa, sm, ba
+#
+# Add product-specific personas under `personas`. Each is rendered
+# deterministically from its `sections`; set `ai_enrich: true` to also enrich
+# it via the onboard agent when a model is available (falls back to the
+# skeleton when not).
+version: 1
+defaults_enabled:
+  - domain
+  - dev
+  - qa
+  - sm
+  - ba
+personas: []
+# Example — uncomment and customize for your product team:
+# personas:
+#   - id: tech-lead
+#     label: Tech Lead
+#     description: Architecture direction, ADRs, review standards
+#     ai_enrich: true
+#     sections:
+#       - title: Responsibilities
+#         body: |
+#           - Own technical design and ADRs
+#           - Set and uphold the code-review bar
+#           - Manage technical debt and sequencing
+#       - title: Review Standards
+#         body: |
+#           - Require tests for all behavior changes
+#           - Block on security and data-migration risks
+#   - id: product-owner
+#     label: Product Owner
+#     description: Backlog ownership, prioritization, acceptance
+#     sections:
+#       - title: Responsibilities
+#         body: |
+#           - Own and prioritize the backlog
+#           - Define acceptance criteria
+#           - Sign off on releases
+"""
+    (config_dir / "personas.yaml").write_text(content, encoding="utf-8")
+    logger.debug("Wrote personas config: %s", config_dir / "personas.yaml")
 
 
 def _write_outer_loop_product(outer_dir: Path, product: str) -> None:

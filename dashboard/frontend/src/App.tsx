@@ -20,6 +20,8 @@ import { Eval } from "@/pages/Eval";
 import { CLIRunner } from "@/pages/CLIRunner";
 import { Devin } from "@/pages/Devin";
 import { DomainOnboarding } from "@/pages/DomainOnboarding";
+import { PersonaSkills } from "@/pages/PersonaSkills";
+import { Workspaces } from "@/pages/Workspaces";
 import { Tasks } from "@/pages/Tasks";
 import { Assignments } from "@/pages/Assignments";
 import { Sessions } from "@/pages/Sessions";
@@ -46,6 +48,8 @@ function App() {
             <Route path="/agents" element={<Agents />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/skills" element={<Skills />} />
+            <Route path="/skills/personas" element={<PersonaSkills />} />
+            <Route path="/workspaces" element={<Workspaces />} />
             <Route path="/marketplace" element={<Marketplace />} />
             <Route path="/deployments" element={<Deployments />} />
             <Route path="/mcp" element={<MCPServers />} />

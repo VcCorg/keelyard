@@ -276,6 +276,70 @@ def delete_product(name: str) -> Optional[bool]:
     return removed
 
 
+def _wipe_dir(path) -> bool:
+    """Best-effort recursive delete of a directory. Returns True if removed."""
+    try:
+        if path and path.exists() and path.is_dir():
+            shutil.rmtree(path)
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def delete_product_cascade(name: str, wipe_meta: bool = False) -> Optional[dict]:
+    """Force-remove a product and all its domains (testing/cleanup helper).
+
+    Removes every domain registration under the product, then the product
+    itself, from the tracker. When ``wipe_meta`` is set, also deletes the
+    on-disk meta-repos (``domain-<slug>-meta`` for each domain and
+    ``product-<slug>-meta``) so re-onboarding with the same name starts clean.
+
+    Returns None if the product doesn't exist, else a summary dict.
+    """
+    t = _tracker()
+    name_upper = name.strip().upper()
+    if not t.get_product(name_upper):
+        return None
+
+    domains = t.get_domains(product=name_upper) or []
+    deleted_domains: list[str] = []
+    wiped_paths: list[str] = []
+
+    for d in domains:
+        slug = d.get("name", "")
+        if not slug:
+            continue
+        if wipe_meta:
+            meta = _resolve_domain_meta_path(slug)
+            if _wipe_dir(meta):
+                wiped_paths.append(str(meta))
+        if t.remove_domain(slug):
+            deleted_domains.append(slug)
+
+    if wipe_meta:
+        product_meta = _resolve_product_meta_path(name_upper)
+        if _wipe_dir(product_meta):
+            wiped_paths.append(str(product_meta))
+
+    removed = bool(t.remove_product(name_upper))
+    t.record_activity(
+        command="product", subcommand="remove-cascade",
+        args={
+            "name": name_upper,
+            "domains_removed": len(deleted_domains),
+            "wipe_meta": wipe_meta,
+            "via": "dashboard",
+        },
+    )
+    return {
+        "product": name_upper,
+        "product_removed": removed,
+        "domains_removed": deleted_domains,
+        "wiped_paths": wiped_paths,
+    }
+
+
 # ── Simple mutations (library import) ───────────────────────────────────────
 
 def create_domain(
@@ -565,6 +629,193 @@ def _resolve_product_meta_path(product: str):
     slug = product.lower()
     workspace = _get_code_workspace()
     return workspace / slug / f"product-{slug}-meta"
+
+
+def _resolve_domain_meta_path(slug: str):
+    """Resolve the on-disk domain meta-repo path (mirrors the CLI rule)."""
+    from agentic_cli.commands.domain import _get_code_workspace
+
+    workspace = _get_code_workspace()
+    return workspace / slug / f"domain-{slug}-meta"
+
+
+# ── Persona skills: review + catalog (library import) ────────────────────────
+
+class GeneratedPersonaInfo(BaseModel):
+    id: str
+    title: str
+    source: str  # "built-in" | "product"
+    path: str
+    bytes: int = 0
+
+
+class PersonaCatalogInfo(BaseModel):
+    id: str
+    label: str
+    source: str  # "built-in" | "product"
+    ai_enrich: bool = False
+
+
+def _persona_title(text: str, fallback: str) -> str:
+    """Extract a human title from a SKILL.md (front-matter description or H1)."""
+    lines = text.splitlines()
+    # front-matter description
+    in_fm = False
+    for i, line in enumerate(lines):
+        if line.strip() == "---":
+            in_fm = not in_fm
+            continue
+        if in_fm and line.strip().startswith("description:"):
+            desc = line.split(":", 1)[1].strip().lstrip(">-").strip()
+            if desc:
+                return desc
+        if not in_fm and line.startswith("# "):
+            return line[2:].strip()
+    return fallback
+
+
+def list_generated_personas(slug: str) -> list[GeneratedPersonaInfo]:
+    """List persona SKILL.md files generated into a domain meta-repo."""
+    from agentic_cli.meta_repo.config import BUILTIN_PERSONA_IDS
+
+    meta = _resolve_domain_meta_path(slug)
+    personas_dir = meta / ".agents" / "skills" / "personas"
+    if not personas_dir.exists():
+        return []
+
+    out: list[GeneratedPersonaInfo] = []
+    for d in sorted(p for p in personas_dir.iterdir() if p.is_dir()):
+        skill_file = d / "SKILL.md"
+        if not skill_file.is_file():
+            continue
+        text = skill_file.read_text(encoding="utf-8", errors="replace")
+        out.append(GeneratedPersonaInfo(
+            id=d.name,
+            title=_persona_title(text, d.name),
+            source="built-in" if d.name in BUILTIN_PERSONA_IDS else "product",
+            path=str(skill_file),
+            bytes=skill_file.stat().st_size,
+        ))
+    return out
+
+
+def get_persona_content(slug: str, persona_id: str) -> Optional[str]:
+    """Return the raw SKILL.md content for a generated persona (review)."""
+    meta = _resolve_domain_meta_path(slug)
+    skill_file = meta / ".agents" / "skills" / "personas" / persona_id / "SKILL.md"
+    if not skill_file.is_file():
+        return None
+    return skill_file.read_text(encoding="utf-8", errors="replace")
+
+
+def list_product_personas_catalog(product: str) -> list[PersonaCatalogInfo]:
+    """Resolve the effective persona catalog for a product (built-ins + customs)."""
+    from agentic_cli.persona_catalog import resolve_personas
+
+    meta = _resolve_product_meta_path(product)
+    specs = resolve_personas(meta if meta.exists() else None)
+    return [
+        PersonaCatalogInfo(
+            id=s.id,
+            label=s.label,
+            source="built-in" if s.builtin else "product",
+            ai_enrich=s.ai_enrich,
+        )
+        for s in specs
+    ]
+
+
+def add_product_persona_entry(
+    product: str,
+    persona_id: str,
+    label: str,
+    description: Optional[str] = None,
+    sections: Optional[list[dict]] = None,
+    ai_enrich: bool = False,
+) -> PersonaCatalogInfo:
+    """Add (or replace) a product-specific persona in personas.yaml. Admin action."""
+    from agentic_cli.meta_repo.config import PersonaSection, PersonaSpec
+    from agentic_cli.persona_catalog import add_product_persona
+
+    meta = _resolve_product_meta_path(product)
+    if not meta.exists():
+        raise ValueError(
+            f"Product meta-repo not found at {meta}. Create it first (product init-meta)."
+        )
+    spec = PersonaSpec(
+        id=persona_id.strip().lower(),
+        label=label,
+        description=description or "",
+        sections=[
+            PersonaSection(title=s.get("title", ""), body=s.get("body", ""))
+            for s in (sections or [])
+        ],
+        ai_enrich=ai_enrich,
+    )
+    add_product_persona(meta, spec)
+    try:
+        _tracker().record_activity(
+            command="product", subcommand="persona-add",
+            args={"name": product.upper(), "id": spec.id, "via": "dashboard"},
+        )
+    except Exception:
+        pass
+    return PersonaCatalogInfo(
+        id=spec.id, label=spec.label, source="product", ai_enrich=spec.ai_enrich
+    )
+
+
+def remove_product_persona_entry(product: str, persona_id: str) -> bool:
+    """Remove a product-specific persona from personas.yaml. Admin action."""
+    from agentic_cli.persona_catalog import remove_product_persona
+
+    meta = _resolve_product_meta_path(product)
+    if not meta.exists():
+        return False
+    removed = remove_product_persona(meta, persona_id.lower())
+    if removed:
+        try:
+            _tracker().record_activity(
+                command="product", subcommand="persona-remove",
+                args={"name": product.upper(), "id": persona_id.lower(), "via": "dashboard"},
+            )
+        except Exception:
+            pass
+    return removed
+
+
+async def stream_product_regen_personas(
+    product: str, enrich: bool = False
+) -> AsyncGenerator[str, None]:
+    """Regenerate personas across every domain in a product. Admin action.
+
+    Runs `dva domain regen-personas <slug>` for each domain under the product,
+    streaming a combined log. Emits a single final __EXIT__ at the end.
+    """
+    domains = _tracker().get_domains(product=product.upper()) or []
+    if not domains:
+        yield f"No domains registered for product '{product.upper()}'."
+        yield "__EXIT__ 0"
+        return
+
+    base = resolve_cli_command() + ["domain"]
+    worst_rc = 0
+    for d in domains:
+        slug = d.get("name", "")
+        yield f"=== {slug} ==="
+        args = ["regen-personas", slug]
+        if enrich:
+            args.append("--enrich")
+        async for line in _stream_cli(base + args):
+            if line.startswith("__EXIT__"):
+                try:
+                    rc = int(line.split(" ", 1)[1].strip())
+                except (IndexError, ValueError):
+                    rc = 0
+                worst_rc = worst_rc or rc
+                continue
+            yield line
+    yield f"__EXIT__ {worst_rc}"
 
 
 def get_product_governance(product: str) -> GovernanceInfo:

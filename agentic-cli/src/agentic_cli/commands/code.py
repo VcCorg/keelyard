@@ -111,6 +111,9 @@ def _get_skills_dir(project_path: Path, code_assist_tool: str) -> Path:
         return project_path / ".windsurf" / "workflows"
     elif code_assist_tool == "cursor":
         return project_path / ".cursorrules"
+    elif code_assist_tool == "devin":
+        # Devin loads project skills from .devin/skills/<name>/SKILL.md
+        return project_path / ".devin" / "skills"
     else:
         return project_path / ".skills"
 
@@ -222,9 +225,9 @@ def _run_graphify_update(project_path: Path, code_assist_tool: str = "generic") 
                 for line in lines[-5:]:  # Show last 5 lines
                     console.print(f"[dim]{line}[/dim]")
             
-            # Install graphify workflow for Windsurf
-            if code_assist_tool == "windsurf":
-                _install_graphify_windsurf_workflow(project_path)
+            # Install graphify guidance where the chosen tool loads it
+            # (Devin → .devin/skills, Windsurf → workflows, Cursor → rules, etc.)
+            _install_graphify_skill(project_path, code_assist_tool)
             
             return True
         else:
@@ -238,18 +241,11 @@ def _run_graphify_update(project_path: Path, code_assist_tool: str = "generic") 
         return False
 
 
-def _install_graphify_windsurf_workflow(project_path: Path) -> None:
-    """Install graphify workflow for Windsurf."""
-    windsurf_workflows_dir = project_path / ".windsurf" / "workflows"
-    windsurf_workflows_dir.mkdir(parents=True, exist_ok=True)
-    
-    graphify_workflow = windsurf_workflows_dir / "graphify.md"
-    
-    workflow_content = """---
-description: Use graphify knowledge graph for codebase questions and architecture context
----
-
-# Graphify Knowledge Graph Workflow
+# Shared graphify guidance body (used by every tool's skill/workflow file).
+_GRAPHIFY_DESCRIPTION = (
+    "Use graphify knowledge graph for codebase questions and architecture context"
+)
+_GRAPHIFY_BODY = """# Graphify Knowledge Graph Workflow
 
 This project has a graphify knowledge graph at `graphify-out/`.
 
@@ -290,9 +286,36 @@ This updates the graph using AST-only extraction (no API cost).
 - `graphify-out/wiki/index.md` - Navigable wiki (if generated)
 - `graphify-out/manifest.json` - File metadata and hashes
 """
-    
-    graphify_workflow.write_text(workflow_content)
-    console.print(f"[green]✓ Graphify workflow installed for Windsurf[/green]")
+
+
+def _install_graphify_skill(project_path: Path, code_assist_tool: str) -> None:
+    """Install the graphify guidance where the chosen tool will load it.
+
+    - devin    → ``.devin/skills/graphify/SKILL.md`` (name + description frontmatter)
+    - windsurf → ``.windsurf/workflows/graphify.md`` (workflow, description frontmatter)
+    - cursor   → ``.cursor/rules/graphify.md`` (conditional rule)
+    - generic  → ``.skills/graphify/SKILL.md`` (portable skill)
+    """
+    if code_assist_tool == "devin":
+        dest = project_path / ".devin" / "skills" / "graphify" / "SKILL.md"
+        content = f"---\nname: graphify\ndescription: {_GRAPHIFY_DESCRIPTION}\n---\n\n{_GRAPHIFY_BODY}"
+        label = "Devin (.devin/skills/graphify)"
+    elif code_assist_tool == "windsurf":
+        dest = project_path / ".windsurf" / "workflows" / "graphify.md"
+        content = f"---\ndescription: {_GRAPHIFY_DESCRIPTION}\n---\n\n{_GRAPHIFY_BODY}"
+        label = "Windsurf (.windsurf/workflows/graphify.md)"
+    elif code_assist_tool == "cursor":
+        dest = project_path / ".cursor" / "rules" / "graphify.md"
+        content = f"---\ndescription: {_GRAPHIFY_DESCRIPTION}\n---\n\n{_GRAPHIFY_BODY}"
+        label = "Cursor (.cursor/rules/graphify.md)"
+    else:
+        dest = project_path / ".skills" / "graphify" / "SKILL.md"
+        content = f"---\nname: graphify\ndescription: {_GRAPHIFY_DESCRIPTION}\n---\n\n{_GRAPHIFY_BODY}"
+        label = "generic (.skills/graphify)"
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(content)
+    console.print(f"[green]✓ Graphify skill installed for {label}[/green]")
 
 
 def _run_agent(
@@ -495,7 +518,7 @@ def onboard(
     ] = False,
     code_assist_tool: Annotated[
         str,
-        typer.Option("--code-assist-tool", help="Code assist tool (windsurf, cursor, or generic). Determines where skills are installed."),
+        typer.Option("--code-assist-tool", help="Code assist tool (devin, windsurf, cursor, or generic). Determines where skills are installed."),
     ] = "generic",
     link_meta_repo: Annotated[
         bool,
@@ -575,8 +598,14 @@ def onboard(
 
     # Step 1: Clone if repo URL provided
     if repo:
+        repo_name = repo.rstrip("/").split("/")[-1].replace(".git", "")
         if target:
-            project_path = target.resolve()
+            # Treat --target as the parent directory and clone into
+            # <target>/<repo_name> so the project keeps the repo's name
+            # (consistent with the workspace branch and documented usage).
+            base = target.resolve()
+            base.mkdir(parents=True, exist_ok=True)
+            project_path = base / repo_name
         else:
             # Use configured workspace, fall back to CWD
             config = _get_config()
@@ -607,7 +636,6 @@ def onboard(
                     base = domain_folder
             else:
                 base = Path.cwd()
-            repo_name = repo.rstrip("/").split("/")[-1].replace(".git", "")
             project_path = base / repo_name
 
         if project_path.exists():

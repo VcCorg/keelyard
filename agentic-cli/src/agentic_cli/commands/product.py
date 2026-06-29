@@ -361,6 +361,67 @@ def init_meta(
 
 
 # ---------------------------------------------------------------------------
+# {CLI_NAME} product validate
+# ---------------------------------------------------------------------------
+
+@product_app.command("validate")
+def validate(
+    name: Annotated[str, typer.Argument(help="Product name (e.g. CWOW)")],
+    meta: Annotated[str, typer.Option("--meta", help="Path to product meta-repo (override)")] = None,
+    strict: Annotated[bool, typer.Option("--strict", help="Exit non-zero on warnings too")] = False,
+) -> None:
+    """Validate a scaffolded product meta-repo for semantic coherence.
+
+    Goes beyond `make validate` (which only checks directories exist): asserts
+    the crosswalk gates are valid promotion stages, governance/crosswalk agree,
+    personas reference real built-ins, and the inner-loop submodule is wired.
+
+    Examples:
+        {CLI_NAME} product validate CWOW
+        {CLI_NAME} product validate CWOW --strict
+    """
+    from agentic_cli.meta_repo.product_validation import (
+        validate_product_meta, OK, WARN, FAIL,
+    )
+
+    name_upper = name.upper()
+    meta_path = _resolve_product_meta(name_upper, meta)
+    report = validate_product_meta(meta_path)
+
+    symbol = {OK: "[green]✓[/green]", WARN: "[yellow]⚠[/yellow]", FAIL: "[red]✗[/red]"}
+    table = Table(title=f"Product Validation — {name_upper}", title_justify="left",
+                  show_header=True, header_style="bold")
+    table.add_column("", width=2)
+    table.add_column("Check", style="cyan", no_wrap=True)
+    table.add_column("Detail")
+    fixes = []
+    for c in report.checks:
+        table.add_row(symbol.get(c.status, "?"), c.name, c.detail)
+        if c.status in (WARN, FAIL) and c.fix:
+            fixes.append(c)
+    console.print(table)
+
+    if fixes:
+        console.print("\n[bold]Suggested fixes[/bold]")
+        for c in fixes:
+            console.print(f"  {symbol.get(c.status, '?')} [cyan]{c.name}[/cyan]: {c.fix}")
+
+    counts = report.counts
+    console.print(
+        f"\n[bold]Summary:[/bold] [green]{counts[OK]} ok[/green], "
+        f"[yellow]{counts[WARN]} warning(s)[/yellow], [red]{counts[FAIL]} failure(s)[/red]"
+    )
+
+    record_activity(
+        command="product", subcommand="validate",
+        args={"name": name_upper, "failures": counts[FAIL], "warnings": counts[WARN]},
+    )
+
+    if report.failed or (strict and counts[WARN] > 0):
+        raise typer.Exit(1)
+
+
+# ---------------------------------------------------------------------------
 # {CLI_NAME} product exceptions
 # ---------------------------------------------------------------------------
 
@@ -473,3 +534,141 @@ def exceptions_list(
             f"[{style}]{status}[/{style}]",
         )
     console.print(table)
+
+
+# ---------------------------------------------------------------------------
+# {CLI_NAME} product persona
+# ---------------------------------------------------------------------------
+
+persona_app = typer.Typer(
+    help="Manage the product persona catalog (personas.yaml) for role-based skills",
+    rich_markup_mode=None,
+)
+product_app.add_typer(persona_app, name="persona")
+
+
+def _parse_sections(section: list[str] | None):
+    """Parse repeatable --section 'Title::Body' options into PersonaSection list."""
+    from agentic_cli.meta_repo.config import PersonaSection
+
+    sections = []
+    for raw in section or []:
+        if "::" in raw:
+            title, body = raw.split("::", 1)
+        else:
+            title, body = raw, ""
+        sections.append(PersonaSection(title=title.strip(), body=body.strip()))
+    return sections
+
+
+@persona_app.command("add")
+def persona_add(
+    name: Annotated[str, typer.Argument(help="Product name")],
+    id: Annotated[str, typer.Option("--id", help="Persona id (kebab-case, e.g. tech-lead)")],
+    label: Annotated[str, typer.Option("--label", help="Human-readable label, e.g. 'Tech Lead'")],
+    description: Annotated[str, typer.Option("--description", help="One-line summary")] = "",
+    section: Annotated[list[str], typer.Option("--section", help="Section as 'Title::Body' (repeatable)")] = None,
+    ai_enrich: Annotated[bool, typer.Option("--ai-enrich/--no-ai-enrich", help="Mark for AI enrichment when run with --enrich")] = False,
+    meta: Annotated[str, typer.Option("--meta", help="Path to product meta-repo (override)")] = None,
+) -> None:
+    """Add (or replace) a product-specific persona in personas.yaml.
+
+    For rich multi-section content, edit personas.yaml directly. This command
+    covers the common case quickly.
+
+    Examples:
+        {CLI_NAME} product persona add CWOW --id tech-lead --label "Tech Lead" \\
+            --description "Architecture direction" \\
+            --section "Responsibilities::- Own ADRs" --ai-enrich
+    """
+    from agentic_cli.meta_repo.config import PersonaSpec
+    from agentic_cli.persona_catalog import add_product_persona
+
+    name_upper = name.upper()
+    meta_path = _resolve_product_meta(name_upper, meta)
+    if not meta_path.exists():
+        console.print(f"[red]✗ Product meta-repo not found at {meta_path}[/red]")
+        console.print(f"[dim]Create it first: {CLI_NAME} product init-meta {name_upper}[/dim]")
+        raise typer.Exit(1)
+
+    spec = PersonaSpec(
+        id=id.strip().lower(),
+        label=label,
+        description=description,
+        sections=_parse_sections(section),
+        ai_enrich=ai_enrich,
+    )
+    add_product_persona(meta_path, spec)
+
+    console.print(f"[bold green]✓[/bold green] Persona [cyan]{spec.id}[/cyan] added to {name_upper}.")
+    console.print(f"[dim]Regenerate into a domain: {CLI_NAME} domain regen-personas <domain> -p {spec.id}"
+                  + (" --enrich" if ai_enrich else "") + "[/dim]")
+
+    record_activity(
+        command="product", subcommand="persona-add",
+        args={"name": name_upper, "id": spec.id, "ai_enrich": ai_enrich},
+    )
+
+
+@persona_app.command("list")
+def persona_list(
+    name: Annotated[str, typer.Argument(help="Product name")],
+    meta: Annotated[str, typer.Option("--meta", help="Path to product meta-repo (override)")] = None,
+) -> None:
+    """List the effective persona catalog (enabled built-ins + product customs).
+
+    Examples:
+        {CLI_NAME} product persona list CWOW
+    """
+    from agentic_cli.persona_catalog import resolve_personas
+
+    name_upper = name.upper()
+    meta_path = _resolve_product_meta(name_upper, meta)
+    if not meta_path.exists():
+        console.print(f"[red]✗ Product meta-repo not found at {meta_path}[/red]")
+        raise typer.Exit(1)
+
+    personas = resolve_personas(meta_path)
+    if not personas:
+        console.print("[dim]No personas resolved.[/dim]")
+        return
+
+    table = Table(title=f"{name_upper} — Persona Catalog")
+    table.add_column("ID", style="cyan")
+    table.add_column("Label")
+    table.add_column("Source")
+    table.add_column("AI Enrich")
+    for p in personas:
+        source = "built-in" if p.builtin else "product"
+        table.add_row(p.id, p.label, source, "yes" if p.ai_enrich else "—")
+    console.print(table)
+
+
+@persona_app.command("remove")
+def persona_remove(
+    name: Annotated[str, typer.Argument(help="Product name")],
+    persona_id: Annotated[str, typer.Argument(help="Persona id to remove")],
+    meta: Annotated[str, typer.Option("--meta", help="Path to product meta-repo (override)")] = None,
+) -> None:
+    """Remove a product-specific persona from personas.yaml.
+
+    Examples:
+        {CLI_NAME} product persona remove CWOW tech-lead
+    """
+    from agentic_cli.persona_catalog import remove_product_persona
+
+    name_upper = name.upper()
+    meta_path = _resolve_product_meta(name_upper, meta)
+    if not meta_path.exists():
+        console.print(f"[red]✗ Product meta-repo not found at {meta_path}[/red]")
+        raise typer.Exit(1)
+
+    if remove_product_persona(meta_path, persona_id.lower()):
+        console.print(f"[bold green]✓[/bold green] Persona [cyan]{persona_id}[/cyan] removed from {name_upper}.")
+        record_activity(
+            command="product", subcommand="persona-remove",
+            args={"name": name_upper, "id": persona_id.lower()},
+        )
+    else:
+        console.print(f"[yellow]No custom persona '{persona_id}' found in {name_upper}.[/yellow]")
+        raise typer.Exit(1)
