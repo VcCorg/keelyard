@@ -11,6 +11,23 @@ Multi-repo workspace for the Agentic platform. Each component lives in its own G
 | `mcp-servers/` | MCP servers — multiple protocol implementations + docker-compose |
 | `kg-infrastructure/` | KG infra — knowledge graph server, Neo4j, LightRAG, sample data, docs |
 
+## Preventing internal/company data in commits
+
+This repo ships a guard that blocks commits containing company-specific data
+(internal hostnames, usernames), real domain/KG data files, and secret formats.
+
+Enable the version-controlled hook once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+- Manual scan of the whole tree (also used in CI): `bash scripts/check-no-company-data.sh --all`
+- The pre-commit hook scans only staged changes automatically.
+- Real domain data (`skills/domains/cwow-*/`, `kg-infrastructure/docs/CWOW_*|SNF_*`,
+  `graphify-out/`, `knowledge-export/`) is git-ignored and stays local.
+- Emergency bypass (discouraged): `ALLOW_COMPANY_DATA=1 git commit ...`
+
 ## Workspace Layout
 
 ```
