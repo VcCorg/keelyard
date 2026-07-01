@@ -6,6 +6,7 @@ import {
   Server,
   Activity,
   MessageSquare,
+  Camera,
   FolderKanban,
   TerminalSquare,
   Package,
@@ -51,6 +52,8 @@ type NavItem = {
   to: string;
   icon: ComponentType<{ className?: string }>;
   label: string;
+  /** If set, renders as a button that triggers an action instead of navigating. */
+  action?: "setup";
   /** If set, only shown in this workspace lens. */
   lens?: Workspace;
   /** If set, only shown to users with this role or higher. */
@@ -88,25 +91,46 @@ const navGroups: NavGroup[] = [
   },
   {
     label: "Work",
-    lens: "team",
     items: [
       { to: "/tasks", icon: ListTodo, label: "Tasks" },
       { to: "/assignments", icon: ClipboardList, label: "Assignments" },
-      { to: "/sessions", icon: DevinBot, label: "Sessions" },
+      { to: "/devin", icon: DevinBot, label: "Devin Sessions" },
+      { to: "/snapshots", icon: Camera, label: "Snapshots" },
     ],
   },
   {
-    label: "Platform",
+    label: "Build",
     items: [
-      { to: "/onboarding", icon: Boxes, label: "Domain Onboarding", lens: "team", minRole: "admin" },
-      { to: "/code-onboard", icon: FolderGit2, label: "Code Onboard" },
-      { to: "/skills", icon: Package, label: "Skills" },
-      { to: "/skills/personas", icon: Sparkles, label: "Persona Skills" },
-      { to: "/workspaces", icon: FolderOpen, label: "Workspaces" },
-      { to: "/marketplace", icon: Store, label: "Marketplace" },
-      { to: "/deployments", icon: Rocket, label: "Deployments" },
-      { to: "/mcp", icon: Server, label: "MCP Servers" },
+      { to: "/agents", icon: Bot, label: "Agents" },
+      { to: "/projects", icon: FolderKanban, label: "Agent Projects" },
       { to: "/eval", icon: FlaskConical, label: "Evaluation" },
+      { to: "/chat", icon: MessageSquare, label: "Chat" },
+      { to: "/terminal", icon: TerminalSquare, label: "Terminal" },
+      { to: "/cli", icon: SquareTerminal, label: "CLI Console" },
+    ],
+  },
+  {
+    label: "Governance",
+    items: [],
+    subgroups: [
+      {
+        label: "Onboarding",
+        icon: Boxes,
+        items: [
+          { to: "/onboarding", icon: Boxes, label: "Domain", lens: "team", minRole: "admin" },
+          { to: "/workspaces", icon: FolderOpen, label: "Workspaces" },
+          { to: "/code-onboard", icon: FolderGit2, label: "Repository" },
+        ],
+      },
+      {
+        label: "Registry",
+        icon: Package,
+        items: [
+          { to: "/skills", icon: Package, label: "Skills" },
+          { to: "/skills/personas", icon: Sparkles, label: "Persona Skills" },
+          { to: "/marketplace", icon: Store, label: "Marketplace" },
+        ],
+      },
     ],
   },
   {
@@ -129,15 +153,11 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: "Build",
-    lens: "mine",
+    label: "Platform",
     items: [
-      { to: "/agents", icon: Bot, label: "Agents" },
-      { to: "/projects", icon: FolderKanban, label: "Agent Projects" },
-      { to: "/chat", icon: MessageSquare, label: "Chat" },
-      { to: "/devin", icon: DevinBot, label: "Devin Sessions" },
-      { to: "/terminal", icon: TerminalSquare, label: "Terminal" },
-      { to: "/cli", icon: SquareTerminal, label: "CLI Console" },
+      { to: "/mcp", icon: Server, label: "MCP Servers" },
+      { to: "/deployments", icon: Rocket, label: "Deployments" },
+      { to: "#cli-setup", icon: Wrench, label: "CLI Setup", action: "setup" },
     ],
   },
 ];
@@ -169,7 +189,19 @@ function WorkspaceSwitcher() {
 }
 
 function NavItemLink({ item }: { item: NavItem }) {
-  const { to, icon: Icon, label } = item;
+  const { to, icon: Icon, label, action } = item;
+  const { openPanel } = useSetup();
+  if (action === "setup") {
+    return (
+      <button
+        onClick={openPanel}
+        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+      >
+        <Icon className="h-4 w-4" />
+        {label}
+      </button>
+    );
+  }
   return (
     <NavLink
       to={to}

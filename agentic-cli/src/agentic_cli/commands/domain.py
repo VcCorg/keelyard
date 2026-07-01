@@ -2088,10 +2088,24 @@ def build_snapshot(
         console.print(f"[red]✗ Domain '{domain_name}' not found.[/red]")
         raise typer.Exit(1)
 
-    def _persist(*, snapshot: str = None, blueprint: str = None) -> None:
+    def _persist(*, snapshot: str = None, blueprint: str = None,
+                 meta_path: Path = None) -> None:
+        from agentic_cli.devin.snapshots import capture_provenance
+
         cfg = DevinConfig.load()
+        kwargs: dict = {}
         if snapshot:
-            cfg.set_domain(domain_name, snapshot_id=snapshot)
+            kwargs["snapshot_id"] = snapshot
+        if blueprint:
+            kwargs["blueprint_id"] = blueprint
+        if meta_path is not None:
+            kwargs["meta_repo_path"] = str(meta_path.resolve())
+            # Record the meta-repo commit + blueprint hash the snapshot was
+            # built from, so `devin snapshots verify` can detect drift.
+            if snapshot:
+                kwargs.update(capture_provenance(meta_path))
+        if kwargs:
+            cfg.set_domain(domain_name, **{k: v for k, v in kwargs.items() if v is not None})
         cfg.save()
         if snapshot:
             console.print(f"[bold green]✓[/bold green] Stored snapshot for [cyan]{domain_name}[/cyan]: {snapshot}")
@@ -2099,12 +2113,14 @@ def build_snapshot(
                 f"[dim]Sessions now reuse it: {CLI_NAME} devin sessions create "
                 f"--domain {domain_name} --prompt \"...\"[/dim]"
             )
+            console.print(f"[dim]List/verify: {CLI_NAME} devin snapshots list · {CLI_NAME} devin snapshots verify {domain_name}[/dim]")
         if blueprint:
             console.print(f"[dim]Blueprint id: {blueprint}[/dim]")
 
     # Manual path: register an already-built snapshot id (no DRS needed).
     if snapshot_id:
-        _persist(snapshot=snapshot_id)
+        mp = _resolve_domain_meta_path(domain_name, meta)
+        _persist(snapshot=snapshot_id, meta_path=mp if mp.exists() else None)
         return
 
     meta_repo_path = _resolve_domain_meta_path(domain_name, meta)
@@ -2163,7 +2179,7 @@ def build_snapshot(
 
     if no_build:
         console.print("[green]✓[/green] Blueprint registered (build skipped via --no-build).")
-        _persist(blueprint=bp_id)
+        _persist(blueprint=bp_id, meta_path=meta_repo_path)
         return
 
     console.print(f"[cyan]Building Devin environment snapshot...[/cyan]")
@@ -2181,10 +2197,10 @@ def build_snapshot(
             f"[dim]Register it manually once you have it: {CLI_NAME} domain build-snapshot "
             f"{domain_name} --snapshot-id <id>[/dim]"
         )
-        _persist(blueprint=bp_id)
+        _persist(blueprint=bp_id, meta_path=meta_repo_path)
         raise typer.Exit(1)
 
-    _persist(snapshot=sid, blueprint=bp_id)
+    _persist(snapshot=sid, blueprint=bp_id, meta_path=meta_repo_path)
     record_activity(
         command="domain", subcommand="build-snapshot",
         args={"domain": domain_name, "snapshot_id": sid, "blueprint_id": bp_id},

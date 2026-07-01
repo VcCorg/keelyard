@@ -373,6 +373,26 @@ export interface DevinSessionDetail {
   raw: Record<string, unknown>;
 }
 
+export type DevinSnapshotState =
+  | "ok"
+  | "drift"
+  | "no-snapshot"
+  | "meta-missing"
+  | "unverifiable";
+
+export interface DevinSnapshot {
+  domain: string;
+  snapshot_id?: string | null;
+  blueprint_id?: string | null;
+  knowledge_folder?: string | null;
+  built_at?: string | null;
+  meta_repo_path?: string | null;
+  recorded_sha?: string | null;
+  current_sha?: string | null;
+  state: DevinSnapshotState;
+  detail: string;
+}
+
 /* ============ Domain Onboarding Types ============ */
 
 export interface ProductInfo {
@@ -1500,6 +1520,16 @@ class APIClient {
       method: "POST",
       body: JSON.stringify({ message }),
     });
+  }
+
+  /** Locally-registered per-domain Devin snapshots with meta-repo drift status. */
+  async listDevinSnapshots(): Promise<DevinSnapshot[]> {
+    return this.request("/devin/snapshots");
+  }
+
+  /** Re-verify a single domain's snapshot against its meta-repo. */
+  async verifyDevinSnapshot(domain: string): Promise<DevinSnapshot> {
+    return this.request(`/devin/snapshots/${encodeURIComponent(domain)}/verify`);
   }
 
   /* ---- Agent Projects ---- */

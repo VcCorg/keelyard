@@ -285,3 +285,120 @@ def test_okf_devin_reexports_point_to_package():
     assert okf_devin.update_entry is devin_knowledge.update_entry
     assert okf_devin.move_entry is devin_knowledge.move_entry
     assert okf_devin.DEVIN_API_BASE == devin_config.DEVIN_API_BASE
+
+
+# ---------------------------------------------------------------------------
+# Snapshots: provenance capture + drift verification
+# ---------------------------------------------------------------------------
+
+import subprocess
+
+from agentic_cli.devin.snapshots import (
+    capture_provenance,
+    list_snapshots,
+    verify_snapshot,
+    STATE_OK,
+    STATE_DRIFT,
+    STATE_NO_SNAPSHOT,
+    STATE_META_MISSING,
+    STATE_UNVERIFIABLE,
+)
+
+
+def _init_meta_repo(path, content="v1\n"):
+    (path / ".devin").mkdir(parents=True, exist_ok=True)
+    (path / ".devin" / "environment.yaml").write_text(content, encoding="utf-8")
+    subprocess.run(["git", "init", "-q"], cwd=path, check=True)
+    subprocess.run(["git", "add", "-A"], cwd=path, check=True)
+    subprocess.run(["git", "-c", "user.email=t@e", "-c", "user.name=t",
+                    "commit", "-q", "-m", "init"], cwd=path, check=True)
+
+
+def _commit_all(path, msg="update"):
+    subprocess.run(["git", "add", "-A"], cwd=path, check=True)
+    subprocess.run(["git", "-c", "user.email=t@e", "-c", "user.name=t",
+                    "commit", "-q", "-m", msg], cwd=path, check=True)
+
+
+def test_set_domain_records_provenance(config_file):
+    cfg = devin_config.DevinConfig(data={})
+    cfg.set_domain("d", snapshot_id="snap-1", blueprint_id="bp-1",
+                   meta_repo_path="/abs/meta", meta_repo_sha="abc123",
+                   blueprint_hash="sha256:deadbeef", built_at="2026-01-01T00:00:00Z")
+    cfg.save()
+
+    r = devin_config.DevinConfig.load().domain("d")
+    assert r["snapshot_id"] == "snap-1"
+    assert r["blueprint_id"] == "bp-1"
+    assert r["meta_repo_path"] == "/abs/meta"
+    assert r["meta_repo_sha"] == "abc123"
+    assert r["blueprint_hash"] == "sha256:deadbeef"
+    assert r["built_at"] == "2026-01-01T00:00:00Z"
+
+
+def test_capture_provenance_from_git_repo(tmp_path):
+    repo = tmp_path / "meta"
+    _init_meta_repo(repo)
+    prov = capture_provenance(repo)
+    assert prov["meta_repo_path"] == str(repo.resolve())
+    assert "built_at" in prov
+    assert prov.get("meta_repo_sha")  # git is available in this repo
+    assert prov.get("blueprint_hash", "").startswith("sha256:")
+
+
+def test_verify_no_snapshot(config_file):
+    cfg = devin_config.DevinConfig(data={})
+    cfg.set_domain("n", knowledge_folder="f")
+    cfg.save()
+    assert verify_snapshot("n").state == STATE_NO_SNAPSHOT
+
+
+def test_verify_ok_then_drift(config_file, tmp_path):
+    repo = tmp_path / "meta"
+    _init_meta_repo(repo)
+
+    cfg = devin_config.DevinConfig(data={})
+    cfg.set_domain("d", snapshot_id="snap-1", **capture_provenance(repo))
+    cfg.save()
+
+    assert verify_snapshot("d").state == STATE_OK
+
+    # Change the meta-repo -> the stored snapshot is now stale.
+    (repo / ".devin" / "environment.yaml").write_text("v2\n", encoding="utf-8")
+    _commit_all(repo)
+    st = verify_snapshot("d")
+    assert st.state == STATE_DRIFT
+    assert st.recorded_sha and st.current_sha and st.recorded_sha != st.current_sha
+
+
+def test_verify_meta_missing(config_file, tmp_path):
+    cfg = devin_config.DevinConfig(data={})
+    cfg.set_domain("gone", snapshot_id="s", meta_repo_path=str(tmp_path / "nope"),
+                   meta_repo_sha="abc", blueprint_hash="sha256:x")
+    cfg.save()
+    assert verify_snapshot("gone").state == STATE_META_MISSING
+
+
+def test_verify_unverifiable_without_provenance(config_file, tmp_path):
+    repo = tmp_path / "meta"
+    _init_meta_repo(repo)
+    cfg = devin_config.DevinConfig(data={})
+    # Snapshot registered (e.g. via --snapshot-id) with a meta path but no
+    # recorded sha/hash -> cannot check drift.
+    cfg.set_domain("u", snapshot_id="s", meta_repo_path=str(repo))
+    cfg.save()
+    assert verify_snapshot("u").state == STATE_UNVERIFIABLE
+
+
+def test_list_snapshots_covers_all_domains(config_file, tmp_path):
+    repo = tmp_path / "meta"
+    _init_meta_repo(repo)
+    cfg = devin_config.DevinConfig(data={})
+    cfg.set_domain("a", snapshot_id="snap-a", **capture_provenance(repo))
+    cfg.set_domain("b", knowledge_folder="f")  # no snapshot
+    cfg.save()
+
+    statuses = {s.domain: s for s in list_snapshots()}
+    assert set(statuses) == {"a", "b"}
+    assert statuses["a"].state == STATE_OK
+    assert statuses["b"].state == STATE_NO_SNAPSHOT

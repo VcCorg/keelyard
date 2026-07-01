@@ -22,8 +22,10 @@ console = Console()
 
 kg_app = typer.Typer(help="Manage Devin Cloud Knowledge entries", rich_markup_mode=None)
 sessions_app = typer.Typer(help="Create and follow Devin sessions", rich_markup_mode=None)
+snapshots_app = typer.Typer(help="List per-domain snapshots and verify meta-repo drift", rich_markup_mode=None)
 devin_app.add_typer(kg_app, name="kg")
 devin_app.add_typer(sessions_app, name="sessions")
+devin_app.add_typer(snapshots_app, name="snapshots")
 
 
 def _require_key(api_key: str | None) -> None:
@@ -354,3 +356,101 @@ def sessions_message(
         console.print(f"[red]\u2717[/red] {exc}")
         raise typer.Exit(1)
     console.print(f"[green]\u2713[/green] sent message to {session_id}")
+
+
+# ── snapshots ────────────────────────────────────────────────────────────────
+
+_STATE_STYLE = {
+    "ok": "green",
+    "drift": "yellow",
+    "no-snapshot": "dim",
+    "meta-missing": "red",
+    "unverifiable": "dim",
+}
+
+
+def _state_label(state: str) -> str:
+    return f"[{_STATE_STYLE.get(state, 'white')}]{state}[/]"
+
+
+@snapshots_app.command("list")
+def snapshots_list(
+    json_out: Annotated[bool, typer.Option("--json", help="Print raw JSON")] = False,
+) -> None:
+    """List locally-registered per-domain Devin snapshots and their drift state.
+
+    Reads the shared CLI config (no network). For each domain that has a
+    ``snapshot_id`` it also checks whether the meta-repo has changed since the
+    snapshot was built (see ``snapshots verify`` for details).
+    """
+    from agentic_cli.devin.snapshots import list_snapshots
+
+    statuses = list_snapshots()
+    if json_out:
+        console.print_json(json.dumps([s.__dict__ for s in statuses]))
+        return
+    if not statuses:
+        console.print("[dim]No domains configured. Build one: dva domain build-snapshot <slug>[/dim]")
+        return
+
+    table = Table(title="Devin snapshots (per domain)")
+    table.add_column("Domain", style="cyan")
+    table.add_column("Snapshot ID", style="green")
+    table.add_column("State")
+    table.add_column("Meta-repo commit", style="dim")
+    table.add_column("Built at", style="dim")
+    table.add_column("Knowledge folder", style="magenta")
+
+    n_snap = 0
+    for s in statuses:
+        if s.snapshot_id:
+            n_snap += 1
+        if s.state == "drift" and s.recorded_sha:
+            commit = f"{s.recorded_sha} → {s.current_sha or '?'}"
+        else:
+            commit = s.recorded_sha or "-"
+        table.add_row(
+            s.domain,
+            s.snapshot_id or "-",
+            _state_label(s.state),
+            commit,
+            (s.built_at or "-")[:19],
+            s.knowledge_folder or "-",
+        )
+    console.print(table)
+    console.print(f"  {n_snap} snapshot(s) across {len(statuses)} domain(s).")
+    stale = [s.domain for s in statuses if s.state in ("drift", "meta-missing")]
+    if stale:
+        console.print(f"  [yellow]⚠ needs attention:[/yellow] {', '.join(stale)} "
+                      f"([dim]dva devin snapshots verify <domain>[/dim])")
+
+
+@snapshots_app.command("verify")
+def snapshots_verify(
+    domain: Annotated[str | None, typer.Argument(help="Domain slug (omit to verify all)")] = None,
+    json_out: Annotated[bool, typer.Option("--json", help="Print raw JSON")] = False,
+) -> None:
+    """Verify snapshot(s) against their meta-repo and report drift.
+
+    Exits non-zero if any snapshot is stale (meta-repo changed since build) or
+    its meta-repo/blueprint is missing — handy for CI and pre-session checks.
+    """
+    from agentic_cli.devin.snapshots import (
+        verify_snapshot, list_snapshots, STATE_DRIFT, STATE_META_MISSING,
+    )
+
+    statuses = [verify_snapshot(domain)] if domain else list_snapshots()
+    if json_out:
+        console.print_json(json.dumps([s.__dict__ for s in statuses]))
+    else:
+        if not statuses:
+            console.print("[dim]No domains configured.[/dim]")
+            return
+        for s in statuses:
+            console.print(f"{_state_label(s.state)} [cyan]{s.domain}[/cyan] "
+                          f"{('· ' + s.snapshot_id) if s.snapshot_id else ''}")
+            console.print(f"    {s.detail}")
+
+    bad = [s for s in statuses if s.state in (STATE_DRIFT, STATE_META_MISSING)]
+    if bad:
+        raise typer.Exit(1)

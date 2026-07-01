@@ -73,6 +73,19 @@ class SessionDetail(BaseModel):
     raw: dict[str, Any] = {}
 
 
+class SnapshotInfo(BaseModel):
+    domain: str
+    snapshot_id: Optional[str] = None
+    blueprint_id: Optional[str] = None
+    knowledge_folder: Optional[str] = None
+    built_at: Optional[str] = None
+    meta_repo_path: Optional[str] = None
+    recorded_sha: Optional[str] = None
+    current_sha: Optional[str] = None
+    state: str = "no-snapshot"
+    detail: str = ""
+
+
 # ── Config ───────────────────────────────────────────────────────────────────
 
 def get_status() -> DevinStatus:
@@ -189,6 +202,37 @@ def send_session_message(session_id: str, message: str) -> dict[str, Any]:
     from agentic_cli.devin import send_message
 
     return send_message(session_id, message)
+
+
+# ── Snapshots (per-domain registry + meta-repo drift) ────────────────────────
+
+def _to_snapshot_info(s: Any) -> SnapshotInfo:
+    return SnapshotInfo(
+        domain=s.domain,
+        snapshot_id=s.snapshot_id,
+        blueprint_id=s.blueprint_id,
+        knowledge_folder=s.knowledge_folder,
+        built_at=s.built_at,
+        meta_repo_path=s.meta_repo_path,
+        recorded_sha=s.recorded_sha,
+        current_sha=s.current_sha,
+        state=s.state,
+        detail=s.detail,
+    )
+
+
+def list_domain_snapshots() -> list[SnapshotInfo]:
+    """Locally-registered per-domain snapshots with meta-repo drift status."""
+    from agentic_cli.devin.snapshots import list_snapshots
+
+    return [_to_snapshot_info(s) for s in list_snapshots()]
+
+
+def verify_domain_snapshot(domain: str) -> SnapshotInfo:
+    """Re-verify a single domain's snapshot against its meta-repo."""
+    from agentic_cli.devin.snapshots import verify_snapshot
+
+    return _to_snapshot_info(verify_snapshot(domain))
 
 
 # ── Knowledge ────────────────────────────────────────────────────────────────
