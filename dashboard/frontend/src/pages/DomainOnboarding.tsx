@@ -28,8 +28,10 @@ import {
   type ConfluencePageCandidate,
   type GovernanceInfo,
   type ExceptionInfo,
+  type ScaffoldPaths,
 } from "@/lib/api";
 import { PersonaSkillsPanel } from "@/components/PersonaSkillsPanel";
+import { OpenInIdeButton } from "@/components/OpenInIdeButton";
 import { cn } from "@/lib/utils";
 
 /* ── Streaming console (handles both `log` and `done` SSE events) ─────────── */
@@ -42,18 +44,25 @@ function StreamConsole({
 }) {
   const [lines, setLines] = useState<string[]>([]);
   const [running, setRunning] = useState(false);
+  const [exitCode, setExitCode] = useState<string | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+  const startRef = useRef<number>(0);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!url) return;
     setLines([]);
+    setExitCode(null);
+    setElapsed(0);
     setRunning(true);
+    startRef.current = Date.now();
     const es = new EventSource(url);
     es.addEventListener("log", (e: MessageEvent) =>
       setLines((p) => [...p, e.data])
     );
     es.addEventListener("done", (e: MessageEvent) => {
       setRunning(false);
+      setExitCode(e.data);
       es.close();
       onDone?.(e.data);
     });
@@ -65,25 +74,53 @@ function StreamConsole({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url]);
 
+  // Tick an elapsed-time counter while the command runs so long-running steps
+  // (clones, KG ingest, doc fetches) show forward progress, not a frozen UI.
+  useEffect(() => {
+    if (!running) return;
+    const id = setInterval(
+      () => setElapsed(Math.floor((Date.now() - startRef.current) / 1000)),
+      500
+    );
+    return () => clearInterval(id);
+  }, [running]);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [lines.length]);
 
   if (!url) return null;
 
+  const fmt = (s: number) =>
+    s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`;
+  const failed = exitCode !== null && exitCode !== "0";
+
   return (
     <div className="bg-gray-950 rounded-lg border border-gray-800 mt-3">
       <div className="flex items-center justify-between px-3 py-2 border-b border-gray-800">
-        <span className="text-xs text-gray-400 font-mono">CLI output</span>
+        <span className="text-xs text-gray-400 font-mono">
+          CLI output
+          <span className="ml-2 text-gray-500">
+            {fmt(elapsed)} · {lines.length} lines
+          </span>
+        </span>
         <span
           className={cn(
             "text-xs flex items-center gap-1",
-            running ? "text-amber-400" : "text-emerald-400"
+            running
+              ? "text-amber-400"
+              : failed
+              ? "text-red-400"
+              : "text-emerald-400"
           )}
         >
           {running ? (
             <>
-              <Loader2 className="h-3 w-3 animate-spin" /> running
+              <Loader2 className="h-3 w-3 animate-spin" /> running…
+            </>
+          ) : failed ? (
+            <>
+              <AlertTriangle className="h-3 w-3" /> failed (exit {exitCode})
             </>
           ) : (
             <>
@@ -92,6 +129,12 @@ function StreamConsole({
           )}
         </span>
       </div>
+      {/* Indeterminate progress bar while running — honest about unknown ETA. */}
+      {running && (
+        <div className="h-0.5 w-full overflow-hidden bg-gray-800">
+          <div className="h-full w-1/3 animate-pulse bg-amber-400" />
+        </div>
+      )}
       <div className="p-3 max-h-72 overflow-y-auto font-mono text-xs text-gray-300 space-y-0.5">
         {lines.map((l, i) => (
           <div key={i} className="whitespace-pre-wrap break-all leading-relaxed">
@@ -1056,6 +1099,9 @@ function ScaffoldStep({ slug, product }: { slug: string; product: string }) {
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [productMetaPath, setProductMetaPath] = useState<string | null>(null);
   const [linkProduct, setLinkProduct] = useState(true);
+  const [overwrite, setOverwrite] = useState(true);
+  const [skipKg, setSkipKg] = useState(false);
+  const [paths, setPaths] = useState<ScaffoldPaths | null>(null);
 
   // Resolve the product meta-repo path (if it was scaffolded) so we can thread
   // it into the domain meta as a submodule (the outer-loop shared tier).
@@ -1072,14 +1118,42 @@ function ScaffoldStep({ slug, product }: { slug: string; product: string }) {
     };
   }, [product]);
 
+  // Resolve the on-disk context/meta repo paths so we can offer "Open in IDE"
+  // to review generated files. Refreshed whenever a scaffold step finishes.
+  const refreshPaths = () => {
+    api
+      .getScaffoldPaths(slug)
+      .then(setPaths)
+      .catch(() => {});
+  };
+  useEffect(refreshPaths, [slug]);
+
   const initMetaUrl = () => {
-    const base = `/domains/${slug}/init-meta/stream`;
+    const params = new URLSearchParams();
     if (linkProduct && productMetaPath) {
-      return api.streamUrl(
-        `${base}?product_meta=${encodeURIComponent(productMetaPath)}`
-      );
+      params.set("product_meta", productMetaPath);
     }
-    return api.streamUrl(base);
+    if (overwrite) {
+      params.set("force", "true");
+    }
+    const qs = params.toString();
+    return api.streamUrl(
+      `/domains/${slug}/init-meta/stream${qs ? `?${qs}` : ""}`
+    );
+  };
+
+  const initContextUrl = () => {
+    const params = new URLSearchParams();
+    if (overwrite) {
+      params.set("force", "true");
+    }
+    if (skipKg) {
+      params.set("no_kg", "true");
+    }
+    const qs = params.toString();
+    return api.streamUrl(
+      `/domains/${slug}/init-context/stream${qs ? `?${qs}` : ""}`
+    );
   };
 
   return (
@@ -1088,7 +1162,7 @@ function ScaffoldStep({ slug, product }: { slug: string; product: string }) {
       <div className="flex gap-2 flex-wrap">
         <Button
           variant="outline"
-          onClick={() => setStreamUrl(api.streamUrl(`/domains/${slug}/init-context/stream`))}
+          onClick={() => setStreamUrl(initContextUrl())}
         >
           Init context repo
         </Button>
@@ -1114,12 +1188,62 @@ function ScaffoldStep({ slug, product }: { slug: string; product: string }) {
         )}
       </label>
 
+      <label className="flex items-center gap-2 mt-2 text-sm text-gray-600 dark:text-gray-300">
+        <input
+          type="checkbox"
+          checked={overwrite}
+          onChange={(e) => setOverwrite(e.target.checked)}
+        />
+        Overwrite if the repo already exists (--force)
+      </label>
+
+      <label className="flex items-center gap-2 mt-2 text-sm text-gray-600 dark:text-gray-300">
+        <input
+          type="checkbox"
+          checked={skipKg}
+          onChange={(e) => setSkipKg(e.target.checked)}
+        />
+        Skip Knowledge Graph query for context repo (faster; placeholder content)
+      </label>
+
       <p className="text-xs text-gray-400 mt-2">
         Runs <code>dva domain init-context / init-meta {slug}</code> via the CLI.
         When linked, the domain meta references the product meta as a submodule
         so it inherits shared governance, the crosswalk, and the exceptions ledger.
       </p>
-      <StreamConsole url={streamUrl} />
+
+      {/* Review generated files: open the context / meta repos in an IDE. */}
+      <div className="mt-4 border-t border-gray-200 dark:border-gray-800 pt-3 space-y-3">
+        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          Review generated files
+        </h3>
+        {(["context", "meta"] as const).map((kind) => {
+          const p = paths?.[kind];
+          const title =
+            kind === "context" ? "Domain context repo" : "Domain meta repo";
+          return (
+            <div key={kind} className="flex items-center gap-3 flex-wrap">
+              <span className="text-sm w-36 shrink-0">{title}</span>
+              {p?.exists ? (
+                <>
+                  <OpenInIdeButton
+                    path={p.path}
+                    size="sm"
+                    label="Open in IDE"
+                  />
+                  <code className="text-xs text-gray-400 break-all">{p.path}</code>
+                </>
+              ) : (
+                <span className="text-xs text-amber-500">
+                  not generated yet — run “Init {kind} repo” above
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <StreamConsole url={streamUrl} onDone={refreshPaths} />
     </div>
   );
 }
@@ -1144,6 +1268,7 @@ function ProductStep({
   const [description, setDescription] = useState("");
   const [creating, setCreating] = useState(false);
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
+  const [overwrite, setOverwrite] = useState(true);
 
   const create = async () => {
     if (!name.trim()) return;
@@ -1225,10 +1350,22 @@ function ProductStep({
             </p>
             <Button
               variant="outline"
-              onClick={() => setStreamUrl(api.productInitMetaStreamUrl(activeProduct))}
+              onClick={() =>
+                setStreamUrl(
+                  api.productInitMetaStreamUrl(activeProduct, undefined, overwrite)
+                )
+              }
             >
               <FolderGit2 className="h-4 w-4" /> Init product meta
             </Button>
+            <label className="flex items-center gap-2 mt-3 text-sm text-gray-600 dark:text-gray-300">
+              <input
+                type="checkbox"
+                checked={overwrite}
+                onChange={(e) => setOverwrite(e.target.checked)}
+              />
+              Overwrite if it already exists (--force)
+            </label>
             <StreamConsole url={streamUrl} />
           </div>
 
@@ -1285,9 +1422,16 @@ function GovernancePanel({
 
   return (
     <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-4 space-y-3">
-      <h2 className="font-semibold flex items-center gap-2">
-        <ShieldCheck className="h-4 w-4" /> Governance (product tier)
-      </h2>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <h2 className="font-semibold flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4" /> Governance (product tier)
+        </h2>
+        {info.path && <OpenInIdeButton path={info.path} size="sm" label="Review & edit in IDE" />}
+      </div>
+
+      {info.path && (
+        <p className="text-xs text-gray-400 font-mono break-all">{info.path}</p>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
         <Gate label="CI gates" on={!!g.require_ci_gates} />
@@ -1329,6 +1473,23 @@ function GovernancePanel({
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {info.path && (
+        <div className="rounded-md bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 p-3 text-xs space-y-1">
+          <p className="text-gray-500">
+            To cover more (e.g. integration workflows), open the meta-repo and edit:
+          </p>
+          <ul className="font-mono text-gray-600 dark:text-gray-300 space-y-0.5">
+            <li>.platform/config/governance.yaml <span className="text-gray-400">— gates, coverage, inner-loop floor</span></li>
+            <li>.platform/config/crosswalk.yaml <span className="text-gray-400">— checkpoint ↔ promotion-gate map</span></li>
+            <li>outer-loop/product/pipeline-standards.md <span className="text-gray-400">— CI/CD + integration standards</span></li>
+            <li>outer-loop/product/definition-of-done.md <span className="text-gray-400">— DoD across both loops</span></li>
+          </ul>
+          <p className="text-gray-400 pt-1">
+            Edits are saved at the working location above; commit them in the meta-repo to take effect.
+          </p>
         </div>
       )}
     </div>

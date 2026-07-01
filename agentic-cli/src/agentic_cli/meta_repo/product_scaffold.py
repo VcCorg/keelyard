@@ -30,7 +30,7 @@ from typing import Optional
 import yaml
 
 from .config import GovernanceConfig, ProductConfig
-from .git_utils import add_submodule
+from .git_utils import register_submodule, resolve_remote_sha
 
 logger = logging.getLogger(__name__)
 
@@ -387,8 +387,8 @@ def _write_makefile(meta_repo_path: Path) -> None:
         """.PHONY: init update validate help
 
 init:
-\t@echo "Initializing product meta-repo..."
-\tgit submodule update --init --recursive
+\t@echo "Initializing product meta-repo (shallow, parallel)..."
+\tgit -c protocol.file.allow=always submodule update --init --recursive --depth 1 --jobs 8
 \t@echo "✓ Submodules initialized"
 
 update:
@@ -427,17 +427,42 @@ __pycache__/
 
 
 def _init_git_repo(meta_repo_path: Path, org_methodology_url: Optional[str]) -> None:
+    """Initialize the product meta-repo git repo.
+
+    The org-methodology (inner loop) is *registered* as a submodule (pinned
+    gitlink + ``.gitmodules``) without cloning — the working tree is fetched
+    lazily via ``make init``. The pinned commit is resolved clone-free with
+    ``git ls-remote``, keeping scaffolding fast.
+    """
     try:
         subprocess.run(
             ["git", "init"], cwd=str(meta_repo_path), check=True, capture_output=True
         )
-        if org_methodology_url:
-            add_submodule(meta_repo_path, org_methodology_url, "inner-loop")
-            logger.debug(f"Added inner-loop submodule: {org_methodology_url}")
 
+        # Stage scaffold files FIRST. `git add .` stages deletions for tracked
+        # paths missing from the working tree, which would clobber the (un-cloned)
+        # submodule gitlink registered below — so do it before registration.
         subprocess.run(
             ["git", "add", "."], cwd=str(meta_repo_path), check=True, capture_output=True
         )
+
+        if org_methodology_url:
+            resolved = resolve_remote_sha(org_methodology_url)
+            sha = resolved[0] if resolved else None
+            branch = resolved[1] if resolved else None
+            register_submodule(
+                meta_repo_path, org_methodology_url, "inner-loop",
+                sha=sha, branch=branch,
+            )
+            subprocess.run(
+                ["git", "add", ".gitmodules"],
+                cwd=str(meta_repo_path), check=True, capture_output=True,
+            )
+            logger.debug(
+                f"Registered inner-loop submodule (deferred): {org_methodology_url} "
+                f"(sha={sha[:8] if sha else 'pointer-only'})"
+            )
+
         subprocess.run(
             ["git", "commit", "-m", "Initial commit: product meta-repo scaffold"],
             cwd=str(meta_repo_path),

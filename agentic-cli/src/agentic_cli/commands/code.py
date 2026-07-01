@@ -1004,13 +1004,37 @@ def onboard(
             from agentic_cli.kg.okf.enrichment.runner import EnrichmentRunner
             from agentic_cli.kg.okf.enrichment.sources.code import CodebaseSource
             from agentic_cli.kg.okf.enrichment.sources.confluence import ConfluenceSource
+            from agentic_cli.kg.okf.enrichment.sources.graphify import (
+                MultiGraphifyCodeSource,
+                ensure_graph,
+            )
             from agentic_cli.kg.okf.schema import OKFSchema
 
             okf_ctx = resolve_domain_enrichment_context(domain)
             bundle_dir = okf_ctx.bundle_dir
 
-            # Use the repo being onboarded as the structural source.
-            code_src = CodebaseSource(project_path, analysis)
+            # OKF is domain-level: aggregate every resolved repo of the domain
+            # (plus the repo being onboarded) via graphify, generating a graph
+            # for any repo that lacks one. Concepts are namespaced per repo so
+            # they never collide. Fall back to single-repo LLM analysis only when
+            # no graph exists or can be generated anywhere.
+            candidate_repos = list(okf_ctx.codebase_paths)
+            if project_path.resolve() not in {p.resolve() for p in candidate_repos}:
+                candidate_repos.insert(0, project_path)
+            ready_repos = []
+            for repo_path in candidate_repos:
+                ok, _status = ensure_graph(repo_path, generate=True)
+                if ok:
+                    ready_repos.append(repo_path)
+            if ready_repos:
+                code_src = MultiGraphifyCodeSource(ready_repos)
+                structural_mode = "deterministic"
+                console.print(
+                    f"[dim]  OKF code source: graphify (no-LLM) <- {len(ready_repos)} repo graph(s)[/dim]"
+                )
+            else:
+                code_src = CodebaseSource(project_path, analysis)
+                structural_mode = "model"
             confluence_src = None
             if not okf_no_confluence and okf_ctx.confluence_docs:
                 confluence_src = ConfluenceSource.from_domain_docs(okf_ctx.confluence_docs)
@@ -1026,6 +1050,7 @@ def onboard(
                 bundle_root=bundle_dir,
                 model_name=okf_model,
                 confluence_source=confluence_src,
+                structural_mode=structural_mode,
             )
             res = runner.enrich_all()
             console.print(
@@ -1035,6 +1060,10 @@ def onboard(
             )
             if res.errors:
                 console.print(f"[yellow]⚠ {len(res.errors)} enrichment warning(s)[/yellow]")
+            # Stamp provenance so freshness checks can detect future graph changes.
+            if ready_repos:
+                from agentic_cli.kg.okf.provenance import write_provenance
+                write_provenance(bundle_dir, ready_repos, code_source="auto", source="both")
             okf_result = {
                 "bundle_dir": str(bundle_dir),
                 "written": res.concepts_written,

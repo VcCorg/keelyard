@@ -39,4 +39,7 @@ fi
 
 # Start the backend server
 echo -e "${BLUE}▸${NC} Starting backend server on http://localhost:8000..."
-"$PROJECT_VENV/bin/python" -m uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
+"$PROJECT_VENV/bin/python" -m uvicorn src.api.main:app --reload \
+    --reload-dir "$BACKEND_DIR/src" \
+    --reload-dir "$SCRIPT_DIR/agentic-cli/src" \
+    --host 0.0.0.0 --port 8000

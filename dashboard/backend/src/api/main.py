@@ -24,6 +24,7 @@ from src.api.cli import router as cli_router
 from src.api.runs import router as runs_router
 from src.api.devin import router as devin_router
 from src.api.integrations import router as integrations_router
+from src.api.setup import router as setup_router
 
 
 @asynccontextmanager
@@ -79,6 +80,7 @@ app.include_router(cli_router)
 app.include_router(runs_router)
 app.include_router(devin_router)
 app.include_router(integrations_router)
+app.include_router(setup_router)
 
 
 @app.get("/api/health")

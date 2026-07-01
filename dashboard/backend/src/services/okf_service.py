@@ -38,6 +38,10 @@ class OKFBundleInfo(BaseModel):
     concepts: int = 0
     freqs: int = 0
     has_report: bool = False
+    # Freshness vs the repos' code graphs (provenance-based).
+    freshness: str = "n/a"            # "fresh" | "stale" | "unknown" | "n/a"
+    stale_repos: list[str] = []
+    enriched_at: Optional[str] = None
 
 
 class OKFFreqRow(BaseModel):
@@ -99,7 +103,34 @@ def _bundle_info(domain: str, source: str = SOURCE_EXPORT) -> OKFBundleInfo:
         info.concepts = len(files)
         info.freqs = sum(1 for f in files if f.name.startswith("freq-"))
     info.has_report = (bdir / "nonconforming-report.md").exists()
+    _attach_freshness(info, bdir)
     return info
+
+
+def _attach_freshness(info: OKFBundleInfo, bdir: Path) -> None:
+    """Populate freshness fields from the bundle's provenance (best-effort).
+
+    Only bundles stamped at enrich time carry ``.okf-provenance.json``. We
+    re-hash each linked repo's current graph and compare. Any failure leaves the
+    default ``freshness='n/a'`` so listing never breaks.
+    """
+    try:
+        from agentic_cli.kg.okf.provenance import PROVENANCE_FILE, check_freshness
+        if not (bdir / PROVENANCE_FILE).exists():
+            return
+        from agentic_cli.kg.okf.enrichment.domain_paths import (
+            resolve_domain_enrichment_context,
+        )
+        ctx = resolve_domain_enrichment_context(info.domain)
+        report = check_freshness(bdir, ctx.codebase_paths)
+        info.enriched_at = report.enriched_at
+        if not report.has_provenance:
+            info.freshness = "unknown"
+        else:
+            info.freshness = "stale" if report.stale else "fresh"
+            info.stale_repos = report.stale_repos
+    except Exception:
+        info.freshness = "unknown"
 
 
 def list_okf_bundles() -> list[OKFBundleInfo]:
@@ -194,6 +225,47 @@ def okf_export_args(
         args += ["--product", product]
     args += ["--mint-freqs"] if mint_freqs else ["--no-mint-freqs"]
     return args
+
+
+def okf_enrich_args(
+    domain: str,
+    source: str = "both",
+    code_source: str = "auto",
+    generate_graphs: bool = True,
+    no_confluence: bool = False,
+    model: Optional[str] = None,
+    dry_run: bool = False,
+) -> list[str]:
+    """Build args for `dva kg okf enrich ...` (consumed by stream_kg_command).
+
+    This is the structural (graphify, no-LLM by default via --code-source auto)
+    + Confluence enrichment path. Unlike export, it resolves all repo/doc inputs
+    from the registered domain and writes to the AUTHORED bundle location.
+    """
+    args = ["okf", "enrich", "--domain", domain, "--source", source,
+            "--code-source", code_source]
+    args += ["--generate-graphs"] if generate_graphs else ["--no-generate-graphs"]
+    if no_confluence:
+        args += ["--no-confluence"]
+    if model:
+        args += ["--model", model]
+    if dry_run:
+        args += ["--dry-run"]
+    return args
+
+
+def domain_busy(domain: str) -> bool:
+    """True if a per-domain OKF lock is currently held (enrich/export/sync running).
+
+    Best-effort: leverages the CLI's machine-scoped advisory lock so the dashboard
+    can reject a concurrent run before starting one. The CLI lock remains the
+    authoritative guard against bundle corruption.
+    """
+    try:
+        from agentic_cli.kg.okf.locking import is_locked
+        return is_locked(domain, scope="okf")
+    except Exception:
+        return False
 
 
 def devin_api_key_present() -> bool:

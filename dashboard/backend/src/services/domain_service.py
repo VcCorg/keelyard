@@ -639,6 +639,46 @@ def _resolve_domain_meta_path(slug: str):
     return workspace / slug / f"domain-{slug}-meta"
 
 
+def _resolve_domain_context_path(slug: str):
+    """Resolve the on-disk domain context-repo path (mirrors the CLI rule).
+
+    Matches ``domain init-context`` default: ``<workspace>/<slug>/<slug>-domain-context``.
+    """
+    from agentic_cli.commands.domain import _get_code_workspace
+
+    workspace = _get_code_workspace()
+    return workspace / slug / f"{slug}-domain-context"
+
+
+class ScaffoldRepoPath(BaseModel):
+    kind: str  # "context" | "meta"
+    path: str
+    exists: bool
+
+
+class ScaffoldPaths(BaseModel):
+    context: ScaffoldRepoPath
+    meta: ScaffoldRepoPath
+
+
+def get_scaffold_paths(slug: str) -> ScaffoldPaths:
+    """Resolve the domain context-repo and meta-repo paths + existence.
+
+    Lets the dashboard offer an "Open in IDE" action to review the generated
+    files once a scaffold step has run.
+    """
+    ctx = _resolve_domain_context_path(slug)
+    meta = _resolve_domain_meta_path(slug)
+
+    def _exists(p) -> bool:
+        return bool(p.exists() and p.is_dir() and any(p.iterdir()))
+
+    return ScaffoldPaths(
+        context=ScaffoldRepoPath(kind="context", path=str(ctx), exists=_exists(ctx)),
+        meta=ScaffoldRepoPath(kind="meta", path=str(meta), exists=_exists(meta)),
+    )
+
+
 # ── Persona skills: review + catalog (library import) ────────────────────────
 
 class GeneratedPersonaInfo(BaseModel):

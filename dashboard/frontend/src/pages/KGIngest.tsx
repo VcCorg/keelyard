@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SetupRequiredBanner } from "@/components/SetupRequiredBanner";
 import { usePolling } from "@/hooks/usePolling";
 import {
   api,
@@ -275,6 +276,8 @@ export function KGIngest() {
           <RefreshCw className="h-4 w-4 mr-1.5" /> Refresh
         </Button>
       </div>
+
+      <SetupRequiredBanner requires={["workspaces", "neo4j", "vertex_ai"]} feature="KG ingest" />
 
       {/* Domain ingest */}
       <section className="space-y-3">

@@ -55,3 +55,19 @@ class Source(ABC):
     def sample(self, ref: ConceptRef, n: int = 5) -> list[dict[str, Any]] | None:
         """Optional concrete examples (rows, snippets). Default: none."""
         return None
+
+    def render_concept(
+        self, ref: ConceptRef, raw: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        """Optionally render a concept document deterministically (no LLM).
+
+        Sources that carry enough structure to author a conformant OKF document
+        on their own (e.g. an AST/graph source) return a dict shaped like the
+        model's structural output::
+
+            {"title": str, "description": str, "tags": list[str], "body": str}
+
+        Returning ``None`` (the default) tells the runner to fall back to the
+        LLM structural pass for this concept.
+        """
+        return None

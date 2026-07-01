@@ -2,11 +2,11 @@
 
 > **Goal**: Make all DVA CLI functionality accessible to any team member using any AI IDE,
 > without requiring CLI installation, with skills flowing from local development through
-> the **example AI Artifact Marketplace** for enterprise-wide reuse.
+> the **Example AI Artifact Marketplace** for enterprise-wide reuse.
 
 ## What Changed in v2
 
-- **NEW Layer 0**: example AI Artifact Marketplace — federated `marketplace.json` manifest
+- **NEW Layer 0**: Example AI Artifact Marketplace — federated `marketplace.json` manifest
   system backed by GitLab Package Registry. Two consumers: web app + example-ai IDE extension
 - **Skill Lifecycle**: Local → Validated → Published (via MR to agent-skills repo) → Consumed
 - **Code Onboarding Revised**: Now resolves skills from marketplace.json first, local-fallback
@@ -31,7 +31,7 @@
        ▼              ▼               ▼                ▼
 ┌──────────────────────────────────────────────────────────────────────┐
 │                                                                      │
-│  Layer 0: MARKETPLACE (context-marketplace.ai-prod.example.com)       │
+│  Layer 0: MARKETPLACE (marketplace.example.com)       │
 │           ┌─────────────────────────────────────────────┐            │
 │           │  Federated marketplace.json + GitLab Pkg Reg │            │
 │           │  Source: ai/model-context/agent-skills repo   │            │
@@ -123,15 +123,15 @@ marketplace:
 
 ---
 
-## Layer 0: example AI Artifact Marketplace — NEW
+## Layer 0: Example AI Artifact Marketplace — NEW
 
 ### Access Points
 
 | Medium | URL | Purpose |
 | ------ | --- | ------- |
-| **Web App** | `https://context-marketplace.ai-prod.example.com/` | Browser-based discovery, download, install |
+| **Web App** | `https://marketplace.example.com/` | Browser-based discovery, download, install |
 | **IDE Extension** | `example-ai` VSIX (GitLab Package Registry) | In-IDE browse, install, connect to agents |
-| **Raw manifest** | `gitlab.gcp.example.com/…/-/raw/master/marketplace.json` | Programmatic access for CLI/CI |
+| **Raw manifest** | `gitlab.example.com/…/-/raw/master/marketplace.json` | Programmatic access for CLI/CI |
 
 **Spec**: Confluence AISE space, page 1202192542
 
@@ -198,7 +198,7 @@ The marketplace is **not a REST API**. It is a **federated manifest system**:
 - **`whitelisted-publishers`** — Controls who can publish skills to the agent-skills repo.
 - **Conventional commits** — CI uses commit messages to auto-detect which artifacts
   changed and what version bump to apply.
-- **Two registries**: example Marketplace (`marketplace.json`) for internal artifacts +
+- **Two registries**: Example Marketplace (`marketplace.json`) for internal artifacts +
   ACP Agent Registry (`cdn.agentclientprotocol.com`) for public agent runtimes.
 
 ### Artifact Types
@@ -324,7 +324,7 @@ dva skill marketplace pull <name> --version 1.2.0
 
 # Push a skill to marketplace (commits to agent-skills repo → CI auto-publishes)
 dva skill marketplace push <name> \
-  --repo git@gitlab.gcp.example.com:ai/model-context/agent-skills.git
+  --repo git@gitlab.example.com:ai/model-context/agent-skills.git
 
 # Sync local skills with marketplace
 dva skill marketplace sync --direction push   # push all validated skills
@@ -615,8 +615,8 @@ validate-skills:
 2. Create `agentic_cli/marketplace/models.py`:
    - `MarketplaceManifest`, `SkillArtifact`, `ArtifactVersion` (matching marketplace.json schema)
 3. Create `agentic_cli/marketplace/config.py`:
-   - Default manifest URLs: `gitlab.gcp.example.com/ai/model-context/agent-skills/-/raw/master/marketplace.json`
-   - GitLab API base: `gitlab.gcp.example.com/api/v4`
+   - Default manifest URLs: `gitlab.example.com/ai/model-context/agent-skills/-/raw/master/marketplace.json`
+   - GitLab API base: `gitlab.example.com/api/v4`
 4. Unit tests with mocked marketplace.json responses + mocked GitLab API
 
 ### Phase 2: CLI Marketplace Commands (Week 1-2)

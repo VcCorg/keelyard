@@ -2,11 +2,11 @@ import { ExternalLink, Package, Puzzle, Server, FileText, ArrowRight, Boxes } fr
 import { Link } from "react-router-dom";
 import type { ComponentType } from "react";
 
-const WEB_MARKETPLACE = "https://context-marketplace.ai-prod.example.com/";
+const WEB_MARKETPLACE = "https://marketplace.example.com/";
 const IDE_EXTENSION_VSIX =
-  "https://gitlab.gcp.example.com/api/v4/projects/4273/packages/generic/example-ai/0.1.3/example-ai-0.1.3.vsix";
-const SKILLS_REPO = "https://gitlab.gcp.example.com/ai/model-context/agent-skills";
-const EXTENSIONS_REPO = "https://gitlab.gcp.example.com/ai/model-context/vibe-coding-extensions";
+  "https://gitlab.example.com/api/v4/projects/4273/packages/generic/example-ai/0.1.3/example-ai-0.1.3.vsix";
+const SKILLS_REPO = "https://gitlab.example.com/ai/model-context/agent-skills";
+const EXTENSIONS_REPO = "https://gitlab.example.com/ai/model-context/vibe-coding-extensions";
 
 type Artifact = {
   icon: ComponentType<{ className?: string }>;
@@ -29,7 +29,7 @@ const ARTIFACTS: Artifact[] = [
   },
   {
     icon: Puzzle,
-    title: "example AI IDE Extension",
+    title: "Example AI IDE Extension",
     type: "ide-extension",
     description:
       "VS Code extension to connect to ACP-compatible coding agents (Copilot, Claude Code, Gemini CLI). Download the latest .vsix.",
@@ -64,7 +64,7 @@ export function Marketplace() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Context Marketplace</h1>
           <p className="text-sm text-gray-500 mt-0.5 max-w-2xl">
-            example's federated registry of AI lifecycle artifacts — agent skills, IDE extensions, MCP
+            Example's federated registry of AI lifecycle artifacts — agent skills, IDE extensions, MCP
             servers, and rules. The full marketplace is available in the browser and as an IDE extension.
           </p>
         </div>
@@ -130,7 +130,7 @@ export function Marketplace() {
       </div>
 
       <p className="text-xs text-gray-400">
-        Note: the web marketplace and these repositories are protected by example SSO. You may be prompted
+        Note: the web marketplace and these repositories are protected by Example SSO. You may be prompted
         to authenticate.
       </p>
     </div>

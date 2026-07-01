@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StreamConsole } from "@/components/StreamConsole";
 import { RunHistory } from "@/components/RunHistory";
+import { SetupRequiredBanner } from "@/components/SetupRequiredBanner";
 import { api, type DomainInfo, type OnboardParams } from "@/lib/api";
 
 type SourceMode = "repo" | "path";
@@ -91,6 +92,8 @@ export function CodeOnboard() {
           Onboard a repository — install skills, attach domain context, and optionally build KG
         </p>
       </div>
+
+      <SetupRequiredBanner requires={["workspaces"]} feature="Code onboarding" />
 
       <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 space-y-5">
         {/* Source */}

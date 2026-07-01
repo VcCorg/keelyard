@@ -283,6 +283,14 @@ def init_meta(
     git_init: Annotated[
         bool, typer.Option("--git-init/--no-git-init", help="Initialize as a git repo")
     ] = True,
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force",
+            "-f",
+            help="Overwrite an existing product meta-repo without prompting (required in non-interactive contexts such as the dashboard)",
+        ),
+    ] = False,
 ) -> None:
     """
     Initialize a product meta-repo (top-level outer-loop tier).
@@ -301,7 +309,7 @@ def init_meta(
     from pathlib import Path
 
     from agentic_cli.meta_repo import scaffold_product_meta_repo
-    from agentic_cli.commands.domain import _get_code_workspace
+    from agentic_cli.commands.domain import _get_code_workspace, _robust_rmtree
 
     name_upper = name.upper()
     p = get_product(name_upper)
@@ -316,6 +324,35 @@ def init_meta(
         workspace = _get_code_workspace()
         out_dir = workspace / name_upper.lower()
         out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Handle an existing meta-repo consistently with init-context / domain init-meta:
+    # --force overwrites, a TTY prompts, and a non-interactive run errors instead
+    # of blocking the dashboard on a hidden prompt.
+    meta_repo_path = out_dir / f"product-{name_upper.lower()}-meta"
+    if meta_repo_path.exists():
+        import sys
+
+        if force:
+            _robust_rmtree(meta_repo_path)
+            console.print(
+                f"[yellow]Removed existing product meta-repo (--force): {meta_repo_path}[/yellow]"
+            )
+        elif sys.stdin.isatty():
+            overwrite = typer.confirm(
+                f"Product meta-repo {meta_repo_path} already exists. Overwrite?",
+                default=False,
+            )
+            if not overwrite:
+                raise typer.Exit(0)
+            _robust_rmtree(meta_repo_path)
+        else:
+            console.print(
+                f"[red]✗ Product meta-repo already exists: {meta_repo_path}[/red]"
+            )
+            console.print(
+                "[dim]Re-run with --force to overwrite, or delete the directory first.[/dim]"
+            )
+            raise typer.Exit(1)
 
     console.print(f"[cyan]Initializing product meta-repo for '{name_upper}'...[/cyan]")
     try:

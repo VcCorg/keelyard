@@ -51,7 +51,44 @@ async def okf_export_stream(
     mint_freqs: bool = Query(True, description="Mint FREQ concepts from CWOW-NNNNNN"),
 ):
     """Run `dva kg okf export --domain ...` (no reindex) and stream output over SSE."""
+    if okf_service.domain_busy(domain):
+        raise HTTPException(status_code=409, detail=f"OKF for '{domain}' is busy (enrich/export/sync running).")
     args = okf_service.okf_export_args(domain, product=product, mint_freqs=mint_freqs)
+    return _sse(args)
+
+
+@router.get("/okf/busy/{domain}")
+async def okf_busy(domain: str):
+    """Whether a per-domain OKF run (enrich/export/sync) is currently in progress."""
+    return {"domain": domain, "busy": okf_service.domain_busy(domain)}
+
+
+@router.get("/okf/enrich/stream")
+async def okf_enrich_stream(
+    domain: str = Query(..., description="Domain slug; resolves all repos/docs from registered data"),
+    source: str = Query("both", description="code | confluence | both"),
+    code_source: str = Query("auto", description="auto | graphify | analyze"),
+    generate_graphs: bool = Query(True, description="Run `graphify update` on linked repos missing a graph"),
+    no_confluence: bool = Query(False, description="Skip the Confluence enrichment pass"),
+    model: Optional[str] = Query(None, description="Vertex AI model for the LLM enrichment pass"),
+    dry_run: bool = Query(False, description="Preview planned concepts/pages without writing"),
+):
+    """Run `dva kg okf enrich --domain ...` (graphify structural + Confluence) over SSE.
+
+    The default `code_source=auto` uses each repo's graphify graph (no LLM),
+    generating any missing graph first. This is the multi-repo, team-facing path
+    that keeps the domain OKF bundle built from the actual code structure.
+    """
+    if source not in ("code", "confluence", "both"):
+        raise HTTPException(status_code=400, detail="source must be code, confluence, or both.")
+    if code_source not in ("auto", "graphify", "analyze"):
+        raise HTTPException(status_code=400, detail="code_source must be auto, graphify, or analyze.")
+    if not dry_run and okf_service.domain_busy(domain):
+        raise HTTPException(status_code=409, detail=f"OKF for '{domain}' is busy (enrich/export/sync running).")
+    args = okf_service.okf_enrich_args(
+        domain, source=source, code_source=code_source, generate_graphs=generate_graphs,
+        no_confluence=no_confluence, model=model, dry_run=dry_run,
+    )
     return _sse(args)
 
 

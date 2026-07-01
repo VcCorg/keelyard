@@ -73,12 +73,44 @@ async def _call_tool_async(
 # Synchronous wrapper
 # ---------------------------------------------------------------------------
 
+def _run_async(coro: Any) -> Any:
+    """Run an async coroutine from either a sync or async caller.
+
+    ``asyncio.run()`` raises ``RuntimeError`` when an event loop is already
+    running on the current thread (e.g. inside a FastAPI ``async def``
+    endpoint). When that happens, execute the coroutine on a dedicated thread
+    with its own event loop so the synchronous MCP API stays usable from both
+    the CLI and the async dashboard backend.
+    """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+
+    import threading
+
+    box: dict[str, Any] = {}
+
+    def _runner() -> None:
+        try:
+            box["result"] = asyncio.run(coro)
+        except BaseException as exc:  # noqa: BLE001 — re-raised on caller thread
+            box["error"] = exc
+
+    thread = threading.Thread(target=_runner, daemon=True)
+    thread.start()
+    thread.join()
+    if "error" in box:
+        raise box["error"]
+    return box["result"]
+
+
 def call_mcp_tool(
     sse_url: str, tool_name: str, arguments: Optional[dict] = None, timeout: float = 30.0,
 ) -> Any:
     """Call an MCP tool synchronously. Handles connection errors gracefully."""
     try:
-        return asyncio.run(
+        return _run_async(
             _call_tool_async(sse_url, tool_name, arguments or {}, timeout)
         )
     except MCPToolError:
@@ -134,7 +166,7 @@ class MCPToolClient:
                         await session.initialize()
                         return True
 
-            return asyncio.run(_check())
+            return _run_async(_check())
         except Exception:
             return False
 

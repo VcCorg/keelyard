@@ -32,10 +32,10 @@ MOCK_REPOS_RAW = [
         "project": {"key": "CGF"},
         "links": {
             "clone": [
-                {"name": "ssh", "href": "ssh://git@bb.example.com:7999/cgf/cwow-facility-service.git"},
-                {"name": "http", "href": "https://bb.example.com/scm/cgf/cwow-facility-service.git"},
+                {"name": "ssh", "href": "ssh://git@bitbucket.example.com:7999/cgf/cwow-facility-service.git"},
+                {"name": "http", "href": "https://bitbucket.example.com/scm/cgf/cwow-facility-service.git"},
             ],
-            "self": [{"href": "https://bb.example.com/projects/CGF/repos/cwow-facility-service"}],
+            "self": [{"href": "https://bitbucket.example.com/projects/CGF/repos/cwow-facility-service"}],
         },
     },
     {
@@ -46,9 +46,9 @@ MOCK_REPOS_RAW = [
         "project": {"key": "CGF"},
         "links": {
             "clone": [
-                {"name": "http", "href": "https://bb.example.com/scm/cgf/cwow-facility-config.git"},
+                {"name": "http", "href": "https://bitbucket.example.com/scm/cgf/cwow-facility-config.git"},
             ],
-            "self": [{"href": "https://bb.example.com/projects/CGF/repos/cwow-facility-config"}],
+            "self": [{"href": "https://bitbucket.example.com/projects/CGF/repos/cwow-facility-config"}],
         },
     },
     {
@@ -169,10 +169,10 @@ runner = CliRunner()
 
 MOCK_BB_REPOS = [
     {"slug": "cwow-facility-service", "name": "CWOW Facility Service",
-     "clone_url_https": "https://bb.example.com/scm/cgf/cwow-facility-service.git",
-     "clone_url_ssh": "ssh://git@bb.example.com:7999/cgf/cwow-facility-service.git"},
+     "clone_url_https": "https://bitbucket.example.com/scm/cgf/cwow-facility-service.git",
+     "clone_url_ssh": "ssh://git@bitbucket.example.com:7999/cgf/cwow-facility-service.git"},
     {"slug": "cwow-facility-config", "name": "CWOW Facility Config",
-     "clone_url_https": "https://bb.example.com/scm/cgf/cwow-facility-config.git",
+     "clone_url_https": "https://bitbucket.example.com/scm/cgf/cwow-facility-config.git",
      "clone_url_ssh": ""},
     {"slug": "cwow-patient-query", "name": "CWOW Patient Query",
      "clone_url_https": "", "clone_url_ssh": ""},

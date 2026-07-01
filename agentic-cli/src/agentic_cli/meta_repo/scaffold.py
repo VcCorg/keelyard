@@ -9,7 +9,7 @@ from typing import Any, Optional
 import yaml
 
 from .config import DomainConfig, GovernanceConfig, RepoConfig, SkillsConfig
-from .git_utils import add_submodule
+from .git_utils import register_submodule, resolve_remote_shas
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +28,8 @@ def scaffold_domain_meta_repo(
     personas: Optional[list] = None,
     persona_context: Optional[dict] = None,
     enrich_personas: bool = False,
+    clone_repos: bool = False,
+    write_blueprint: bool = True,
 ) -> dict[str, Path]:
     """Create domain meta-repo directory structure.
 
@@ -150,9 +152,30 @@ def scaffold_domain_meta_repo(
         # Write .gitignore
         _write_gitignore(meta_repo_path)
 
+        # Write the Devin DRS snapshot blueprint (.devin/environment.yaml +
+        # setup.sh). Generated here so it is captured in the initial commit;
+        # the snapshot itself is built later via `dva domain build-snapshot`.
+        if write_blueprint:
+            from agentic_cli.devin.blueprint import (
+                load_workspace_mcp_servers,
+                write_domain_blueprint,
+            )
+
+            bp = write_domain_blueprint(
+                meta_repo_path,
+                domain,
+                product,
+                code_assist_tool=code_assist_tool,
+                mcp_servers=load_workspace_mcp_servers(),
+            )
+            created["devin_blueprint"] = bp["environment"]
+
         # Initialize git repository if requested
         if git_init:
-            _init_git_repo(meta_repo_path, context_repo_url, repos or [], product_meta_url)
+            _init_git_repo(
+                meta_repo_path, context_repo_url, repos or [], product_meta_url,
+                clone_repos=clone_repos,
+            )
 
         logger.info(f"Created domain meta-repo at {meta_repo_path}")
         return created
@@ -498,8 +521,8 @@ def _write_makefile(meta_repo_path: Path) -> None:
         """.PHONY: init update update-one validate setup-hooks help
 
 init: setup-hooks
-	@echo "Initializing domain meta-repo..."
-	git submodule update --init --recursive
+	@echo "Initializing domain meta-repo (shallow, parallel)..."
+	git -c protocol.file.allow=always submodule update --init --recursive --depth 1 --jobs 8
 	@echo "✓ Submodules initialized"
 
 update:
@@ -767,8 +790,16 @@ def _init_git_repo(
     context_repo_url: Optional[str],
     repos: list[dict],
     product_meta_url: Optional[str] = None,
+    *,
+    clone_repos: bool = False,
 ) -> None:
     """Initialize git repository with submodules.
+
+    By default, submodules are *registered* (``.gitmodules`` + pinned gitlink)
+    without cloning — the working trees are fetched lazily via ``make init``
+    (``git submodule update --init``). This keeps scaffolding fast even for
+    domains with many linked repos. Pinned commit SHAs are resolved up-front in
+    parallel with clone-free ``git ls-remote`` calls.
 
     Args:
         meta_repo_path: Path to meta-repo
@@ -776,6 +807,8 @@ def _init_git_repo(
         repos: List of linked repo configs
         product_meta_url: Git URL/path of the product meta-repo (outer-loop
             shared tier) to reference as a submodule (optional)
+        clone_repos: If True, also clone the submodule working trees now
+            (shallow + parallel). If False (default), defer to ``make init``.
 
     Raises:
         RuntimeError: If git operations fail
@@ -800,43 +833,53 @@ def _init_git_repo(
             )
             logger.debug("Configured core.hooksPath=.githooks")
 
-        # Add domain-context-repo as submodule if provided.
-        # Default branch is auto-detected (host-agnostic: bitbucket/gitlab/github).
-        if context_repo_url:
-            context_submodule_path = "repos/domain-context"
-            add_submodule(meta_repo_path, context_repo_url, context_submodule_path)
-            logger.debug(f"Added domain-context submodule: {context_submodule_path}")
-
-        # Reference the product meta-repo (outer-loop shared tier) as a submodule
-        # so the domain inherits product governance + crosswalk + exceptions.
-        if product_meta_url:
-            product_submodule_path = "repos/product-meta"
-            add_submodule(meta_repo_path, product_meta_url, product_submodule_path)
-            logger.debug(f"Added product-meta submodule: {product_submodule_path}")
-
-        # Add linked repos as submodules
-        for repo in repos:
-            repo_slug = repo.get("slug")
-            clone_url = repo.get("clone_url")
-            if repo_slug and clone_url:
-                submodule_path = f"repos/{repo_slug}"
-                # Use an explicitly pinned branch if provided; otherwise the
-                # remote's default branch is auto-detected.
-                add_submodule(
-                    meta_repo_path,
-                    clone_url,
-                    submodule_path,
-                    branch=repo.get("branch"),
-                )
-                logger.debug(f"Added submodule: {submodule_path}")
-
-        # Stage all files
+        # Stage the scaffold files FIRST. This must happen before submodule
+        # gitlinks are staged: `git add .` stages the deletion of any tracked
+        # path missing from the working tree, which would clobber the gitlinks
+        # for the (intentionally un-cloned) submodules registered below.
         subprocess.run(
             ["git", "add", "."],
             cwd=str(meta_repo_path),
             check=True,
             capture_output=True,
         )
+
+        # Build the full submodule spec list: (path, url, branch).
+        specs: list[tuple[str, str, Optional[str]]] = []
+        if context_repo_url:
+            specs.append(("repos/domain-context", context_repo_url, None))
+        if product_meta_url:
+            specs.append(("repos/product-meta", product_meta_url, None))
+        for repo in repos:
+            repo_slug = repo.get("slug")
+            clone_url = repo.get("clone_url")
+            if repo_slug and clone_url:
+                specs.append((f"repos/{repo_slug}", clone_url, repo.get("branch")))
+
+        # Resolve pinned commit SHAs in parallel WITHOUT cloning. This replaces
+        # N sequential full clones with N cheap, concurrent `ls-remote` calls.
+        sha_map = resolve_remote_shas([(p, u, b) for p, u, b in specs])
+
+        for path, url, branch in specs:
+            resolved = sha_map.get(path)
+            sha = resolved[0] if resolved else None
+            eff_branch = (resolved[1] if resolved else None) or branch
+            register_submodule(meta_repo_path, url, path, sha=sha, branch=eff_branch)
+            if not sha:
+                logger.warning(
+                    f"Could not resolve a commit for {url}; recorded pointer only "
+                    f"(fetch later with `git submodule update --init --remote {path}`)."
+                )
+
+        # Stage only .gitmodules (the gitlinks were already staged via
+        # update-index inside register_submodule). Avoid `git add .` here.
+        if specs:
+            subprocess.run(
+                ["git", "add", ".gitmodules"],
+                cwd=str(meta_repo_path),
+                check=True,
+                capture_output=True,
+            )
 
         # Initial commit
         subprocess.run(
@@ -846,6 +889,21 @@ def _init_git_repo(
             capture_output=True,
         )
         logger.debug("Created initial git commit")
+
+        # Optionally fetch the working trees now (shallow + parallel). This is
+        # the same operation as `make init`, just run inline when requested.
+        if clone_repos and specs:
+            logger.debug("Cloning submodule working trees (shallow, parallel)...")
+            subprocess.run(
+                [
+                    "git", "-c", "protocol.file.allow=always",
+                    "submodule", "update", "--init", "--recursive",
+                    "--depth", "1", "--jobs", "8",
+                ],
+                cwd=str(meta_repo_path),
+                check=False,  # best-effort; pointers remain valid if a fetch fails
+                capture_output=True,
+            )
 
     except subprocess.CalledProcessError as e:
         stderr = e.stderr.decode() if e.stderr else str(e)

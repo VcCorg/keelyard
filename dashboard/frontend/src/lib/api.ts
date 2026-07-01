@@ -223,6 +223,9 @@ export interface OKFBundleInfo {
   concepts: number;
   freqs: number;
   has_report: boolean;
+  freshness: "fresh" | "stale" | "unknown" | "n/a";
+  stale_repos: string[];
+  enriched_at: string | null;
 }
 
 export interface OKFFreqRow {
@@ -466,6 +469,17 @@ export interface OpenIdeResult {
   message: string;
 }
 
+export interface ScaffoldRepoPath {
+  kind: "context" | "meta";
+  path: string;
+  exists: boolean;
+}
+
+export interface ScaffoldPaths {
+  context: ScaffoldRepoPath;
+  meta: ScaffoldRepoPath;
+}
+
 export interface BitbucketRepoCandidate {
   slug: string;
   name?: string;
@@ -605,6 +619,19 @@ export interface OnboardParams {
   graphify?: boolean;
   agent?: boolean;
   code_assist_tool?: string;
+  okf_enrich?: boolean;
+  okf_no_confluence?: boolean;
+  okf_model?: string;
+}
+
+export interface OKFEnrichParams {
+  domain: string;
+  source?: "code" | "confluence" | "both";
+  code_source?: "auto" | "graphify" | "analyze";
+  generate_graphs?: boolean;
+  no_confluence?: boolean;
+  model?: string;
+  dry_run?: boolean;
 }
 
 /* ============ Eval Types ============ */
@@ -745,6 +772,24 @@ export interface AgentProject {
   created_at?: string;
   domain?: string;
   validation?: ProjectValidation;
+}
+
+/* ============ CLI Setup Types ============ */
+
+export interface SetupItem {
+  key: "workspaces" | "vertex_ai" | "neo4j" | "devin" | string;
+  label: string;
+  configured: boolean;
+  required: boolean;
+  detail: string;
+  fix_hint: string;
+}
+
+export interface SetupStatus {
+  cli_available: boolean;
+  cli_version: string;
+  ready: boolean;
+  items: SetupItem[];
 }
 
 /* ============ API Client ============ */
@@ -1031,6 +1076,31 @@ class APIClient {
     return this.request(`/data/sources/${encodeURIComponent(name)}`, { method: "DELETE" });
   }
 
+  /* ---- CLI Setup ---- */
+  /** Report which `dva init` steps are done (drives sidebar + banners). */
+  async getSetupStatus(): Promise<SetupStatus> {
+    return this.request("/setup/status");
+  }
+
+  setupWorkspaceStreamUrl(code: string, docs: string): string {
+    const q = new URLSearchParams({ code, docs });
+    return this.streamUrl(`/setup/init/workspace/stream?${q.toString()}`);
+  }
+
+  setupVertexStreamUrl(params: { project_id: string; location?: string; model?: string }): string {
+    const q = new URLSearchParams({ project_id: params.project_id });
+    if (params.location) q.append("location", params.location);
+    if (params.model) q.append("model", params.model);
+    return this.streamUrl(`/setup/init/vertex/stream?${q.toString()}`);
+  }
+
+  setupNeo4jStreamUrl(params: { uri?: string; username?: string; password: string }): string {
+    const q = new URLSearchParams({ password: params.password });
+    if (params.uri) q.append("uri", params.uri);
+    if (params.username) q.append("username", params.username);
+    return this.streamUrl(`/setup/init/neo4j/stream?${q.toString()}`);
+  }
+
   /* ---- Code Onboard ---- */
   codeOnboardStreamUrl(params: OnboardParams): string {
     const q = new URLSearchParams();
@@ -1045,7 +1115,23 @@ class APIClient {
     if (params.graphify) q.append("graphify", "true");
     if (params.agent) q.append("agent", "true");
     if (params.code_assist_tool) q.append("code_assist_tool", params.code_assist_tool);
+    if (params.okf_enrich) q.append("okf_enrich", "true");
+    if (params.okf_no_confluence) q.append("okf_no_confluence", "true");
+    if (params.okf_model) q.append("okf_model", params.okf_model);
     return this.streamUrl(`/code/onboard/stream?${q.toString()}`);
+  }
+
+  /** Build an SSE URL for `dva kg okf enrich ...` (graphify structural + Confluence). */
+  okfEnrichStreamUrl(params: OKFEnrichParams): string {
+    const q = new URLSearchParams();
+    q.append("domain", params.domain);
+    if (params.source) q.append("source", params.source);
+    if (params.code_source) q.append("code_source", params.code_source);
+    if (params.generate_graphs === false) q.append("generate_graphs", "false");
+    if (params.no_confluence) q.append("no_confluence", "true");
+    if (params.model) q.append("model", params.model);
+    if (params.dry_run) q.append("dry_run", "true");
+    return this.streamUrl(`/kg/okf/enrich/stream?${q.toString()}`);
   }
 
   /* ---- Eval ---- */
@@ -1239,6 +1325,11 @@ class APIClient {
     return this.request(`/domains/${slug}`);
   }
 
+  /** Resolve the domain context-repo & meta-repo paths (+ existence) for Open-in-IDE. */
+  async getScaffoldPaths(slug: string): Promise<ScaffoldPaths> {
+    return this.request(`/domains/${slug}/scaffold-paths`);
+  }
+
   async createDomain(body: CreateDomainBody): Promise<DomainDetail> {
     return this.request("/domains", {
       method: "POST",
@@ -1350,9 +1441,14 @@ class APIClient {
   /* ---- Product Meta-Repo / Governance / Exceptions ---- */
 
   /** Build an SSE URL for `dva product init-meta <name>`. */
-  productInitMetaStreamUrl(name: string, orgMethodology?: string): string {
+  productInitMetaStreamUrl(
+    name: string,
+    orgMethodology?: string,
+    force?: boolean
+  ): string {
     const q = new URLSearchParams();
     if (orgMethodology) q.append("org_methodology", orgMethodology);
+    if (force) q.append("force", "true");
     const qs = q.toString();
     return this.streamUrl(
       `/domains/products/${encodeURIComponent(name)}/init-meta/stream${qs ? "?" + qs : ""}`

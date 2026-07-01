@@ -83,6 +83,9 @@ async def api_sync_stream(
     editor: Optional[str] = Query(None, description="Target editor (devin/windsurf/cursor/code) — sets skill placement"),
 ):
     """Stream `dva domain sync` — assembles the tech-lead (domain-tier) workspace."""
+    from src.services import okf_service
+    if okf_service.domain_busy(domain):
+        raise HTTPException(status_code=409, detail=f"Domain '{domain}' is busy (enrich/export/sync running).")
     tool = svc.tool_for_editor(editor)
     return _sse(svc.stream_sync_domain(domain, persona=persona, graphify=graphify, tool=tool))
 

@@ -341,7 +341,7 @@ dva-mcp:
     NEO4J_URI: bolt://neo4j:7687
     LIGHTRAG_URL: http://lightrag:9621
     # Marketplace
-    MARKETPLACE_MANIFEST_URL: https://gitlab.gcp.example.com/ai/model-context/agent-skills/-/raw/master/marketplace.json
+    MARKETPLACE_MANIFEST_URL: https://gitlab.example.com/ai/model-context/agent-skills/-/raw/master/marketplace.json
     GITLAB_TOKEN: ${GITLAB_TOKEN}
     # Skills registry
     SKILLS_REGISTRY_PATH: /skills/registry.json
