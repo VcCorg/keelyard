@@ -23,6 +23,65 @@ logger = logging.getLogger(__name__)
 # Default superpowers repo
 DEFAULT_SUPERPOWERS_URL = "https://github.com/venkatchinta/superpowers.git"
 
+# Persistent cache for the superpowers clone so we don't re-clone on every
+# `init-context`. Keyed by URL so multiple sources stay isolated.
+_SUPERPOWERS_CACHE_DIR = Path.home() / ".agent-cli-agentic" / "cache" / "superpowers"
+
+
+def _cache_key(url: str) -> str:
+    """Stable, filesystem-safe key for a clone URL."""
+    import hashlib
+
+    return hashlib.sha1(url.encode("utf-8")).hexdigest()[:12]
+
+
+def get_cached_superpowers(
+    url: str = DEFAULT_SUPERPOWERS_URL,
+    branch: str = "main",
+    *,
+    refresh: bool = True,
+    depth: int = 1,
+) -> Path:
+    """Return a path to a cached, up-to-date superpowers checkout.
+
+    Clones once into ``~/.agent-cli-agentic/cache/superpowers/<key>`` and reuses
+    it on subsequent calls. When ``refresh`` is set, a best-effort shallow fetch
+    updates the cache; failures (offline) fall back to the existing checkout so
+    onboarding never hard-fails on a transient network issue.
+
+    This replaces the previous per-run clone into a fresh temp dir, which paid
+    the full network cost on every ``init-context``.
+    """
+    cache_path = _SUPERPOWERS_CACHE_DIR / _cache_key(url)
+
+    if cache_path.exists() and (cache_path / ".git").exists():
+        if refresh:
+            # Best-effort shallow update; keep the cached copy on any failure.
+            try:
+                subprocess.run(
+                    ["git", "-C", str(cache_path), "fetch", "--depth", str(depth),
+                     "origin", branch],
+                    capture_output=True, check=True, timeout=30,
+                )
+                subprocess.run(
+                    ["git", "-C", str(cache_path), "reset", "--hard",
+                     f"origin/{branch}"],
+                    capture_output=True, check=True, timeout=30,
+                )
+                logger.debug(f"Refreshed superpowers cache at {cache_path}")
+            except (subprocess.SubprocessError, OSError) as e:
+                logger.debug(f"Superpowers cache refresh failed (using stale copy): {e}")
+        return cache_path
+
+    # First use: clone into the cache.
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        ["git", "clone", "--depth", str(depth), "--branch", branch, url, str(cache_path)],
+        capture_output=True, check=True,
+    )
+    logger.debug(f"Cloned superpowers into cache at {cache_path}")
+    return cache_path
+
 # Skills that are available in superpowers
 # (auto-discovered at runtime, but listed here for reference)
 SUPERPOWERS_SKILLS = [
@@ -579,24 +638,25 @@ def bootstrap_domain_skills(
     Returns:
         Dict with injected skills info, manifest path, etc.
     """
-    import tempfile
-
     injected_skills = []
 
     # Always use copy approach to get only skills folder content (not entire repo)
-    # Git submodule clones entire repo, which we don't want
-    with tempfile.TemporaryDirectory() as tmp:
-        clone_path = clone_superpowers(Path(tmp), superpowers_url)
-        discovered = discover_skills(clone_path)
+    # Git submodule clones entire repo, which we don't want.
+    #
+    # Use a *persistent cache* of the superpowers checkout instead of a fresh
+    # clone into a temp dir on every call — this removes the full network clone
+    # cost from each `init-context` (subsequent runs only do a shallow fetch).
+    clone_path = get_cached_superpowers(superpowers_url)
+    discovered = discover_skills(clone_path)
 
-        if skills_to_inject:
-            discovered = [s for s in discovered if s["name"] in skills_to_inject]
+    if skills_to_inject:
+        discovered = [s for s in discovered if s["name"] in skills_to_inject]
 
-        injected_names = inject_skills_copy(
-            domain_context_dir, clone_path, skills_to_inject,
-            code_assist_tool=code_assist_tool,
-        )
-        injected_skills = [s for s in discovered if s["name"] in injected_names]
+    injected_names = inject_skills_copy(
+        domain_context_dir, clone_path, skills_to_inject,
+        code_assist_tool=code_assist_tool,
+    )
+    injected_skills = [s for s in discovered if s["name"] in injected_names]
 
     # Generate manifest
     manifest_path = generate_skills_manifest(

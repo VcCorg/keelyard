@@ -1,4 +1,4 @@
-.PHONY: help install install-dev test test-cov lint format clean run
+.PHONY: help install install-dev test test-cov lint format clean run snapshot-deps install-snapshot-deps
 
 help:
 	@echo "DVA Agentic CLI - Available commands:"
@@ -11,6 +11,8 @@ help:
 	@echo "  make clean        - Clean build artifacts"
 	@echo "  make run          - Run the CLI (example: make run ARGS='--version')"
 	@echo "  make integration  - Run integration tests"
+	@echo "  make snapshot-deps - Validate deps for Devin snapshot builds"
+	@echo "  make install-snapshot-deps - Validate + install safe deps for snapshot builds"
 
 install:
 	uv pip install -e .
@@ -43,6 +45,13 @@ clean:
 
 run:
 	dva $(ARGS)
+
+# Devin snapshot build dependencies (devin CLI, git, make, pyyaml, DEVIN_API_KEY)
+snapshot-deps:
+	./scripts/check-snapshot-deps.sh $(ARGS)
+
+install-snapshot-deps:
+	./scripts/check-snapshot-deps.sh --install $(ARGS)
 
 # Integration tests
 integration: install

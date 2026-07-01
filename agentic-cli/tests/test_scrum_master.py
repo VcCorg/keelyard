@@ -48,7 +48,7 @@ def sample_domain():
     )
     tracker.link_repo_to_domain(
         "cwow-facility", "cwow-facility-service", "cwow-facility-service",
-        "https://bb.example.com/scm/cgf/cwow-facility-service.git",
+        "https://bitbucket.example.com/scm/cgf/cwow-facility-service.git",
     )
     return tracker.get_domain("cwow-facility")
 

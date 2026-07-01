@@ -238,3 +238,78 @@ def test_agent_collector_batch_size_clamped():
     agent = resolve_agent("mock:simple")
     assert AgentResponseCollector(agent, batch_size=999).batch_size == 20
     assert AgentResponseCollector(agent, batch_size=0).batch_size == 1
+
+
+# ---------------------------------------------------------------------------
+# Generic class-based agent adapter (BaseAgent-style process() -> dict)
+# ---------------------------------------------------------------------------
+
+import asyncio
+
+from agentic_cli.evaluation.agent_runner import (
+    _extract_response,
+    _wrap_class_agent,
+)
+
+
+class _ProcessAgent:
+    """BaseAgent-style: async initialize() + async process(dict) -> dict."""
+
+    def __init__(self, settings=None):
+        self.initialized = False
+
+    async def initialize(self):
+        self.initialized = True
+
+    async def process(self, input_data):
+        return {"response": f"echo:{input_data['message']}", "status": "success"}
+
+
+class _AltKeyAgent:
+    """Async process returning the text under a non-default key."""
+
+    async def process(self, input_data):
+        return {"output": f"alt:{input_data['message']}"}
+
+
+class _AnswerAgent:
+    """No process(); exposes a sync string entrypoint named answer()."""
+
+    def answer(self, input_text):
+        return f"ans:{input_text}"
+
+
+def test_wrap_class_agent_process_and_initialize():
+    fn = _wrap_class_agent(_ProcessAgent, "mod:_ProcessAgent")
+    assert asyncio.run(fn("hi")) == "echo:hi"
+
+
+def test_wrap_class_agent_extracts_alt_keys():
+    fn = _wrap_class_agent(_AltKeyAgent, "mod:_AltKeyAgent")
+    assert asyncio.run(fn("x")) == "alt:x"
+
+
+def test_wrap_class_agent_string_entrypoint():
+    fn = _wrap_class_agent(_AnswerAgent, "mod:_AnswerAgent")
+    assert asyncio.run(fn("q")) == "ans:q"
+
+
+def test_extract_response_variants():
+    assert _extract_response({"response": "a"}) == "a"
+    assert _extract_response({"output": "b"}) == "b"
+    assert _extract_response("plain") == "plain"
+    assert _extract_response({"no_known_key": 1}) == "{'no_known_key': 1}"
+
+
+def test_resolve_agent_routes_agent_class():
+    # End-to-end: module:ClassName resolves and wraps an agent-like class.
+    fn = resolve_agent(f"{__name__}:_ProcessAgent")
+    assert callable(fn)
+    assert asyncio.run(fn("yo")) == "echo:yo"
+
+
+def test_resolve_agent_nonagent_class_is_callable_fallback():
+    # A class without process/answer/run is treated as a plain callable
+    # (backward-compatible), not wrapped as an agent.
+    agent = resolve_agent("agentic_cli.evaluation.agent_adapters:MockAgents")
+    assert agent is not None

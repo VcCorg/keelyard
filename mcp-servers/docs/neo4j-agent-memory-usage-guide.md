@@ -230,10 +230,10 @@ async with MemoryClient(settings) as memory:
     opts = dict(generate_embedding=False, deduplicate=False, geocode=False, enrich=False)
 
     example, _ = await memory.long_term.add_entity(
-        name="example",
+        name="Example",
         entity_type="ORGANIZATION",
         description="Healthcare company, largest dialysis provider in the US",
-        aliases=["DVA", "example Inc."],
+        aliases=["DVA", "Example Inc."],
         **opts,
     )
 
@@ -265,7 +265,7 @@ async with MemoryClient(settings) as memory:
         name="AISE Team",
         entity_type="ORGANIZATION",
         subtype="DEPARTMENT",
-        description="AI Strategy and Execution team at example, handles governance",
+        description="AI Strategy and Execution team at Example, handles governance",
         **opts,
     )
 ```
@@ -286,14 +286,14 @@ async with MemoryClient(settings) as memory:
         source=platform,
         target=example,
         relationship_type="BUILT_FOR",
-        description="Platform serves example engineering teams",
+        description="Platform serves Example engineering teams",
     )
 
     await memory.long_term.add_relationship(
         source=aise,
         target=example,
         relationship_type="PART_OF",
-        description="AISE is example's AI governance organization",
+        description="AISE is Example's AI governance organization",
     )
 
     await memory.long_term.add_relationship(

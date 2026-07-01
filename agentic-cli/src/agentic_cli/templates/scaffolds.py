@@ -233,6 +233,25 @@ class {class_name}(BaseAgent):
             return {{"response": response.text, "status": "success"}}
         except Exception as e:
             return {{"response": f"Error: {{str(e)}}", "status": "error"}}
+
+
+# --- Evaluation entrypoint --------------------------------------------------
+# Module-level callable so this agent is evaluation-ready by default:
+#   dva eval run agent <module.path>:answer <eval-config>
+# The eval framework's resolve_agent() calls fn(str) -> str; this wraps the
+# agent's async process() and returns just the response text.
+_eval_agent = None
+
+
+async def answer(input_text: str) -> str:
+    """Run {class_name} on a single input and return its response text."""
+    global _eval_agent
+    if _eval_agent is None:
+        _eval_agent = {class_name}()
+    result = await _eval_agent.process({{"message": input_text}})
+    if isinstance(result, dict):
+        return str(result.get("response", ""))
+    return str(result)
 '''
 
 

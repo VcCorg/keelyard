@@ -22,6 +22,7 @@ import {
   Save,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SetupRequiredBanner } from "@/components/SetupRequiredBanner";
 import { usePolling } from "@/hooks/usePolling";
 import {
   api,
@@ -687,6 +688,15 @@ export function OKFGeneration() {
     setStreamUrl(api.okfExportStreamUrl({ domain, product, mint_freqs: mintFreqs }));
   };
 
+  const enrich = (domain: string) => {
+    setRunning(true);
+    setExpanded(null);
+    setStreamLabel("dva kg okf enrich --code-source auto");
+    setStreamUrl(
+      api.okfEnrichStreamUrl({ domain, source: "both", code_source: "auto", generate_graphs: true })
+    );
+  };
+
   const pushDevin = (b: OKFBundleInfo, dryRun: boolean) => {
     setRunning(true);
     setStreamLabel(`dva kg okf push-devin${dryRun ? " --dry-run" : ""}`);
@@ -727,6 +737,8 @@ export function OKFGeneration() {
           <RefreshCw className="h-4 w-4 mr-1.5" /> Refresh
         </Button>
       </div>
+
+      <SetupRequiredBanner requires={["neo4j", "vertex_ai"]} feature="OKF generation" />
 
       {/* Generate */}
       <section className="space-y-3">
@@ -782,15 +794,29 @@ export function OKFGeneration() {
                       </span>
                     )}
                   </div>
-                  <Button
-                    size="sm"
-                    className="w-full"
-                    disabled={running}
-                    onClick={() => generate(d.slug, d.product)}
-                  >
-                    <Play className="h-4 w-4 mr-1.5" />
-                    {b ? "Re-generate" : "Generate"}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      className="flex-1"
+                      disabled={running}
+                      onClick={() => generate(d.slug, d.product)}
+                      title="Export the OKF bundle from the Neo4j graph"
+                    >
+                      <Play className="h-4 w-4 mr-1.5" />
+                      {b ? "Re-export" : "Export"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1"
+                      disabled={running}
+                      onClick={() => enrich(d.slug)}
+                      title="Enrich the OKF bundle from each repo's graphify graph (no LLM) + Confluence"
+                    >
+                      <GitFork className="h-4 w-4 mr-1.5" />
+                      Enrich (code)
+                    </Button>
+                  </div>
                 </div>
               );
             })}
@@ -841,9 +867,25 @@ export function OKFGeneration() {
                       >
                         {b.source}
                       </span>
+                      {b.freshness === "stale" && (
+                        <span
+                          className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wide bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                          title={`Stale — repos changed since last enrich: ${b.stale_repos.join(", ")}`}
+                        >
+                          stale
+                        </span>
+                      )}
+                      {b.freshness === "fresh" && (
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wide bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                          fresh
+                        </span>
+                      )}
                     </p>
                     <p className="text-xs text-gray-400">
                       {b.concepts} concepts · {b.freqs} FREQs{b.product ? ` · ${b.product}` : ""}
+                      {b.freshness === "stale" && b.stale_repos.length > 0
+                        ? ` · stale: ${b.stale_repos.join(", ")}`
+                        : ""}
                     </p>
                   </div>
                 </div>
@@ -854,6 +896,17 @@ export function OKFGeneration() {
 
               {/* Devin Cloud push actions */}
               <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+                {b.freshness === "stale" && (
+                  <Button
+                    size="sm"
+                    disabled={running}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                    title={`Re-enrich from refreshed code graphs (${b.stale_repos.join(", ")})`}
+                    onClick={() => enrich(b.domain)}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-1.5" /> Re-enrich (stale)
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant="outline"

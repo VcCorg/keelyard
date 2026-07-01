@@ -362,22 +362,55 @@ async def api_regen_personas_stream(
     return _sse(args)
 
 
+@router.get("/{slug}/scaffold-paths", response_model=svc.ScaffoldPaths)
+async def api_scaffold_paths(slug: str):
+    """Resolve the domain context-repo and meta-repo paths (+ existence).
+
+    Lets the UI offer "Open in IDE" to review generated files after scaffolding.
+    """
+    return svc.get_scaffold_paths(slug)
+
+
 @router.get("/{slug}/init-context/stream")
-async def api_init_context_stream(slug: str):
-    """Run `dva domain init-context <slug>` and stream output."""
-    return _sse(["init-context", slug])
+async def api_init_context_stream(
+    slug: str,
+    force: bool = Query(False),
+    no_kg: bool = Query(False),
+    kg_timeout: int = Query(20, ge=1, le=300),
+):
+    """Run `dva domain init-context <slug>` and stream output.
+
+    Pass `force=true` to overwrite an existing context repo (the CLI cannot
+    prompt in this non-interactive context). `no_kg=true` skips the Knowledge
+    Graph query; `kg_timeout` bounds it so a slow provider never stalls.
+    """
+    args = ["init-context", slug]
+    if force:
+        args.append("--force")
+    if no_kg:
+        args.append("--no-kg")
+    args += ["--kg-timeout", str(kg_timeout)]
+    return _sse(args)
 
 
 @router.get("/{slug}/init-meta/stream")
-async def api_init_meta_stream(slug: str, product_meta: Optional[str] = Query(None)):
+async def api_init_meta_stream(
+    slug: str,
+    product_meta: Optional[str] = Query(None),
+    force: bool = Query(False),
+):
     """Run `dva domain init-meta <slug>` and stream output.
 
     Pass `product_meta` (URL/path) to reference the product meta-repo as a
     submodule (threads the outer-loop shared tier into the domain meta).
+    Pass `force=true` to overwrite an existing meta-repo (the CLI cannot prompt
+    in this non-interactive context).
     """
     args = ["init-meta", slug]
     if product_meta:
         args += ["--product-meta", product_meta]
+    if force:
+        args.append("--force")
     return _sse(args)
 
 
@@ -396,12 +429,20 @@ def _sse_product(args: list[str]) -> EventSourceResponse:
 
 @router.get("/products/{name}/init-meta/stream")
 async def api_product_init_meta_stream(
-    name: str, org_methodology: Optional[str] = Query(None)
+    name: str,
+    org_methodology: Optional[str] = Query(None),
+    force: bool = Query(False),
 ):
-    """Run `dva product init-meta <name>` and stream output."""
+    """Run `dva product init-meta <name>` and stream output.
+
+    Pass `force=true` to overwrite an existing product meta-repo (the CLI
+    cannot prompt in this non-interactive context).
+    """
     args = ["init-meta", name]
     if org_methodology:
         args += ["--org-methodology", org_methodology]
+    if force:
+        args.append("--force")
     return _sse_product(args)
 
 

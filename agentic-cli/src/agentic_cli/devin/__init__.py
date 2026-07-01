@@ -43,6 +43,16 @@ from agentic_cli.devin.sessions import (
     poll_session,
     send_message,
 )
+from agentic_cli.devin.blueprint import (
+    blueprint_create_command,
+    blueprint_write_command,
+    build_command,
+    load_workspace_mcp_servers,
+    parse_blueprint_id,
+    parse_snapshot_id,
+    snapshot_name,
+    write_domain_blueprint,
+)
 
 __all__ = [
     "DevinClient",
@@ -66,4 +76,12 @@ __all__ = [
     "delete_entries",
     "update_entry",
     "move_entry",
+    "write_domain_blueprint",
+    "load_workspace_mcp_servers",
+    "parse_snapshot_id",
+    "parse_blueprint_id",
+    "snapshot_name",
+    "build_command",
+    "blueprint_create_command",
+    "blueprint_write_command",
 ]

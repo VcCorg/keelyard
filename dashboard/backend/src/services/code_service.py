@@ -26,6 +26,9 @@ class OnboardOptions(BaseModel):
     graphify: bool = False
     agent: bool = False
     code_assist_tool: str = "generic"
+    okf_enrich: bool = False            # generate/enrich the domain OKF bundle
+    okf_no_confluence: bool = False     # skip the Confluence enrichment pass
+    okf_model: Optional[str] = None     # Vertex AI model for the (LLM) enrichment pass
 
 
 def resolve_cli_command() -> list[str]:
@@ -52,6 +55,12 @@ def build_onboard_args(opts: OnboardOptions) -> list[str]:
     args += ["--link-kg"] if opts.link_kg else ["--no-link-kg"]
     args += ["--graphify"] if opts.graphify else ["--no-graphify"]
     args += ["--agent"] if opts.agent else ["--no-agent"]
+    args += ["--okf-enrich"] if opts.okf_enrich else ["--no-okf-enrich"]
+    if opts.okf_enrich:
+        if opts.okf_no_confluence:
+            args += ["--okf-no-confluence"]
+        if opts.okf_model:
+            args += ["--okf-model", opts.okf_model]
     if opts.code_assist_tool:
         args += ["--code-assist-tool", opts.code_assist_tool]
     return args

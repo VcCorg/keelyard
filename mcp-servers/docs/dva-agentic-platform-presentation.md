@@ -9,7 +9,7 @@
 
 ## 1. Executive Summary
 
-The Agentic Platform is a **developer-first, implementation-driven** approach to AI-assisted software engineering at example. Rather than starting with governance frameworks and standards documents, this initiative delivers **working tools today** that connect AI code assistants directly to example's enterprise systems — Bitbucket, Jira, Confluence, and Glean.
+The Agentic Platform is a **developer-first, implementation-driven** approach to AI-assisted software engineering at Example. Rather than starting with governance frameworks and standards documents, this initiative delivers **working tools today** that connect AI code assistants directly to Example's enterprise systems — Bitbucket, Jira, Confluence, and Glean.
 
 ### Key Differentiator
 
@@ -31,7 +31,7 @@ The Agentic Platform is a **developer-first, implementation-driven** approach to
 
 1. **Context Switching** — Engineers constantly alt-tab between IDE, Jira, Bitbucket, Confluence, and Glean to gather context for their work.
 
-2. **AI Assistants Are Generic** — Tools like Windsurf/Cascade, Copilot, and OpenCode have no awareness of example-specific systems, patterns, or conventions.
+2. **AI Assistants Are Generic** — Tools like Windsurf/Cascade, Copilot, and OpenCode have no awareness of Example-specific systems, patterns, or conventions.
 
 3. **No Standardized Onboarding** — Every project has different conventions. New team members spend weeks understanding codebases with no automated guidance.
 
@@ -76,7 +76,7 @@ AISE (Top-Down)                    Agentic (Bottom-Up)
 
 ### 3.1 MCP Servers (`mcp-servers`)
 
-The Model Context Protocol (MCP) is an open standard that lets AI assistants call external tools. We built 4 MCP servers that connect AI assistants to example systems:
+The Model Context Protocol (MCP) is an open standard that lets AI assistants call external tools. We built 4 MCP servers that connect AI assistants to Example systems:
 
 #### Bitbucket MCP (Port 8126) — 15 Tools
 | Tool | What It Does |
@@ -129,7 +129,7 @@ The Model Context Protocol (MCP) is an open standard that lets AI assistants cal
 | `get_glean_conversation` | Retrieve chat history |
 | + 2 more | Documents, datasources |
 
-**Impact:** Unified enterprise search across all example data sources — Confluence, SharePoint, Slack, and more — accessible directly from the AI assistant.
+**Impact:** Unified enterprise search across all Example data sources — Confluence, SharePoint, Slack, and more — accessible directly from the AI assistant.
 
 #### Infrastructure Services
 | Service | Port | Purpose |
@@ -139,7 +139,7 @@ The Model Context Protocol (MCP) is an open standard that lets AI assistants cal
 
 ### 3.2 Developer Skills Registry (`skills`)
 
-A library of **26 reusable skills** that teach AI assistants example-specific coding patterns:
+A library of **26 reusable skills** that teach AI assistants Example-specific coding patterns:
 
 | Category | Skills |
 |----------|--------|
@@ -157,7 +157,7 @@ A library of **26 reusable skills** that teach AI assistants example-specific co
 
 Each skill is a structured Markdown file with:
 - Language/framework-specific patterns and conventions
-- example coding standards
+- Example coding standards
 - Anti-patterns to avoid
 - Auto-detection rules (file presence, dependency matching)
 
@@ -310,12 +310,12 @@ All services are **Dockerized**, use **SSE transport** for network access, and a
 3. AI calls get_pr_diff → sees the code
 4. AI calls search_issues (Jira) → links to the ticket requirements
 5. AI calls search_confluence → pulls relevant architecture docs
-6. AI provides contextual code review with example-specific feedback
+6. AI provides contextual code review with Example-specific feedback
 ```
 
 ### Demo 2: Instant Repo Onboarding (1 min)
 ```
-1. Clone any example repo
+1. Clone any Example repo
 2. Run: agent code onboard --path ./repo
 3. Show: .skills/ directory populated with matched skills
 4. Open in Windsurf → AI assistant now understands the project conventions

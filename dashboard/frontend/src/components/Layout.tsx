@@ -32,6 +32,9 @@ import {
   User as UserIcon,
   Sun,
   Moon,
+  Wrench,
+  CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -40,6 +43,8 @@ import {
   type Workspace,
   type UserRole,
 } from "@/context/UserContext";
+import { useSetup } from "@/context/SetupContext";
+import { SetupPanel } from "@/components/SetupPanel";
 import { IntegrationStatusBar } from "@/components/IntegrationStatusBar";
 
 type NavItem = {
@@ -241,8 +246,42 @@ function NavGroupSection({ group }: { group: NavGroup }) {
   );
 }
 
+function SetupButton() {
+  const { status, loading, openPanel } = useSetup();
+  const ready = status?.ready ?? false;
+  const cliMissing = status ? !status.cli_available : false;
+  const pendingRequired = status
+    ? status.items.filter((i) => i.required && !i.configured).length
+    : 0;
+
+  return (
+    <button
+      onClick={openPanel}
+      title="Initialize / configure the dva CLI"
+      className={cn(
+        "w-full flex items-center gap-2 px-2 py-1.5 mb-2 rounded-lg text-sm font-medium transition-colors border",
+        ready
+          ? "border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+          : "border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 hover:bg-amber-100"
+      )}
+    >
+      <Wrench className="h-4 w-4" />
+      <span className="flex-1 text-left">CLI Setup</span>
+      {loading && !status ? null : cliMissing || !ready ? (
+        <span className="flex items-center gap-1 text-xs">
+          <AlertTriangle className="h-3.5 w-3.5" />
+          {cliMissing ? "install" : `${pendingRequired} left`}
+        </span>
+      ) : (
+        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+      )}
+    </button>
+  );
+}
+
 export function Layout() {
   const { user, workspace, theme, toggleTheme, updateUser } = useUser();
+  const { panelOpen, closePanel } = useSetup();
 
   const meetsRole = (min?: UserRole) =>
     !min || ROLE_RANK[user.role] >= ROLE_RANK[min];
@@ -281,6 +320,7 @@ export function Layout() {
         </nav>
 
         <div className="px-3 py-3 border-t border-gray-200 dark:border-gray-800">
+          <SetupButton />
           <div className="flex items-center gap-3 px-2 py-1.5 rounded-lg">
             <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-xs font-bold text-blue-700 dark:text-blue-300">
               {user.name ? initials(user.name) : <UserIcon className="h-4 w-4" />}
@@ -320,6 +360,8 @@ export function Layout() {
           <Outlet />
         </div>
       </main>
+
+      {panelOpen && <SetupPanel onClose={closePanel} />}
     </div>
   );
 }

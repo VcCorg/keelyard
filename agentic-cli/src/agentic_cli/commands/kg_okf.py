@@ -88,13 +88,23 @@ def export(
 
     out_dir = Path(out or _default_bundle_dir(domain))
     console.print(f"[bold]Exporting domain[/bold] [cyan]{domain}[/cyan] -> {out_dir}")
+
+    from agentic_cli.kg.okf.locking import DomainLockBusy, domain_lock
+
+    # Serialize per-domain so a concurrent enrich/export/sync can't interleave writes.
     try:
-        result = export_domain(
-            domain=domain, out_dir=out_dir, product=product,
-            mint_freqs=mint_freqs, config=config,
-        )
-    except Exception as e:  # surface connection/query errors cleanly
-        console.print(f"[red]✗ Export failed:[/red] {e}")
+        with domain_lock(domain, scope="okf"):
+            try:
+                result = export_domain(
+                    domain=domain, out_dir=out_dir, product=product,
+                    mint_freqs=mint_freqs, config=config,
+                )
+            except Exception as e:  # surface connection/query errors cleanly
+                console.print(f"[red]✗ Export failed:[/red] {e}")
+                raise typer.Exit(1)
+    except DomainLockBusy as e:
+        console.print(f"[yellow]⚠[/yellow] {e}")
+        console.print(f"[dim]Another enrich/export/sync for '{domain}' is in progress. Try again shortly.[/dim]")
         raise typer.Exit(1)
 
     table = Table(title=f"OKF export — {domain}")
@@ -120,6 +130,8 @@ def export(
 def enrich(
     domain: Annotated[str, typer.Option("--domain", help="Domain slug; resolves all paths from registered domain data")],
     source: Annotated[str, typer.Option("--source", help="Source: code, confluence, both")] = "both",
+    code_source: Annotated[str, typer.Option("--code-source", help="Code structural source: auto, graphify, analyze")] = "auto",
+    generate_graphs: Annotated[bool, typer.Option("--generate-graphs/--no-generate-graphs", help="For graphify mode, run `graphify update` on linked repos missing a graph")] = True,
     model: Annotated[str | None, typer.Option("--model", help="Vertex AI model (default: gemini-2.5-flash-lite)")] = None,
     no_confluence: Annotated[bool, typer.Option("--no-confluence", help="Skip the Confluence enrichment pass")] = False,
     concept: Annotated[list[str] | None, typer.Option("--concept", help="Enrich only this concept id (repeatable)")] = None,
@@ -141,11 +153,21 @@ def enrich(
     from agentic_cli.kg.okf.enrichment.runner import EnrichmentRunner
     from agentic_cli.kg.okf.enrichment.sources.code import CodebaseSource
     from agentic_cli.kg.okf.enrichment.sources.confluence import ConfluenceSource
+    from agentic_cli.kg.okf.enrichment.sources.graphify import (
+        GraphifyCodeSource,
+        MultiGraphifyCodeSource,
+        ensure_graph,
+    )
     from agentic_cli.tracker import record_activity
 
     source = source.lower().strip()
     if source not in ("code", "confluence", "both"):
         console.print(f"[red]✗[/red] Unknown --source '{source}'. Use code, confluence, or both.")
+        raise typer.Exit(1)
+
+    code_source = code_source.lower().strip()
+    if code_source not in ("auto", "graphify", "analyze"):
+        console.print(f"[red]✗[/red] Unknown --code-source '{code_source}'. Use auto, graphify, or analyze.")
         raise typer.Exit(1)
 
     try:
@@ -169,15 +191,60 @@ def enrich(
         )
 
     # Build the structural source.
+    # ``structural_mode`` is "deterministic" only when the code source can render
+    # OKF concepts itself (graphify); otherwise the LLM authors structural bodies.
+    #
+    # graphify is multi-repo: EVERY resolved repo of the domain contributes its
+    # own graph (namespaced so concepts never collide). Repos missing a graph are
+    # generated on the fly via `graphify update` unless --no-generate-graphs.
     code_src = None
+    structural_mode = "model"
+    graphify_repos: list = []  # repos whose graph fed a deterministic enrich (for provenance)
     if source in ("code", "both"):
         if not ctx.codebase_paths:
             if source == "code":
                 console.print("[red]✗[/red] No onboarded repo paths for this domain. Onboard a repo first.")
                 raise typer.Exit(1)
+        elif code_source == "analyze":
+            # LLM analysis path: primary repo only (CodebaseSource has no graph).
+            repo_path = ctx.codebase_paths[0]
+            code_src = CodebaseSource(repo_path)
+            console.print(f"  code source: [cyan]analyze[/cyan] (LLM) <- {repo_path}")
+            if len(ctx.codebase_paths) > 1:
+                console.print(
+                    f"  [yellow]![/yellow] analyze mode covers only the primary repo; "
+                    f"use --code-source graphify to include all {len(ctx.codebase_paths)} repos."
+                )
         else:
-            # Enrich from the first resolved repo (primary). Multi-repo handled per-call.
-            code_src = CodebaseSource(ctx.codebase_paths[0])
+            # auto / graphify: aggregate every repo's graph (generate if missing).
+            ready: list = []
+            for repo_path in ctx.codebase_paths:
+                ok, status = ensure_graph(repo_path, generate=generate_graphs)
+                tail = repo_path.name
+                if ok:
+                    mark = "generated" if status == "generated" else "graph"
+                    console.print(f"    [green]✓[/green] {tail}: {mark}")
+                    ready.append(repo_path)
+                else:
+                    console.print(f"    [yellow]○[/yellow] {tail}: no graph ({status}) — skipped")
+            if not ready:
+                if code_source == "graphify":
+                    console.print(
+                        "[red]✗[/red] --code-source graphify requested but no repo has a graphify "
+                        "graph (and none could be generated). Install graphify or run `dva code onboard --graphify`."
+                    )
+                    raise typer.Exit(1)
+                # auto with no graphs anywhere -> fall back to LLM on primary repo.
+                repo_path = ctx.codebase_paths[0]
+                code_src = CodebaseSource(repo_path)
+                console.print(f"  code source: [cyan]analyze[/cyan] (LLM, graphify unavailable) <- {repo_path}")
+            else:
+                code_src = MultiGraphifyCodeSource(ready)
+                structural_mode = "deterministic"
+                graphify_repos = ready
+                console.print(
+                    f"  code source: [green]graphify[/green] (no-LLM) <- {len(ready)} repo graph(s)"
+                )
 
     confluence_src = None
     if source in ("confluence", "both") and not no_confluence:
@@ -210,20 +277,42 @@ def enrich(
         structural_source = confluence_src
         enrichment_confluence = None
 
+    # Deterministic rendering only applies when the structural source is the
+    # graphify code source; Confluence-only structural passes still use the model.
     runner = EnrichmentRunner(
         source=structural_source,
         bundle_root=bundle_dir,
         model_name=model,
         confluence_source=enrichment_confluence,
         dry_run=dry_run,
+        structural_mode=structural_mode if structural_source is code_src else "model",
     )
 
     only = [tuple(c.strip().strip("/").split("/")) for c in concept] if concept else None
 
+    from contextlib import nullcontext
+
+    from agentic_cli.kg.okf.locking import DomainLockBusy, domain_lock
+
+    # Serialize bundle writes per-domain so concurrent enrich/export/sync runs
+    # (multiple developers, or the dashboard) cannot corrupt the shared bundle.
     try:
-        result = runner.enrich_all(only=only)
-    except Exception as e:  # noqa: BLE001
-        console.print(f"[red]✗ Enrichment failed:[/red] {e}")
+        lock_ctx = nullcontext() if dry_run else domain_lock(domain, scope="okf")
+        with lock_ctx:
+            try:
+                result = runner.enrich_all(only=only)
+            except Exception as e:  # noqa: BLE001
+                console.print(f"[red]✗ Enrichment failed:[/red] {e}")
+                raise typer.Exit(1)
+
+            # Stamp provenance (inside the lock) so freshness checks can detect
+            # when a repo's graph changes after this enrich.
+            if not dry_run and graphify_repos:
+                from agentic_cli.kg.okf.provenance import write_provenance
+                write_provenance(bundle_dir, graphify_repos, code_source=code_source, source=source)
+    except DomainLockBusy as e:
+        console.print(f"[yellow]⚠[/yellow] {e}")
+        console.print(f"[dim]Another enrich/export/sync for '{domain}' is in progress. Try again shortly.[/dim]")
         raise typer.Exit(1)
 
     table = Table(title=f"OKF enrich — {domain}")
@@ -246,6 +335,10 @@ def enrich(
     for err in result.errors[:50]:
         console.print(f"  [red]x[/red] {err}")
 
+    # Provenance was stamped inside the lock above (graphify code sources only).
+    if graphify_repos:
+        console.print(f"  provenance: [dim]{len(graphify_repos)} repo graph hash(es) recorded[/dim]")
+
     console.print(f"  bundle: [cyan]{bundle_dir}[/cyan]")
 
     record_activity(
@@ -261,6 +354,68 @@ def enrich(
     if validate_after and not dry_run:
         console.print("\n[bold]Validating enriched bundle...[/bold]")
         _run_validate(bundle_dir)
+
+
+@okf_app.command()
+def freshness(
+    domain: Annotated[str, typer.Option("--domain", help="Domain slug; resolves repos/bundle from registered data")],
+) -> None:
+    """Report whether a domain's OKF bundle is stale w.r.t. its repos' code graphs.
+
+    Compares the SHA-256 of each linked repo's current ``graphify-out/graph.json``
+    against the hashes recorded in the bundle's provenance at the last enrich.
+    A differing hash means code changed and the graph was refreshed, so the
+    bundle should be re-enriched (`dva kg okf enrich --domain <slug>`).
+    """
+    from agentic_cli.kg.okf.enrichment.domain_paths import resolve_domain_enrichment_context
+    from agentic_cli.kg.okf.provenance import check_freshness
+
+    try:
+        ctx = resolve_domain_enrichment_context(domain)
+    except ValueError as e:
+        console.print(f"[red]✗[/red] {e}")
+        raise typer.Exit(1)
+
+    report = check_freshness(ctx.bundle_dir, ctx.codebase_paths)
+
+    if not report.has_provenance:
+        console.print(
+            f"[yellow]?[/yellow] No provenance for [cyan]{domain}[/cyan] — the bundle was never "
+            f"enriched from graphify (or pre-dates tracking). Run: dva kg okf enrich --domain {domain}"
+        )
+        raise typer.Exit(2)
+
+    table = Table(title=f"OKF freshness — {domain}")
+    table.add_column("Repo", style="cyan")
+    table.add_column("Status", style="green")
+    table.add_column("Detail", style="dim")
+    status_style = {
+        "fresh": "[green]fresh[/green]",
+        "stale": "[red]stale[/red]",
+        "new": "[yellow]new[/yellow]",
+        "missing-graph": "[yellow]missing-graph[/yellow]",
+        "removed": "[magenta]removed[/magenta]",
+    }
+    for r in report.repos:
+        detail = ""
+        if r.status == "stale":
+            detail = f"{(r.stored_hash or '')[:8]} → {(r.current_hash or '')[:8]}"
+        elif r.status == "new":
+            detail = "added since last enrich"
+        elif r.status == "missing-graph":
+            detail = "graph.json now absent"
+        elif r.status == "removed":
+            detail = "no longer linked/resolved"
+        table.add_row(r.repo, status_style.get(r.status, r.status), detail)
+    console.print(table)
+    console.print(f"  last enriched: [dim]{report.enriched_at or '—'}[/dim]")
+
+    if report.stale:
+        console.print(
+            f"[red]✗ stale[/red] — re-enrich with: [cyan]dva kg okf enrich --domain {domain}[/cyan]"
+        )
+        raise typer.Exit(1)
+    console.print("[green]✓ fresh[/green] — bundle matches current code graphs.")
 
 
 @okf_app.command()

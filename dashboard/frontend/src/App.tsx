@@ -30,10 +30,12 @@ import { SharedAgents } from "@/pages/SharedAgents";
 import { SharedKG } from "@/pages/SharedKG";
 import { TerminalProvider } from "@/context/TerminalContext";
 import { UserProvider } from "@/context/UserContext";
+import { SetupProvider } from "@/context/SetupContext";
 
 function App() {
   return (
     <UserProvider>
+    <SetupProvider>
     <TerminalProvider>
       <BrowserRouter>
         <Routes>
@@ -70,6 +72,7 @@ function App() {
         </Routes>
       </BrowserRouter>
     </TerminalProvider>
+    </SetupProvider>
     </UserProvider>
   );
 }

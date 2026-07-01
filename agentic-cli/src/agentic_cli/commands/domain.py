@@ -15,6 +15,8 @@ Hierarchy:
 """
 
 import json
+from typing import Optional
+
 from typing_extensions import Annotated
 
 import typer
@@ -904,63 +906,78 @@ def add_docs(
             console.print(f"[yellow]No pages matching '{filter_text}' in {source_desc}.[/yellow]")
             return
 
-    # Auto-discover cross-space release pages
+    # Auto-discover cross-space release pages.
+    #
+    # This is the dominant network cost of add-docs: one body fetch per page,
+    # plus a CQL search per cross-space link. Run the per-page work in a bounded
+    # thread pool so N sequential round-trips become ~N/workers — the MCP calls
+    # are independent HTTP requests, so this is safe to parallelize.
     console.print("[dim]Scanning for cross-space release page links...[/dim]")
+    import concurrent.futures
+    import json
+    import re
+
     from agentic_cli.mcp_tool_client import (
         confluence_get_page, call_mcp_tool, _get_confluence_url, MCPToolError
     )
-    import re
-    import json
-    
-    cross_space_pages = []
-    for p in pages:
+
+    def _scan_page(p: dict) -> list[dict]:
+        """Fetch a page body and resolve any cross-space links it references."""
+        found: list[dict] = []
         try:
             page = confluence_get_page(str(p["id"]), include_body=True)
-            body_html = page.get("body_html", "")
-            
-            # Extract cross-space page links from storage format
-            # Pattern: <ri:page ri:space-key="CWOV" ri:content-title="Release 27: Patients" />
-            page_links = re.findall(r'<ri:page ri:space-key="([^"]+)" ri:content-title="([^"]+)"', body_html)
-            
-            for link_space, link_title in page_links:
-                # Skip if same space
-                if link_space == space_key:
-                    continue
-                
-                # Search for the linked page
-                try:
-                    cql = f'space="{link_space}" AND title="{link_title}" AND type=page'
-                    search_results = call_mcp_tool(_get_confluence_url(), "search_confluence_cql", {"cql": cql, "limit": 1})
-                    
-                    if search_results and search_results != "0":
-                        try:
-                            results = json.loads(search_results) if isinstance(search_results, str) else search_results
-                            
-                            page_id = None
-                            if isinstance(results, list) and len(results) > 0:
-                                page_id = results[0].get("id")
-                            elif isinstance(results, dict):
-                                if "results" in results and len(results["results"]) > 0:
-                                    page_id = results["results"][0].get("id")
-                                elif "id" in results:
-                                    page_id = results.get("id")
-                            
-                            if page_id:
-                                cross_space_pages.append({
-                                    "id": page_id,
-                                    "title": link_title,
-                                    "space": link_space,
-                                    "version": 0,
-                                    "_cross_space": True
-                                })
-                                console.print(f"  [dim]→ Found cross-space page: {link_title} ({link_space})[/dim]")
-                        except (json.JSONDecodeError, KeyError):
-                            pass
-                except MCPToolError:
-                    pass
         except MCPToolError:
-            continue
-    
+            return found
+        body_html = page.get("body_html", "")
+        # Pattern: <ri:page ri:space-key="CWOV" ri:content-title="Release 27: Patients" />
+        page_links = re.findall(
+            r'<ri:page ri:space-key="([^"]+)" ri:content-title="([^"]+)"', body_html
+        )
+        for link_space, link_title in page_links:
+            if link_space == space_key:
+                continue  # same-space link — not cross-space
+            try:
+                cql = f'space="{link_space}" AND title="{link_title}" AND type=page'
+                search_results = call_mcp_tool(
+                    _get_confluence_url(), "search_confluence_cql",
+                    {"cql": cql, "limit": 1},
+                )
+                if not search_results or search_results == "0":
+                    continue
+                results = json.loads(search_results) if isinstance(search_results, str) else search_results
+                linked_id = None
+                if isinstance(results, list) and results:
+                    linked_id = results[0].get("id")
+                elif isinstance(results, dict):
+                    if results.get("results"):
+                        linked_id = results["results"][0].get("id")
+                    elif "id" in results:
+                        linked_id = results.get("id")
+                if linked_id:
+                    found.append({
+                        "id": linked_id,
+                        "title": link_title,
+                        "space": link_space,
+                        "version": 0,
+                        "_cross_space": True,
+                    })
+            except (MCPToolError, json.JSONDecodeError, KeyError):
+                continue
+        return found
+
+    cross_space_pages: list[dict] = []
+    seen_ids: set[str] = set()
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
+        for batch in ex.map(_scan_page, pages):
+            for cp in batch:
+                if cp["id"] in seen_ids:
+                    continue
+                seen_ids.add(cp["id"])
+                cross_space_pages.append(cp)
+                console.print(
+                    f"  [dim]→ Found cross-space page: {cp['title']} ({cp['space']})[/dim]"
+                )
+
     if cross_space_pages:
         console.print(f"[dim]Found [bold]{len(cross_space_pages)}[/bold] cross-space pages to add.[/dim]")
         pages.extend(cross_space_pages)
@@ -1428,6 +1445,9 @@ def init_context(
     bootstrap_skills: Annotated[bool, typer.Option("--bootstrap-skills/--no-bootstrap-skills", help="Inject superpowers skills as baseline")] = True,
     superpowers_url: Annotated[str, typer.Option("--superpowers-url", help="Git URL for superpowers skills repo")] = "https://github.com/venkatchinta/superpowers.git",
     code_assist_tool: Annotated[str, typer.Option("--code-assist-tool", help="Code assist tool (windsurf, cursor, or generic). Determines where skills are installed.")] = "generic",
+    no_kg: Annotated[bool, typer.Option("--no-kg", help="Skip the Knowledge Graph query (fastest; uses placeholder content)")] = False,
+    kg_timeout: Annotated[int, typer.Option("--kg-timeout", help="Max seconds to wait for the KG query before falling back to placeholder content")] = 20,
+    force: Annotated[bool, typer.Option("--force", "-f", help="Overwrite an existing context repo without prompting (required in non-interactive contexts such as the dashboard)")] = False,
 ) -> None:
     """
     Initialize a central domain context repository.
@@ -1498,9 +1518,21 @@ def init_context(
                     out_dir = workspace / f"{domain_name}-domain-context"
 
     if out_dir.exists() and any(out_dir.iterdir()):
-        overwrite = typer.confirm(f"Directory {out_dir} is not empty. Overwrite?", default=False)
-        if not overwrite:
-            raise typer.Exit(0)
+        import sys
+
+        if force:
+            _robust_rmtree(out_dir)
+            console.print(f"[yellow]Removed existing context repo (--force): {out_dir}[/yellow]")
+        elif sys.stdin.isatty():
+            overwrite = typer.confirm(f"Directory {out_dir} is not empty. Overwrite?", default=False)
+            if not overwrite:
+                raise typer.Exit(0)
+            _robust_rmtree(out_dir)
+        else:
+            # Non-interactive (e.g. dashboard): never block on a prompt.
+            console.print(f"[red]✗ Context repo already exists and is not empty: {out_dir}[/red]")
+            console.print("[dim]Re-run with --force to overwrite, or delete the directory first.[/dim]")
+            raise typer.Exit(1)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     console.print(f"[cyan]Initializing domain context repo for '{domain_name}'...[/cyan]")
@@ -1520,34 +1552,54 @@ def init_context(
     repos = get_domain_repos(domain_name)
     docs = get_domain_docs(domain_name)
 
-    # Query KG for domain business context
-    console.print("[dim]Querying Knowledge Graph for domain context...[/dim]")
-    try:
-        from agentic_cli.kg.domain_context import (
-            query_domain_kg,
-            scaffold_domain_context_repo,
+    from agentic_cli.kg.domain_context import scaffold_domain_context_repo
+
+    # Query KG for domain business context (skippable + time-boxed so a slow or
+    # unreachable KG provider never stalls onboarding).
+    kg_context: dict = {}
+    if no_kg:
+        console.print("[dim]Skipping Knowledge Graph query (--no-kg) — using placeholder content.[/dim]")
+    else:
+        console.print(
+            f"[dim]Querying Knowledge Graph for domain context (timeout {kg_timeout}s)...[/dim]"
         )
-        # query_domain_kg automatically determines provider from KGConfig
-        kg_context = query_domain_kg(domain_name)
-        has_kg = any(kg_context.values())
+        try:
+            import concurrent.futures
 
-        if has_kg:
-            console.print(f"[green]✓ KG domain context retrieved ({sum(1 for v in kg_context.values() if v)}/6 aspects)[/green]")
-        else:
-            # Get the configured KG provider for the warning message
-            try:
-                from agentic_cli.kg.config import KGConfig
-                kg_config = KGConfig.load()
-                provider = kg_config.provider
-                console.print(f"[yellow]⚠ No domain context found in KG ({provider} may not be running or domain not ingested)[/yellow]")
-            except Exception:
-                console.print("[yellow]⚠ No domain context found in KG (provider may not be running or domain not ingested)[/yellow]")
-            console.print("[dim]The repo structure will be created with placeholder content.[/dim]")
+            from agentic_cli.kg.domain_context import query_domain_kg
 
-    except Exception as e:
-        console.print(f"[yellow]⚠ KG query failed: {e}[/yellow]")
-        console.print("[dim]Creating repo structure with placeholder content.[/dim]")
-        kg_context = {}
+            # query_domain_kg automatically determines provider from KGConfig.
+            # Run it off-thread so we can enforce a hard wall-clock timeout.
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+                fut = ex.submit(query_domain_kg, domain_name)
+                try:
+                    kg_context = fut.result(timeout=kg_timeout) or {}
+                except concurrent.futures.TimeoutError:
+                    console.print(
+                        f"[yellow]⚠ KG query exceeded {kg_timeout}s — continuing with "
+                        f"placeholder content (raise with --kg-timeout, or skip with --no-kg).[/yellow]"
+                    )
+                    kg_context = {}
+
+            has_kg = any(kg_context.values())
+            if has_kg:
+                console.print(
+                    f"[green]✓ KG domain context retrieved "
+                    f"({sum(1 for v in kg_context.values() if v)}/6 aspects)[/green]"
+                )
+            else:
+                try:
+                    from agentic_cli.kg.config import KGConfig
+                    provider = KGConfig.load().provider
+                    console.print(f"[yellow]⚠ No domain context found in KG ({provider} may not be running or domain not ingested)[/yellow]")
+                except Exception:
+                    console.print("[yellow]⚠ No domain context found in KG (provider may not be running or domain not ingested)[/yellow]")
+                console.print("[dim]The repo structure will be created with placeholder content.[/dim]")
+
+        except Exception as e:
+            console.print(f"[yellow]⚠ KG query failed: {e}[/yellow]")
+            console.print("[dim]Creating repo structure with placeholder content.[/dim]")
+            kg_context = {}
 
     # Scaffold the repo
     try:
@@ -1690,6 +1742,23 @@ def init_context(
 # {CLI_NAME} domain init-meta
 # ---------------------------------------------------------------------------
 
+def _robust_rmtree(path: Path, attempts: int = 5) -> None:
+    """Remove a directory tree, retrying on transient ``ENOTEMPTY`` races.
+
+    On macOS, Finder/Spotlight can recreate ``.DS_Store`` files mid-deletion,
+    causing ``shutil.rmtree`` to fail with ``[Errno 66] Directory not empty``.
+    Retrying with ``ignore_errors`` clears these transient leftovers.
+    """
+    import shutil
+    import time
+
+    for i in range(attempts):
+        shutil.rmtree(path, ignore_errors=(i < attempts - 1))
+        if not path.exists():
+            return
+        time.sleep(0.1)
+
+
 @domain_app.command("init-meta")
 def init_meta(
     domain_name: Annotated[str, typer.Argument(help="Domain name (slug, e.g. cwow-facility)")],
@@ -1709,6 +1778,22 @@ def init_meta(
         bool,
         typer.Option("--git-init/--no-git-init", help="Initialize as git repo with submodules"),
     ] = True,
+    clone_repos: Annotated[
+        bool,
+        typer.Option(
+            "--clone-repos/--no-clone-repos",
+            help="Clone submodule working trees now (shallow+parallel). By default "
+            "submodules are only registered and fetched lazily via `make init`.",
+        ),
+    ] = False,
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force", "-f",
+            help="Overwrite an existing meta-repo without prompting (required in "
+            "non-interactive contexts such as the dashboard).",
+        ),
+    ] = False,
 ) -> None:
     """
     Initialize a domain meta-repo following meta-repo standards.
@@ -1771,11 +1856,29 @@ def init_meta(
                 raise typer.Exit(1)
 
     if meta_repo_path.exists() and any(meta_repo_path.iterdir()):
-        overwrite = typer.confirm(
-            f"Directory {meta_repo_path} is not empty. Overwrite?", default=False
-        )
-        if not overwrite:
-            raise typer.Exit(0)
+        import sys
+
+        if force:
+            _robust_rmtree(meta_repo_path)
+            console.print(
+                f"[yellow]Removed existing meta-repo (--force): {meta_repo_path}[/yellow]"
+            )
+        elif sys.stdin.isatty():
+            overwrite = typer.confirm(
+                f"Directory {meta_repo_path} is not empty. Overwrite?", default=False
+            )
+            if not overwrite:
+                raise typer.Exit(0)
+            _robust_rmtree(meta_repo_path)
+        else:
+            # Non-interactive (e.g. dashboard): never block on a prompt.
+            console.print(
+                f"[red]✗ Meta-repo already exists and is not empty: {meta_repo_path}[/red]"
+            )
+            console.print(
+                "[dim]Re-run with --force to overwrite, or delete the directory first.[/dim]"
+            )
+            raise typer.Exit(1)
 
     console.print(f"[cyan]Initializing domain meta-repo for '{domain_name}'...[/cyan]")
 
@@ -1829,6 +1932,7 @@ def init_meta(
             git_init=git_init,
             personas=personas,
             persona_context=persona_context,
+            clone_repos=clone_repos,
         )
 
         console.print(f"[green]✓ Domain meta-repo created:[/green] {meta_repo_path}")
@@ -1843,6 +1947,16 @@ def init_meta(
         console.print(f"  1. cd {meta_repo_path}")
         console.print(f"  2. make init          # Initialize submodules")
         console.print(f"  3. make validate      # Validate repo state")
+        console.print(
+            f"  4. {CLI_NAME} domain build-snapshot {domain_name}   "
+            f"# Build the Devin snapshot for consistent sessions"
+        )
+        console.print()
+        if created.get("devin_blueprint"):
+            console.print(
+                f"[dim]Devin blueprint: {created['devin_blueprint'].relative_to(meta_repo_path)} "
+                f"(edit, then build a snapshot so every {domain_name} session is governance-consistent)[/dim]"
+            )
         console.print()
         console.print("[dim]Documentation:[/dim]")
         console.print(f"  - README.md: {meta_repo_path / 'docs' / 'README.md'}")
@@ -1858,6 +1972,223 @@ def init_meta(
     except Exception as e:
         console.print(f"[red]✗ Failed to scaffold domain meta-repo: {e}[/red]")
         raise typer.Exit(1)
+
+
+# ---------------------------------------------------------------------------
+# {CLI_NAME} domain build-snapshot / gen-blueprint (Devin DRS)
+# ---------------------------------------------------------------------------
+
+def _resolve_domain_meta_path(domain_name: str, meta: Optional[str] = None) -> Path:
+    """Resolve a domain meta-repo path (mirrors the init-meta default rule)."""
+    if meta:
+        return Path(meta).resolve()
+    workspace = _get_code_workspace()
+    return workspace / domain_name / f"domain-{domain_name}-meta"
+
+
+@domain_app.command("gen-blueprint")
+def gen_blueprint(
+    domain_name: Annotated[str, typer.Argument(help="Domain name (slug, e.g. cwow-facility)")],
+    meta: Annotated[str, typer.Option("--meta", help="Path to the domain meta-repo (defaults to the workspace location)")] = None,
+) -> None:
+    """(Re)generate the Devin DRS blueprint (.devin/environment.yaml + setup.sh).
+
+    The blueprint is normally written by `domain init-meta`; use this to refresh
+    it (e.g. after MCP servers change) without re-scaffolding the meta-repo.
+    """
+    from agentic_cli.devin.blueprint import load_workspace_mcp_servers, write_domain_blueprint
+
+    d = get_domain(domain_name)
+    if not d:
+        console.print(f"[red]✗ Domain '{domain_name}' not found.[/red]")
+        raise typer.Exit(1)
+
+    meta_repo_path = _resolve_domain_meta_path(domain_name, meta)
+    if not meta_repo_path.exists():
+        console.print(f"[red]✗ Meta-repo not found: {meta_repo_path}[/red]")
+        console.print(f"[dim]Create it first: {CLI_NAME} domain init-meta {domain_name}[/dim]")
+        raise typer.Exit(1)
+
+    bp = write_domain_blueprint(
+        meta_repo_path,
+        domain_name,
+        d.get("product", ""),
+        mcp_servers=load_workspace_mcp_servers(),
+    )
+    console.print(f"[green]✓[/green] Blueprint written:")
+    for name, path in bp.items():
+        console.print(f"  [green]✓[/green] {path.relative_to(meta_repo_path)}")
+    console.print(
+        f"\n[dim]Next: {CLI_NAME} domain build-snapshot {domain_name}[/dim]"
+    )
+
+
+def _git_remote_slug(repo_path: Path) -> Optional[str]:
+    """Best-effort `owner/repo` slug from a repo's `origin` remote URL."""
+    import re
+    import subprocess
+
+    try:
+        url = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            cwd=str(repo_path), capture_output=True, text=True,
+        ).stdout.strip()
+    except Exception:  # noqa: BLE001
+        return None
+    if not url:
+        return None
+    # git@host:owner/repo.git  |  https://host/owner/repo.git
+    m = re.search(r"[:/]([^/:]+/[^/]+?)(?:\.git)?/?$", url)
+    return m.group(1) if m else None
+
+
+@domain_app.command("build-snapshot")
+def build_snapshot(
+    domain_name: Annotated[str, typer.Argument(help="Domain name (slug, e.g. cwow-facility)")],
+    meta: Annotated[str, typer.Option("--meta", help="Path to the domain meta-repo (defaults to the workspace location)")] = None,
+    repo: Annotated[str, typer.Option("--repo", help="Scope the blueprint to a repo (owner/repo); defaults to the meta-repo's origin remote")] = None,
+    blueprint_id: Annotated[str, typer.Option("--blueprint-id", help="Update an existing blueprint instead of creating a new one")] = None,
+    snapshot_id: Annotated[str, typer.Option("--snapshot-id", help="Register a pre-built snapshot id and skip the DRS build entirely")] = None,
+    env_file: Annotated[str, typer.Option("--env-file", help="Override the environment.yaml path (defaults to the meta-repo's .devin/environment.yaml)")] = None,
+    no_build: Annotated[bool, typer.Option("--no-build", help="Create/update the blueprint but do not trigger a build")] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Print the DRS commands without running them")] = False,
+) -> None:
+    """Build (or register) the per-domain Devin snapshot via DRS and persist its id.
+
+    Blueprint-now, build-later: `domain init-meta` already committed the DRS
+    blueprint (`.devin/environment.yaml`). This:
+
+      1. `devin cloud drs blueprint-create --repo <owner/repo> --from-file <yaml>`
+         (or `blueprint-write --blueprint-id <id>` when --blueprint-id is given)
+      2. `devin cloud drs build` (builds all current blueprints and waits)
+
+    then stores the resulting snapshot id per-domain so
+    `{CLI_NAME} devin sessions create --domain {domain_name}` reuses the SAME
+    environment for every session.
+
+    If you built it elsewhere (e.g. the Devin UI), skip DRS entirely and just
+    register the id: `--snapshot-id <id>`.
+    """
+    import shutil
+    import subprocess
+
+    from agentic_cli.devin.blueprint import (
+        BLUEPRINT_DIR,
+        ENVIRONMENT_FILE,
+        blueprint_create_command,
+        blueprint_write_command,
+        build_command,
+        parse_blueprint_id,
+        parse_snapshot_id,
+    )
+    from agentic_cli.devin.config import DevinConfig
+
+    d = get_domain(domain_name)
+    if not d:
+        console.print(f"[red]✗ Domain '{domain_name}' not found.[/red]")
+        raise typer.Exit(1)
+
+    def _persist(*, snapshot: str = None, blueprint: str = None) -> None:
+        cfg = DevinConfig.load()
+        if snapshot:
+            cfg.set_domain(domain_name, snapshot_id=snapshot)
+        cfg.save()
+        if snapshot:
+            console.print(f"[bold green]✓[/bold green] Stored snapshot for [cyan]{domain_name}[/cyan]: {snapshot}")
+            console.print(
+                f"[dim]Sessions now reuse it: {CLI_NAME} devin sessions create "
+                f"--domain {domain_name} --prompt \"...\"[/dim]"
+            )
+        if blueprint:
+            console.print(f"[dim]Blueprint id: {blueprint}[/dim]")
+
+    # Manual path: register an already-built snapshot id (no DRS needed).
+    if snapshot_id:
+        _persist(snapshot=snapshot_id)
+        return
+
+    meta_repo_path = _resolve_domain_meta_path(domain_name, meta)
+    blueprint_path = Path(env_file).resolve() if env_file else meta_repo_path / BLUEPRINT_DIR / ENVIRONMENT_FILE
+    if not blueprint_path.exists():
+        console.print(f"[red]✗ Blueprint not found: {blueprint_path}[/red]")
+        console.print(
+            f"[dim]Generate it first: {CLI_NAME} domain gen-blueprint {domain_name} "
+            f"(or re-run {CLI_NAME} domain init-meta {domain_name})[/dim]"
+        )
+        raise typer.Exit(1)
+
+    repo_slug = repo or _git_remote_slug(meta_repo_path)
+
+    # Step 1: create or update the blueprint from the environment.yaml.
+    if blueprint_id:
+        bp_cmd = blueprint_write_command(blueprint_id, blueprint_path)
+    else:
+        bp_cmd = blueprint_create_command(blueprint_path, repo_slug)
+    build_cmd = build_command()
+
+    if dry_run:
+        console.print("[bold]DRS commands (dry-run):[/bold]")
+        console.print(f"  1. {' '.join(bp_cmd)}")
+        if not no_build:
+            console.print(f"  2. {' '.join(build_cmd)}")
+        console.print(f"[dim]Blueprint file: {blueprint_path}[/dim]")
+        if not repo_slug and not blueprint_id:
+            console.print("[yellow]⚠ No --repo and no origin remote — blueprint will be org-wide.[/yellow]")
+        return
+
+    if shutil.which("devin") is None:
+        console.print("[red]✗ 'devin' CLI not found on PATH.[/red]")
+        console.print(
+            "[dim]Install + authenticate the Devin CLI (devin auth login), or build in "
+            f"the UI and register: {CLI_NAME} domain build-snapshot {domain_name} --snapshot-id <id>[/dim]"
+        )
+        raise typer.Exit(1)
+
+    def _run(cmd: list[str]) -> tuple[int, str]:
+        console.print(f"[dim]$ {' '.join(cmd)}[/dim]")
+        proc = subprocess.run(cmd, cwd=str(meta_repo_path), capture_output=True, text=True)
+        out = (proc.stdout or "") + "\n" + (proc.stderr or "")
+        if proc.stdout:
+            console.print(proc.stdout.strip())
+        if proc.returncode != 0 and proc.stderr:
+            console.print(f"[dim]{proc.stderr.strip()[:500]}[/dim]")
+        return proc.returncode, out
+
+    console.print(f"[cyan]Registering blueprint for '{domain_name}'...[/cyan]")
+    rc, out = _run(bp_cmd)
+    if rc != 0:
+        console.print(f"[red]✗ blueprint step failed (exit {rc}).[/red]")
+        raise typer.Exit(1)
+    bp_id = blueprint_id or parse_blueprint_id(out)
+
+    if no_build:
+        console.print("[green]✓[/green] Blueprint registered (build skipped via --no-build).")
+        _persist(blueprint=bp_id)
+        return
+
+    console.print(f"[cyan]Building Devin environment snapshot...[/cyan]")
+    rc, out = _run(build_cmd)
+    if rc != 0:
+        console.print(f"[red]✗ DRS build failed (exit {rc}).[/red]")
+        raise typer.Exit(1)
+
+    sid = parse_snapshot_id(out)
+    if not sid:
+        console.print(
+            "[yellow]⚠ Build succeeded but no snapshot id was detected in the output.[/yellow]"
+        )
+        console.print(
+            f"[dim]Register it manually once you have it: {CLI_NAME} domain build-snapshot "
+            f"{domain_name} --snapshot-id <id>[/dim]"
+        )
+        _persist(blueprint=bp_id)
+        raise typer.Exit(1)
+
+    _persist(snapshot=sid, blueprint=bp_id)
+    record_activity(
+        command="domain", subcommand="build-snapshot",
+        args={"domain": domain_name, "snapshot_id": sid, "blueprint_id": bp_id},
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -2140,7 +2471,19 @@ def sync_domain(
         console.print("[dim]Install with: pip install graphifyy[/dim]")
 
     console.print(f"[cyan]Syncing {len(repos)} repo(s) into the store for '{domain_name}'...[/cyan]")
-    manifest = pw.build_graph_refs(domain_name, product, repos, run_graphify=graphify)
+
+    from agentic_cli.kg.okf.locking import DomainLockBusy, domain_lock
+
+    # Serialize per-domain: refreshing shared store graphs must not interleave
+    # with a concurrent `kg okf enrich/export` (which reads those graphs) or
+    # another developer's sync of the same domain.
+    try:
+        with domain_lock(domain_name, scope="okf"):
+            manifest = pw.build_graph_refs(domain_name, product, repos, run_graphify=graphify)
+    except DomainLockBusy as e:
+        console.print(f"[yellow]⚠ {e}[/yellow]")
+        console.print(f"[dim]Another enrich/export/sync for '{domain_name}' is in progress. Try again shortly.[/dim]")
+        raise typer.Exit(1)
 
     for entry in manifest["repos"]:
         if entry["status"] == "ready":

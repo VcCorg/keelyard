@@ -62,11 +62,16 @@ class EnrichmentRunner:
         model_name: str | None = None,
         confluence_source: ConfluenceSource | None = None,
         dry_run: bool = False,
+        structural_mode: str = "model",
     ):
         self.source = source
         self.bundle_root = Path(bundle_root)
         self.confluence_source = confluence_source
         self.dry_run = dry_run
+        # "model": LLM authors structural bodies (default).
+        # "deterministic": ask the source to render bodies (no LLM); fall back to
+        # the model per-concept when the source declines (returns None).
+        self.structural_mode = structural_mode
         self._model = model
         self._model_name = model_name
         self.bundle_root.mkdir(parents=True, exist_ok=True)
@@ -99,11 +104,18 @@ class EnrichmentRunner:
                 continue
 
             if self.dry_run:
-                result.planned.append({"concept_id": ref.id_str, "type": ref.type, "pass": "structural"})
+                mode = "structural"
+                if self.structural_mode == "deterministic" and self.source.render_concept(ref, raw) is not None:
+                    mode = "structural-deterministic"
+                result.planned.append({"concept_id": ref.id_str, "type": ref.type, "pass": mode})
                 continue
 
             try:
-                out = self._parse_concept(ref, raw)
+                out = None
+                if self.structural_mode == "deterministic":
+                    out = self.source.render_concept(ref, raw)
+                if out is None:
+                    out = self._parse_concept(ref, raw)
             except Exception as e:  # noqa: BLE001
                 result.errors.append(f"{ref.id_str}: model/parse failed: {e}")
                 continue
