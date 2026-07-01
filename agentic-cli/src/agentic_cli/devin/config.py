@@ -108,7 +108,17 @@ class DevinConfig:
         return self.domains().get(slug, {})
 
     def set_domain(self, slug: str, *, snapshot_id: str | None = None,
-                   playbook_id: str | None = None, knowledge_folder: str | None = None) -> None:
+                   playbook_id: str | None = None, knowledge_folder: str | None = None,
+                   blueprint_id: str | None = None, meta_repo_path: str | None = None,
+                   meta_repo_sha: str | None = None, blueprint_hash: str | None = None,
+                   built_at: str | None = None) -> None:
+        """Update per-domain Devin settings.
+
+        Beyond the core ids, this also records *provenance* for the snapshot
+        (which meta-repo commit + blueprint file it was built from) so
+        ``devin snapshots verify`` can detect drift between a stored snapshot
+        and the current meta-repo state.
+        """
         d = self.domains().setdefault(slug, {})
         if snapshot_id is not None:
             d["snapshot_id"] = snapshot_id
@@ -116,6 +126,16 @@ class DevinConfig:
             d["playbook_id"] = playbook_id
         if knowledge_folder is not None:
             d["knowledge_folder"] = knowledge_folder
+        if blueprint_id is not None:
+            d["blueprint_id"] = blueprint_id
+        if meta_repo_path is not None:
+            d["meta_repo_path"] = meta_repo_path
+        if meta_repo_sha is not None:
+            d["meta_repo_sha"] = meta_repo_sha
+        if blueprint_hash is not None:
+            d["blueprint_hash"] = blueprint_hash
+        if built_at is not None:
+            d["built_at"] = built_at
 
     def is_configured(self) -> bool:
         """We consider Devin configured once an API key is available."""

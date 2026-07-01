@@ -9,12 +9,15 @@ from src.services.devin_service import (
     DevinStatus,
     SessionDetail,
     SessionInfo,
+    SnapshotInfo,
     create_knowledge,
     create_session,
     get_session_detail,
     get_status,
+    list_domain_snapshots,
     list_local_sessions,
     send_session_message,
+    verify_domain_snapshot,
 )
 
 router = APIRouter(prefix="/api/devin", tags=["devin"])
@@ -68,6 +71,26 @@ async def api_session_message(session_id: str, req: MessageRequest):
     """Send a follow-up message to a running session."""
     try:
         return send_session_message(session_id, req.message)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+# ── Snapshots (per-domain registry + meta-repo drift) ───────────────────────
+
+@router.get("/snapshots", response_model=list[SnapshotInfo])
+async def api_list_snapshots():
+    """Locally-registered per-domain Devin snapshots with drift status."""
+    try:
+        return list_domain_snapshots()
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.get("/snapshots/{domain}/verify", response_model=SnapshotInfo)
+async def api_verify_snapshot(domain: str):
+    """Re-verify a single domain's snapshot against its meta-repo."""
+    try:
+        return verify_domain_snapshot(domain)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=str(exc))
 

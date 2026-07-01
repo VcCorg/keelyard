@@ -169,11 +169,44 @@ def ensure_store_clone(
     return dest, True
 
 
+def _ref_resolves(repo_path: Path, ref: str) -> bool:
+    """True if ``ref`` names an existing object (commit) in the repo."""
+    return _run_git(
+        ["rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"], cwd=repo_path
+    ).returncode == 0
+
+
 def detect_default_branch(repo_path: Path) -> str:
-    """Best-effort detection of a repo's current/default branch."""
+    """Resolve a base ref to branch a worktree from.
+
+    Returns a ref that is guaranteed to resolve to a commit (so
+    ``git worktree add -b <new> <dest> <ref>`` succeeds). A freshly-cloned
+    store repo may have an *unborn* local HEAD (e.g. HEAD -> refs/heads/develop
+    with no local branch) and no ``main``; in that case the checkout-able ref is
+    a remote-tracking branch like ``origin/develop``. Resolution order:
+
+    1. The current local branch, if it resolves to a commit.
+    2. The remote's advertised default via ``origin/HEAD`` (e.g. ``origin/develop``).
+    3. The first existing of ``origin/{develop,main,master}``.
+    4. ``HEAD`` as a last resort.
+    """
     proc = _run_git(["rev-parse", "--abbrev-ref", "HEAD"], cwd=repo_path)
     branch = proc.stdout.strip() if proc.returncode == 0 else ""
-    return branch or "main"
+    if branch and branch != "HEAD" and _ref_resolves(repo_path, branch):
+        return branch
+
+    remote_head = _run_git(
+        ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], cwd=repo_path
+    )
+    ref = remote_head.stdout.strip() if remote_head.returncode == 0 else ""
+    if ref and _ref_resolves(repo_path, ref):
+        return ref
+
+    for cand in ("origin/develop", "origin/main", "origin/master"):
+        if _ref_resolves(repo_path, cand):
+            return cand
+
+    return "HEAD"
 
 
 def add_worktree(

@@ -174,11 +174,13 @@ export function Workspaces() {
     );
   };
 
+  const [graphifyDev, setGraphifyDev] = useState(false);
+
   const runOpen = () => {
     setRunning(true);
     setNotice(null);
     setStreamUrl(
-      api.workspaceOpenStreamUrl(domain, repo, { persona: "dev", editor: effectiveEditor })
+      api.workspaceOpenStreamUrl(domain, repo, { persona: "dev", graphify: graphifyDev, editor: effectiveEditor })
     );
   };
 
@@ -311,7 +313,18 @@ export function Workspaces() {
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">{target.hint}</p>
 
-              <div className="flex flex-wrap gap-2 pt-1">
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                {persona === "dev" && (needsAction === "open" || target.exists) && (
+                  <label className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300 mr-1 select-none">
+                    <input
+                      type="checkbox"
+                      checked={graphifyDev}
+                      onChange={(e) => setGraphifyDev(e.target.checked)}
+                      disabled={running}
+                    />
+                    Generate graph (graphify)
+                  </label>
+                )}
                 {persona === "tech-lead" && needsAction === "sync" && (
                   <Button size="sm" onClick={runSync} disabled={running}>
                     {running ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <RefreshCw className="h-4 w-4 mr-1" />}
@@ -327,6 +340,12 @@ export function Workspaces() {
                 {persona === "tech-lead" && needsAction !== "sync" && needsAction !== "onboard" && (
                   <Button size="sm" variant="outline" onClick={runSync} disabled={running}>
                     <RefreshCw className="h-4 w-4 mr-1" /> Re-sync graphs
+                  </Button>
+                )}
+                {persona === "dev" && needsAction !== "open" && target.exists && (
+                  <Button size="sm" variant="outline" onClick={runOpen} disabled={running || !repo}>
+                    {running ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <RefreshCw className="h-4 w-4 mr-1" />}
+                    {graphifyDev ? "Generate graph" : "Re-open worktree"}
                   </Button>
                 )}
                 <Button size="sm" variant={canOpenIde ? "default" : "outline"} onClick={openInIde} disabled={!canOpenIde}>

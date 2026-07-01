@@ -19,6 +19,7 @@ import { CodeOnboard } from "@/pages/CodeOnboard";
 import { Eval } from "@/pages/Eval";
 import { CLIRunner } from "@/pages/CLIRunner";
 import { Devin } from "@/pages/Devin";
+import { Snapshots } from "@/pages/Snapshots";
 import { DomainOnboarding } from "@/pages/DomainOnboarding";
 import { PersonaSkills } from "@/pages/PersonaSkills";
 import { Workspaces } from "@/pages/Workspaces";
@@ -67,6 +68,7 @@ function App() {
             <Route path="/code-onboard" element={<CodeOnboard />} />
             <Route path="/eval" element={<Eval />} />
             <Route path="/devin" element={<Devin />} />
+            <Route path="/snapshots" element={<Snapshots />} />
             <Route path="/cli" element={<CLIRunner />} />
           </Route>
         </Routes>
