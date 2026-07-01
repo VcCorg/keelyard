@@ -15,12 +15,18 @@ if [[ "${ALLOW_COMPANY_DATA:-0}" == "1" ]]; then
   exit 0
 fi
 
+# Company/user identifiers are assembled from fragments so this guard file does
+# not itself contain the literal strings it searches for (keeps it clean and
+# safe from history --replace-text rewrites).
+_CO="da"; _CO="${_CO}vita"       # company name
+_US="vch"; _US="${_US}inta"      # internal username
+
 # HARD patterns — always block (company data + real secret formats).
 # NOTE: 'dva' alone is the CLI/product name and is intentionally NOT blocked.
 HARD_PATTERNS=(
-  '\bexample\b'                                   # company name (any case)
-  '\byour-user\b'                                  # internal username
-  '\.example\.(com|net|org)'                      # internal hostnames
+  "\\b${_CO}\\b"                                  # company name (any case)
+  "\\b${_US}\\b"                                  # internal username
+  "\\.${_CO}\\.(com|net|org)"                     # internal hostnames
   'BEGIN (RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY'
   'AKIA[0-9A-Z]{16}'                             # AWS access key id
   'AIza[0-9A-Za-z_-]{30,}'                       # Google API key
