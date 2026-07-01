@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Version-controlled pre-commit hook. Enable once with:
+#   git config core.hooksPath .githooks
+#
+# Blocks commits that introduce company-specific / internal / secret data.
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+GUARD="$REPO_ROOT/scripts/check-no-company-data.sh"
+
+if [[ -x "$GUARD" ]]; then
+  "$GUARD"
+elif [[ -f "$GUARD" ]]; then
+  bash "$GUARD"
+else
+  echo "[pre-commit] guard script missing: $GUARD" >&2
+  exit 1
+fi
