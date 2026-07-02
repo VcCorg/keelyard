@@ -39,6 +39,12 @@ dashboard = [
     "fastapi>=0.109.0",
     "uvicorn>=0.27.0",
 ]
+security = [
+    # SkillSpector: security scanner for AI agent skills (LangGraph).
+    # Git-only (not published to PyPI). Pin to a tag/commit for reproducibility, e.g.
+    #   skillspector @ git+https://github.com/NVIDIA/skillspector.git@<tag-or-sha>
+    "skillspector @ git+https://github.com/NVIDIA/skillspector.git",
+]
 eval = [
     # Optional agent-evaluation backends (Phase 2+: Ragas framework).
     # The built-in framework requires none of these.
@@ -67,6 +73,10 @@ kg = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+# Required to allow git/URL direct references (e.g. the `security` extra's skillspector).
+allow-direct-references = true
 
 [tool.ruff]
 line-length = 100

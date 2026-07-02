@@ -115,7 +115,7 @@ def list_mcp_servers() -> list[MCPServerInfo]:
     # Enrich with CLI registry metadata (tools list, descriptions)
     # CLI keys like "jira" match Docker keys like "jira-mcp"
     try:
-        from dva_agentic_cli.mcp.config import get_merged_servers
+        from agentic_cli.mcp.config import get_merged_servers
         for key, srv in get_merged_servers().items():
             # Match by exact key or by "{key}-mcp" docker convention
             docker_key = f"{key}-mcp" if f"{key}-mcp" in servers else None
@@ -229,7 +229,7 @@ def _find_compose_file() -> Optional[Path]:
 
     # Also check MCP registry for docker compose paths
     try:
-        from dva_agentic_cli.mcp.config import load_registry
+        from agentic_cli.mcp.config import load_registry
         registry = load_registry()
         for server in registry.servers.values():
             if server.docker and server.docker.compose_file:

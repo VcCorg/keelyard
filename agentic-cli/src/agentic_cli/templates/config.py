@@ -118,7 +118,7 @@ class TemplateConfig:
     @property
     def dependencies(self) -> list[str]:
         """Get Python dependencies based on tools and framework."""
-        deps = ["typer>=0.12.0", "rich>=13.7.0", "pydantic>=2.0.0"]
+        deps = ["typer>=0.12.0", "rich>=13.7.0", "pydantic>=2.0.0", "google-genai>=0.3.0"]
         
         # Framework-specific dependencies
         if self.framework == Framework.ADK:

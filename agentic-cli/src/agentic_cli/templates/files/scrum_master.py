@@ -158,7 +158,7 @@ import logging
 import os
 from typing import Any
 
-import google.generativeai as genai
+from google import genai
 
 from domain_loader import load_domain_context
 
@@ -192,11 +192,17 @@ class SprintManager:
 
     def _init_model(self):
         project_id = os.getenv("GOOGLE_PROJECT_ID")
-        if project_id:
-            genai.configure(project=project_id, location=os.getenv("GOOGLE_LOCATION", "us-central1"))
-        model_name = os.getenv("VERTEX_AI_MODEL", "gemini-2.0-flash-001")
-        self.model = genai.GenerativeModel(model_name)
-        logger.info(f"SprintManager initialised with model: {model_name}")
+        self.model_name = os.getenv("VERTEX_AI_MODEL", "gemini-2.0-flash-001")
+        self.client = None
+        try:
+            if project_id:
+                self.client = genai.Client(vertexai=True, project=project_id, location=os.getenv("GOOGLE_LOCATION", "us-central1"))
+            elif os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY"):
+                self.client = genai.Client()
+        except Exception as e:
+            logger.warning(f"Could not initialize model client: {e}")
+            self.client = None
+        logger.info(f"SprintManager initialised with model: {self.model_name}")
 
     async def get_sprint_summary(self, jira_client, bitbucket_client, jql_override: str | None = None) -> str:
         """Fetch sprint data from Jira + open PRs from Bitbucket and produce an AI summary."""
@@ -220,7 +226,9 @@ class SprintManager:
             sprint_data=sprint_data[:30000],
         )
 
-        response = self.model.generate_content(prompt)
+        if self.client is None:
+            return "Model client not configured. Set GOOGLE_PROJECT_ID (Vertex AI) or GOOGLE_API_KEY (AI Studio)."
+        response = self.client.models.generate_content(model=self.model_name, contents=prompt)
         return response.text
 
     async def get_blockers(self, jira_client) -> str:
@@ -260,7 +268,7 @@ import logging
 import os
 from typing import Any
 
-import google.generativeai as genai
+from google import genai
 
 from domain_loader import load_domain_context
 
@@ -309,10 +317,16 @@ class StandupGenerator:
     def __init__(self):
         self.domain_ctx = load_domain_context()
         project_id = os.getenv("GOOGLE_PROJECT_ID")
-        if project_id:
-            genai.configure(project=project_id, location=os.getenv("GOOGLE_LOCATION", "us-central1"))
-        model_name = os.getenv("VERTEX_AI_MODEL", "gemini-2.0-flash-001")
-        self.model = genai.GenerativeModel(model_name)
+        self.model_name = os.getenv("VERTEX_AI_MODEL", "gemini-2.0-flash-001")
+        self.client = None
+        try:
+            if project_id:
+                self.client = genai.Client(vertexai=True, project=project_id, location=os.getenv("GOOGLE_LOCATION", "us-central1"))
+            elif os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY"):
+                self.client = genai.Client()
+        except Exception as e:
+            logger.warning(f"Could not initialize model client: {e}")
+            self.client = None
 
     async def daily_standup(self, jira_client, bitbucket_client) -> str:
         """Generate a daily standup summary."""
@@ -334,7 +348,9 @@ class StandupGenerator:
             product=self.domain_ctx.get("product", "Unknown"),
             data=data[:30000],
         )
-        response = self.model.generate_content(prompt)
+        if self.client is None:
+            return "Model client not configured. Set GOOGLE_PROJECT_ID (Vertex AI) or GOOGLE_API_KEY (AI Studio)."
+        response = self.client.models.generate_content(model=self.model_name, contents=prompt)
         return response.text
 
     async def sprint_review(self, jira_client) -> str:
@@ -350,7 +366,9 @@ class StandupGenerator:
             product=self.domain_ctx.get("product", "Unknown"),
             data=data[:30000],
         )
-        response = self.model.generate_content(prompt)
+        if self.client is None:
+            return "Model client not configured. Set GOOGLE_PROJECT_ID (Vertex AI) or GOOGLE_API_KEY (AI Studio)."
+        response = self.client.models.generate_content(model=self.model_name, contents=prompt)
         return response.text
 
     @staticmethod

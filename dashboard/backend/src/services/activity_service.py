@@ -1,6 +1,6 @@
 """Activity service — reads from the dva-agentic-cli tracker database.
 
-Direct import from dva_agentic_cli.tracker for reads.
+Direct import from agentic_cli.tracker for reads.
 """
 
 import json
@@ -39,7 +39,7 @@ def get_activity(
 ) -> list[ActivityEntry]:
     """Query the activity log."""
     try:
-        from dva_agentic_cli.tracker import get_activity as _get_activity
+        from agentic_cli.tracker import get_activity as _get_activity
         rows = _get_activity(
             command=command,
             subcommand=subcommand,
@@ -82,7 +82,7 @@ def get_activity(
 def get_activity_stats() -> ActivityStats:
     """Get aggregate activity stats."""
     try:
-        from dva_agentic_cli.tracker import get_activity_summary
+        from agentic_cli.tracker import get_activity_summary
         summary = get_activity_summary()
         return ActivityStats(
             total_commands=summary.get("total", 0),

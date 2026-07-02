@@ -1,7 +1,7 @@
 """Agent service — reads agent state and manages lifecycle.
 
 Hybrid approach:
-- Reads: Import directly from dva_agentic_cli modules (fast, typed)
+- Reads: Import directly from agentic_cli modules (fast, typed)
 - Mutations: Subprocess to `dva agent start/stop` (safe, consistent with CLI)
 """
 
@@ -145,7 +145,7 @@ def start_agent(
     poll_interval: Optional[int] = None,
 ) -> AgentInfo:
     """Start an agent as a background daemon via CLI subprocess."""
-    cmd = [sys.executable, "-m", "dva_agentic_cli.main", "agent", "start", "--path", path, "--name", name]
+    cmd = [sys.executable, "-m", "agentic_cli.main", "agent", "start", "--path", path, "--name", name]
     if review_mode:
         cmd.extend(["--review-mode", review_mode])
     if poll_interval:
@@ -198,11 +198,111 @@ def get_agent_logs(name: str, tail: int = 100) -> list[str]:
     return lines[-tail:]
 
 
+def _find_answer_module(path: str) -> Optional[str]:
+    """Return the dotted module (relative to ``src/``) exposing ``answer()``.
+
+    E.g. ``agents.orchestrator`` for ``<path>/src/agents/orchestrator.py``.
+    Returns None if no agent module exposes an ``answer()`` entrypoint.
+    """
+    agents_dir = Path(path) / "src" / "agents"
+    if not agents_dir.exists():
+        return None
+    for py in sorted(agents_dir.glob("*.py")):
+        if py.name in ("__init__.py", "base.py"):
+            continue
+        try:
+            text = py.read_text()
+        except OSError:
+            continue
+        if "def answer(" in text:
+            return f"agents.{py.stem}"
+    return None
+
+
+def get_agent_eval_spec(path: str) -> Optional[dict]:
+    """Derive the evaluation agent spec (``module:answer``) for a project.
+
+    The returned spec is directly consumable by ``dva eval run agent`` and by
+    the eval framework's ``resolve_agent()``. The project's ``src`` directory
+    must be on PYTHONPATH when the eval runs (the eval API handles this).
+    """
+    module = _find_answer_module(path)
+    if not module:
+        return None
+    return {"spec": f"{module}:answer", "module": module, "src": str(Path(path) / "src")}
+
+
+def test_agent(path: str, message: str, timeout: int = 120) -> dict:
+    """Invoke a generated agent's ``answer()`` entrypoint once and return its reply.
+
+    Runs the agent code in a subprocess using the project's own virtualenv (if
+    present), so it exercises the real generated agent without needing a daemon.
+    """
+    proj = Path(path)
+    src = proj / "src"
+    agents_dir = src / "agents"
+    if not agents_dir.exists():
+        return {"ok": False, "error": f"No 'src/agents' directory found in {path}"}
+
+    # Find the agent module exposing a module-level `answer()` entrypoint.
+    module = _find_answer_module(path)
+    if not module:
+        return {
+            "ok": False,
+            "error": "No agent exposes an answer() entrypoint (expected in src/agents/*.py).",
+        }
+
+    # Resolve the Python interpreter: prefer the project's own venv.
+    venv_py = proj / ".venv" / "bin" / "python"
+    if not venv_py.exists():
+        venv_py = proj / ".venv" / "Scripts" / "python.exe"
+    python_exe = str(venv_py) if venv_py.exists() else sys.executable
+
+    runner = (
+        "import asyncio, json, sys\n"
+        f"sys.path.insert(0, {str(src)!r})\n"
+        f"from {module} import answer\n"
+        "msg = sys.argv[1]\n"
+        "try:\n"
+        "    out = asyncio.run(answer(msg))\n"
+        "    print('__AGENT_RESULT__' + json.dumps({'ok': True, 'response': str(out)}))\n"
+        "except Exception as e:\n"
+        "    print('__AGENT_RESULT__' + json.dumps({'ok': False, 'error': repr(e)}))\n"
+    )
+
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(src) + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
+
+    try:
+        result = subprocess.run(
+            [python_exe, "-c", runner, message],
+            capture_output=True,
+            text=True,
+            cwd=str(proj),
+            env=env,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": f"Agent test timed out after {timeout}s"}
+    except OSError as e:
+        return {"ok": False, "error": f"Failed to launch agent: {e}"}
+
+    for line in result.stdout.splitlines():
+        if line.startswith("__AGENT_RESULT__"):
+            try:
+                return json.loads(line[len("__AGENT_RESULT__"):])
+            except json.JSONDecodeError:
+                break
+
+    tail = (result.stderr or result.stdout or "").strip()[-1000:]
+    return {"ok": False, "error": f"Agent did not return a result.\n{tail}"}
+
+
 def discover_agent_projects(workspace: Optional[Path] = None) -> list[AgentProject]:
     """Discover agent projects using the CLI tracker library."""
     projects = []
     try:
-        from dva_agentic_cli.tracker import get_projects
+        from agentic_cli.tracker import get_projects
         for row_dict in get_projects():
             tools = row_dict.get("tools") or []
             if isinstance(tools, str):
@@ -267,7 +367,7 @@ def _detect_use_case(project_path: Path) -> Optional[str]:
 def validate_project(project_path: str, use_case: Optional[str] = None) -> ProjectValidation:
     """Run file-existence validation checks on a project using CLI library."""
     try:
-        from dva_agentic_cli.tracker import validate_project as _cli_validate
+        from agentic_cli.tracker import validate_project as _cli_validate
         result = _cli_validate(project_path, use_case)
         return ProjectValidation(**result)
     except ImportError:

@@ -11,10 +11,10 @@ def get_main_content(config: TemplateConfig) -> str:
     agent_import = _get_agent_import(config.use_case)
     agent_class = _get_agent_class(config.use_case)
     
-    return f'''"""Main entry point for the {config.use_case.display_name} agent."""'
+    return f'''"""Main entry point for the {config.use_case.display_name} agent."""
 
+import argparse
 import asyncio
-from pathlib import Path
 
 from dotenv import load_dotenv
 from rich.console import Console
@@ -27,27 +27,59 @@ load_dotenv()
 console = Console()
 
 
-async def main():
-    """Run the agent."""
-    console.print(Panel.fit(
-        f"[bold cyan]{config.name}[/bold cyan]\\n"
-        f"Framework: {config.framework.display_name}\\n"
-        f"Use Case: {config.use_case.display_name}",
-        border_style="cyan"
-    ))
-    
-    settings = Settings()
-    agent = {agent_class}(settings=settings)
-    
-    console.print("\\n[green]Agent initialized![/green]")
-    console.print("[dim]Starting interactive mode...[/dim]\\n")
-    
+async def run_interactive(agent) -> None:
+    """Run the agent in interactive (stdin) mode."""
     await agent.run_interactive()
 
 
+async def run_daemon(agent) -> None:
+    """Initialize the agent and idle so it runs as a background daemon."""
+    await agent.initialize()
+    console.print("[green]Agent initialized (daemon mode). Idling for work...[/green]")
+    while True:
+        await asyncio.sleep(3600)
+
+
+async def run_once(agent) -> None:
+    """Initialize the agent, confirm readiness, then exit cleanly."""
+    await agent.initialize()
+    console.print("[green]Agent initialized (once mode). Exiting.[/green]")
+
+
+async def main(mode: str) -> None:
+    """Run the agent in the selected mode."""
+    console.print(Panel.fit(
+        f"[bold cyan]{config.name}[/bold cyan]\\n"
+        f"Framework: {config.framework.display_name}\\n"
+        f"Use Case: {config.use_case.display_name}\\n"
+        f"Mode: {{mode}}",
+        border_style="cyan"
+    ))
+
+    settings = Settings()
+    agent = {agent_class}(settings=settings)
+
+    if mode == "daemon":
+        await run_daemon(agent)
+    elif mode == "once":
+        await run_once(agent)
+    else:
+        await run_interactive(agent)
+
+
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="{config.name} agent")
+    parser.add_argument(
+        "--mode", choices=["interactive", "daemon", "once"], default="interactive",
+        help="Run mode: interactive (stdin), daemon (background), once (init + exit)",
+    )
+    # Accepted for compatibility with `agent start` (ignored by non-PR agents).
+    parser.add_argument("--review-mode")
+    parser.add_argument("--poll-interval", type=int)
+    args = parser.parse_args()
+
     try:
-        asyncio.run(main())
+        asyncio.run(main(args.mode))
     except KeyboardInterrupt:
         console.print("\\n[yellow]Interrupted.[/yellow]")
 '''

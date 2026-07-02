@@ -25,6 +25,7 @@ from src.api.runs import router as runs_router
 from src.api.devin import router as devin_router
 from src.api.integrations import router as integrations_router
 from src.api.setup import router as setup_router
+from src.api.jira import router as jira_router
 
 
 @asynccontextmanager
@@ -32,7 +33,7 @@ async def lifespan(app: FastAPI):
     """Startup/shutdown lifecycle."""
     # Ensure tracker DB exists (creates schema if needed)
     try:
-        from dva_agentic_cli.tracker import _ensure_db
+        from agentic_cli.tracker import _ensure_db
         _ensure_db()
     except ImportError:
         pass
@@ -81,6 +82,7 @@ app.include_router(runs_router)
 app.include_router(devin_router)
 app.include_router(integrations_router)
 app.include_router(setup_router)
+app.include_router(jira_router)
 
 
 @app.get("/api/health")

@@ -1,9 +1,14 @@
 // API client for Agent Playground dashboard.
 
 // Configurable at build time via VITE_API_BASE.
-//  - Dev (default): talk directly to the local backend.
-//  - Production (nginx): set VITE_API_BASE=/api so requests are reverse-proxied.
-const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api";
+//  - Default: relative "/api" so requests are same-origin and routed through
+//    the Vite dev proxy (see vite.config.ts) or the production reverse proxy.
+//    This avoids cross-origin CORS failures when the app is opened from any
+//    host/port other than the backend's allowlisted origins (e.g. an IDE
+//    browser-preview proxy or a LAN IP).
+//  - Override with an absolute URL (e.g. http://localhost:8000/api) only when
+//    talking to a backend that is not proxied on the same origin.
+const API_BASE = import.meta.env.VITE_API_BASE ?? "/api";
 
 /* ============ Types ============ */
 
@@ -797,7 +802,15 @@ export interface AgentProject {
 /* ============ CLI Setup Types ============ */
 
 export interface SetupItem {
-  key: "workspaces" | "vertex_ai" | "neo4j" | "devin" | string;
+  key:
+    | "workspaces"
+    | "vertex_ai"
+    | "neo4j"
+    | "devin"
+    | "jira"
+    | "bitbucket"
+    | "confluence"
+    | string;
   label: string;
   configured: boolean;
   required: boolean;
@@ -867,6 +880,22 @@ class APIClient {
     return this.request(`/agents/${name}/stop`, {
       method: "POST",
     });
+  }
+
+  async testAgent(
+    path: string,
+    message: string
+  ): Promise<{ ok: boolean; response?: string; error?: string }> {
+    return this.request(`/agents/test`, {
+      method: "POST",
+      body: JSON.stringify({ path, message }),
+    });
+  }
+
+  async getAgentEvalSpec(
+    path: string
+  ): Promise<{ spec: string; module: string; src: string }> {
+    return this.request(`/agents/eval-spec?path=${encodeURIComponent(path)}`);
   }
 
   /* ---- MCP Servers ---- */
@@ -1188,8 +1217,9 @@ class APIClient {
     return this.streamUrl(`/eval/report/view?eval_name=${encodeURIComponent(evalName)}`);
   }
 
-  evalRunAgentStreamUrl(agent: string, evalName: string, batch = 5): string {
+  evalRunAgentStreamUrl(agent: string, evalName: string, batch = 5, projectPath?: string): string {
     const q = new URLSearchParams({ agent, eval_name: evalName, batch: batch.toString() });
+    if (projectPath) q.append("project_path", projectPath);
     return this.streamUrl(`/eval/run-agent/stream?${q.toString()}`);
   }
 
@@ -1495,6 +1525,22 @@ class APIClient {
     return this.request("/integrations/status");
   }
 
+  /* ---- Jira Work Items ---- */
+  async getJiraStatus(): Promise<JiraStatus> {
+    return this.request("/jira/status");
+  }
+
+  /** Issues assigned to the current user across onboarded domain projects. */
+  async getMyJiraIssues(status?: string): Promise<MyJiraIssuesResponse> {
+    const q = status ? `?status=${encodeURIComponent(status)}` : "";
+    return this.request(`/jira/my-issues${q}`);
+  }
+
+  /** Assemble the governed Task Contract for a Jira issue ("Start work"). */
+  async getJiraContract(key: string): Promise<TaskContract> {
+    return this.request(`/jira/issues/${encodeURIComponent(key)}/contract`);
+  }
+
   /* ---- Devin ---- */
   async getDevinStatus(): Promise<DevinStatus> {
     return this.request("/devin/status");
@@ -1566,6 +1612,87 @@ class APIClient {
   streamUrl(path: string): string {
     return `${this.baseUrl}${path}`;
   }
+}
+
+export interface JiraStatus {
+  configured: boolean;
+  server_url: string;
+  projects: string[];
+}
+
+export interface JiraIssue {
+  key: string;
+  summary: string;
+  status: string;
+  status_category: string;
+  priority: string;
+  issuetype: string;
+  project: string;
+  updated: string;
+  created: string;
+  labels: string[];
+  link: string;
+}
+
+export interface MyJiraIssuesResponse {
+  configured: boolean;
+  projects: string[];
+  jql: string;
+  total: number;
+  issues: JiraIssue[];
+  error?: string | null;
+}
+
+/* ---- Task Contract (governed "Start work" launcher) ---- */
+
+export interface TaskContract {
+  issue: {
+    key: string;
+    summary: string;
+    description: string;
+    priority: string;
+    issuetype: string;
+    project: string;
+    labels: string[];
+    link: string;
+  };
+  domain: {
+    found: boolean;
+    slug?: string | null;
+    label?: string | null;
+    product?: string | null;
+  };
+  governance: {
+    found: boolean;
+    branch_pattern?: string | null;
+    require_code_review?: boolean | null;
+    min_reviewers?: number | null;
+    require_tests?: boolean | null;
+    test_coverage_min?: number | null;
+    require_ci_gates?: boolean | null;
+    gates: string[];
+  };
+  devin: {
+    snapshot_id?: string | null;
+    playbook_id?: string | null;
+    knowledge_folder?: string | null;
+    snapshot_state?: string | null;
+    snapshot_detail?: string | null;
+  };
+  local_workspace: {
+    persona: string;
+    tier: string;
+    path?: string | null;
+    exists: boolean;
+    ready: boolean;
+    needs?: string | null;
+    hint: string;
+  };
+  branch_name: string;
+  prompt: string;
+  warnings: string[];
+  can_launch_local: boolean;
+  can_launch_devin: boolean;
 }
 
 export const api = new APIClient(API_BASE);

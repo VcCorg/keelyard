@@ -192,8 +192,9 @@ def _simple_agent_content(class_name: str, agent_type: str, system_prompt: str) 
     return f'''"""{display} agent."""
 
 from typing import Any, Dict
+import os
 
-import google.generativeai as genai
+from google import genai
 from agents.base import BaseAgent
 
 
@@ -202,23 +203,35 @@ class {class_name}(BaseAgent):
 
     def __init__(self, settings: Any = None):
         super().__init__(settings)
-        self.model = None
+        self.client = None
+        self.model_name = "gemini-2.0-flash-001"
 
     async def initialize(self) -> None:
-        if self.settings and self.settings.google_project_id:
-            genai.configure(
-                project=self.settings.google_project_id,
-                location=self.settings.google_location,
-            )
-        model_name = (
+        self.model_name = (
             self.settings.vertex_ai_model if self.settings else "gemini-2.0-flash-001"
         )
-        self.model = genai.GenerativeModel(model_name)
+        self.client = None
+        try:
+            if self.settings and self.settings.google_project_id:
+                self.client = genai.Client(
+                    vertexai=True,
+                    project=self.settings.google_project_id,
+                    location=self.settings.google_location,
+                )
+            elif os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY"):
+                self.client = genai.Client()
+        except Exception:
+            self.client = None
         self._initialized = True
 
     async def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         if not self._initialized:
             await self.initialize()
+        if self.client is None:
+            return {{
+                "response": "Model client not configured. Set GOOGLE_PROJECT_ID (Vertex AI) or GOOGLE_API_KEY (AI Studio).",
+                "status": "error",
+            }}
         message = input_data.get("message", "")
         history = "\\n".join(
             f"{{m.role}}: {{m.content}}" for m in self.get_history(10)
@@ -229,7 +242,7 @@ class {class_name}(BaseAgent):
             f"User: {{message}}\\n\\nAssistant:"
         )
         try:
-            response = self.model.generate_content(prompt)
+            response = self.client.models.generate_content(model=self.model_name, contents=prompt)
             return {{"response": response.text, "status": "success"}}
         except Exception as e:
             return {{"response": f"Error: {{str(e)}}", "status": "error"}}
@@ -247,7 +260,11 @@ async def answer(input_text: str) -> str:
     """Run {class_name} on a single input and return its response text."""
     global _eval_agent
     if _eval_agent is None:
-        _eval_agent = {class_name}()
+        try:
+            from config import Settings
+            _eval_agent = {class_name}(settings=Settings())
+        except Exception:
+            _eval_agent = {class_name}()
     result = await _eval_agent.process({{"message": input_text}})
     if isinstance(result, dict):
         return str(result.get("response", ""))
@@ -338,9 +355,10 @@ def _scrum_master_agent_content(class_name: str, name: str) -> str:
     return f'''"""{display} — Scrum Master agent with MCP integration."""
 
 import logging
+import os
 from typing import Any, Dict
 
-import google.generativeai as genai
+from google import genai
 from agents.base import BaseAgent
 
 logger = logging.getLogger(__name__)
@@ -358,32 +376,44 @@ class {class_name}(BaseAgent):
 
     def __init__(self, settings: Any = None):
         super().__init__(settings)
-        self.model = None
+        self.client = None
+        self.model_name = "gemini-2.0-flash-001"
         self.sprint_mgr = None
         self.standup_gen = None
 
     async def initialize(self) -> None:
-        if self.settings and self.settings.google_project_id:
-            genai.configure(
-                project=self.settings.google_project_id,
-                location=self.settings.google_location,
-            )
-        model_name = (
+        self.model_name = (
             self.settings.vertex_ai_model if self.settings else "gemini-2.0-flash-001"
         )
-        self.model = genai.GenerativeModel(model_name)
+        self.client = None
+        try:
+            if self.settings and self.settings.google_project_id:
+                self.client = genai.Client(
+                    vertexai=True,
+                    project=self.settings.google_project_id,
+                    location=self.settings.google_location,
+                )
+            elif os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY"):
+                self.client = genai.Client()
+        except Exception:
+            self.client = None
 
         from sprint_manager import SprintManager
         from standup_generator import StandupGenerator
 
-        self.sprint_mgr = SprintManager(self.settings)
-        self.standup_gen = StandupGenerator(self.settings, self.model)
+        self.sprint_mgr = SprintManager()
+        self.standup_gen = StandupGenerator()
         self._initialized = True
         logger.info("{class_name} initialized")
 
     async def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         if not self._initialized:
             await self.initialize()
+        if self.client is None:
+            return {{
+                "response": "Model client not configured. Set GOOGLE_PROJECT_ID (Vertex AI) or GOOGLE_API_KEY (AI Studio).",
+                "status": "error",
+            }}
         message = input_data.get("message", "")
         history = "\\n".join(
             f"{{m.role}}: {{m.content}}" for m in self.get_history(10)
@@ -395,7 +425,7 @@ class {class_name}(BaseAgent):
             f"User: {{message}}\\n\\nAssistant:"
         )
         try:
-            response = self.model.generate_content(prompt)
+            response = self.client.models.generate_content(model=self.model_name, contents=prompt)
             return {{"response": response.text, "status": "success"}}
         except Exception as e:
             return {{"response": f"Error: {{str(e)}}", "status": "error"}}

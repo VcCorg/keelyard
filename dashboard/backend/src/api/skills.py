@@ -247,6 +247,8 @@ class SecurityScanRequest(BaseModel):
     """Request to security-scan a skill. Provide a registry skill name or a path."""
     skill_name: Optional[str] = None
     path: Optional[str] = None
+    # None = auto (LLM only if a provider key is configured); True/False = force.
+    use_llm: Optional[bool] = None
 
 
 @router.get("/security/status")
@@ -270,8 +272,8 @@ async def security_scan_skill(req: SecurityScanRequest):
 
     try:
         if req.skill_name:
-            return sec.scan_registry_skill(req.skill_name)
-        return sec.scan_path(Path(req.path))
+            return sec.scan_registry_skill(req.skill_name, use_llm=req.use_llm)
+        return sec.scan_path(Path(req.path), use_llm=req.use_llm)
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except RuntimeError as e:

@@ -81,12 +81,17 @@ async def create_config(req: CreateEvalConfigRequest):
 
 # ── Streaming long-running steps (SSE, recorded in run registry) ────────────
 
-def _sse(kind_label: str, args: list[str]) -> EventSourceResponse:
+def _sse(
+    kind_label: str,
+    args: list[str],
+    env_overrides: Optional[dict] = None,
+    cwd: Optional[str] = None,
+) -> EventSourceResponse:
     cmd = svc.resolve_cli_command() + ["eval"] + args
     rec = registry.create(kind="eval", label=kind_label, cmd=cmd)
 
     async def gen():
-        async for event in registry.stream(rec, cmd):
+        async for event in registry.stream(rec, cmd, env_overrides=env_overrides, cwd=cwd):
             yield event
 
     return EventSourceResponse(gen())
@@ -97,9 +102,33 @@ async def run_agent_stream(
     agent: str = Query(..., description="Agent spec (module:func or mock:simple|qa|helpful)"),
     eval_name: str = Query(..., description="Eval config name"),
     batch: int = Query(5, ge=1, le=20),
+    project_path: Optional[str] = Query(
+        None, description="Agent project path; its src/ is added to PYTHONPATH so the agent module imports"
+    ),
 ):
-    """Run `dva eval run agent <agent> <eval_name>` and stream output."""
-    return _sse(f"run {eval_name} ({agent})", ["run", "agent", agent, eval_name, "-b", str(batch)])
+    """Run `dva eval run agent <agent> <eval_name>` and stream output.
+
+    When ``project_path`` is provided, the project's ``src`` directory is placed
+    on PYTHONPATH and used as the working directory, so a generated agent's
+    ``module:answer`` spec resolves without manual setup.
+    """
+    import os as _os
+    from pathlib import Path as _Path
+
+    env_overrides: Optional[dict] = None
+    cwd: Optional[str] = None
+    if project_path:
+        src = _Path(project_path) / "src"
+        existing = _os.environ.get("PYTHONPATH", "")
+        env_overrides = {"PYTHONPATH": str(src) + (_os.pathsep + existing if existing else "")}
+        cwd = project_path
+
+    return _sse(
+        f"run {eval_name} ({agent})",
+        ["run", "agent", agent, eval_name, "-b", str(batch)],
+        env_overrides=env_overrides,
+        cwd=cwd,
+    )
 
 
 @router.get("/compare/stream")

@@ -79,6 +79,43 @@ def _main_config() -> dict:
             return {}
 
 
+def _integration_item(
+    key: str,
+    label: str,
+    url_env: str,
+    token_env: str,
+    extra_env: Optional[str] = None,
+) -> SetupItem:
+    """Build an env-only setup item for a PAT-based integration.
+
+    Like the Devin item, nothing is persisted to disk — credentials are read
+    from the backend's environment. ``configured`` requires both the server
+    URL and the personal access token to be present, matching what the MCP
+    services and dashboard services expect.
+    """
+    url = os.environ.get(url_env, "").strip()
+    token = os.environ.get(token_env, "").strip()
+    configured = bool(url and token)
+
+    if configured:
+        detail = f"{url_env} + token set ({url})"
+    elif url and not token:
+        detail = f"{url_env} set — {token_env} missing"
+    elif token and not url:
+        detail = f"{token_env} set — {url_env} missing"
+    else:
+        detail = f"Set {url_env} and {token_env} on the backend environment"
+
+    hint = f"export {url_env}=<url>  {token_env}=<pat>"
+    if extra_env:
+        hint += f"  [{extra_env}=<optional>]"
+
+    return SetupItem(
+        key=key, label=label, configured=configured, required=False,
+        detail=detail, fix_hint=hint,
+    )
+
+
 def get_setup_status() -> SetupStatus:
     cli_available, cli_version = _cli_available()
     cfg = _main_config()
@@ -118,6 +155,21 @@ def get_setup_status() -> SetupStatus:
             key="devin", label="Devin Cloud (optional)", configured=devin_ok, required=False,
             detail=("$DEVIN_API_KEY present" if devin_ok else "Set $DEVIN_API_KEY for Devin push"),
             fix_hint="export DEVIN_API_KEY=<key>  (backend environment)",
+        ),
+        _integration_item(
+            key="jira", label="Jira (Work Items)",
+            url_env="JIRA_SERVER_URL", token_env="JIRA_PERSONAL_ACCESS_TOKEN",
+            extra_env="JIRA_DEFAULT_PROJECT",
+        ),
+        _integration_item(
+            key="bitbucket", label="Bitbucket (Repos / PRs)",
+            url_env="BITBUCKET_SERVER_URL", token_env="BITBUCKET_PERSONAL_ACCESS_TOKEN",
+            extra_env="BITBUCKET_DEFAULT_PROJECT",
+        ),
+        _integration_item(
+            key="confluence", label="Confluence (Docs)",
+            url_env="CONFLUENCE_SERVER_URL", token_env="CONFLUENCE_PERSONAL_ACCESS_TOKEN",
+            extra_env="CONFLUENCE_DEFAULT_SPACE",
         ),
     ]
     ready = cli_available and all(i.configured for i in items if i.required)

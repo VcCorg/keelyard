@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   FlaskConical,
   Loader2,
@@ -41,7 +42,9 @@ export function Eval() {
   }, []);
 
   // Run form
-  const [agent, setAgent] = useState("mock:simple");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [agent, setAgent] = useState(searchParams.get("agent") || "mock:simple");
+  const [projectPath, setProjectPath] = useState<string | null>(searchParams.get("project"));
   const [selectedConfig, setSelectedConfig] = useState("");
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
@@ -77,7 +80,14 @@ export function Eval() {
   const runAgent = () => {
     if (!agent.trim() || !selectedConfig) return;
     setRunning(true);
-    setStreamUrl(api.evalRunAgentStreamUrl(agent.trim(), selectedConfig));
+    setStreamUrl(api.evalRunAgentStreamUrl(agent.trim(), selectedConfig, 5, projectPath || undefined));
+  };
+  const clearProject = () => {
+    setProjectPath(null);
+    const next = new URLSearchParams(searchParams);
+    next.delete("project");
+    next.delete("agent");
+    setSearchParams(next, { replace: true });
   };
   const compare = () => {
     if (!selectedConfig) return;
@@ -232,6 +242,17 @@ export function Eval() {
 
       {/* Run panel */}
       <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 space-y-4">
+        {projectPath && (
+          <div className="flex items-center gap-2 rounded-lg border border-blue-200 dark:border-blue-900/50 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 text-sm text-blue-700 dark:text-blue-300">
+            <FlaskConical className="h-4 w-4 shrink-0" />
+            <span className="truncate">
+              Evaluating agent project <span className="font-mono">{projectPath}</span> — its <span className="font-mono">src/</span> is added to PYTHONPATH.
+            </span>
+            <button onClick={clearProject} className="ml-auto text-xs font-medium hover:underline shrink-0">
+              Clear
+            </button>
+          </div>
+        )}
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
             <label className="text-xs text-gray-500 block mb-1">Eval config</label>
