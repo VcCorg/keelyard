@@ -243,6 +243,44 @@ async def validate_skill_with_devin(req: ValidateWithDevinRequest):
     }
 
 
+class SecurityScanRequest(BaseModel):
+    """Request to security-scan a skill. Provide a registry skill name or a path."""
+    skill_name: Optional[str] = None
+    path: Optional[str] = None
+
+
+@router.get("/security/status")
+async def security_scanner_status():
+    """Report whether the SkillSpector security scanner is available."""
+    from src.services import skill_security_service as sec
+    return sec.is_available()
+
+
+@router.post("/security/scan")
+async def security_scan_skill(req: SecurityScanRequest):
+    """Scan a skill for vulnerabilities / malicious patterns via SkillSpector.
+
+    Returns a normalized verdict (SAFE / CAUTION / DO_NOT_INSTALL) with the
+    underlying risk score and individual issues.
+    """
+    from src.services import skill_security_service as sec
+
+    if not req.skill_name and not req.path:
+        raise HTTPException(status_code=400, detail="Provide a skill_name or a path to scan")
+
+    try:
+        if req.skill_name:
+            return sec.scan_registry_skill(req.skill_name)
+        return sec.scan_path(Path(req.path))
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except RuntimeError as e:
+        # Scanner missing or errored — 503 so the UI can show a clear banner.
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"Security scan failed: {str(e)}")
+
+
 @router.get("/targets", response_model=IntegrationTargetsResponse)
 async def list_integration_targets():
     """List places a skill can be integrated into: the current project and any
