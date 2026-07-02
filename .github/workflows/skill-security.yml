@@ -1,0 +1,36 @@
+name: skill-security
+
+# Security-gates the skills registry with NVIDIA SkillSpector. Fails the build
+# if any skill under skills/skills/ is rated DO_NOT_INSTALL. Complements the
+# no-company-data guard: that keeps proprietary data from leaking OUT, this
+# keeps vulnerable / malicious skills from coming IN.
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "skills/skills/**"
+      - "scripts/scan-skills-security.sh"
+      - ".github/workflows/skill-security.yml"
+  pull_request:
+    branches: ["**"]
+    paths:
+      - "skills/skills/**"
+      - "scripts/scan-skills-security.sh"
+      - ".github/workflows/skill-security.yml"
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install SkillSpector
+        run: uv tool install git+https://github.com/NVIDIA/skillspector.git
+
+      - name: Scan skills registry
+        run: bash scripts/scan-skills-security.sh
