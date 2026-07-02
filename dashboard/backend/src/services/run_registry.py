@@ -85,11 +85,22 @@ class RunRegistry:
     def get(self, run_id: str) -> Optional[RunRecord]:
         return self._runs.get(run_id)
 
-    async def stream(self, rec: RunRecord, cmd: list[str]) -> AsyncGenerator[dict, None]:
+    async def stream(
+        self,
+        rec: RunRecord,
+        cmd: list[str],
+        env_overrides: Optional[dict] = None,
+        cwd: Optional[str] = None,
+    ) -> AsyncGenerator[dict, None]:
         """Run `cmd`, tee output into `rec`, and yield SSE-style event dicts.
 
         Emits: {"event": "start", "data": run_id}, repeated
         {"event": "log", "data": line}, and {"event": "done", "data": code}.
+
+        Args:
+            env_overrides: extra environment variables merged over the inherited
+                environment (e.g. PYTHONPATH pointing at a project's ``src``).
+            cwd: working directory for the subprocess.
         """
         yield {"event": "start", "data": rec.id}
         header = f"$ {rec.command}"
@@ -99,6 +110,8 @@ class RunRegistry:
         env = os.environ.copy()
         env["NO_COLOR"] = "1"
         env["TERM"] = "dumb"
+        if env_overrides:
+            env.update(env_overrides)
 
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -106,6 +119,7 @@ class RunRegistry:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
                 env=env,
+                cwd=cwd,
             )
         except Exception as e:  # pragma: no cover - defensive
             rec.status = "failed"

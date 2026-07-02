@@ -1,0 +1,255 @@
+"""Jira integration — list issues assigned to the current user.
+
+Reuses the same environment credentials as the Jira MCP server:
+
+  - ``JIRA_SERVER_URL``: base URL of the Jira Server/Data Center instance
+  - ``JIRA_PERSONAL_ACCESS_TOKEN``: PAT used as a Bearer token
+  - ``JIRA_VERIFY_SSL``: optional, ``0``/``false`` to disable TLS verification
+
+The set of Jira projects is derived from the onboarded domains (each domain's
+``jira_project`` key), so "my work items" are scoped to what has actually been
+onboarded rather than the whole instance. Issues are those where the PAT owner
+is the assignee (JQL ``assignee = currentUser()``).
+"""
+from __future__ import annotations
+
+import os
+from typing import Optional
+
+import httpx
+from pydantic import BaseModel
+
+
+# ── Transport shapes ─────────────────────────────────────────────────────────
+
+class JiraStatus(BaseModel):
+    configured: bool
+    server_url: str = ""
+    projects: list[str] = []
+
+
+class JiraIssue(BaseModel):
+    key: str
+    summary: str
+    status: str = ""
+    status_category: str = ""
+    priority: str = ""
+    issuetype: str = ""
+    project: str = ""
+    updated: str = ""
+    created: str = ""
+    labels: list[str] = []
+    link: str = ""
+
+
+class JiraIssueDetail(JiraIssue):
+    description: str = ""
+
+
+class MyIssuesResponse(BaseModel):
+    configured: bool
+    projects: list[str] = []
+    jql: str = ""
+    total: int = 0
+    issues: list[JiraIssue] = []
+    error: Optional[str] = None
+
+
+# ── Config ───────────────────────────────────────────────────────────────────
+
+def _server_url() -> str:
+    return (os.environ.get("JIRA_SERVER_URL") or "").rstrip("/")
+
+
+def _token() -> str:
+    return os.environ.get("JIRA_PERSONAL_ACCESS_TOKEN") or ""
+
+
+def _verify_ssl() -> bool:
+    return (os.environ.get("JIRA_VERIFY_SSL", "true").lower() not in {"0", "false", "no"})
+
+
+def is_configured() -> bool:
+    return bool(_server_url() and _token())
+
+
+def _domain_project_keys() -> list[str]:
+    """Collect distinct Jira project keys from all onboarded domains."""
+    try:
+        from src.services.domain_service import list_domains
+
+        keys: list[str] = []
+        for d in list_domains():
+            key = (d.jira_project or "").strip().upper()
+            if key and key not in keys:
+                keys.append(key)
+        return keys
+    except Exception:
+        return []
+
+
+# ── Public API ───────────────────────────────────────────────────────────────
+
+def get_status() -> JiraStatus:
+    return JiraStatus(
+        configured=is_configured(),
+        server_url=_server_url(),
+        projects=_domain_project_keys(),
+    )
+
+
+def list_my_domain_issues(
+    statuses: Optional[list[str]] = None,
+    max_results: int = 100,
+) -> MyIssuesResponse:
+    """Return issues assigned to the current user across onboarded domain projects.
+
+    Args:
+        statuses: optional status-category filter; defaults to open work
+            (excludes Done).
+        max_results: cap on issues returned.
+    """
+    projects = _domain_project_keys()
+
+    if not is_configured():
+        return MyIssuesResponse(
+            configured=False,
+            projects=projects,
+            error=(
+                "Jira is not configured. Set JIRA_SERVER_URL and "
+                "JIRA_PERSONAL_ACCESS_TOKEN on the dashboard backend."
+            ),
+        )
+
+    # Build JQL scoped to onboarded projects, assigned to the PAT owner.
+    clauses = ["assignee = currentUser()"]
+    if projects:
+        joined = ", ".join(f'"{p}"' for p in projects)
+        clauses.append(f"project in ({joined})")
+    if statuses:
+        joined_status = ", ".join(f'"{s}"' for s in statuses)
+        clauses.append(f"status in ({joined_status})")
+    else:
+        clauses.append("statusCategory != Done")
+    jql = " AND ".join(clauses) + " ORDER BY updated DESC"
+
+    fields = (
+        "summary,status,priority,assignee,issuetype,project,"
+        "created,updated,labels"
+    )
+    try:
+        with httpx.Client(
+            base_url=f"{_server_url()}/rest/api/2",
+            headers={
+                "Authorization": f"Bearer {_token()}",
+                "Accept": "application/json",
+            },
+            verify=_verify_ssl(),
+            timeout=30.0,
+        ) as client:
+            resp = client.get(
+                "/search",
+                params={"jql": jql, "maxResults": max_results, "fields": fields},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+    except httpx.HTTPStatusError as e:
+        detail = e.response.text[:300] if e.response is not None else str(e)
+        return MyIssuesResponse(
+            configured=True, projects=projects, jql=jql,
+            error=f"Jira returned {e.response.status_code}: {detail}",
+        )
+    except Exception as e:  # noqa: BLE001 - surface any transport error to the UI
+        return MyIssuesResponse(
+            configured=True, projects=projects, jql=jql, error=str(e)[:300]
+        )
+
+    issues: list[JiraIssue] = []
+    for item in data.get("issues", []):
+        f = item.get("fields", {})
+        status = f.get("status") or {}
+        issues.append(
+            JiraIssue(
+                key=item.get("key", ""),
+                summary=f.get("summary", ""),
+                status=status.get("name", ""),
+                status_category=(status.get("statusCategory") or {}).get("name", ""),
+                priority=(f.get("priority") or {}).get("name", ""),
+                issuetype=(f.get("issuetype") or {}).get("name", ""),
+                project=(f.get("project") or {}).get("key", ""),
+                created=f.get("created", ""),
+                updated=f.get("updated", ""),
+                labels=f.get("labels", []) or [],
+                link=f"{_server_url()}/browse/{item.get('key', '')}",
+            )
+        )
+
+    return MyIssuesResponse(
+        configured=True,
+        projects=projects,
+        jql=jql,
+        total=data.get("total", len(issues)),
+        issues=issues,
+    )
+
+
+def _description_text(raw) -> str:
+    """Best-effort plain text from a Jira description (str for API v2)."""
+    if isinstance(raw, str):
+        return raw.strip()
+    return ""
+
+
+def get_issue(key: str) -> Optional[JiraIssueDetail]:
+    """Fetch a single issue's detail (incl. description). None if not found.
+
+    Raises RuntimeError with a readable message on config/transport errors so
+    callers can surface it.
+    """
+    if not is_configured():
+        raise RuntimeError(
+            "Jira is not configured. Set JIRA_SERVER_URL and "
+            "JIRA_PERSONAL_ACCESS_TOKEN on the dashboard backend."
+        )
+
+    fields = (
+        "summary,status,priority,assignee,issuetype,project,"
+        "created,updated,labels,description"
+    )
+    try:
+        with httpx.Client(
+            base_url=f"{_server_url()}/rest/api/2",
+            headers={
+                "Authorization": f"Bearer {_token()}",
+                "Accept": "application/json",
+            },
+            verify=_verify_ssl(),
+            timeout=30.0,
+        ) as client:
+            resp = client.get(f"/issue/{key}", params={"fields": fields})
+            if resp.status_code == 404:
+                return None
+            resp.raise_for_status()
+            item = resp.json()
+    except httpx.HTTPStatusError as e:
+        code = e.response.status_code if e.response is not None else "?"
+        raise RuntimeError(f"Jira returned {code} for {key}") from e
+    except Exception as e:  # noqa: BLE001
+        raise RuntimeError(str(e)[:200]) from e
+
+    f = item.get("fields", {})
+    status = f.get("status") or {}
+    return JiraIssueDetail(
+        key=item.get("key", key),
+        summary=f.get("summary", ""),
+        status=status.get("name", ""),
+        status_category=(status.get("statusCategory") or {}).get("name", ""),
+        priority=(f.get("priority") or {}).get("name", ""),
+        issuetype=(f.get("issuetype") or {}).get("name", ""),
+        project=(f.get("project") or {}).get("key", ""),
+        created=f.get("created", ""),
+        updated=f.get("updated", ""),
+        labels=f.get("labels", []) or [],
+        link=f"{_server_url()}/browse/{item.get('key', key)}",
+        description=_description_text(f.get("description")),
+    )

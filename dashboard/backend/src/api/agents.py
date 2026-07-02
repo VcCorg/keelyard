@@ -20,6 +20,8 @@ from src.services.agent_service import (
     discover_agent_projects,
     validate_project,
     get_project_domain,
+    test_agent,
+    get_agent_eval_spec,
 )
 
 router = APIRouter(prefix="/api/agents", tags=["agents"])
@@ -41,6 +43,50 @@ class AgentActionResponse(BaseModel):
 async def api_list_agents():
     """List all tracked agent instances with live status."""
     return list_agents()
+
+
+class TestAgentRequest(BaseModel):
+    path: str
+    message: str
+
+
+class TestAgentResponse(BaseModel):
+    ok: bool
+    response: Optional[str] = None
+    error: Optional[str] = None
+
+
+@router.post("/test", response_model=TestAgentResponse)
+async def api_test_agent(req: TestAgentRequest):
+    """Invoke a generated agent's answer() entrypoint once and return its reply.
+
+    This runs the real generated agent code (in the project's venv) without
+    requiring a daemon, so users can validate conversational agents directly.
+    """
+    result = await asyncio.to_thread(test_agent, req.path, req.message)
+    return TestAgentResponse(**result)
+
+
+class EvalSpecResponse(BaseModel):
+    spec: str
+    module: str
+    src: str
+
+
+@router.get("/eval-spec", response_model=EvalSpecResponse)
+async def api_agent_eval_spec(path: str = Query(..., description="Agent project path")):
+    """Derive the evaluation agent spec (module:answer) for a project.
+
+    Used to auto-wire a built agent into the Evaluation flow without the user
+    hand-typing the module path.
+    """
+    result = get_agent_eval_spec(path)
+    if not result:
+        raise HTTPException(
+            status_code=404,
+            detail="No agent exposes an answer() entrypoint (expected in src/agents/*.py).",
+        )
+    return EvalSpecResponse(**result)
 
 
 @router.get("/projects", response_model=list[AgentProject])

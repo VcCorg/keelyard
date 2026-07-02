@@ -43,6 +43,28 @@ def _binary() -> Optional[str]:
     return shutil.which("skillspector")
 
 
+# Provider credential env vars SkillSpector recognizes. Presence of any means an
+# LLM-augmented scan is viable; absence means we must run static-only (--no-llm).
+_LLM_ENV_KEYS = (
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "NVIDIA_INFERENCE_KEY",
+    "AWS_PROFILE",
+    "AWS_ACCESS_KEY_ID",
+)
+
+
+def _llm_available() -> bool:
+    """True if any SkillSpector LLM provider credential is configured."""
+    return any(os.environ.get(k) for k in _LLM_ENV_KEYS)
+
+
+def _is_llm_credential_error(text: str) -> bool:
+    """Detect SkillSpector's 'no LLM API key configured' error text."""
+    low = (text or "").lower()
+    return "llm api key" in low or "no llm api key configured" in low
+
+
 def is_available() -> Dict[str, Any]:
     """Report whether the SkillSpector scanner is installed and its version."""
     binary = _binary()
@@ -115,8 +137,27 @@ def _normalize(raw: Dict[str, Any], target: str) -> Dict[str, Any]:
     }
 
 
-def scan_path(target: Path, *, timeout: int = 180) -> Dict[str, Any]:
+def _run_skillspector(binary: str, target: Path, timeout: int, no_llm: bool):
+    """Invoke the skillspector CLI once."""
+    cmd = [binary, "scan", str(target), "--format", "json"]
+    if no_llm:
+        cmd.append("--no-llm")
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+
+
+def scan_path(
+    target: Path,
+    *,
+    timeout: int = 180,
+    use_llm: Optional[bool] = None,
+) -> Dict[str, Any]:
     """Scan a skill directory / file / URL and return a normalized verdict.
+
+    LLM analysis is used only when a provider credential is configured. When
+    ``use_llm`` is None (default) we auto-detect via env; callers may force it
+    on/off. If an LLM run fails purely because no API key is configured, we
+    transparently fall back to a static-only (--no-llm) scan so the endpoint
+    still returns a valid verdict instead of erroring.
 
     Raises ``RuntimeError`` when the scanner is unavailable or errors out
     (exit code 2 / unparseable output) so callers can surface a clean message.
@@ -128,13 +169,18 @@ def scan_path(target: Path, *, timeout: int = 180) -> Dict[str, Any]:
             "uv tool install git+https://github.com/NVIDIA/skillspector.git"
         )
 
+    no_llm = (use_llm is False) or (use_llm is None and not _llm_available())
+
     try:
-        proc = subprocess.run(
-            [binary, "scan", str(target), "--format", "json"],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
+        proc = _run_skillspector(binary, target, timeout, no_llm)
+        # Requested/attempted an LLM scan but no key is configured — retry static.
+        if (
+            proc.returncode == 2
+            and not no_llm
+            and _is_llm_credential_error(proc.stdout + proc.stderr)
+        ):
+            no_llm = True
+            proc = _run_skillspector(binary, target, timeout, no_llm)
     except subprocess.TimeoutExpired as exc:  # pragma: no cover - defensive
         raise RuntimeError(f"SkillSpector scan timed out after {timeout}s") from exc
     except (subprocess.SubprocessError, OSError) as exc:  # pragma: no cover
@@ -152,10 +198,14 @@ def scan_path(target: Path, *, timeout: int = 180) -> Dict[str, Any]:
             f"Could not parse SkillSpector output: {proc.stderr.strip() or exc}"
         ) from exc
 
-    return _normalize(raw, str(target))
+    result = _normalize(raw, str(target))
+    result["llm"]["used"] = not no_llm
+    return result
 
 
-def scan_registry_skill(skill_name: str) -> Dict[str, Any]:
+def scan_registry_skill(
+    skill_name: str, *, use_llm: Optional[bool] = None
+) -> Dict[str, Any]:
     """Resolve a skill in the configured registry and scan its directory."""
     from agentic_cli.commands.code import _ensure_registry
 
@@ -164,6 +214,6 @@ def scan_registry_skill(skill_name: str) -> Dict[str, Any]:
     if not skill_dir.exists():
         raise FileNotFoundError(f"Skill '{skill_name}' not found in registry")
 
-    result = scan_path(skill_dir)
+    result = scan_path(skill_dir, use_llm=use_llm)
     result["skill_name"] = skill_name
     return result

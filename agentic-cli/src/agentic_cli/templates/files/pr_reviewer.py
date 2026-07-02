@@ -276,9 +276,11 @@ def _generate_reviewer(src_dir: Path, config: TemplateConfig) -> None:
 
 import json
 import logging
+import os
 from typing import Any
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 from config import Settings
 
@@ -315,21 +317,27 @@ class PRReviewer:
 
     def __init__(self, settings: Settings):
         self.settings = settings
-        self.model = None
+        self.client = None
+        self.model_name = settings.vertex_ai_model
         self._init_model()
 
     def _init_model(self) -> None:
-        """Initialize the Gemini model."""
-        if self.settings.google_project_id:
-            genai.configure(
-                project=self.settings.google_project_id,
-                location=self.settings.google_location,
-            )
-        self.model = genai.GenerativeModel(
-            self.settings.vertex_ai_model,
-            system_instruction=REVIEW_SYSTEM_PROMPT,
-        )
-        logger.info(f"Reviewer initialized with model: {self.settings.vertex_ai_model}")
+        """Initialize the Gemini client."""
+        self.model_name = self.settings.vertex_ai_model
+        self.client = None
+        try:
+            if self.settings.google_project_id:
+                self.client = genai.Client(
+                    vertexai=True,
+                    project=self.settings.google_project_id,
+                    location=self.settings.google_location,
+                )
+            elif os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY"):
+                self.client = genai.Client()
+        except Exception as e:
+            logger.warning(f"Could not initialize model client: {e}")
+            self.client = None
+        logger.info(f"Reviewer initialized with model: {self.model_name}")
 
     async def review(self, context: dict[str, Any]) -> dict[str, Any]:
         """Review a PR and return structured feedback.
@@ -342,8 +350,20 @@ class PRReviewer:
         """
         prompt = self._build_prompt(context)
 
+        if self.client is None:
+            return {
+                "action": "comment",
+                "summary": "Model client not configured.",
+                "comment": "Set GOOGLE_PROJECT_ID (Vertex AI) or GOOGLE_API_KEY (AI Studio) to enable AI review.",
+                "issues": [],
+            }
+
         try:
-            response = self.model.generate_content(prompt)
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=prompt,
+                config=types.GenerateContentConfig(system_instruction=REVIEW_SYSTEM_PROMPT),
+            )
             text = response.text.strip()
 
             # Strip markdown code fences if present

@@ -1,21 +1,42 @@
 import { useCallback, useState } from "react";
-import { Bot, Play, Square, MessageSquare, Eye } from "lucide-react";
+import { Bot, Play, Square, MessageSquare, Eye, FlaskConical } from "lucide-react";
 import { usePolling } from "@/hooks/usePolling";
 import { api, type AgentInfo } from "@/lib/api";
 import { StatusBadge } from "@/components/StatusBadge";
 import { LogViewer } from "@/components/LogViewer";
+import { TestChat } from "@/components/TestChat";
 
 export function Agents() {
   const fetcher = useCallback(() => api.listAgents(), []);
   const { data: agents, loading, refresh } = usePolling<AgentInfo[]>(fetcher, 5000);
   const [viewLogs, setViewLogs] = useState<string | null>(null);
+  const [testFor, setTestFor] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const handleStop = async (name: string) => {
     setActionLoading(name);
     try {
       await api.stopAgent(name);
       refresh();
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleStart = async (name: string, path?: string) => {
+    if (!path) {
+      setActionError(`Cannot start '${name}': no project path recorded.`);
+      return;
+    }
+    setActionError(null);
+    setActionLoading(name);
+    try {
+      await api.startAgent(name, { path });
+      refresh();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : String(err));
     } finally {
       setActionLoading(null);
     }
@@ -29,6 +50,12 @@ export function Agents() {
           <p className="text-sm text-gray-500 mt-1">Manage running agent instances</p>
         </div>
       </div>
+
+      {actionError && (
+        <div className="rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          {actionError}
+        </div>
+      )}
 
       {loading && (
         <div className="flex items-center justify-center h-32">
@@ -81,6 +108,16 @@ export function Agents() {
                     </a>
                   )}
 
+                  {agent.path && (
+                    <button
+                      onClick={() => setTestFor(testFor === agent.name ? null : agent.name)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50 transition-colors"
+                    >
+                      <FlaskConical className="h-3.5 w-3.5" />
+                      Test
+                    </button>
+                  )}
+
                   <button
                     onClick={() => setViewLogs(viewLogs === agent.name ? null : agent.name)}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
@@ -100,10 +137,13 @@ export function Agents() {
                     </button>
                   ) : (
                     <button
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300 dark:hover:bg-emerald-900/50 transition-colors"
+                      onClick={() => handleStart(agent.name, agent.path)}
+                      disabled={actionLoading === agent.name || !agent.path}
+                      title={agent.path ? undefined : "No project path recorded for this agent"}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300 dark:hover:bg-emerald-900/50 transition-colors disabled:opacity-50"
                     >
                       <Play className="h-3.5 w-3.5" />
-                      Start
+                      {actionLoading === agent.name ? "Starting…" : "Start"}
                     </button>
                   )}
                 </div>
@@ -117,6 +157,13 @@ export function Agents() {
                 <div className="mt-2 flex gap-4 text-xs text-gray-500">
                   {agent.review_mode && <span>Mode: {agent.review_mode}</span>}
                   {agent.poll_interval && <span>Poll: {agent.poll_interval}s</span>}
+                </div>
+              )}
+
+              {/* Test chat */}
+              {testFor === agent.name && agent.path && (
+                <div className="mt-4 border-t border-gray-100 dark:border-gray-800 pt-4">
+                  <TestChat path={agent.path} compact />
                 </div>
               )}
 

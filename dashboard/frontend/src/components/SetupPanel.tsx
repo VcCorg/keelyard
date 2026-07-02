@@ -6,6 +6,14 @@ import { useSetup } from "@/context/SetupContext";
 import { api, type SetupItem } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
+/**
+ * Items configured through an in-panel form (streams `dva init ...`). Every
+ * other item — Devin and the PAT-based integrations (Jira/Bitbucket/Confluence)
+ * — is env-only: we detect the credentials in the backend environment and show
+ * the export hint instead of a Configure form.
+ */
+const FORM_CONFIGURABLE = new Set(["workspaces", "vertex_ai", "neo4j"]);
+
 function StatusDot({ ok }: { ok: boolean }) {
   return ok ? (
     <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
@@ -50,7 +58,7 @@ function ItemRow({
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{item.detail}</p>
           <code className="text-[11px] text-gray-400 break-all">{item.fix_hint}</code>
         </div>
-        {item.key !== "devin" && (
+        {FORM_CONFIGURABLE.has(item.key) && (
           <Button size="sm" variant={item.configured ? "outline" : "default"} onClick={onConfigure}>
             <Settings2 className="h-3.5 w-3.5 mr-1.5" />
             {item.configured ? "Reconfigure" : "Configure"}

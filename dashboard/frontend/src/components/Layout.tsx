@@ -74,6 +74,8 @@ type NavGroup = {
   items: NavItem[];
   /** Nested, indented sub-sections rendered under this group's items. */
   subgroups?: NavSubgroup[];
+  /** Top-level items rendered AFTER the subgroups (e.g. trailing shortcuts). */
+  footerItems?: NavItem[];
   /** If set, only shown in this workspace lens. */
   lens?: Workspace;
   /** If set, only shown to users with this role or higher. */
@@ -95,20 +97,25 @@ const navGroups: NavGroup[] = [
     items: [
       { to: "/tasks", icon: ListTodo, label: "Tasks" },
       { to: "/assignments", icon: ClipboardList, label: "Assignments" },
-      { to: "/devin", icon: DevinBot, label: "Devin Sessions" },
-      { to: "/snapshots", icon: Camera, label: "Snapshots" },
+    ],
+    subgroups: [
+      {
+        label: "Devin",
+        icon: DevinBot,
+        items: [
+          { to: "/devin", icon: DevinBot, label: "Devin Sessions" },
+          { to: "/snapshots", icon: Camera, label: "Snapshots" },
+        ],
+      },
     ],
   },
   {
     label: "Build",
     items: [
       { to: "/quickstart", icon: Wand2, label: "Quickstart" },
-      { to: "/agents", icon: Bot, label: "Agents" },
       { to: "/projects", icon: FolderKanban, label: "Agent Projects" },
+      { to: "/agents", icon: Bot, label: "Agents" },
       { to: "/eval", icon: FlaskConical, label: "Evaluation" },
-      { to: "/chat", icon: MessageSquare, label: "Chat" },
-      { to: "/terminal", icon: TerminalSquare, label: "Terminal" },
-      { to: "/cli", icon: SquareTerminal, label: "CLI Console" },
     ],
   },
   {
@@ -159,7 +166,20 @@ const navGroups: NavGroup[] = [
     items: [
       { to: "/mcp", icon: Server, label: "MCP Servers" },
       { to: "/deployments", icon: Rocket, label: "Deployments" },
-      { to: "#cli-setup", icon: Wrench, label: "CLI Setup", action: "setup" },
+    ],
+    subgroups: [
+      {
+        label: "CLI",
+        icon: SquareTerminal,
+        items: [
+          { to: "/cli", icon: SquareTerminal, label: "CLI Console" },
+          { to: "#cli-setup", icon: Wrench, label: "CLI Setup", action: "setup" },
+        ],
+      },
+    ],
+    footerItems: [
+      { to: "/terminal", icon: TerminalSquare, label: "Terminal" },
+      { to: "/chat", icon: MessageSquare, label: "Chat" },
     ],
   },
 ];
@@ -192,15 +212,34 @@ function WorkspaceSwitcher() {
 
 function NavItemLink({ item }: { item: NavItem }) {
   const { to, icon: Icon, label, action } = item;
-  const { openPanel } = useSetup();
+  const { openPanel, status, loading } = useSetup();
   if (action === "setup") {
+    const ready = status?.ready ?? false;
+    const cliMissing = status ? !status.cli_available : false;
+    const pendingRequired = status
+      ? status.items.filter((i) => i.required && !i.configured).length
+      : 0;
     return (
       <button
         onClick={openPanel}
-        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+        title="Initialize / configure the dva CLI"
+        className={cn(
+          "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+          ready
+            ? "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+            : "text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+        )}
       >
         <Icon className="h-4 w-4" />
-        {label}
+        <span className="flex-1 text-left">{label}</span>
+        {loading && !status ? null : cliMissing || !ready ? (
+          <span className="flex items-center gap-1 text-xs">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            {cliMissing ? "install" : `${pendingRequired} left`}
+          </span>
+        ) : (
+          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+        )}
       </button>
     );
   }
@@ -274,44 +313,15 @@ function NavGroupSection({ group }: { group: NavGroup }) {
           {group.subgroups?.map((sg) => (
             <NavSubgroupSection key={sg.label} subgroup={sg} />
           ))}
+          {group.footerItems?.map((item) => (
+            <NavItemLink key={item.to} item={item} />
+          ))}
         </div>
       )}
     </div>
   );
 }
 
-function SetupButton() {
-  const { status, loading, openPanel } = useSetup();
-  const ready = status?.ready ?? false;
-  const cliMissing = status ? !status.cli_available : false;
-  const pendingRequired = status
-    ? status.items.filter((i) => i.required && !i.configured).length
-    : 0;
-
-  return (
-    <button
-      onClick={openPanel}
-      title="Initialize / configure the dva CLI"
-      className={cn(
-        "w-full flex items-center gap-2 px-2 py-1.5 mb-2 rounded-lg text-sm font-medium transition-colors border",
-        ready
-          ? "border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-          : "border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 hover:bg-amber-100"
-      )}
-    >
-      <Wrench className="h-4 w-4" />
-      <span className="flex-1 text-left">CLI Setup</span>
-      {loading && !status ? null : cliMissing || !ready ? (
-        <span className="flex items-center gap-1 text-xs">
-          <AlertTriangle className="h-3.5 w-3.5" />
-          {cliMissing ? "install" : `${pendingRequired} left`}
-        </span>
-      ) : (
-        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-      )}
-    </button>
-  );
-}
 
 export function Layout() {
   const { user, workspace, theme, toggleTheme, updateUser } = useUser();
@@ -354,7 +364,6 @@ export function Layout() {
         </nav>
 
         <div className="px-3 py-3 border-t border-gray-200 dark:border-gray-800">
-          <SetupButton />
           <div className="flex items-center gap-3 px-2 py-1.5 rounded-lg">
             <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-xs font-bold text-blue-700 dark:text-blue-300">
               {user.name ? initials(user.name) : <UserIcon className="h-4 w-4" />}

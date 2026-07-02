@@ -1,7 +1,9 @@
 import { useCallback, useState } from "react";
-import { FolderKanban, CheckCircle2, XCircle, Globe, Shield } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { FolderKanban, CheckCircle2, XCircle, Globe, Shield, Play, Square, ScrollText, FlaskConical } from "lucide-react";
 import { usePolling } from "@/hooks/usePolling";
-import { api, type AgentProject, type ProjectValidation } from "@/lib/api";
+import { api, type AgentProject, type ProjectValidation, type AgentInfo } from "@/lib/api";
+import { TestChat } from "@/components/TestChat";
 
 function ValidationScore({ validation }: { validation: ProjectValidation }) {
   const pct = validation.total > 0 ? Math.round((validation.score / validation.total) * 100) : 0;
@@ -47,11 +49,54 @@ function ValidationChecks({ validation }: { validation: ProjectValidation }) {
 }
 
 export function Projects() {
+  const navigate = useNavigate();
   const fetcher = useCallback(() => api.discoverProjects(), []);
   const { data: projects, loading } = usePolling<AgentProject[]>(fetcher, 10000);
+  const agentsFetcher = useCallback(() => api.listAgents(), []);
+  const { data: agents, refresh: refreshAgents } = usePolling<AgentInfo[]>(agentsFetcher, 5000);
   const [selected, setSelected] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [runError, setRunError] = useState<string | null>(null);
 
   const proj = selected ? projects?.find((p) => p.path === selected) : null;
+  const runningAgent = proj ? agents?.find((a) => a.name === proj.name && a.status === "running") : undefined;
+
+  const handleRun = async (p: AgentProject) => {
+    setRunError(null);
+    setBusy(true);
+    try {
+      await api.startAgent(p.name, { path: p.path });
+      // Started as a background daemon — jump to the Agents page to watch it.
+      navigate("/agents");
+    } catch (err) {
+      setRunError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleStop = async (name: string) => {
+    setRunError(null);
+    setBusy(true);
+    try {
+      await api.stopAgent(name);
+      await refreshAgents();
+    } catch (err) {
+      setRunError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleEvaluate = async (p: AgentProject) => {
+    setRunError(null);
+    try {
+      const { spec } = await api.getAgentEvalSpec(p.path);
+      navigate(`/eval?agent=${encodeURIComponent(spec)}&project=${encodeURIComponent(p.path)}`);
+    } catch (err) {
+      setRunError(err instanceof Error ? err.message : String(err));
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -132,7 +177,35 @@ export function Projects() {
                       <h2 className="text-lg font-bold">{proj.name}</h2>
                       <p className="text-xs text-gray-400 font-mono mt-0.5">{proj.path}</p>
                     </div>
+                    <div className="ml-auto flex items-center gap-2">
+                      {runningAgent ? (
+                        <>
+                          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                            Running{runningAgent.pid ? ` (PID ${runningAgent.pid})` : ""}
+                          </span>
+                          <button
+                            onClick={() => navigate("/agents")}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition-colors"
+                          >
+                            <ScrollText className="h-4 w-4" />
+                            Logs
+                          </button>
+                        </>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400">
+                          <span className="h-2 w-2 rounded-full bg-gray-300 dark:bg-gray-600" />
+                          Stopped
+                        </span>
+                      )}
+                    </div>
                   </div>
+
+                  {runError && (
+                    <div className="mt-4 rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+                      {runError}
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 gap-4 mt-5 text-sm">
                     <div>
@@ -175,7 +248,40 @@ export function Projects() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Actions */}
+                  <div className="mt-5 pt-4 border-t border-gray-100 dark:border-gray-800 flex items-center gap-2">
+                    <button
+                      onClick={() => handleEvaluate(proj)}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50 transition-colors"
+                    >
+                      <FlaskConical className="h-4 w-4" />
+                      Evaluate
+                    </button>
+                    {runningAgent ? (
+                      <button
+                        onClick={() => handleStop(runningAgent.name)}
+                        disabled={busy}
+                        className="ml-auto inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
+                      >
+                        <Square className="h-4 w-4" />
+                        {busy ? "Stopping…" : "Stop"}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleRun(proj)}
+                        disabled={busy}
+                        className="ml-auto inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                      >
+                        <Play className="h-4 w-4" />
+                        {busy ? "Starting…" : "Run agent"}
+                      </button>
+                    )}
+                  </div>
                 </div>
+
+                {/* Test agent (invokes answer() once per message) */}
+                <TestChat key={proj.path} path={proj.path} />
 
                 {/* Validation */}
                 {proj.validation && (
