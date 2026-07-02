@@ -6,6 +6,7 @@ import { MCPServers } from "@/pages/MCPServers";
 import { ActivityFeed } from "@/pages/ActivityFeed";
 import { Chat } from "@/pages/Chat";
 import { Projects } from "@/pages/Projects";
+import { Quickstart } from "@/pages/Quickstart";
 import { Skills } from "@/pages/Skills";
 import { Marketplace } from "@/pages/Marketplace";
 import { Terminal } from "@/pages/Terminal";
@@ -49,6 +50,7 @@ function App() {
             <Route path="/shared/agents" element={<SharedAgents />} />
             <Route path="/shared/kg" element={<SharedKG />} />
             <Route path="/agents" element={<Agents />} />
+            <Route path="/quickstart" element={<Quickstart />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/skills" element={<Skills />} />
             <Route path="/skills/personas" element={<PersonaSkills />} />
