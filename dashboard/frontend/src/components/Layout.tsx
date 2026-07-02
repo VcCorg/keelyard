@@ -36,6 +36,7 @@ import {
   Wrench,
   CheckCircle2,
   AlertTriangle,
+  Wand2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -101,6 +102,7 @@ const navGroups: NavGroup[] = [
   {
     label: "Build",
     items: [
+      { to: "/quickstart", icon: Wand2, label: "Quickstart" },
       { to: "/agents", icon: Bot, label: "Agents" },
       { to: "/projects", icon: FolderKanban, label: "Agent Projects" },
       { to: "/eval", icon: FlaskConical, label: "Evaluation" },
