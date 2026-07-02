@@ -17,6 +17,10 @@ import {
   Package,
   Bot,
   BookMarked,
+  Shield,
+  ShieldCheck,
+  ShieldAlert,
+  ShieldX,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -49,6 +53,58 @@ interface IntegrationTarget {
 
 type Toast = { type: "success" | "error"; message: string };
 
+type Verdict = "SAFE" | "CAUTION" | "DO_NOT_INSTALL";
+
+interface ScanIssue {
+  id: string;
+  title: string;
+  severity: string;
+  category: string;
+  confidence?: number | null;
+  description: string;
+}
+
+interface ScanResult {
+  target: string;
+  skill_name?: string;
+  score: number | null;
+  severity: string | null;
+  verdict: Verdict;
+  gate: "allow" | "warn" | "block";
+  issue_count: number;
+  issues: ScanIssue[];
+  llm: { requested?: boolean | null; available?: boolean | null };
+}
+
+interface ScannerStatus {
+  available: boolean;
+  version: string | null;
+}
+
+// Per-verdict presentation. Kept alongside the SkillSpector gate mapping.
+const VERDICT_META: Record<
+  Verdict,
+  { label: string; icon: typeof Shield; className: string }
+> = {
+  SAFE: {
+    label: "Safe",
+    icon: ShieldCheck,
+    className:
+      "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300",
+  },
+  CAUTION: {
+    label: "Caution",
+    icon: ShieldAlert,
+    className:
+      "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300",
+  },
+  DO_NOT_INSTALL: {
+    label: "Do not install",
+    icon: ShieldX,
+    className: "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300",
+  },
+};
+
 const TARGET_ICON: Record<string, typeof FolderKanban> = {
   project: FolderKanban,
   domain: Boxes,
@@ -70,6 +126,11 @@ export function Skills() {
   const [viewSkill, setViewSkill] = useState<{ skill: Skill; content: string } | null>(null);
   const [integrateSkill, setIntegrateSkill] = useState<Skill | null>(null);
   const [devinKeyPresent, setDevinKeyPresent] = useState(false);
+
+  const [scanner, setScanner] = useState<ScannerStatus | null>(null);
+  const [scans, setScans] = useState<Record<string, ScanResult>>({});
+  const [scanning, setScanning] = useState<Set<string>>(new Set());
+  const [scanDetail, setScanDetail] = useState<ScanResult | null>(null);
 
   const { user } = useUser();
   const isAdmin = user.role === "admin";
@@ -136,13 +197,51 @@ export function Skills() {
     }
   }, []);
 
+  const loadScanner = useCallback(async () => {
+    try {
+      const res = await fetch("/api/skills/security/status");
+      if (res.ok) setScanner(await res.json());
+    } catch {
+      /* non-fatal */
+    }
+  }, []);
+
+  const scanSkill = useCallback(
+    async (name: string) => {
+      setScanning((prev) => new Set(prev).add(name));
+      try {
+        const res = await fetch("/api/skills/security/scan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ skill_name: name }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setScans((prev) => ({ ...prev, [name]: data as ScanResult }));
+        } else {
+          showToast({ type: "error", message: data.detail || "Security scan failed" });
+        }
+      } catch {
+        showToast({ type: "error", message: "Security scan failed" });
+      } finally {
+        setScanning((prev) => {
+          const next = new Set(prev);
+          next.delete(name);
+          return next;
+        });
+      }
+    },
+    [showToast]
+  );
+
   useEffect(() => {
     loadSkills();
     loadRegistry();
     loadInstalled();
     loadTargets();
     loadDevinStatus();
-  }, [loadSkills, loadRegistry, loadInstalled, loadTargets, loadDevinStatus]);
+    loadScanner();
+  }, [loadSkills, loadRegistry, loadInstalled, loadTargets, loadDevinStatus, loadScanner]);
 
   const allTags = useMemo(() => {
     const set = new Set<string>();
@@ -188,7 +287,10 @@ export function Skills() {
             Browse Agent Skills and integrate them into your projects, domain repos, or Devin.
           </p>
         </div>
-        <RegistryStatus registry={registry} onChanged={() => { loadRegistry(); loadSkills(); }} onToast={showToast} />
+        <div className="flex items-center gap-2 flex-wrap">
+          <SecurityStatus scanner={scanner} />
+          <RegistryStatus registry={registry} onChanged={() => { loadRegistry(); loadSkills(); }} onToast={showToast} />
+        </div>
       </div>
 
       {/* Toast */}
@@ -272,6 +374,13 @@ export function Skills() {
                         <Server className="h-3 w-3" /> {skill.mcp.server}
                       </span>
                     )}
+                    <SecurityBadge
+                      result={scans[skill.name]}
+                      scanning={scanning.has(skill.name)}
+                      scannerAvailable={scanner?.available ?? false}
+                      onScan={() => scanSkill(skill.name)}
+                      onOpenDetail={() => setScanDetail(scans[skill.name])}
+                    />
                   </div>
                   <p className="text-xs text-gray-500 truncate mt-0.5">{skill.description}</p>
                   {skill.tags?.length > 0 && (
@@ -314,12 +423,132 @@ export function Skills() {
           targets={targets}
           isAdmin={isAdmin}
           devinKeyPresent={devinKeyPresent}
+          scan={scans[integrateSkill.name]}
           onClose={() => setIntegrateSkill(null)}
           onToast={showToast}
           onInstalled={() => loadInstalled()}
         />
       )}
+      {scanDetail && <ScanDetailDialog result={scanDetail} onClose={() => setScanDetail(null)} />}
     </div>
+  );
+}
+
+/* ── Security scanner status (compact) ─────────────────────────────────── */
+
+function SecurityStatus({ scanner }: { scanner: ScannerStatus | null }) {
+  const available = scanner?.available ?? false;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
+        available
+          ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300"
+          : "bg-gray-100 text-gray-500 dark:bg-gray-800"
+      )}
+      title={
+        available
+          ? `SkillSpector ${scanner?.version ?? ""}`.trim()
+          : "SkillSpector not installed — skill security scanning is unavailable"
+      }
+    >
+      <Shield className="h-3.5 w-3.5" />
+      {available ? "Scanner ready" : "Scanner off"}
+    </span>
+  );
+}
+
+/* ── Per-skill security badge / scan trigger ───────────────────────────── */
+
+function SecurityBadge({
+  result,
+  scanning,
+  scannerAvailable,
+  onScan,
+  onOpenDetail,
+}: {
+  result?: ScanResult;
+  scanning: boolean;
+  scannerAvailable: boolean;
+  onScan: () => void;
+  onOpenDetail: () => void;
+}) {
+  if (result) {
+    const meta = VERDICT_META[result.verdict];
+    const Icon = meta.icon;
+    return (
+      <button
+        onClick={onOpenDetail}
+        title="View security scan details"
+        className={cn(
+          "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+          meta.className
+        )}
+      >
+        <Icon className="h-3 w-3" /> {meta.label}
+        {result.score != null && <span className="opacity-70">· {result.score}</span>}
+      </button>
+    );
+  }
+  if (!scannerAvailable) return null;
+  return (
+    <button
+      onClick={onScan}
+      disabled={scanning}
+      title="Security-scan this skill with SkillSpector"
+      className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-50"
+    >
+      {scanning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Shield className="h-3 w-3" />}
+      {scanning ? "Scanning…" : "Scan"}
+    </button>
+  );
+}
+
+/* ── Security scan detail dialog ───────────────────────────────────────── */
+
+function ScanDetailDialog({ result, onClose }: { result: ScanResult; onClose: () => void }) {
+  const meta = VERDICT_META[result.verdict];
+  const Icon = meta.icon;
+  return (
+    <Modal title={`Security scan: ${result.skill_name ?? result.target}`} onClose={onClose} wide>
+      <div className="flex items-center gap-3 mb-3">
+        <span className={cn("inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-sm font-semibold", meta.className)}>
+          <Icon className="h-4 w-4" /> {meta.label}
+        </span>
+        {result.score != null && (
+          <span className="text-sm text-gray-500">
+            Risk score <span className="font-semibold text-gray-700 dark:text-gray-300">{result.score}</span>/100
+            {result.severity ? ` · ${result.severity}` : ""}
+          </span>
+        )}
+        <span className="ml-auto text-[11px] text-gray-400">
+          {result.llm.available ? "LLM-augmented" : "Pattern-only"} · {result.issue_count} issue
+          {result.issue_count === 1 ? "" : "s"}
+        </span>
+      </div>
+
+      {result.issues.length === 0 ? (
+        <p className="text-sm text-gray-500 py-6 text-center">No issues detected.</p>
+      ) : (
+        <div className="space-y-2 max-h-[55vh] overflow-auto">
+          {result.issues.map((issue, i) => (
+            <div key={`${issue.id}-${i}`} className="rounded-lg border border-gray-200 dark:border-gray-800 p-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{issue.severity}</span>
+                <span className="text-sm font-medium">{issue.title}</span>
+                {issue.category && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500">{issue.category}</span>
+                )}
+                {issue.confidence != null && (
+                  <span className="ml-auto text-[10px] text-gray-400">conf {Math.round((issue.confidence ?? 0) * 100)}%</span>
+                )}
+              </div>
+              {issue.description && <p className="text-xs text-gray-500 mt-1">{issue.description}</p>}
+            </div>
+          ))}
+        </div>
+      )}
+    </Modal>
   );
 }
 
@@ -449,6 +678,7 @@ function IntegrateDialog({
   targets,
   isAdmin,
   devinKeyPresent,
+  scan,
   onClose,
   onToast,
   onInstalled,
@@ -457,6 +687,7 @@ function IntegrateDialog({
   targets: IntegrationTarget[];
   isAdmin: boolean;
   devinKeyPresent: boolean;
+  scan?: ScanResult;
   onClose: () => void;
   onToast: (t: Toast) => void;
   onInstalled: () => void;
@@ -477,6 +708,14 @@ function IntegrateDialog({
     if (!resolvedPath) {
       onToast({ type: "error", message: "Choose a target path first" });
       return;
+    }
+    if (scan?.verdict === "DO_NOT_INSTALL") {
+      const proceed = window.confirm(
+        `SkillSpector flagged '${skill.name}' as DO NOT INSTALL ` +
+          `(risk score ${scan.score ?? "?"}/100, ${scan.issue_count} issue${scan.issue_count === 1 ? "" : "s"}).\n\n` +
+          "Install anyway?"
+      );
+      if (!proceed) return;
     }
     setBusy(true);
     try {
@@ -590,6 +829,25 @@ function IntegrateDialog({
           <Bot className="h-3.5 w-3.5" /> Validate with Devin
         </button>
       </div>
+
+      {mode === "install" && scan && (
+        <div
+          className={cn(
+            "flex items-center gap-2 rounded-lg px-2.5 py-1.5 mb-3 text-xs font-medium",
+            VERDICT_META[scan.verdict].className
+          )}
+        >
+          {(() => {
+            const Icon = VERDICT_META[scan.verdict].icon;
+            return <Icon className="h-3.5 w-3.5 shrink-0" />;
+          })()}
+          <span>
+            SkillSpector: {VERDICT_META[scan.verdict].label}
+            {scan.score != null ? ` · risk ${scan.score}/100` : ""} · {scan.issue_count} issue
+            {scan.issue_count === 1 ? "" : "s"}
+          </span>
+        </div>
+      )}
 
       <p className="text-xs text-gray-500 mb-3">
         {mode === "install"
