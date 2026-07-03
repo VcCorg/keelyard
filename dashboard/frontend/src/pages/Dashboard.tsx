@@ -1,13 +1,16 @@
 import { useCallback } from "react";
 import { Link } from "react-router-dom";
-import { Bot, Server, Activity, ArrowRight, FolderKanban } from "lucide-react";
+import { Bot, Server, Activity, ArrowRight, FolderKanban, ListTodo, Lightbulb } from "lucide-react";
 import { usePolling } from "@/hooks/usePolling";
 import { api, type OverviewData } from "@/lib/api";
 import { StatusBadge } from "@/components/StatusBadge";
+import { useUser } from "@/context/UserContext";
 
 export function Dashboard() {
   const fetcher = useCallback(() => api.getOverview(), []);
   const { data, loading, error } = usePolling<OverviewData>(fetcher, 10000);
+  const { user } = useUser();
+  const isLead = user.role === "lead" || user.role === "admin";
 
   if (loading) {
     return (
@@ -36,7 +39,52 @@ export function Dashboard() {
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        {/* Member quick links (roles without Build/Platform access) */}
+        {!isLead && (
+          <Link
+            to="/tasks"
+            className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all group"
+            aria-label="View my tasks"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/30">
+                  <ListTodo className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">My Tasks</p>
+                  <p className="text-2xl font-bold">{d.activity.total_commands}</p>
+                </div>
+              </div>
+              <ArrowRight className="h-4 w-4 text-gray-300 group-hover:text-blue-500 transition-colors" />
+            </div>
+            <div className="mt-3 text-xs text-gray-500">Jira work assigned to you</div>
+          </Link>
+        )}
+        {!isLead && (
+          <Link
+            to="/ideate"
+            className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all group"
+            aria-label="Capture requirements"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-900/30">
+                  <Lightbulb className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Requirements</p>
+                  <p className="text-2xl font-bold">Ideate</p>
+                </div>
+              </div>
+              <ArrowRight className="h-4 w-4 text-gray-300 group-hover:text-blue-500 transition-colors" />
+            </div>
+            <div className="mt-3 text-xs text-gray-500">Capture ideas &amp; requirements</div>
+          </Link>
+        )}
+
         {/* Agents */}
+        {isLead && (
         <Link
           to="/agents"
           className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all group"
@@ -59,8 +107,10 @@ export function Dashboard() {
             <span>{d.agents.stopped} stopped</span>
           </div>
         </Link>
+        )}
 
         {/* MCP Servers */}
+        {isLead && (
         <Link
           to="/mcp"
           className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all group"
@@ -83,8 +133,10 @@ export function Dashboard() {
             <span className="text-red-500">{d.mcp_servers.unhealthy} unhealthy</span>
           </div>
         </Link>
+        )}
 
         {/* Projects */}
+        {isLead && (
         <Link
           to="/projects"
           className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all group"
@@ -107,6 +159,7 @@ export function Dashboard() {
             <span>{d.projects.with_domain} with domain</span>
           </div>
         </Link>
+        )}
 
         {/* Activity */}
         <Link
