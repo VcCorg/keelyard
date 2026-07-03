@@ -7,6 +7,7 @@ import { ActivityFeed } from "@/pages/ActivityFeed";
 import { Chat } from "@/pages/Chat";
 import { Projects } from "@/pages/Projects";
 import { Quickstart } from "@/pages/Quickstart";
+import { ProjectCanvas } from "@/pages/ProjectCanvas";
 import { Skills } from "@/pages/Skills";
 import { Marketplace } from "@/pages/Marketplace";
 import { Terminal } from "@/pages/Terminal";
@@ -51,6 +52,7 @@ function App() {
             <Route path="/shared/kg" element={<SharedKG />} />
             <Route path="/agents" element={<Agents />} />
             <Route path="/quickstart" element={<Quickstart />} />
+            <Route path="/canvas" element={<ProjectCanvas />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/skills" element={<Skills />} />
             <Route path="/skills/personas" element={<PersonaSkills />} />
