@@ -129,6 +129,79 @@ def draft_stories(context: str, count: int = 5, model: Optional[str] = None) -> 
     return DraftResult(stories=_fallback_stories(context, count), source="heuristic")
 
 
+# ── Enterprise-search gathering (Glean / Confluence via MCP) ─────────────
+
+_MCP_URLS = {
+    "glean": "http://localhost:8127/sse",
+    "confluence": "http://localhost:8129/sse",
+}
+
+_QUERY_KEYS = ("query", "q", "text", "keyword", "question", "search")
+
+
+def _pick_search_tool(tools: List[Any]) -> Optional[Any]:
+    """Choose the best search tool (exact 'search' name, else contains 'search')."""
+    exact = [t for t in tools if getattr(t, "name", "").lower() == "search"]
+    if exact:
+        return exact[0]
+    fuzzy = [t for t in tools if "search" in getattr(t, "name", "").lower()]
+    return fuzzy[0] if fuzzy else None
+
+
+def _pick_query_arg(tool: Any) -> str:
+    """Find the parameter a search tool expects the query under."""
+    schema = getattr(tool, "inputSchema", None) or {}
+    props = list((schema.get("properties") or {}).keys())
+    for key in _QUERY_KEYS:
+        if key in props:
+            return key
+    return props[0] if props else "query"
+
+
+def _result_text(result: Any, limit: int) -> str:
+    """Join text content items from an MCP tool result."""
+    chunks: List[str] = []
+    for item in getattr(result, "content", None) or []:
+        text = getattr(item, "text", None)
+        if text:
+            chunks.append(text)
+    joined = "\n".join(chunks).strip()
+    # Cap so we don't overflow the drafting prompt.
+    return joined[: limit * 2000] if joined else ""
+
+
+async def search_source(source: str, query: str, limit: int = 5) -> str:
+    """Gather context text from a Glean/Confluence MCP server. Degrades with a
+    clear RuntimeError when the client or server is unavailable."""
+    url = _MCP_URLS.get(source)
+    if not url:
+        raise ValueError(f"Unknown source '{source}'. Valid: {', '.join(_MCP_URLS)}")
+    if not query.strip():
+        raise ValueError("A search query is required")
+
+    try:
+        from mcp import ClientSession
+        from mcp.client.sse import sse_client
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError("MCP client library is not available on the backend.") from exc
+
+    try:
+        async with sse_client(url) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                tools = (await session.list_tools()).tools
+                tool = _pick_search_tool(tools)
+                if not tool:
+                    raise RuntimeError(f"No search tool exposed by the {source} MCP server.")
+                arg = _pick_query_arg(tool)
+                result = await session.call_tool(tool.name, {arg: query})
+                return _result_text(result, limit)
+    except RuntimeError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - unreachable server, timeout, etc.
+        raise RuntimeError(f"Could not reach the {source} MCP server: {exc}") from exc
+
+
 def extract_text(content: bytes, filename: str) -> str:
     """Extract text from an uploaded requirements document (best-effort)."""
     name = (filename or "").lower()

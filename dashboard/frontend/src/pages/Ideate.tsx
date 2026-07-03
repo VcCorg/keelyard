@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Lightbulb,
   FileUp,
@@ -10,6 +10,8 @@ import {
   FileText,
   AlertCircle,
   CheckCircle2,
+  Send,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -48,10 +50,105 @@ export function Ideate() {
   const [toast, setToast] = useState<Toast | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const [searchSource, setSearchSource] = useState<"glean" | "confluence">("glean");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+
+  const [jira, setJira] = useState<{ configured: boolean; projects: string[] } | null>(null);
+  const [project, setProject] = useState("");
+  const [pushing, setPushing] = useState(false);
+  const [pushResults, setPushResults] = useState<
+    { title: string; ok: boolean; key?: string; url?: string; error?: string }[] | null
+  >(null);
+
   const showToast = useCallback((t: Toast) => {
     setToast(t);
     window.setTimeout(() => setToast(null), 3500);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/ideate/jira-status");
+        if (res.ok && !cancelled) {
+          const d = await res.json();
+          setJira(d);
+          if (d.projects?.length) setProject(d.projects[0]);
+        }
+      } catch {
+        /* non-fatal */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const runSearch = async () => {
+    if (!searchQuery.trim()) return;
+    setSearching(true);
+    try {
+      const res = await fetch("/api/ideate/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: searchSource, query: searchQuery }),
+      });
+      const data = await res.json();
+      if (res.ok && data.text) {
+        setContext((c) => (c ? `${c}\n\n--- ${searchSource}: ${searchQuery} ---\n${data.text}` : data.text));
+        showToast({ type: "success", message: `Added ${data.chars} chars from ${searchSource}` });
+      } else {
+        showToast({ type: "error", message: data.detail || "No results from " + searchSource });
+      }
+    } catch {
+      showToast({ type: "error", message: "Search failed" });
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const pushToJira = async () => {
+    const kept = stories.filter((s) => s.keep);
+    if (!kept.length) {
+      showToast({ type: "error", message: "Select at least one story" });
+      return;
+    }
+    if (!project) {
+      showToast({ type: "error", message: "Choose a Jira project" });
+      return;
+    }
+    if (!window.confirm(`Create ${kept.length} issue(s) in ${project}?`)) return;
+    setPushing(true);
+    setPushResults(null);
+    try {
+      const res = await fetch("/api/ideate/push", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          project_key: project,
+          stories: kept.map(({ title, description, acceptance_criteria, priority, labels }) => ({
+            title,
+            description,
+            acceptance_criteria,
+            priority,
+            labels,
+          })),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setPushResults(data.results);
+        showToast({ type: "success", message: `Created ${data.created} Jira issue(s)` });
+      } else {
+        showToast({ type: "error", message: data.detail || "Push failed" });
+      }
+    } catch {
+      showToast({ type: "error", message: "Push failed" });
+    } finally {
+      setPushing(false);
+    }
+  };
 
   const draft = async () => {
     if (!context.trim()) {
@@ -146,8 +243,35 @@ export function Ideate() {
           <div className="flex flex-wrap gap-2">
             <SourceChip icon={FileText} label="Free-text" active />
             <SourceChip icon={FileUp} label="File upload" active />
-            <SourceChip icon={Search} label="Glean" pending />
-            <SourceChip icon={BookText} label="Confluence" pending />
+            <SourceChip icon={Search} label="Glean" active />
+            <SourceChip icon={BookText} label="Confluence" active />
+          </div>
+
+          {/* Enterprise-search gathering */}
+          <div className="flex items-center gap-2">
+            <select
+              value={searchSource}
+              onChange={(e) => setSearchSource(e.target.value as "glean" | "confluence")}
+              className="px-2.5 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 outline-none"
+            >
+              <option value="glean">Glean</option>
+              <option value="confluence">Confluence</option>
+            </select>
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && runSearch()}
+              placeholder={`Search ${searchSource}…`}
+              className="flex-1 px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 outline-none focus:ring-2 focus:ring-blue-500/40"
+            />
+            <button
+              onClick={runSearch}
+              disabled={searching || !searchQuery.trim()}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
+            >
+              {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              Search
+            </button>
           </div>
 
           <textarea
@@ -194,9 +318,6 @@ export function Ideate() {
               </button>
             </div>
           </div>
-          <p className="text-[11px] text-gray-400">
-            Glean & Confluence gathering and Jira push arrive in the next slice.
-          </p>
         </div>
 
         {/* Review */}
@@ -217,10 +338,67 @@ export function Ideate() {
               <p className="text-sm text-gray-500">Drafted stories will appear here for review.</p>
             </div>
           ) : (
-            <div className="space-y-3 max-h-[70vh] overflow-auto pr-1">
+            <div className="space-y-3 max-h-[55vh] overflow-auto pr-1">
               {stories.map((s) => (
                 <StoryCard key={s._id} story={s} onChange={(p) => update(s._id, p)} onRemove={() => removeStory(s._id)} />
               ))}
+            </div>
+          )}
+
+          {/* Push to Jira */}
+          {stories.length > 0 && (
+            <div className="pt-3 border-t border-gray-100 dark:border-gray-800">
+              {jira?.configured ? (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-semibold">3 · Push to Jira</span>
+                  <select
+                    value={project}
+                    onChange={(e) => setProject(e.target.value)}
+                    className="px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 outline-none"
+                  >
+                    {jira.projects.length === 0 && <option value="">No project keys</option>}
+                    {jira.projects.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={pushToJira}
+                    disabled={pushing || keptCount === 0 || !project}
+                    className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {pushing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    Push {keptCount} to Jira
+                  </button>
+                </div>
+              ) : (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  Jira is not configured — set JIRA_SERVER_URL and JIRA_PERSONAL_ACCESS_TOKEN on the backend to push stories.
+                </p>
+              )}
+
+              {pushResults && (
+                <ul className="mt-3 space-y-1">
+                  {pushResults.map((r, i) => (
+                    <li key={i} className="flex items-center gap-2 text-xs">
+                      {r.ok ? (
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                      ) : (
+                        <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />
+                      )}
+                      <span className="truncate flex-1">{r.title}</span>
+                      {r.ok && r.url ? (
+                        <a href={r.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline shrink-0">
+                          {r.key} <ExternalLink className="h-3 w-3" />
+                        </a>
+                      ) : (
+                        <span className="text-red-500 truncate max-w-[50%]" title={r.error}>{r.error}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
         </div>
