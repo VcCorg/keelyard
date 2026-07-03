@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FolderKanban, CheckCircle2, XCircle, Globe, Shield, Play, Square, ScrollText, FlaskConical } from "lucide-react";
 import { usePolling } from "@/hooks/usePolling";
@@ -45,6 +45,63 @@ function ValidationChecks({ validation }: { validation: ProjectValidation }) {
         </div>
       ))}
     </div>
+  );
+}
+
+interface EvalStatusData {
+  eval_ready: boolean;
+  spec?: string | null;
+  last_run?: { eval_name: string; overall_score: number; timestamp?: string; passed: boolean } | null;
+}
+
+/** Build → Eval gate: eval-readiness + latest run pass/fail for a project. */
+function EvalGate({ path }: { path: string }) {
+  const [status, setStatus] = useState<EvalStatusData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/build/eval-status?path=${encodeURIComponent(path)}`);
+        if (!cancelled) setStatus(res.ok ? await res.json() : null);
+      } catch {
+        /* non-fatal */
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [path]);
+
+  if (loading || !status) return null;
+
+  const base = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium";
+  if (!status.eval_ready) {
+    return (
+      <span className={`${base} bg-gray-100 text-gray-500 dark:bg-gray-800`} title="No answer() entrypoint — not eval-ready">
+        <FlaskConical className="h-3 w-3" /> Not eval-ready
+      </span>
+    );
+  }
+  if (status.last_run) {
+    const pct = Math.round(status.last_run.overall_score * 100);
+    return status.last_run.passed ? (
+      <span className={`${base} bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300`} title={`Last eval: ${status.last_run.eval_name}`}>
+        <CheckCircle2 className="h-3 w-3" /> Eval passed · {pct}%
+      </span>
+    ) : (
+      <span className={`${base} bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300`} title={`Last eval: ${status.last_run.eval_name}`}>
+        <XCircle className="h-3 w-3" /> Eval failed · {pct}%
+      </span>
+    );
+  }
+  return (
+    <span className={`${base} bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300`} title="Eval-ready — no runs yet">
+      <FlaskConical className="h-3 w-3" /> Eval-ready
+    </span>
   );
 }
 
@@ -258,6 +315,7 @@ export function Projects() {
                       <FlaskConical className="h-4 w-4" />
                       Evaluate
                     </button>
+                    <EvalGate key={proj.path} path={proj.path} />
                     {runningAgent ? (
                       <button
                         onClick={() => handleStop(runningAgent.name)}

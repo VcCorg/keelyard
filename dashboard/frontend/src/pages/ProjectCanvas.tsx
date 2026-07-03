@@ -30,9 +30,17 @@ import {
   Plug,
   Cpu,
   Brain,
+  FileCode2,
+  Save,
+  X,
+  Check,
+  Plus,
+  Rocket,
+  AlertTriangle,
 } from "lucide-react";
 import { api, type AgentProject } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { StreamConsole } from "@/components/StreamConsole";
 
 /**
  * Project Canvas — an agent designer that visualizes a project's composition
@@ -224,7 +232,14 @@ function buildGraph(project: AgentProject, skills: InstalledSkill[]): { nodes: N
   const nodes: Node[] = [];
   const edges: Edge[] = [];
   const add = (id: string, kind: Kind, label: string, sub?: string) =>
-    nodes.push({ id, type: "resource", position: { x: 0, y: 0 }, data: { kind, label, sub } });
+    nodes.push({
+      id,
+      type: "resource",
+      position: { x: 0, y: 0 },
+      data: { kind, label, sub },
+      // Project + agent are structural roots and can't be deleted.
+      deletable: kind !== "project" && kind !== "agent",
+    });
   const link = (source: string, target: string) =>
     edges.push({ id: `${source}->${target}`, source, target, animated: false });
 
@@ -273,6 +288,56 @@ function buildGraph(project: AgentProject, skills: InstalledSkill[]): { nodes: N
   return { nodes, edges };
 }
 
+/* ── Graph → manifest (reflects canvas edits) ──────────────────────────── */
+
+function graphToManifest(nodes: Node[], project: AgentProject): Record<string, unknown> {
+  const labels = (k: Kind) =>
+    nodes.filter((n) => (n.data as ResourceData).kind === k).map((n) => (n.data as ResourceData).label);
+  const model = labels("model")[0];
+  const domain = labels("domain")[0];
+
+  const metadata: Record<string, unknown> = { name: project.name };
+  if (domain) metadata.domain = domain;
+
+  const agent: Record<string, unknown> = { type: project.agent_type || "agent" };
+  if (project.framework) agent.framework = project.framework;
+  if (project.use_case) agent.useCase = project.use_case;
+  if (model) agent.model = model;
+
+  return {
+    apiVersion: "agent/v1",
+    kind: "AgentProject",
+    metadata,
+    spec: {
+      agent,
+      model: model ?? null,
+      tools: labels("tool"),
+      skills: labels("skill").map((name) => ({ name })),
+      mcpServers: labels("mcp"),
+      retrievers: labels("retriever"),
+      databases: labels("database"),
+      dataSources: labels("datasource"),
+      memory: labels("memory").length > 0,
+    },
+  };
+}
+
+/** Build a `dva project create … --force` command that regenerates the project. */
+function scaffoldCommand(manifest: Record<string, unknown>, project: AgentProject): string {
+  const spec = (manifest.spec ?? {}) as Record<string, unknown>;
+  const agent = (spec.agent ?? {}) as Record<string, unknown>;
+  const parent = project.path.replace(/[/\\][^/\\]+$/, "") || ".";
+  const parts = ["project create", project.name];
+  if (agent.useCase) parts.push(`--use-case ${agent.useCase}`);
+  if (agent.framework) parts.push(`--framework ${agent.framework}`);
+  const tools = [...((spec.tools as string[]) ?? [])];
+  if (spec.memory) tools.push("memory");
+  if (tools.length) parts.push(`--tools ${tools.join(",")}`);
+  parts.push(`--path ${parent}`);
+  parts.push("--force");
+  return parts.join(" ");
+}
+
 /* ── Page ──────────────────────────────────────────────────────────────── */
 
 export function ProjectCanvas() {
@@ -282,6 +347,16 @@ export function ProjectCanvas() {
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+
+  const [manifestOpen, setManifestOpen] = useState(false);
+  const [manifestBusy, setManifestBusy] = useState(false);
+  const [manifestSaved, setManifestSaved] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [addKind, setAddKind] = useState<Kind>("tool");
+  const [addName, setAddName] = useState("");
+  const [scaffoldUrl, setScaffoldUrl] = useState<string | null>(null);
+  const [confirmScaffold, setConfirmScaffold] = useState(false);
 
   const project = useMemo(() => projects.find((p) => p.path === selected), [projects, selected]);
 
@@ -318,14 +393,93 @@ export function ProjectCanvas() {
     [setNodes, setEdges]
   );
 
+  // Load the selected project's graph; reset the dirty flag after it settles
+  // (setDirty runs post-await so it never fires synchronously in the effect).
   useEffect(() => {
-    if (project) applyGraph(project);
+    if (!project) return;
+    let cancelled = false;
+    (async () => {
+      await applyGraph(project);
+      if (!cancelled) setDirty(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [project, applyGraph]);
 
   const autoLayout = useCallback(async () => {
     const laid = await layoutGraph(nodes, edges);
     setNodes(laid);
   }, [nodes, edges, setNodes]);
+
+  // Add an ingredient node, wired to the agent, and re-layout.
+  const addComponent = useCallback(async () => {
+    const label = addName.trim() || (addKind === "memory" ? "memory" : "");
+    if (!label) return;
+    const id = `${addKind}-added-${Date.now()}`;
+    const newNode: Node = {
+      id,
+      type: "resource",
+      position: { x: 0, y: 0 },
+      data: { kind: addKind, label, sub: "added" },
+      deletable: true,
+    };
+    const newEdge: Edge = { id: `agent->${id}`, source: "agent", target: id };
+    const nextNodes = [...nodes, newNode];
+    const nextEdges = [...edges, newEdge];
+    const laid = await layoutGraph(nextNodes, nextEdges);
+    setNodes(laid);
+    setEdges(nextEdges);
+    setDirty(true);
+    setAddOpen(false);
+    setAddName("");
+  }, [addKind, addName, nodes, edges, setNodes, setEdges]);
+
+  // Deleting a node (Delete/Backspace) drops its edges and marks the graph dirty.
+  const onNodesDelete = useCallback(
+    (deleted: Node[]) => {
+      const ids = new Set(deleted.map((d) => d.id));
+      setEdges((es) => es.filter((e) => !ids.has(e.source) && !ids.has(e.target)));
+      setDirty(true);
+    },
+    [setEdges]
+  );
+
+  const openManifest = useCallback(() => {
+    setManifestSaved(false);
+    setScaffoldUrl(null);
+    setConfirmScaffold(false);
+    setManifestOpen(true);
+  }, []);
+
+  const manifest = useMemo(
+    () => (project ? graphToManifest(nodes, project) : null),
+    [nodes, project]
+  );
+
+  const saveManifest = useCallback(async () => {
+    if (!project || !manifest) return;
+    setManifestBusy(true);
+    try {
+      const res = await fetch("/api/build/manifest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: project.path, manifest }),
+      });
+      if (res.ok) {
+        setManifestSaved(true);
+        setDirty(false);
+      }
+    } finally {
+      setManifestBusy(false);
+    }
+  }, [project, manifest]);
+
+  const runScaffold = useCallback(() => {
+    if (!project || !manifest) return;
+    setScaffoldUrl(api.cliRunStreamUrl(scaffoldCommand(manifest, project)));
+    setConfirmScaffold(false);
+  }, [project, manifest]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = {};
@@ -374,12 +528,33 @@ export function ProjectCanvas() {
             ))}
           </select>
           <button
+            onClick={() => setAddOpen(true)}
+            disabled={!project}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
+            title="Add a component to the agent"
+          >
+            <Plus className="h-4 w-4" /> Add
+          </button>
+          <button
             onClick={autoLayout}
             disabled={!nodes.length}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
             title="Auto-arrange the graph"
           >
             <LayoutGrid className="h-4 w-4" /> Auto layout
+          </button>
+          <button
+            onClick={openManifest}
+            disabled={!project}
+            className={cn(
+              "inline-flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border disabled:opacity-50",
+              dirty
+                ? "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                : "border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+            )}
+            title="View manifest, save agent.yaml, or scaffold"
+          >
+            <FileCode2 className="h-4 w-4" /> Apply{dirty ? " *" : ""}
           </button>
           <button
             onClick={() => project && applyGraph(project)}
@@ -431,6 +606,7 @@ export function ProjectCanvas() {
             edges={edges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
+            onNodesDelete={onNodesDelete}
             nodeTypes={nodeTypes}
             fitView
             proOptions={{ hideAttribution: true }}
@@ -445,6 +621,159 @@ export function ProjectCanvas() {
               className="!bg-white dark:!bg-gray-900"
             />
           </ReactFlow>
+        </div>
+      )}
+
+      {/* Add-component dialog */}
+      {addOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
+          onClick={() => setAddOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+              <h2 className="font-semibold text-sm flex items-center gap-2">
+                <Plus className="h-4 w-4" /> Add component
+              </h2>
+              <button
+                onClick={() => setAddOpen(false)}
+                className="p-1 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <label className="block">
+                <span className="text-xs font-medium text-gray-500">Type</span>
+                <select
+                  value={addKind}
+                  onChange={(e) => setAddKind(e.target.value as Kind)}
+                  className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 outline-none"
+                >
+                  {(["tool", "skill", "retriever", "datasource", "database", "mcp", "memory", "model", "domain"] as Kind[]).map(
+                    (k) => (
+                      <option key={k} value={k}>
+                        {KIND_META[k].label}
+                      </option>
+                    )
+                  )}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-xs font-medium text-gray-500">Name</span>
+                <input
+                  autoFocus
+                  value={addName}
+                  onChange={(e) => setAddName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addComponent()}
+                  placeholder={addKind === "memory" ? "memory" : `${KIND_META[addKind].label.toLowerCase()} name`}
+                  className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 outline-none focus:ring-2 focus:ring-blue-500/40"
+                />
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 px-4 py-3 border-t border-gray-100 dark:border-gray-800">
+              <button
+                onClick={() => setAddOpen(false)}
+                className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={addComponent}
+                disabled={!addName.trim() && addKind !== "memory"}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                <Plus className="h-4 w-4" /> Add
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Apply / Scaffold dialog (manifest hub) */}
+      {manifestOpen && manifest && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
+          onClick={() => setManifestOpen(false)}
+        >
+          <div
+            className="w-full max-w-2xl rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+              <h2 className="font-semibold text-sm flex items-center gap-2">
+                <FileCode2 className="h-4 w-4" /> agent.yaml — {project?.name}
+              </h2>
+              <button
+                onClick={() => setManifestOpen(false)}
+                className="p-1 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-4">
+              <pre className="whitespace-pre-wrap text-xs font-mono bg-gray-50 dark:bg-gray-950 rounded-lg border border-gray-200 dark:border-gray-800 p-4 max-h-[45vh] overflow-auto">
+                {JSON.stringify(manifest, null, 2)}
+              </pre>
+              <p className="text-[11px] text-gray-400 mt-2">
+                Reflects your canvas edits. <b>Save</b> writes a non-destructive
+                <code className="font-mono"> agent.yaml</code>. <b>Scaffold</b> regenerates the
+                project via the CLI (overwrites code) — a separate, confirmed step.
+              </p>
+
+              {scaffoldUrl && (
+                <StreamConsole url={scaffoldUrl} title={`dva project create ${project?.name}`} />
+              )}
+            </div>
+            <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-100 dark:border-gray-800">
+              {manifestSaved && (
+                <span className="mr-auto inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+                  <Check className="h-3.5 w-3.5" /> Saved agent.yaml
+                </span>
+              )}
+              {confirmScaffold ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-amber-600 dark:text-amber-400 inline-flex items-center gap-1">
+                    <AlertTriangle className="h-3.5 w-3.5" /> Overwrite project code?
+                  </span>
+                  <button
+                    onClick={() => setConfirmScaffold(false)}
+                    className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={runScaffold}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-amber-600 text-white hover:bg-amber-700"
+                  >
+                    <Rocket className="h-4 w-4" /> Confirm scaffold
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setConfirmScaffold(true)}
+                    disabled={!project}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 disabled:opacity-50"
+                    title="Regenerate project files from this manifest"
+                  >
+                    <Rocket className="h-4 w-4" /> Scaffold
+                  </button>
+                  <button
+                    onClick={saveManifest}
+                    disabled={manifestBusy}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {manifestBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    Save agent.yaml
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
