@@ -30,6 +30,10 @@ import {
   Plug,
   Cpu,
   Brain,
+  FileCode2,
+  Save,
+  X,
+  Check,
 } from "lucide-react";
 import { api, type AgentProject } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -283,6 +287,11 @@ export function ProjectCanvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
+  const [manifestYaml, setManifestYaml] = useState<string | null>(null);
+  const [manifestOpen, setManifestOpen] = useState(false);
+  const [manifestBusy, setManifestBusy] = useState(false);
+  const [manifestSaved, setManifestSaved] = useState(false);
+
   const project = useMemo(() => projects.find((p) => p.path === selected), [projects, selected]);
 
   useEffect(() => {
@@ -326,6 +335,35 @@ export function ProjectCanvas() {
     const laid = await layoutGraph(nodes, edges);
     setNodes(laid);
   }, [nodes, edges, setNodes]);
+
+  const openManifest = useCallback(async () => {
+    if (!project) return;
+    setManifestSaved(false);
+    setManifestYaml(null);
+    setManifestOpen(true);
+    try {
+      const res = await fetch(`/api/build/manifest?path=${encodeURIComponent(project.path)}`);
+      const data = await res.json();
+      setManifestYaml(res.ok ? data.yaml : `# Error: ${data.detail ?? "failed to build manifest"}`);
+    } catch {
+      setManifestYaml("# Error: failed to load manifest");
+    }
+  }, [project]);
+
+  const saveManifest = useCallback(async () => {
+    if (!project) return;
+    setManifestBusy(true);
+    try {
+      const res = await fetch("/api/build/manifest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: project.path }),
+      });
+      setManifestSaved(res.ok);
+    } finally {
+      setManifestBusy(false);
+    }
+  }, [project]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = {};
@@ -380,6 +418,14 @@ export function ProjectCanvas() {
             title="Auto-arrange the graph"
           >
             <LayoutGrid className="h-4 w-4" /> Auto layout
+          </button>
+          <button
+            onClick={openManifest}
+            disabled={!project}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
+            title="View / save the agent.yaml manifest"
+          >
+            <FileCode2 className="h-4 w-4" /> Manifest
           </button>
           <button
             onClick={() => project && applyGraph(project)}
@@ -445,6 +491,61 @@ export function ProjectCanvas() {
               className="!bg-white dark:!bg-gray-900"
             />
           </ReactFlow>
+        </div>
+      )}
+
+      {/* Manifest (agent.yaml) dialog */}
+      {manifestOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
+          onClick={() => setManifestOpen(false)}
+        >
+          <div
+            className="w-full max-w-2xl rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+              <h2 className="font-semibold text-sm flex items-center gap-2">
+                <FileCode2 className="h-4 w-4" /> agent.yaml — {project?.name}
+              </h2>
+              <button
+                onClick={() => setManifestOpen(false)}
+                className="p-1 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-4">
+              <pre className="whitespace-pre-wrap text-xs font-mono bg-gray-50 dark:bg-gray-950 rounded-lg border border-gray-200 dark:border-gray-800 p-4 max-h-[55vh] overflow-auto">
+                {manifestYaml ?? "Loading…"}
+              </pre>
+              <p className="text-[11px] text-gray-400 mt-2">
+                The manifest is derived from the project. Saving writes a non-destructive
+                <code className="font-mono"> agent.yaml</code> — it never regenerates project code.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-100 dark:border-gray-800">
+              {manifestSaved && (
+                <span className="mr-auto inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+                  <Check className="h-3.5 w-3.5" /> Saved agent.yaml
+                </span>
+              )}
+              <button
+                onClick={() => setManifestOpen(false)}
+                className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300"
+              >
+                Close
+              </button>
+              <button
+                onClick={saveManifest}
+                disabled={manifestBusy || !manifestYaml}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {manifestBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Save agent.yaml
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
