@@ -25,6 +25,11 @@ import {
   LayoutGrid,
   Loader2,
   RefreshCw,
+  Database,
+  Search,
+  Plug,
+  Cpu,
+  Brain,
 } from "lucide-react";
 import { api, type AgentProject } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -38,7 +43,18 @@ import { cn } from "@/lib/utils";
  * existing APIs — no new backend.
  */
 
-type Kind = "project" | "agent" | "skill" | "tool" | "mcp" | "domain";
+type Kind =
+  | "project"
+  | "agent"
+  | "model"
+  | "skill"
+  | "tool"
+  | "retriever"
+  | "datasource"
+  | "database"
+  | "mcp"
+  | "memory"
+  | "domain";
 
 interface ResourceData extends Record<string, unknown> {
   kind: Kind;
@@ -46,15 +62,18 @@ interface ResourceData extends Record<string, unknown> {
   sub?: string;
 }
 
+// Ordered so the legend reads as the canonical "ingredients of an agent"
+// palette: the bundle, the brain, then the building blocks it composes.
 const KIND_META: Record<
   Kind,
-  { icon: ComponentType<{ className?: string }>; ring: string; chip: string; dot: string; label: string }
+  { icon: ComponentType<{ className?: string }>; ring: string; chip: string; dot: string; color: string; label: string }
 > = {
   project: {
     icon: FolderKanban,
     ring: "border-indigo-300 dark:border-indigo-700",
     chip: "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
     dot: "bg-indigo-500",
+    color: "#6366f1",
     label: "Project",
   },
   agent: {
@@ -62,13 +81,23 @@ const KIND_META: Record<
     ring: "border-blue-300 dark:border-blue-700",
     chip: "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
     dot: "bg-blue-500",
+    color: "#3b82f6",
     label: "Agent",
+  },
+  model: {
+    icon: Cpu,
+    ring: "border-fuchsia-300 dark:border-fuchsia-700",
+    chip: "bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-300",
+    dot: "bg-fuchsia-500",
+    color: "#d946ef",
+    label: "Model / runtime",
   },
   skill: {
     icon: Package,
     ring: "border-emerald-300 dark:border-emerald-700",
     chip: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
     dot: "bg-emerald-500",
+    color: "#10b981",
     label: "Skill",
   },
   tool: {
@@ -76,20 +105,55 @@ const KIND_META: Record<
     ring: "border-amber-300 dark:border-amber-700",
     chip: "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
     dot: "bg-amber-500",
+    color: "#f59e0b",
     label: "Tool",
+  },
+  retriever: {
+    icon: Search,
+    ring: "border-cyan-300 dark:border-cyan-700",
+    chip: "bg-cyan-50 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300",
+    dot: "bg-cyan-500",
+    color: "#06b6d4",
+    label: "Retriever",
+  },
+  datasource: {
+    icon: Plug,
+    ring: "border-teal-300 dark:border-teal-700",
+    chip: "bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300",
+    dot: "bg-teal-500",
+    color: "#14b8a6",
+    label: "Data source",
+  },
+  database: {
+    icon: Database,
+    ring: "border-rose-300 dark:border-rose-700",
+    chip: "bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
+    dot: "bg-rose-500",
+    color: "#f43f5e",
+    label: "Database",
   },
   mcp: {
     icon: Server,
     ring: "border-slate-300 dark:border-slate-600",
     chip: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
     dot: "bg-slate-500",
-    label: "MCP server",
+    color: "#64748b",
+    label: "MCP connector",
+  },
+  memory: {
+    icon: Brain,
+    ring: "border-orange-300 dark:border-orange-700",
+    chip: "bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
+    dot: "bg-orange-500",
+    color: "#f97316",
+    label: "Memory",
   },
   domain: {
     icon: Boxes,
     ring: "border-purple-300 dark:border-purple-700",
     chip: "bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
     dot: "bg-purple-500",
+    color: "#a855f7",
     label: "Domain",
   },
 };
@@ -167,17 +231,25 @@ function buildGraph(project: AgentProject, skills: InstalledSkill[]): { nodes: N
   add("project", "project", project.name, project.domain ? `domain · ${project.domain}` : "project");
 
   const agentId = "agent";
-  add(agentId, "agent", project.agent_type || "agent", [project.framework, project.use_case].filter(Boolean).join(" · ") || undefined);
+  add(agentId, "agent", project.agent_type || "agent", project.use_case || undefined);
   link("project", agentId);
+
+  // Model / runtime ingredient — derived from the project's framework.
+  if (project.framework) {
+    add("model", "model", project.framework, "runtime");
+    link(agentId, "model");
+  }
 
   if (project.domain) {
     add("domain", "domain", project.domain, "domain context");
     link(agentId, "domain");
   }
 
+  // Tools — the `memory` tool is surfaced as its own Memory ingredient.
   (project.tools ?? []).forEach((t, i) => {
-    const id = `tool-${i}`;
-    add(id, "tool", t, "tool");
+    const isMemory = /memory/i.test(t);
+    const id = `${isMemory ? "memory" : "tool"}-${i}`;
+    add(id, isMemory ? "memory" : "tool", t, isMemory ? "memory" : "tool");
     link(agentId, id);
   });
 
@@ -320,15 +392,28 @@ export function ProjectCanvas() {
         </div>
       </div>
 
-      {/* Legend + counts */}
-      <div className="flex items-center gap-3 flex-wrap text-xs">
-        {(Object.keys(KIND_META) as Kind[]).map((k) => (
-          <span key={k} className="inline-flex items-center gap-1.5 text-gray-500">
-            <span className={cn("h-2 w-2 rounded-full", KIND_META[k].dot)} />
-            {KIND_META[k].label}
-            {counts[k] ? <span className="text-gray-400">· {counts[k]}</span> : null}
-          </span>
-        ))}
+      {/* Legend — the full agent-ingredient palette. Types present in the
+          selected project are highlighted with a count; the rest stay listed
+          (dimmed) so every component type is identifiable at a glance. */}
+      <div className="flex items-center gap-x-3 gap-y-1.5 flex-wrap text-xs">
+        <span className="font-medium text-gray-500">Components</span>
+        {(Object.keys(KIND_META) as Kind[]).map((k) => {
+          const present = !!counts[k];
+          return (
+            <span
+              key={k}
+              className={cn(
+                "inline-flex items-center gap-1.5",
+                present ? "text-gray-700 dark:text-gray-200 font-medium" : "text-gray-400 opacity-70"
+              )}
+              title={present ? `${counts[k]} in this project` : "Not used in this project"}
+            >
+              <span className={cn("h-2 w-2 rounded-full", KIND_META[k].dot, !present && "opacity-50")} />
+              {KIND_META[k].label}
+              {present ? <span className="text-gray-400 font-normal">· {counts[k]}</span> : null}
+            </span>
+          );
+        })}
       </div>
 
       {/* Canvas */}
@@ -356,13 +441,7 @@ export function ProjectCanvas() {
             <MiniMap
               pannable
               zoomable
-              nodeColor={(n) => {
-                const k = (n.data as ResourceData).kind;
-                return (
-                  { project: "#6366f1", agent: "#3b82f6", skill: "#10b981", tool: "#f59e0b", mcp: "#64748b", domain: "#a855f7" }[k] ??
-                  "#94a3b8"
-                );
-              }}
+              nodeColor={(n) => KIND_META[(n.data as ResourceData).kind]?.color ?? "#94a3b8"}
               className="!bg-white dark:!bg-gray-900"
             />
           </ReactFlow>
