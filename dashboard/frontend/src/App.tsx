@@ -7,6 +7,7 @@ import { ActivityFeed } from "@/pages/ActivityFeed";
 import { Chat } from "@/pages/Chat";
 import { Projects } from "@/pages/Projects";
 import { Quickstart } from "@/pages/Quickstart";
+import { Ideate } from "@/pages/Ideate";
 import { ProjectCanvas } from "@/pages/ProjectCanvas";
 import { Tools } from "@/pages/Tools";
 import { Retrievers } from "@/pages/Retrievers";
@@ -56,6 +57,7 @@ function App() {
             <Route path="/shared/kg" element={<SharedKG />} />
             <Route path="/agents" element={<Agents />} />
             <Route path="/quickstart" element={<Quickstart />} />
+            <Route path="/ideate" element={<Ideate />} />
             <Route path="/canvas" element={<ProjectCanvas />} />
             <Route path="/tools" element={<Tools />} />
             <Route path="/retrievers" element={<Retrievers />} />
