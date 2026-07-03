@@ -17,7 +17,7 @@ from rich.tree import Tree
 from typing_extensions import Annotated
 
 from agentic_cli.config import CLI_NAME
-from agentic_cli.tracker import record_activity
+from agentic_cli.tracker import record_activity, record_action
 
 console = Console()
 skill_app = typer.Typer(help="Create, list, and install Agent Skills (agentskills.io format)")
@@ -248,6 +248,10 @@ def install_skill(
         Optional[str],
         typer.Option("--name", "-n", help="Override skill name (default: derived from source)"),
     ] = None,
+    allow_insecure: Annotated[
+        bool,
+        typer.Option("--allow-insecure", help="Install even if the security scan flags DO_NOT_INSTALL"),
+    ] = False,
 ) -> None:
     """
     Install an Agent Skill from a GitHub repository.
@@ -340,6 +344,9 @@ def install_skill(
         except subprocess.CalledProcessError as e:
             console.print(f"[red]✗ Git clone failed: {e.stderr.decode() if e.stderr else str(e)}[/red]")
             raise typer.Exit(1)
+
+    # Security gate — scan the installed skill; block DO_NOT_INSTALL verdicts.
+    _security_gate(target_dir, skill_name, path, allow_insecure)
 
     record_activity(
         command="skill", subcommand="install",
@@ -1092,3 +1099,104 @@ def _register_skill(
     except Exception as e:
         console.print(f"[yellow]⚠ Could not register skill: {e}[/yellow]")
         return None
+
+
+def _security_gate(skill_dir: Path, skill_name: str, project_path: Path, allow_insecure: bool) -> None:
+    """Scan a skill with SkillSpector and block DO_NOT_INSTALL verdicts.
+
+    Degrades gracefully: if the scanner is not installed we warn and continue.
+    A blocked install removes the copied skill and exits non-zero. Every
+    outcome is recorded in the audit trail.
+    """
+    from agentic_cli import skill_security
+
+    if not skill_security.is_available().get("available"):
+        console.print("[dim]⚠ SkillSpector not installed — skipping security scan.[/dim]")
+        return
+
+    try:
+        result = skill_security.scan_path(skill_dir)
+    except Exception as e:  # noqa: BLE001 - scanner error shouldn't hard-block
+        console.print(f"[yellow]⚠ Security scan could not run: {e}[/yellow]")
+        return
+
+    verdict = result.get("verdict", "CAUTION")
+    score = result.get("score")
+    record_action(
+        "skill", "scan",
+        entity_type="skill", entity_id=skill_name,
+        status="error" if verdict == "DO_NOT_INSTALL" else "success",
+        details={"verdict": verdict, "score": score, "issues": result.get("issue_count")},
+        repo_path=str(project_path),
+    )
+
+    if verdict == "DO_NOT_INSTALL":
+        if allow_insecure:
+            console.print(
+                f"[yellow]⚠ SkillSpector flagged '{skill_name}' as DO_NOT_INSTALL "
+                f"(score {score}). Installing anyway (--allow-insecure).[/yellow]"
+            )
+            return
+        # Block: remove the copied skill and abort.
+        if skill_dir.exists():
+            shutil.rmtree(skill_dir, ignore_errors=True)
+        console.print(
+            f"[red]✗ Blocked: SkillSpector rated '{skill_name}' DO_NOT_INSTALL "
+            f"(score {score}, {result.get('issue_count')} issue(s)).[/red]\n"
+            f"[dim]Re-run with --allow-insecure to override.[/dim]"
+        )
+        raise typer.Exit(1)
+
+    if verdict == "CAUTION":
+        console.print(f"[yellow]⚠ Security: '{skill_name}' rated CAUTION (score {score}).[/yellow]")
+    else:
+        console.print(f"[green]✓ Security: '{skill_name}' rated SAFE.[/green]")
+
+
+@skill_app.command("scan", help="Security-scan a skill directory, file, or registry skill.")
+def scan_skill(
+    target: Annotated[
+        str,
+        typer.Argument(help="Skill directory/file path, or a registry skill name"),
+    ],
+) -> None:
+    """Scan a skill with NVIDIA SkillSpector and print a SAFE/CAUTION/DO_NOT_INSTALL verdict."""
+    from agentic_cli import skill_security
+
+    avail = skill_security.is_available()
+    if not avail.get("available"):
+        console.print(
+            "[red]✗ SkillSpector is not installed.[/red]\n"
+            "[dim]Install: uv tool install git+https://github.com/NVIDIA/skillspector.git[/dim]"
+        )
+        raise typer.Exit(2)
+
+    p = Path(target)
+    try:
+        result = skill_security.scan_path(p) if p.exists() else skill_security.scan_registry_skill(target)
+    except FileNotFoundError as e:
+        console.print(f"[red]✗ {e}[/red]")
+        raise typer.Exit(1)
+    except RuntimeError as e:
+        console.print(f"[red]✗ {e}[/red]")
+        raise typer.Exit(2)
+
+    verdict = result.get("verdict", "CAUTION")
+    color = {"SAFE": "green", "CAUTION": "yellow", "DO_NOT_INSTALL": "red"}.get(verdict, "yellow")
+    console.print(Panel.fit(
+        f"[bold {color}]{verdict}[/bold {color}]  "
+        f"score {result.get('score')}/100 · {result.get('issue_count')} issue(s)",
+        title=f"SkillSpector · {result.get('skill_name') or target}",
+        border_style=color,
+    ))
+    for issue in result.get("issues", [])[:10]:
+        console.print(f"  [dim]{issue.get('severity')}[/dim] {issue.get('title')}")
+
+    record_action(
+        "skill", "scan",
+        entity_type="skill", entity_id=str(result.get("skill_name") or target),
+        status="error" if verdict == "DO_NOT_INSTALL" else "success",
+        details={"verdict": verdict, "score": result.get("score")},
+    )
+    if verdict == "DO_NOT_INSTALL":
+        raise typer.Exit(1)

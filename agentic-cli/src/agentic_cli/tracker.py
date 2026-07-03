@@ -19,7 +19,7 @@ from typing import Any, Optional
 DB_DIR = Path.home() / ".agent-cli-agentic"
 DB_PATH = DB_DIR / "tracker.db"
 
-_SCHEMA_VERSION = 11
+_SCHEMA_VERSION = 12
 
 _SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -36,7 +36,11 @@ CREATE TABLE IF NOT EXISTS activity_log (
     duration_ms INTEGER,          -- wall-clock milliseconds
     args        TEXT,              -- JSON dict of significant arguments
     details     TEXT,              -- JSON dict of result details / error message
-    repo_path   TEXT              -- associated repo/project path if applicable
+    repo_path   TEXT,             -- associated repo/project path if applicable
+    correlation_id TEXT,          -- links a chain of actions across features
+    entity_type    TEXT,          -- entity kind: project|skill|retriever|story|...
+    entity_id      TEXT,          -- entity identifier (path/name/key)
+    source         TEXT DEFAULT 'cli'  -- origin of the action: cli|dashboard
 );
 
 -- Central registry of onboarded repositories
@@ -147,8 +151,10 @@ CREATE TABLE IF NOT EXISTS workspaces (
     last_active TEXT    NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_activity_timestamp ON activity_log(timestamp);
-CREATE INDEX IF NOT EXISTS idx_activity_command   ON activity_log(command);
+CREATE INDEX IF NOT EXISTS idx_activity_timestamp   ON activity_log(timestamp);
+CREATE INDEX IF NOT EXISTS idx_activity_command     ON activity_log(command);
+CREATE INDEX IF NOT EXISTS idx_activity_correlation ON activity_log(correlation_id);
+CREATE INDEX IF NOT EXISTS idx_activity_entity      ON activity_log(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_repos_name         ON repos(name);
 CREATE INDEX IF NOT EXISTS idx_projects_name      ON projects(name);
 CREATE INDEX IF NOT EXISTS idx_products_name      ON products(name);
@@ -263,6 +269,16 @@ CREATE INDEX IF NOT EXISTS idx_workspaces_tier   ON workspaces(tier);
 CREATE INDEX IF NOT EXISTS idx_workspaces_domain ON workspaces(domain);
 """
 
+_MIGRATION_V12 = """
+-- v12: Audit-linking columns so actions can be correlated across features.
+ALTER TABLE activity_log ADD COLUMN correlation_id TEXT;
+ALTER TABLE activity_log ADD COLUMN entity_type TEXT;
+ALTER TABLE activity_log ADD COLUMN entity_id TEXT;
+ALTER TABLE activity_log ADD COLUMN source TEXT DEFAULT 'cli';
+CREATE INDEX IF NOT EXISTS idx_activity_correlation ON activity_log(correlation_id);
+CREATE INDEX IF NOT EXISTS idx_activity_entity      ON activity_log(entity_type, entity_id);
+"""
+
 
 def _ensure_db() -> Path:
     """Create the database and schema if they don't exist. Run migrations."""
@@ -320,6 +336,11 @@ def _ensure_db() -> Path:
             if current_version < 11:
                 conn.executescript(_MIGRATION_V11)
                 conn.execute("UPDATE schema_version SET version = 11")
+                current_version = 11
+            if current_version < 12:
+                conn.executescript(_MIGRATION_V12)
+                conn.execute("UPDATE schema_version SET version = 12")
+                current_version = 12
         conn.commit()
     finally:
         conn.close()
@@ -410,14 +431,25 @@ def record_activity(
     args: dict = None,
     details: dict = None,
     repo_path: str = None,
+    correlation_id: str = None,
+    entity_type: str = None,
+    entity_id: str = None,
+    source: str = "cli",
 ) -> None:
-    """Insert a row into the activity log."""
+    """Insert a row into the activity log (the central audit trail).
+
+    The ``correlation_id`` links a chain of actions across features, and
+    ``entity_type``/``entity_id`` tag the thing acted upon so audits can be
+    correlated (e.g. every action on a given project). ``source`` records
+    whether the action originated from the CLI or the dashboard.
+    """
     try:
         with _get_conn() as conn:
             conn.execute(
                 """INSERT INTO activity_log
-                   (timestamp, command, subcommand, status, duration_ms, args, details, repo_path)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                   (timestamp, command, subcommand, status, duration_ms, args,
+                    details, repo_path, correlation_id, entity_type, entity_id, source)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     _now_iso(),
                     command,
@@ -427,10 +459,65 @@ def record_activity(
                     _json_dumps(args),
                     _json_dumps(details),
                     repo_path,
+                    correlation_id,
+                    entity_type,
+                    entity_id,
+                    source or "cli",
                 ),
             )
     except Exception:
         pass  # Never break the CLI
+
+
+def new_correlation_id() -> str:
+    """Mint a correlation id for linking a chain of actions across features."""
+    import uuid
+
+    return uuid.uuid4().hex[:16]
+
+
+def record_action(
+    feature: str,
+    action: str,
+    *,
+    entity_type: str = None,
+    entity_id: str = None,
+    correlation_id: str = None,
+    source: str = "cli",
+    status: str = "success",
+    details: dict = None,
+    repo_path: str = None,
+) -> None:
+    """Auditor entry point: record a feature action in the central audit trail.
+
+    ``feature`` is the top-level area (e.g. "project", "skill", "retriever",
+    "ideate"); ``action`` is the verb (e.g. "manifest", "scan", "create",
+    "push"). This is a thin, intention-revealing wrapper over record_activity.
+    """
+    record_activity(
+        command=feature,
+        subcommand=action,
+        status=status,
+        args=None,
+        details=details,
+        repo_path=repo_path,
+        correlation_id=correlation_id,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        source=source,
+    )
+
+
+def get_action_chain(correlation_id: str, limit: int = 200) -> list[dict]:
+    """Return every audited action sharing a correlation id, oldest first."""
+    if not correlation_id:
+        return []
+    with _get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM activity_log WHERE correlation_id = ? ORDER BY id ASC LIMIT ?",
+            (correlation_id, limit),
+        ).fetchall()
+    return [dict(r) for r in rows]
 
 
 def get_activity(

@@ -71,6 +71,7 @@ def show_log(
     table.add_column("Command", style="cyan")
     table.add_column("Sub", style="green")
     table.add_column("Status")
+    table.add_column("Source", style="magenta")
     table.add_column("Duration")
     table.add_column("Path / Details", style="dim", max_width=40)
 
@@ -79,6 +80,7 @@ def show_log(
         cmd = entry["command"] or ""
         sub = entry["subcommand"] or ""
         st = "[green]✓[/green]" if entry["status"] == "success" else "[red]✗[/red]"
+        src = entry.get("source") or "cli"
         dur = f"{entry['duration_ms']}ms" if entry.get("duration_ms") else "—"
         path = entry.get("repo_path") or ""
         if not path and entry.get("details"):
@@ -87,7 +89,7 @@ def show_log(
                 path = details.get("error", details.get("name", ""))[:40]
             except (json.JSONDecodeError, AttributeError):
                 pass
-        table.add_row(ts, cmd, sub, st, dur, path)
+        table.add_row(ts, cmd, sub, st, src, dur, path)
 
     console.print(table)
     console.print(f"\n[dim]Showing {len(entries)} of last entries. Use --limit to change.[/dim]")
