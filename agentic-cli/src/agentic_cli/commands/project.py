@@ -556,6 +556,44 @@ def list_projects() -> None:
     record_activity("project", "list")
 
 
+@project_app.command("manifest")
+def project_manifest(
+    path: Annotated[
+        Path, typer.Option("--path", help="Agent project directory")
+    ] = Path("."),
+    write: Annotated[
+        bool, typer.Option("--write/--no-write", help="Write agent.yaml into the project")
+    ] = False,
+    as_json: Annotated[
+        bool, typer.Option("--json", help="Emit JSON instead of YAML")
+    ] = False,
+) -> None:
+    """Derive (and optionally write) the project's agent.yaml manifest.
+
+    The manifest is the declarative spine of an agent project. Writing it is
+    non-destructive (touches only agent.yaml) and is recorded in the audit trail.
+    """
+    from agentic_cli import manifest as mf
+
+    try:
+        data = mf.build_manifest(str(path))
+    except FileNotFoundError as e:
+        console.print(f"[red]✗[/red] {e}")
+        raise typer.Exit(1)
+
+    if write:
+        res = mf.write_manifest(str(path), data, source="cli")
+        console.print(f"[green]✓[/green] Wrote {res['file']}")
+    else:
+        import json as _json
+
+        console.print(_json.dumps(data, indent=2) if as_json else mf.manifest_to_yaml(data))
+        record_activity(
+            "project", "manifest", args={"path": str(path)},
+            repo_path=str(path), entity_type="project", entity_id=str(Path(path).resolve()),
+        )
+
+
 @project_app.command("show")
 def show_project(
     name: Annotated[str, typer.Argument(help="Project name")],
