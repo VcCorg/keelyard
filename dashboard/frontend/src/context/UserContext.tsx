@@ -64,6 +64,16 @@ function loadTheme(): Theme {
   return "light";
 }
 
+/**
+ * The single top-of-sidebar workspace label. There is one workspace per user;
+ * only its name changes with role: admins see the team-wide lens.
+ */
+export function workspaceLabel(role: UserRole): string {
+  if (role === "admin") return "My Team workspace";
+  if (role === "lead") return "Lead workspace";
+  return "My Workspace";
+}
+
 export function initials(name: string): string {
   return name
     .split(/\s+/)

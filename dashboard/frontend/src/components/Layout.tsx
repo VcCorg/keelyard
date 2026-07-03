@@ -48,7 +48,7 @@ import { cn } from "@/lib/utils";
 import {
   useUser,
   initials,
-  type Workspace,
+  workspaceLabel,
   type UserRole,
 } from "@/context/UserContext";
 import { useSetup } from "@/context/SetupContext";
@@ -61,8 +61,6 @@ type NavItem = {
   label: string;
   /** If set, renders as a button that triggers an action instead of navigating. */
   action?: "setup";
-  /** If set, only shown in this workspace lens. */
-  lens?: Workspace;
   /** If set, only shown to users with this role or higher. */
   minRole?: UserRole;
 };
@@ -70,8 +68,6 @@ type NavSubgroup = {
   label: string;
   icon?: ComponentType<{ className?: string }>;
   items: NavItem[];
-  /** If set, only shown in this workspace lens. */
-  lens?: Workspace;
   /** If set, only shown to users with this role or higher. */
   minRole?: UserRole;
 };
@@ -82,8 +78,6 @@ type NavGroup = {
   subgroups?: NavSubgroup[];
   /** Top-level items rendered AFTER the subgroups (e.g. trailing shortcuts). */
   footerItems?: NavItem[];
-  /** If set, only shown in this workspace lens. */
-  lens?: Workspace;
   /** If set, only shown to users with this role or higher. */
   minRole?: UserRole;
 };
@@ -99,10 +93,21 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    label: "Ideate",
+    items: [{ to: "/ideate", icon: Lightbulb, label: "Requirements" }],
+  },
+  {
     label: "Work",
     items: [
       { to: "/tasks", icon: ListTodo, label: "Tasks" },
-      { to: "/assignments", icon: ClipboardList, label: "Assignments" },
+      { to: "/assignments", icon: ClipboardList, label: "Assignments", minRole: "lead" },
+    ],
+  },
+  {
+    label: "Build",
+    items: [
+      { to: "/code-onboard", icon: FolderGit2, label: "Repository" },
+      { to: "/skills", icon: Package, label: "Skills" },
     ],
     subgroups: [
       {
@@ -110,17 +115,14 @@ const navGroups: NavGroup[] = [
         icon: DevinBot,
         items: [
           { to: "/devin", icon: DevinBot, label: "Devin Sessions" },
-          { to: "/snapshots", icon: Camera, label: "Snapshots" },
+          { to: "/snapshots", icon: Camera, label: "Snapshots", minRole: "lead" },
         ],
       },
     ],
   },
   {
-    label: "Ideate",
-    items: [{ to: "/ideate", icon: Lightbulb, label: "Requirements" }],
-  },
-  {
-    label: "Build",
+    label: "Agent Builder",
+    minRole: "lead",
     items: [
       { to: "/quickstart", icon: Wand2, label: "Quickstart" },
       { to: "/projects", icon: FolderKanban, label: "Agent Projects" },
@@ -146,22 +148,21 @@ const navGroups: NavGroup[] = [
   },
   {
     label: "Governance",
+    minRole: "lead",
     items: [],
     subgroups: [
       {
         label: "Onboarding",
         icon: Boxes,
         items: [
-          { to: "/onboarding", icon: Boxes, label: "Domain", lens: "team", minRole: "admin" },
+          { to: "/onboarding", icon: Boxes, label: "Domain", minRole: "lead" },
           { to: "/workspaces", icon: FolderOpen, label: "Workspaces" },
-          { to: "/code-onboard", icon: FolderGit2, label: "Repository" },
         ],
       },
       {
         label: "Registry",
         icon: Package,
         items: [
-          { to: "/skills", icon: Package, label: "Skills" },
           { to: "/skills/personas", icon: Sparkles, label: "Persona Skills" },
           { to: "/marketplace", icon: Store, label: "Marketplace" },
         ],
@@ -170,17 +171,17 @@ const navGroups: NavGroup[] = [
   },
   {
     label: "Knowledge",
+    minRole: "lead",
     items: [
       { to: "/kg", icon: GitBranch, label: "KG Context" },
       { to: "/kg/ingest", icon: DatabaseZap, label: "KG Ingest" },
-      { to: "/kg/okf", icon: FileStack, label: "OKF Generation", lens: "team", minRole: "admin" },
+      { to: "/kg/okf", icon: FileStack, label: "OKF Generation", minRole: "admin" },
       { to: "/data", icon: Database, label: "Data Sources" },
     ],
   },
   {
     label: "Admin",
-    lens: "team",
-    minRole: "lead",
+    minRole: "admin",
     items: [
       { to: "/people", icon: Users, label: "People" },
       { to: "/shared/agents", icon: Share2, label: "Shared Agents" },
@@ -189,6 +190,7 @@ const navGroups: NavGroup[] = [
   },
   {
     label: "Platform",
+    minRole: "lead",
     items: [
       { to: "/mcp", icon: Server, label: "MCP Servers" },
       { to: "/deployments", icon: Rocket, label: "Deployments" },
@@ -210,28 +212,13 @@ const navGroups: NavGroup[] = [
   },
 ];
 
-function WorkspaceSwitcher() {
-  const { workspace, setWorkspace } = useUser();
-  const opts: { value: Workspace; label: string }[] = [
-    { value: "mine", label: "My Workspace" },
-    { value: "team", label: "Team" },
-  ];
+function WorkspaceLabel() {
+  const { user } = useUser();
+  const Icon = user.role === "admin" ? Users : FolderOpen;
   return (
-    <div className="flex rounded-lg bg-gray-100 dark:bg-gray-800 p-0.5 text-xs font-medium">
-      {opts.map((o) => (
-        <button
-          key={o.value}
-          onClick={() => setWorkspace(o.value)}
-          className={cn(
-            "flex-1 px-2 py-1.5 rounded-md transition-colors",
-            workspace === o.value
-              ? "bg-white dark:bg-gray-900 text-blue-700 dark:text-blue-300 shadow-sm"
-              : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-          )}
-        >
-          {o.label}
-        </button>
-      ))}
+    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-sm font-semibold text-gray-700 dark:text-gray-200">
+      <Icon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+      <span className="truncate">{workspaceLabel(user.role)}</span>
     </div>
   );
 }
@@ -350,14 +337,12 @@ function NavGroupSection({ group }: { group: NavGroup }) {
 
 
 export function Layout() {
-  const { user, workspace, theme, toggleTheme, updateUser } = useUser();
+  const { user, theme, toggleTheme, updateUser } = useUser();
   const { panelOpen, closePanel } = useSetup();
 
   const meetsRole = (min?: UserRole) =>
     !min || ROLE_RANK[user.role] >= ROLE_RANK[min];
-  const matchesLens = (lens?: Workspace) => !lens || lens === workspace;
-  const isVisible = (x: { lens?: Workspace; minRole?: UserRole }) =>
-    matchesLens(x.lens) && meetsRole(x.minRole);
+  const isVisible = (x: { minRole?: UserRole }) => meetsRole(x.minRole);
 
   const visibleGroups = navGroups
     .filter(isVisible)
@@ -380,7 +365,7 @@ export function Layout() {
             <h1 className="text-lg font-bold tracking-tight">Agent Playground</h1>
             <p className="text-xs text-gray-500 mt-0.5">Agentic Platform</p>
           </div>
-          <WorkspaceSwitcher />
+          <WorkspaceLabel />
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-3 overflow-y-auto">

@@ -50,6 +50,7 @@ DEPENDENCY_GROUP=""  # Predefined dependency group
 DEV_MODE=""  # Development mode flag
 FORCE_REINSTALL=""  # Force reinstall from source
 USE_NATIVE_TLS=""  # Use system TLS certificates
+SKIP_DASHBOARD=""  # Skip installing dashboard (frontend npm + backend pip) deps
 PROJECT_VENV="$ROOT_DIR/.venv"  # Project-level uv venv
 
 # Parse arguments
@@ -90,13 +91,18 @@ while [[ $# -gt 0 ]]; do
       log_info "Using system TLS certificates for uv"
       shift
       ;;
+    --skip-dashboard)
+      SKIP_DASHBOARD="1"
+      log_info "Skipping dashboard dependency installation"
+      shift
+      ;;
     --project)
       INSTALL_TYPE="project"
       log_info "Installing into project venv"
       shift
       ;;
     --help|-h)
-      echo "Usage: $0 [--project] [--local] [--global] [--with PACKAGE] [--group GROUP] [--dev] [--force] [--native-tls]"
+      echo "Usage: $0 [--project] [--local] [--global] [--with PACKAGE] [--group GROUP] [--dev] [--force] [--native-tls] [--skip-dashboard]"
       echo ""
       echo "Options:"
       echo "  --project     Install into project venv (default: $PROJECT_VENV)"
@@ -107,6 +113,7 @@ while [[ $# -gt 0 ]]; do
       echo "  --dev         Development mode - always install from latest source"
       echo "  --force       Force reinstall (useful after code changes)"
       echo "  --native-tls  Use system TLS certificates (fixes corporate VPN certificate issues)"
+      echo "  --skip-dashboard  Do not install dashboard frontend (npm) / backend (pip) deps"
       exit 0
       ;;
     *)
@@ -227,6 +234,42 @@ elif [ "$INSTALL_TYPE" = "global" ]; then
         log_ok "Source installation complete"
     fi
     log_ok "Installed globally"
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+
+if [ -z "$SKIP_DASHBOARD" ]; then
+    log_header "Dashboard dependencies"
+
+    # Backend (Python) — install into the same venv the CLI was installed in.
+    BACKEND_DIR="$ROOT_DIR/dashboard/backend"
+    if [ -d "$BACKEND_DIR" ]; then
+        if [ "$INSTALL_TYPE" = "project" ] || [ "$INSTALL_TYPE" = "local" ]; then
+            log_info "Installing dashboard backend deps (FastAPI, uvicorn, httpx)..."
+            if uv pip install ${UV_FLAGS:-} -e "$BACKEND_DIR[dev]"; then
+                log_ok "Dashboard backend installed"
+            else
+                log_warn "Backend install failed — run manually: uv pip install -e dashboard/backend[dev]"
+            fi
+        else
+            log_info "Global mode: skipping backend pip (install it inside the project venv)."
+        fi
+    fi
+
+    # Frontend (Node) — the Vite app needs its npm deps (@xyflow/react, elkjs, …).
+    FRONTEND_DIR="$ROOT_DIR/dashboard/frontend"
+    if [ -d "$FRONTEND_DIR" ]; then
+        if command -v npm &> /dev/null; then
+            log_info "Installing dashboard frontend deps (npm install)..."
+            if ( cd "$FRONTEND_DIR" && npm install ); then
+                log_ok "Dashboard frontend installed"
+            else
+                log_warn "npm install failed — run manually: ( cd dashboard/frontend && npm install )"
+            fi
+        else
+            log_warn "npm not found — install Node.js 18+, then run: ( cd dashboard/frontend && npm install )"
+        fi
+    fi
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
