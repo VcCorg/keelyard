@@ -42,6 +42,7 @@ import {
   Search,
   Plug,
   Blocks,
+  Lightbulb,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -113,6 +114,10 @@ const navGroups: NavGroup[] = [
         ],
       },
     ],
+  },
+  {
+    label: "Ideate",
+    items: [{ to: "/ideate", icon: Lightbulb, label: "Requirements" }],
   },
   {
     label: "Build",
