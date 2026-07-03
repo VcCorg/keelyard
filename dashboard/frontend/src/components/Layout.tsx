@@ -37,6 +37,11 @@ import {
   CheckCircle2,
   AlertTriangle,
   Wand2,
+  Workflow,
+  Cpu,
+  Search,
+  Plug,
+  Blocks,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -114,8 +119,24 @@ const navGroups: NavGroup[] = [
     items: [
       { to: "/quickstart", icon: Wand2, label: "Quickstart" },
       { to: "/projects", icon: FolderKanban, label: "Agent Projects" },
+      { to: "/canvas", icon: Workflow, label: "Project Canvas" },
       { to: "/agents", icon: Bot, label: "Agents" },
       { to: "/eval", icon: FlaskConical, label: "Evaluation" },
+    ],
+    subgroups: [
+      {
+        label: "Components",
+        icon: Blocks,
+        items: [
+          { to: "/models", icon: Cpu, label: "Models" },
+          { to: "/tools", icon: Wrench, label: "Tools" },
+          { to: "/retrievers", icon: Search, label: "Retrievers" },
+          { to: "/databases", icon: Database, label: "Databases" },
+          { to: "/data", icon: Plug, label: "Data Sources" },
+          { to: "/mcp", icon: Server, label: "MCP Connectors" },
+          { to: "/skills", icon: Package, label: "Skills" },
+        ],
+      },
     ],
   },
   {
