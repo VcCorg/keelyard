@@ -22,8 +22,9 @@ agents) get built on the platform, contrasted with the current manual process.
 - **Present:** open it in any browser. Navigate with **← / →** (or PageUp/Down, scroll).
   **Home/End** jump to first/last. The **Theme** button toggles light/dark.
 - **Deep-link:** `deck.html#s5` opens directly on a given slide.
-- **Slides:** 1 Cover · 2 Current lifecycle · 3 New lifecycle · 4 Current architecture ·
-  5 New architecture (CLI-first) · 6 Audited chain · 7 Outcomes.
+- **Slides:** 1 Cover · 2 Current state (tool sprawl) · 3 Unified tool (four capabilities) ·
+  4 Context → Jira-linked session · 5 Governance + Agent Builder · 6 Jira → outcome traceability ·
+  7 Outcomes.
 
 ## How this maps to the deck
 

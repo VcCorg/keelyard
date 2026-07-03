@@ -241,167 +241,146 @@
   <!-- 1 · Cover -->
   <section class="slide" id="s1">
     <div class="inner reveal">
-      <p class="eyebrow">Development Lifecycle · Current → New</p>
-      <h1>The agentic<br />development lifecycle.</h1>
-      <p class="lede">From a manual, siloed, unaudited process to a guided, composable,
-        fully-audited cycle — where the CLI is the engine and the auditor, and the
-        dashboard is a lens for interactive and external work.</p>
+      <p class="eyebrow">Developer Experience · Current → New</p>
+      <h1>One tool for<br />agent development.</h1>
+      <p class="lede">From tool-sprawl and ad-hoc workflows to a single cockpit — approved
+        connectors for context, Jira-linked Devin sessions (local or remote), and governed
+        workflows every team shares.</p>
       <div class="spine">
-        <span class="chip"><i style="background:var(--ideate)"></i>Ideate</span>
+        <span class="chip"><i style="background:var(--build)"></i>Unified context</span>
         <span class="conn arrow">→</span>
-        <span class="chip"><i style="background:var(--build)"></i>Build</span>
+        <span class="chip"><i style="background:var(--ideate)"></i>Jira-linked sessions</span>
         <span class="conn arrow">→</span>
-        <span class="chip"><i style="background:var(--govern)"></i>Govern</span>
+        <span class="chip"><i style="background:var(--govern)"></i>Governed workflows</span>
         <span class="conn arrow">→</span>
-        <span class="chip"><i style="background:var(--run)"></i>Run</span>
+        <span class="chip"><i style="background:var(--run)"></i>Agent Builder</span>
       </div>
-      <p class="foot">dva · agentic-cli + dashboard &nbsp;·&nbsp; audited end-to-end</p>
+      <p class="foot">Jira · Confluence · Bitbucket · Glean · Devin Desktop + Cloud &nbsp;·&nbsp; one cockpit</p>
     </div>
   </section>
 
   <!-- 2 · Current lifecycle -->
   <section class="slide" id="s2">
     <div class="inner reveal">
-      <p class="eyebrow" style="color:var(--caution)">Current State · The Problem</p>
-      <h2>Today's cycle is manual and siloed.</h2>
-      <p class="lede" style="margin-bottom:34px">Requirements live in scattered docs. Tickets are hand-written.
-        Agents are hand-built per project, skills wired ad-hoc with no security check — and nothing links a
-        requirement to the code that shipped.</p>
-      <div class="flow">
-        <div class="node pain"><div class="t">Requirements</div><div class="s">meetings · wiki · email</div></div>
+      <p class="eyebrow" style="color:var(--caution)">Current State · Tool Sprawl</p>
+      <h2>Context is scattered; sessions aren't linked.</h2>
+      <p class="lede" style="margin-bottom:30px">To code with Devin, developers hop tool-to-tool to
+        hand-gather context. Sessions run local or remote but aren't tied to the work item — and everyone
+        brings their own prompts, skills, and workflows.</p>
+      <div class="flow" style="align-items:center">
+        <div class="node pain" style="flex:0 0 auto"><div class="t">👩‍💻 Developer</div><div class="s">manual context gathering</div></div>
         <span class="conn">→</span>
-        <div class="node pain"><div class="t">Hand-written stories</div><div class="s">PM writes Jira by hand</div></div>
+        <div style="flex:1 1 320px; display:flex; flex-wrap:wrap; gap:8px">
+          <span class="mod dup">Jira</span><span class="mod dup">Confluence</span>
+          <span class="mod dup">Bitbucket</span><span class="mod dup">Glean</span>
+          <span class="mod dup">Devin Desktop · local</span><span class="mod dup">Devin Cloud · remote</span>
+        </div>
         <span class="conn">→</span>
-        <div class="node pain"><div class="t">Build per project</div><div class="s">hand-coded agent · ad-hoc skills/MCP</div></div>
-        <span class="conn">→</span>
-        <div class="node pain"><div class="t">Ship</div><div class="s">informal test · manual deploy</div></div>
-        <span class="conn">→</span>
-        <div class="gap">✕ no unified trail</div>
+        <div class="gap">✕ own prompts · unlinked sessions</div>
       </div>
-      <p class="foot" style="color:var(--caution)">Slow hand-offs · inconsistent scaffolding · unvetted skills · no eval gate · no traceability</p>
+      <p class="foot" style="color:var(--caution)">Context scattered across tools · Devin sessions not linked to Jira · local vs remote wired by hand · inconsistent, ungoverned workflows</p>
     </div>
   </section>
 
   <!-- 3 · New lifecycle -->
   <section class="slide" id="s3">
     <div class="inner reveal">
-      <p class="eyebrow">New State · Four Phases</p>
-      <h2>A guided, composable, audited lifecycle.</h2>
+      <p class="eyebrow">New State · One Unified Tool</p>
+      <h2>One cockpit — governed and Jira-linked.</h2>
       <div class="phases" style="margin-top:26px">
-        <div class="phase" style="--pc:var(--ideate)">
-          <span class="num">01</span>
-          <h3><span class="g"></span>Ideate</h3>
-          <ul><li>Gather: Glean · Confluence · docs</li><li>LLM drafts Jira stories</li><li>Review &amp; push to Jira</li></ul>
-        </div>
         <div class="phase" style="--pc:var(--build)">
+          <span class="num">01</span>
+          <h3><span class="g"></span>Unified context</h3>
+          <ul><li>Approved MCP connectors</li><li>Jira · Confluence · Bitbucket · Glean</li><li>Assembled per Jira ID</li></ul>
+        </div>
+        <div class="phase" style="--pc:var(--ideate)">
           <span class="num">02</span>
-          <h3><span class="g"></span>Build</h3>
-          <ul><li>Quickstart / Canvas compose</li><li>agent.yaml manifest (spine)</li><li>Scaffold via CLI</li></ul>
+          <h3><span class="g"></span>Jira-linked sessions</h3>
+          <ul><li>Start from a Jira ID</li><li>Local (Desktop) · Remote (Cloud)</li><li>Session linked to the ticket</li></ul>
         </div>
         <div class="phase" style="--pc:var(--govern)">
           <span class="num">03</span>
-          <h3><span class="g"></span>Govern</h3>
-          <ul><li>SkillSpector security gate</li><li>Eval gate before "done"</li><li>Audited on the CLI</li></ul>
+          <h3><span class="g"></span>Governed workflows</h3>
+          <ul><li>Meta repos guide the session</li><li>Same process for every team</li><li>Governance built in</li></ul>
         </div>
         <div class="phase" style="--pc:var(--run)">
           <span class="num">04</span>
-          <h3><span class="g"></span>Run</h3>
-          <ul><li>Deploy / run the agent</li><li>Observe &amp; track</li><li>Feed learnings back</li></ul>
+          <h3><span class="g"></span>Agent Builder</h3>
+          <ul><li>Create new agents</li><li>Governed &amp; evaluated</li><li>Plug into the workflows</li></ul>
         </div>
       </div>
-      <p class="loopnote">↻ Run → Ideate — outcomes feed the next requirement. The CLI audits every phase.</p>
+      <p class="loopnote">◆ Approved connectors only · every session tracked to its Jira ID · consistent across teams.</p>
     </div>
   </section>
 
   <!-- 4 · Architecture current -->
   <section class="slide" id="s4">
     <div class="inner reveal">
-      <p class="eyebrow" style="color:var(--caution)">Current Architecture · Drift</p>
-      <h2>Logic drifted into the dashboard.</h2>
-      <p class="lede" style="margin-bottom:26px">Shipping fast pushed engine logic and state into the dashboard —
-        a parallel implementation. CLI users and CI didn't benefit, and there was no shared audit.</p>
-      <div class="arch">
-        <div class="zone warnzone">
-          <div class="zt"><span style="width:7px;height:7px;border-radius:50%;background:var(--build);display:inline-block"></span>Dashboard — grew its own engine</div>
-          <div class="mods">
-            <span class="mod">React UI</span>
-            <span class="mod">FastAPI backend</span>
-            <span class="mod dup">manifest logic</span>
-            <span class="mod dup">security scan</span>
-            <span class="mod dup">retriever store</span>
-          </div>
-          <div class="warnline">▲ CLI users &amp; CI miss security · manifest · retrievers</div>
-        </div>
-        <div class="zone">
-          <div class="zt"><span style="width:7px;height:7px;border-radius:50%;background:var(--faint);display:inline-block"></span>CLI (agentic-cli)</div>
-          <div class="mods">
-            <span class="mod">templates · onboard · skills</span>
-            <span class="mod">tracker (activity only)</span>
-          </div>
-        </div>
+      <p class="eyebrow">Capability · Context → Session</p>
+      <h2>Approved connectors, then a Jira-linked session.</h2>
+      <p class="lede" style="margin-bottom:30px">Pick a Jira ID; the tool assembles context through governed
+        connectors and launches a Devin session — local or remote — linked back to the ticket.</p>
+      <div class="flow" style="align-items:stretch">
+        <div class="node" style="--pc:var(--build)"><div class="t">🔌 Approved connectors</div><div class="s">Jira · Confluence · Bitbucket · Glean</div></div>
+        <span class="conn">→</span>
+        <div class="node"><div class="t">📚 Unified context</div><div class="s">assembled per Jira ID</div></div>
+        <span class="conn">→</span>
+        <div class="node"><div class="t">🖥 Devin session</div><div class="s">Local · Desktop &nbsp;|&nbsp; Remote · Cloud</div></div>
+        <span class="conn">→</span>
+        <div class="node" style="border-color:var(--accent)"><div class="t">🔗 Linked to Jira</div><div class="s">session ↔ Jira ID</div></div>
       </div>
-      <p class="foot" style="color:var(--caution)">Duplicated logic · dashboard-only capabilities · the manifest understood only by the browser</p>
+      <p class="foot">Only approved connectors are used — context gathering is governed, not ad-hoc.</p>
     </div>
   </section>
 
   <!-- 5 · Architecture new -->
   <section class="slide" id="s5">
     <div class="inner reveal">
-      <p class="eyebrow">New Architecture · CLI-First</p>
-      <h2>CLI is the engine and the auditor.</h2>
-      <p class="lede" style="margin-bottom:26px">Engine logic lives in the CLI. Every surface — dashboard, CI,
-        terminal — calls it. The tracker becomes the audit trail, tagged by origin and linkable across features.</p>
+      <p class="eyebrow">Capability · Governance and Agents</p>
+      <h2>Guided by meta repos; extended by Agent Builder.</h2>
+      <p class="lede" style="margin-bottom:26px">Governance is embedded in the workflow — not bolted on. Meta
+        repos steer every session the same way, and Agent Builder adds new agents that plug straight in.</p>
       <div class="arch">
-        <div class="zone dash">
-          <div class="zt"><span style="width:7px;height:7px;border-radius:50%;background:var(--build);display:inline-block"></span>Surfaces</div>
-          <div class="archflow">
-            <span class="mod">Dashboard UI</span><span>·</span>
-            <span class="mod">CI / automation</span><span>·</span>
-            <span class="mod">CLI users</span>
-            <span style="color:var(--accent-ink)">→ delegate to CLI</span>
-          </div>
-        </div>
         <div class="zone cli">
-          <div class="zt"><span style="width:7px;height:7px;border-radius:50%;background:var(--govern);display:inline-block"></span>CLI (agentic-cli) — engine + auditor</div>
+          <div class="zt"><span style="width:7px;height:7px;border-radius:50%;background:var(--govern);display:inline-block"></span>Meta repos — guided workflows</div>
           <div class="mods">
-            <span class="mod">manifest</span>
-            <span class="mod">skill_security</span>
-            <span class="mod">retrievers</span>
-            <span class="mod">templates · onboard · eval</span>
-            <span class="mod audit">▣ audit trail · correlation_id · source</span>
+            <span class="mod">workflow &amp; guardrails</span>
+            <span class="mod">policy · standards</span>
+            <span class="mod audit">▣ same process, every team</span>
           </div>
         </div>
-        <div class="zone">
-          <div class="zt"><span style="width:7px;height:7px;border-radius:50%;background:var(--run);display:inline-block"></span>External — via dashboard</div>
+        <div class="zone dash">
+          <div class="zt"><span style="width:7px;height:7px;border-radius:50%;background:var(--run);display:inline-block"></span>Agent Builder — extend the workflow</div>
           <div class="mods">
-            <span class="mod">MCP · Glean</span><span class="mod">Confluence</span>
-            <span class="mod">Jira</span><span class="mod">Bitbucket</span>
+            <span class="mod">compose from ingredients</span>
+            <span class="mod">governed + evaluated</span>
+            <span class="mod">reusable in workflows</span>
           </div>
         </div>
       </div>
-      <p class="foot">CLI owns logic + audit &nbsp;·&nbsp; dashboard owns UX, visualization &amp; MCP calls</p>
+      <p class="foot">Meta-repo workflows make development consistent · Agent Builder makes it extensible</p>
     </div>
   </section>
 
   <!-- 6 · Audited chain -->
   <section class="slide" id="s6">
     <div class="inner reveal">
-      <p class="eyebrow">Traceability · One Audited Chain</p>
-      <h2>A requirement, traced end-to-end.</h2>
-      <p class="lede" style="margin-bottom:30px">Every consequential action is recorded with a correlation id and
-        its origin — so a single requirement links to the story, the manifest, the scan, and the project it became.</p>
+      <p class="eyebrow">Traceability · Jira → Outcome</p>
+      <h2>One thread, from ticket to result.</h2>
+      <p class="lede" style="margin-bottom:30px">Every step is tracked and linked — so a Jira ID ties to the
+        context it gathered, the Devin session it launched (local or remote), and the result it produced.</p>
       <div class="chain">
-        <div class="act"><div class="cmd">ideate/draft</div><div class="ent">story · login-flow</div><div class="src">dashboard</div></div>
+        <div class="act"><div class="cmd">Jira ID</div><div class="ent">JIRA-42 · picked</div><div class="src">jira</div></div>
         <span class="conn">→</span>
-        <div class="act"><div class="cmd">ideate/push</div><div class="ent">jira · JIRA-42</div><div class="src">dashboard</div></div>
+        <div class="act"><div class="cmd">context</div><div class="ent">approved connectors</div><div class="src">glean · confluence · bitbucket</div></div>
         <span class="conn">→</span>
-        <div class="act"><div class="cmd">project/manifest</div><div class="ent">project · /repo/agent</div><div class="src">cli</div></div>
+        <div class="act"><div class="cmd">session</div><div class="ent">Devin · local | remote</div><div class="src">desktop / cloud</div></div>
         <span class="conn">→</span>
-        <div class="act"><div class="cmd">skill/scan</div><div class="ent">verdict · SAFE</div><div class="src">cli</div></div>
+        <div class="act"><div class="cmd">governed</div><div class="ent">meta-repo workflow</div><div class="src">policy</div></div>
         <span class="conn">→</span>
-        <div class="act"><div class="cmd">project/create</div><div class="ent">agent · shipped</div><div class="src">cli</div></div>
+        <div class="act"><div class="cmd">result</div><div class="ent">linked back to JIRA-42</div><div class="src">tracked</div></div>
       </div>
-      <p class="corr">correlation_id = a3f9… &nbsp;links the whole chain · <code>dva history</code> shows the Source column</p>
+      <p class="corr">Session ↔ Jira ID ↔ actions — every development session is traceable to its work item.</p>
     </div>
   </section>
 
@@ -409,14 +388,14 @@
   <section class="slide" id="s7">
     <div class="inner reveal">
       <p class="eyebrow">Outcome</p>
-      <h2>What the new cycle delivers.</h2>
+      <h2>What the unified tool delivers.</h2>
       <div class="outs" style="margin-top:24px">
-        <div class="out"><div class="h">Faster<span class="m">requirements → running agent</span></div><div class="b">No manual hand-offs between phases; gathering, drafting, and scaffolding are one guided flow.</div></div>
-        <div class="out"><div class="h">Safer<span class="m">gated by default</span></div><div class="b">No unvetted skill ships — SkillSpector blocks DO_NOT_INSTALL; nothing is "done" until eval passes.</div></div>
-        <div class="out"><div class="h">Consistent<span class="m">composed, not hand-built</span></div><div class="b">Every agent assembled from the same governed ingredients and a declarative manifest.</div></div>
-        <div class="out"><div class="h">Accountable<span class="m">one audit trail</span></div><div class="b">Every action is attributable to its origin and linkable across features by correlation id.</div></div>
+        <div class="out"><div class="h">One place<span class="m">no tool-hopping</span></div><div class="b">Gather context and start development in a single cockpit, through approved connectors.</div></div>
+        <div class="out"><div class="h">Tracked<span class="m">Jira-linked</span></div><div class="b">Every Devin session — local or remote — is tied to its Jira ID and traceable end-to-end.</div></div>
+        <div class="out"><div class="h">Consistent<span class="m">governed workflows</span></div><div class="b">Meta repos give every team the same guided, governed process — not personal prompts.</div></div>
+        <div class="out"><div class="h">Extensible<span class="m">Agent Builder</span></div><div class="b">Build new agents that plug into the workflows and are reused across the team.</div></div>
       </div>
-      <p class="foot">Ideate → Build → Govern → Run &nbsp;·&nbsp; CLI-first · fully audited</p>
+      <p class="foot">Unified context · Jira-linked sessions · Governed workflows · Agent Builder</p>
     </div>
   </section>
 
@@ -449,7 +428,11 @@
   // Deep-link to a slide via #s3 etc. (useful when presenting)
   if (location.hash) {
     var target = document.querySelector(location.hash);
-    if (target) { target.scrollIntoView(); onScroll(); }
+    if (target) {
+      target.scrollIntoView();
+      target.querySelectorAll('.reveal').forEach(function (el) { el.classList.add('in'); });
+      onScroll();
+    }
   }
 
   // Keyboard navigation
