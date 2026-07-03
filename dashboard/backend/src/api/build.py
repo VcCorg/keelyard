@@ -108,3 +108,57 @@ async def post_manifest(req: WriteManifestRequest):
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Failed to write manifest: {e}")
+
+
+# ── Build → Eval gate ────────────────────────────────────────────────────
+
+# An agent "passes" when its latest eval run scores at or above this threshold.
+EVAL_PASS_THRESHOLD = 0.7
+
+
+class EvalStatus(BaseModel):
+    eval_ready: bool
+    spec: Optional[str] = None
+    last_run: Optional[Dict[str, Any]] = None
+
+
+@router.get("/eval-status", response_model=EvalStatus)
+async def eval_status(path: str = Query(..., description="Agent project path")):
+    """Eval gate for a project: is it eval-ready, and how did its last run score?"""
+    from pathlib import Path as _Path
+
+    # Eval readiness: does the agent expose an answer() entrypoint?
+    spec: Optional[str] = None
+    try:
+        from src.services.agent_service import get_agent_eval_spec
+
+        result = get_agent_eval_spec(path)
+        spec = (result or {}).get("spec")
+    except Exception:  # noqa: BLE001 - readiness is best-effort
+        spec = None
+
+    # Latest eval run for this project (matched by agent spec, then by name).
+    last_run: Optional[Dict[str, Any]] = None
+    try:
+        from src.services import eval_service
+
+        project_name = _Path(path).name
+        runs = eval_service.list_runs()
+        matches = [
+            r
+            for r in runs
+            if (spec and r.agent == spec) or (project_name and project_name in (r.agent or ""))
+        ]
+        matches.sort(key=lambda r: r.timestamp or "", reverse=True)
+        if matches:
+            r = matches[0]
+            last_run = {
+                "eval_name": r.eval_name,
+                "overall_score": r.overall_score,
+                "timestamp": r.timestamp,
+                "passed": r.overall_score >= EVAL_PASS_THRESHOLD,
+            }
+    except Exception:  # noqa: BLE001 - runs are best-effort
+        last_run = None
+
+    return EvalStatus(eval_ready=bool(spec), spec=spec, last_run=last_run)
