@@ -98,6 +98,56 @@ def get_status() -> JiraStatus:
     )
 
 
+def create_issue(
+    project_key: str,
+    summary: str,
+    description: str = "",
+    issue_type: str = "Story",
+    labels: Optional[list[str]] = None,
+    priority: Optional[str] = None,
+) -> dict:
+    """Create a Jira issue and return {key, url}. Raises on failure."""
+    if not is_configured():
+        raise RuntimeError(
+            "Jira is not configured. Set JIRA_SERVER_URL and "
+            "JIRA_PERSONAL_ACCESS_TOKEN on the dashboard backend."
+        )
+    if not project_key:
+        raise ValueError("A Jira project key is required")
+    if not summary:
+        raise ValueError("A summary is required")
+
+    fields: dict = {
+        "project": {"key": project_key},
+        "summary": summary[:255],
+        "issuetype": {"name": issue_type or "Story"},
+    }
+    if description:
+        fields["description"] = description
+    if labels:
+        # Jira labels cannot contain spaces.
+        fields["labels"] = [l.replace(" ", "-") for l in labels if l]
+    if priority:
+        fields["priority"] = {"name": priority}
+
+    with httpx.Client(
+        base_url=f"{_server_url()}/rest/api/2",
+        headers={
+            "Authorization": f"Bearer {_token()}",
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        },
+        verify=_verify_ssl(),
+        timeout=30.0,
+    ) as client:
+        resp = client.post("/issue", json={"fields": fields})
+        if resp.status_code >= 300:
+            raise RuntimeError(f"Jira create failed ({resp.status_code}): {resp.text[:300]}")
+        key = resp.json().get("key", "")
+
+    return {"key": key, "url": f"{_server_url()}/browse/{key}" if key else ""}
+
+
 def list_my_domain_issues(
     statuses: Optional[list[str]] = None,
     max_results: int = 100,
