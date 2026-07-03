@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from src.services import build_components_service as svc
 from src.services import agent_manifest_service as manifest_svc
+from src.services import retriever_service as retr_svc
 
 router = APIRouter(prefix="/api/build", tags=["build"])
 
@@ -25,6 +26,41 @@ async def tools():
 async def retrievers():
     """Supported retriever backends (FAISS / FTS / KG / hybrid)."""
     return svc.list_retrievers()
+
+
+class CreateRetrieverRequest(BaseModel):
+    name: str
+    backend: str = "faiss"
+    embedding_model: Optional[str] = None
+    source: Optional[str] = None
+    description: str = ""
+
+
+@router.get("/retrievers/instances", response_model=retr_svc.RetrieverList)
+async def retriever_instances():
+    """List named retriever instances."""
+    return retr_svc.list_instances()
+
+
+@router.post("/retrievers/instances", response_model=retr_svc.RetrieverInstance)
+async def create_retriever(req: CreateRetrieverRequest):
+    """Create a named retriever instance."""
+    try:
+        return retr_svc.create_instance(
+            name=req.name,
+            backend=req.backend,
+            embedding_model=req.embedding_model,
+            source=req.source,
+            description=req.description,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/retrievers/instances/{retriever_id}")
+async def delete_retriever(retriever_id: str):
+    """Delete a named retriever instance."""
+    return {"deleted": retr_svc.delete_instance(retriever_id)}
 
 
 @router.get("/databases", response_model=svc.ComponentList)
