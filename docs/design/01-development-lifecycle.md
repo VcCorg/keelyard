@@ -4,109 +4,117 @@
 
 ---
 
-## The problem: today's cycle is manual and siloed
+## The problem: tool sprawl, unlinked sessions, no shared workflow
 
-Requirements live in people's heads and scattered docs. Tickets are written by hand.
-Agents/services are hand-built per project. Skills and tools are wired ad-hoc with no
-security check. Testing is informal, and there is **no single trail** linking a
-requirement to the code that shipped.
+Development teams work across **Jira, Confluence, Bitbucket, Glean, Devin Desktop (local),
+and Devin Cloud (remote)**. To code with Devin, a developer hops tool-to-tool to
+hand-gather the context an agent needs. Sessions run **local or remote** but aren't linked
+to the work item. And every developer brings **their own prompts, skills, and workflows**,
+so no two runs are governed the same way.
 
 ```mermaid
-flowchart LR
-  R["Requirements<br/>meetings · wiki · email"] --> P["PM hand-writes<br/>Jira stories"]
-  P --> D["Devs interpret<br/>tickets"]
-  D --> C["Hand-write agent/service<br/>code per project"]
-  C --> W["Manually wire<br/>skills · tools · MCP"]
-  W --> T["Ad-hoc local<br/>testing"]
-  T --> Y["Manual<br/>deploy"]
-  Y -. "no unified trail" .-> Q(["❓ traceability gap"])
+flowchart TB
+  DEV["👩‍💻 Developer<br/>(manual context gathering)"]
+  DEV --> J["Jira"]
+  DEV --> C["Confluence"]
+  DEV --> B["Bitbucket"]
+  DEV --> G["Glean"]
+  DEV --> DL["Devin Desktop<br/>local"]
+  DEV --> DC["Devin Cloud<br/>remote"]
+  DEV --> PR(["Own prompts /<br/>ad-hoc skills"])
 
-  classDef pain fill:#fef2f2,stroke:#ef4444,color:#7f1d1d;
-  classDef gap fill:#fff7ed,stroke:#f97316,color:#7c2d12,stroke-dasharray:4 3;
-  class R,P,D,C,W,T,Y pain;
-  class Q gap;
+  classDef dev fill:#fff7ed,stroke:#f97316,color:#7c2d12;
+  classDef tool fill:#fef2f2,stroke:#ef4444,color:#7f1d1d;
+  classDef chaos fill:#fef2f2,stroke:#ef4444,color:#7f1d1d,stroke-dasharray:4 3;
+  class DEV dev;
+  class J,C,B,G,DL,DC tool;
+  class PR chaos;
 ```
 
-**Pain points:** slow hand-offs · inconsistent scaffolding · unvetted third-party skills ·
-no eval gate · no audit / no way to link an action back to its origin.
+**Pain points:** context scattered across tools · Devin sessions not linked to Jira ·
+local vs remote is a manual choice · inconsistent, ungoverned prompts and workflows.
 
 ---
 
-## The shift: a guided, composable, audited lifecycle
+## The shift: one unified tool, governed and Jira-linked
 
-The platform reshapes the cycle into four phases — **Ideate → Build → Govern → Run** —
-each backed by real tooling, with the **CLI as the engine and auditor** underneath.
+A single tool sits between the developer and everything else. It gathers context through
+**approved MCP connectors**, starts a **Jira-linked Devin session** (local or remote),
+**governs** that session with shared meta-repo workflows, and lets teams **build agents**
+that plug into those workflows.
 
 ```mermaid
 flowchart LR
-  subgraph IDEATE["💡 Ideate"]
+  DEV["👩‍💻 Developer"] --> HUB["🧭 Unified Tool<br/>one cockpit"]
+
+  subgraph CONNECT["🔌 Approved MCP connectors"]
     direction TB
-    G1["Gather<br/>Glean · Confluence · docs"] --> G2["LLM drafts<br/>Jira stories"] --> G3["Review and push<br/>to Jira"]
-  end
-  subgraph BUILD["🛠 Build"]
-    direction TB
-    B1["Quickstart / Canvas<br/>compose from ingredients"] --> B2["agent.yaml<br/>manifest (spine)"] --> B3["Scaffold<br/>via CLI"]
-  end
-  subgraph GOVERN["🛡 Govern"]
-    direction TB
-    V1["SkillSpector<br/>security gate"] --> V2["Eval<br/>gate"]
-  end
-  subgraph RUN["🚀 Run"]
-    direction TB
-    D1["Deploy / Run<br/>agent"] --> D2["Observe"]
+    C1["Jira"]
+    C2["Confluence"]
+    C3["Bitbucket"]
+    C4["Glean"]
   end
 
-  IDEATE --> BUILD --> GOVERN --> RUN
-  RUN -. "feedback loop" .-> IDEATE
+  HUB --> CONNECT
+  CONNECT --> CTX["📚 Unified context<br/>assembled per Jira ID"]
+  CTX --> SESS["🖥 Devin session<br/>Local (Desktop) · Remote (Cloud)"]
+  MR["🛡 Meta repos<br/>guided workflows"] -. governs .-> SESS
+  AB["🛠 Agent Builder"] -. plugs into .-> MR
+  SESS -. "linked back" .-> C1
 
-  classDef ideate fill:#fefce8,stroke:#eab308,color:#713f12;
-  classDef build fill:#eff6ff,stroke:#3b82f6,color:#1e3a8a;
-  classDef govern fill:#f0fdf4,stroke:#22c55e,color:#14532d;
-  classDef run fill:#faf5ff,stroke:#a855f7,color:#581c87;
-  class G1,G2,G3 ideate;
-  class B1,B2,B3 build;
-  class V1,V2 govern;
-  class D1,D2 run;
+  classDef hub fill:#eef2ff,stroke:#6366f1,color:#1e1b4b;
+  classDef conn fill:#eff6ff,stroke:#3b82f6,color:#1e3a8a;
+  classDef ctx fill:#fefce8,stroke:#eab308,color:#713f12;
+  classDef sess fill:#faf5ff,stroke:#a855f7,color:#581c87;
+  classDef gov fill:#f0fdf4,stroke:#22c55e,color:#14532d;
+  class HUB hub;
+  class C1,C2,C3,C4 conn;
+  class CTX ctx;
+  class SESS sess;
+  class MR,AB gov;
 ```
+
+---
+
+## Four capabilities of the unified tool
+
+| # | Capability | What it resolves |
+|---|------------|------------------|
+| 1 | **Unified context** — approved MCP connectors pull from Jira · Confluence · Bitbucket · Glean | No more hopping tool-to-tool; context is assembled in one place |
+| 2 | **Jira-linked Devin sessions** — start from a Jira ID; run **Local (Desktop)** or **Remote (Cloud)**; session links back to the ticket | Work is tracked; local/remote is a toggle, not a disconnect |
+| 3 | **Governed workflows** — meta repos embed the guided process every session follows | Every team develops the same way; governance is built in, not optional |
+| 4 | **Agent Builder** — create agents that integrate into the workflows | Extend the guided process with new, reusable agents |
 
 ---
 
 ## Side-by-side
 
-| Phase | Current state | New state (platform) |
-|-------|---------------|----------------------|
-| **Requirements** | Meetings, scattered docs, manual tickets | **Ideate**: gather from Glean/Confluence/docs → LLM-drafted stories → review → push to Jira |
-| **Build** | Hand-written per project | **Quickstart / Canvas** compose from Models · Tools · Retrievers · Skills · MCP; `agent.yaml` manifest; CLI scaffold |
-| **Compose** | Ad-hoc skill/tool wiring | First-class **ingredients** + editable **Project Canvas** |
-| **Govern** | None / informal review | **SkillSpector** security gate on install + **Eval** gate before "done" |
-| **Run** | Manual deploy | Deploy/run agents, tracked |
-| **Audit** | No unified trail | **CLI audit trail** — every action recorded, attributable, and linkable across features |
+| Dimension | Current state | New state (unified tool) |
+|-----------|---------------|--------------------------|
+| **Context** | Hand-gathered across Jira/Confluence/Bitbucket/Glean | One layer via **approved MCP connectors** |
+| **Work tracking** | Jira separate from the coding session | **Jira ID linked** to each Devin session |
+| **Where dev runs** | Local *or* remote, chosen and wired manually | **Local (Desktop) or Remote (Cloud)** from the same cockpit |
+| **Consistency** | Everyone's own prompts / skills / workflows | **Meta-repo guided workflows**, shared across teams |
+| **New capabilities** | Built ad-hoc, per person | **Agent Builder** produces agents that plug into workflows |
+| **Traceability** | None across tools | Jira ID ↔ session ↔ actions, audited |
 
 ---
 
-## The through-line: one audited chain
-
-Because the CLI records every consequential action with a **correlation id**, a single
-requirement can be traced end-to-end — from the story it produced to the project that
-shipped it.
+## The through-line: Jira → context → governed session → traceable outcome
 
 ```mermaid
 flowchart LR
-  S["ideate/draft<br/>story: login-flow"] --> J["ideate/push<br/>JIRA-42"] --> M["project/manifest<br/>/repo/agent"] --> K["skill/scan<br/>SAFE"] --> P["project/create"]
-  note["correlation_id links the whole chain · source = cli | dashboard"]
-  S -.-> note
+  A["Pick Jira ID"] --> B["Assemble context<br/>via approved connectors"] --> C["Launch Devin<br/>local or remote"] --> D["Governed by<br/>meta-repo workflow"] --> E["Result linked<br/>back to Jira ID"]
 
   classDef step fill:#ecfeff,stroke:#06b6d4,color:#083344;
-  classDef meta fill:#f8fafc,stroke:#94a3b8,color:#334155,stroke-dasharray:3 3;
-  class S,J,M,K,P step;
-  class note meta;
+  class A,B,C,D,E step;
 ```
 
 ---
 
 ## Outcome
 
-- **Faster**: requirements → running agent without manual hand-offs.
-- **Safer**: no unvetted skill ships; nothing is "done" until eval passes.
-- **Consistent**: every agent composed from the same governed ingredients + manifest.
-- **Accountable**: one audit trail links every action to its origin and to each other.
+- **One place**: gather context and start development without leaving the tool.
+- **Tracked**: every Devin session — local or remote — is tied to its Jira ID.
+- **Consistent**: meta-repo workflows give every team the same guided, governed process.
+- **Extensible**: Agent Builder adds new agents that slot into those workflows.
