@@ -110,7 +110,7 @@ vendor-specific.
 | **Canonical → Devin projection, one-way** | ✅ Built | `push-devin` is idempotent + versioned; each entry carries a provenance footer |
 | **Provenance + drift status (no Devin-only authoring)** | ✅ Built | `dva kg okf project-status`: `okf://…` source refs + `in_sync/drift/unprojected/orphan`; surfaced as a per-bundle badge in the UI |
 | **Portable context bundle (non-Devin agents)** | ✅ Built | `local` execution engine + `dva context build`: renders CONTEXT.md + prompt.md + manifest.json (provenance) for Claude Code / Codex / any agent — no API key |
-| **Enterprise auth (SSO / RBAC / actor audit)** | ✅ Built | Forward-auth provider trusts an SSO proxy's verified identity; RBAC blocks unauthorized actions (403); the authenticated **actor** is written to the audit trail. `dva auth whoami/roles/check` |
+| **Enterprise auth (SSO / RBAC / actor audit)** | ✅ Built | Forward-auth provider trusts an SSO proxy's verified identity; RBAC blocks unauthorized actions (403); the authenticated **actor** is written to the audit trail. `dva auth whoami/roles/check`. *Eval-phase; PROD hardening tracked in [`04`](04-enterprise-auth.md) (streamed-push actor attribution, managed role source, secret rotation).* |
 
 ### Enterprise auth without running an IdP
 
