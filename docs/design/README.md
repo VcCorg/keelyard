@@ -21,7 +21,9 @@ agents) get built on the platform, contrasted with the current manual process.
 
 - **Present:** open it in any browser. Navigate with **← / →** (or PageUp/Down, scroll).
   **Home/End** jump to first/last. The **Theme** button toggles light/dark.
-- **Deep-link:** `deck.html#s5` opens directly on a given slide.
+- **Deep-link:** `deck.html#s-arch` (or `#s3` etc.) opens directly on a given slide.
+- **Export to PDF:** print the page (landscape) — it lays out **one slide per page** with
+  the chrome hidden and colors preserved.
 - **Slides:** 1 Cover · 2 Current state (tool sprawl) · 3 Unified tool (four capabilities) ·
   4 Context → Jira-linked session · 5 Governance + Agent Builder · 6 Jira → outcome traceability ·
   7 Outcomes.
