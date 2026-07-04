@@ -97,3 +97,22 @@ dva auth whoami                 # resolved identity, provider, roles, permission
 dva auth roles                  # role → permission matrix
 dva auth check knowledge:project  # exit 0 if permitted, 1 otherwise
 ```
+
+---
+
+## Evaluation-phase scope & future PROD hardening
+
+This is built for the **evaluation phase**. The access decision (403) is fully enforced today;
+the items below are deferred to a production hardening pass:
+
+- **Actor attribution on the streamed OKF push.** `dva kg okf push-devin` runs as a streamed CLI
+  subprocess, so its audit rows are attributed to the CLI principal rather than the dashboard user.
+  The **route is RBAC-enforced** (`knowledge:project`), but per-row actor attribution for that
+  streamed path needs the actor threaded into the subprocess environment. *(Future / PROD.)*
+- **Group/role source of truth.** Role mapping is env-driven (`DVA_ROLE_MAP`); PROD may prefer a
+  managed mapping (directory groups / SCIM) with periodic refresh.
+- **Session/secret handling.** Session-scoped vendor secrets and token lifetimes are delegated to
+  the SSO proxy today; PROD should define rotation + per-session secret binding.
+
+These do not affect the evaluation-phase guarantees: identity is resolved by the provider, sensitive
+actions are blocked with 403, and the actor is audited for every dashboard-initiated action.
