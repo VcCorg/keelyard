@@ -24,6 +24,7 @@ from agentic_cli.commands.eval import eval_app
 from agentic_cli.commands.skill_registry import skill_registry_app
 from agentic_cli.commands.devin import devin_app
 from agentic_cli.commands.retriever import retriever_app
+from agentic_cli.commands.execution import execution_app
 
 app = typer.Typer(
     name=CLI_NAME,
@@ -52,6 +53,7 @@ app.add_typer(eval_app, name="eval")
 app.add_typer(skill_registry_app, name="skill-registry")
 app.add_typer(devin_app, name="devin")
 app.add_typer(retriever_app, name="retriever")
+app.add_typer(execution_app, name="execution")
 
 
 def version_callback(value: bool) -> None:
