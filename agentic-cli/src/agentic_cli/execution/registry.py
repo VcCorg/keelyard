@@ -70,8 +70,10 @@ def create_session(spec: ExecutionSpec, engine: Optional[str] = None, *, source:
 
 def _register_builtins() -> None:
     from agentic_cli.execution.devin_adapter import DevinEngine
+    from agentic_cli.execution.local_adapter import LocalContextEngine
 
     register("devin", DevinEngine)
+    register("local", LocalContextEngine)
 
 
 _register_builtins()

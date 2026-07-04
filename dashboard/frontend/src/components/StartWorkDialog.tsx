@@ -10,10 +10,19 @@ import {
   Loader2,
   Boxes,
   BookOpen,
+  Package,
+  Download,
+  Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StreamConsole } from "@/components/StreamConsole";
-import { api, type TaskContract, type OpenIdeResult, type CreateDevinSessionResponse } from "@/lib/api";
+import {
+  api,
+  type TaskContract,
+  type OpenIdeResult,
+  type CreateDevinSessionResponse,
+  type PortableContextResult,
+} from "@/lib/api";
 
 /**
  * "Start work" launcher — turns a Jira issue into a governed Task Contract and
@@ -38,6 +47,10 @@ export function StartWorkDialog({ issueKey, onClose }: { issueKey: string; onClo
   const [creating, setCreating] = useState(false);
   const [devinResult, setDevinResult] = useState<CreateDevinSessionResponse | null>(null);
   const [devinError, setDevinError] = useState<string | null>(null);
+
+  const [portableBusy, setPortableBusy] = useState(false);
+  const [portable, setPortable] = useState<PortableContextResult | null>(null);
+  const [portableError, setPortableError] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -114,6 +127,38 @@ export function StartWorkDialog({ issueKey, onClose }: { issueKey: string; onClo
     } finally {
       setCreating(false);
     }
+  };
+
+  const buildPortable = async () => {
+    if (!contract) return;
+    setPortableBusy(true);
+    setPortableError(null);
+    setPortable(null);
+    try {
+      const res = await api.previewPortableContext({
+        prompt,
+        title: `${contract.issue.key}: ${contract.issue.summary}`.slice(0, 120),
+        jira: contract.issue.key,
+        domain: slug || undefined,
+        tags: ["jira", contract.issue.project, ...(slug ? [slug] : [])],
+      });
+      setPortable(res);
+    } catch (e) {
+      setPortableError((e as Error)?.message || "Failed to render context");
+    } finally {
+      setPortableBusy(false);
+    }
+  };
+
+  const downloadPortable = () => {
+    if (!portable) return;
+    const blob = new Blob([portable.context_md], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `CONTEXT-${portable.bundle_id || contract?.issue.key || "task"}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const gov = contract?.governance;
@@ -298,6 +343,58 @@ export function StartWorkDialog({ issueKey, onClose }: { issueKey: string; onClo
                     {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : dryRun ? "Preview Devin session" : "Create Devin session"}
                   </Button>
                 </div>
+              </div>
+
+              {/* Portable context — vendor-neutral, any agent */}
+              <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Package className="h-4 w-4 text-violet-500" />
+                    <p className="text-sm font-medium">Portable context bundle</p>
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 uppercase tracking-wide">
+                      any agent
+                    </span>
+                  </div>
+                  <Button size="sm" variant="outline" disabled={portableBusy} onClick={buildPortable}>
+                    {portableBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Render context"}
+                  </Button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  The same canonical context — governance + domain knowledge — rendered as an
+                  engine-neutral bundle for Claude Code, Codex, or any local agent. No vendor, no lock-in.
+                </p>
+                {portableError && (
+                  <div className="mt-2 text-xs px-3 py-2 rounded-lg bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300">
+                    {portableError}
+                  </div>
+                )}
+                {portable && (
+                  <div className="mt-2 space-y-2">
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <span>
+                        bundle <code className="font-mono">{portable.bundle_id}</code> · {portable.resolved}/
+                        {portable.item_count} refs resolved
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => navigator.clipboard?.writeText(portable.context_md)}
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+                        >
+                          <Copy className="h-3 w-3" /> Copy
+                        </button>
+                        <button
+                          onClick={downloadPortable}
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+                        >
+                          <Download className="h-3 w-3" /> CONTEXT.md
+                        </button>
+                      </div>
+                    </div>
+                    <pre className="max-h-56 overflow-auto rounded-md border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 p-2.5 text-[11px] font-mono whitespace-pre-wrap">
+                      {portable.context_md}
+                    </pre>
+                  </div>
+                )}
               </div>
 
               {/* Local sync stream */}
