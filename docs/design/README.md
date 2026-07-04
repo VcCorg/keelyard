@@ -10,7 +10,8 @@ agents) get built on the platform, contrasted with the current manual process.
 | # | Document | Level | What it shows |
 |---|----------|-------|---------------|
 | 01 | [Development Lifecycle](./01-development-lifecycle.md) | High | Current-state vs new-state dev cycle (flow) |
-| 02 | [Architecture](./02-architecture.md) | High | Current-state vs new-state architecture (CLI-first) |
+| 02 | [Architecture](./02-architecture.md) | High | Internal build architecture (CLI-first) |
+| 03 | [Vendor-Neutral Orchestrator](./03-vendor-neutral-orchestrator.md) | High | Org-owned knowledge; Devin as a swappable engine; built-vs-roadmap |
 | — | [Slides — `slides/deck.html`](./slides/deck.html) | Deck | **Done** — professionally designed 7-slide deck (current → new) |
 | 03 | Phase Detail — Ideate → Build → Govern → Run | Detail | *(planned)* per-phase flows + data |
 | 04 | Audit & Traceability | Detail | *(planned)* how the CLI links actions across features |
@@ -25,8 +26,8 @@ agents) get built on the platform, contrasted with the current manual process.
 - **Export to PDF:** print the page (landscape) — it lays out **one slide per page** with
   the chrome hidden and colors preserved.
 - **Slides:** 1 Cover · 2 Current state (tool sprawl) · 3 Unified tool (four capabilities) ·
-  4 Context → Jira-linked session · 5 Governance + Agent Builder · 6 Jira → outcome traceability ·
-  7 Outcomes.
+  4 System architecture · 5 Vendor-neutral durability · 6 Context → Jira-linked session ·
+  7 Governance + Agent Builder · 8 Jira → outcome traceability · 9 Outcomes.
 
 ## How this maps to the deck
 
