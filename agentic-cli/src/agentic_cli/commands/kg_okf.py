@@ -579,6 +579,70 @@ def _derive_folder_name(domain: str | None, bundle_dir: Path,
     return default_folder_name(dom) or None
 
 
+@okf_app.command("project-status")
+def project_status(
+    domain: Annotated[str | None, typer.Option("--domain", help="Domain slug, e.g. cwow-facility")] = None,
+    source: Annotated[str, typer.Option("--source", help="Bundle source: 'export' or 'authored'")] = "export",
+    bundle: Annotated[Path | None, typer.Option("--bundle", help="Explicit bundle dir (overrides --domain)")] = None,
+    types: Annotated[str, typer.Option("--types", help="Comma-separated concept types")] = "FREQ,Requirement",
+    show: Annotated[str, typer.Option("--show", help="Filter rows: all|drift|unprojected|orphan")] = "all",
+) -> None:
+    """Show how the canonical OKF bundle maps onto its Devin projection.
+
+    The bundle is the source of truth; Devin Knowledge is a one-way copy. This
+    reads only local state (bundle vs ``.devin-sync.json``) to flag drift
+    (canonical changed since projected), unprojected concepts, and orphans
+    (Devin copies whose source concept is gone) — no Devin API call. Fix drift
+    by re-running ``push-devin`` (re-project); fix orphans with ``devin prune``.
+    """
+    from agentic_cli.kg.okf.devin import (
+        DRIFT, ORPHAN, UNPROJECTED, projection_status,
+    )
+
+    bundle_dir = _resolve_bundle(domain, source, bundle)
+    if not (bundle_dir / "okf.schema.yaml").exists():
+        console.print(f"[red]✗[/red] No OKF bundle at [cyan]{bundle_dir}[/cyan] (missing okf.schema.yaml).")
+        raise typer.Exit(1)
+
+    type_tuple = tuple(t.strip() for t in types.split(",") if t.strip())
+    st = projection_status(bundle_dir, type_tuple)
+
+    badge = {"in_sync": "[green]in sync[/green]", "drift": "[yellow]drift[/yellow]",
+             "unprojected": "[red]unprojected[/red]", "empty": "[dim]empty[/dim]"}.get(st.state, st.state)
+    console.print(f"[bold]Projection[/bold] domain=[cyan]{st.domain or '?'}[/cyan] "
+                  f"bundle=[cyan]{bundle_dir}[/cyan] -> {badge}")
+    console.print(f"  canonical={st.total_canonical} projected={st.projected} "
+                  f"in-sync={st.in_sync} drift={st.drift} unprojected={st.unprojected} orphan={st.orphan}")
+
+    wanted = {"drift": {DRIFT}, "unprojected": {UNPROJECTED}, "orphan": {ORPHAN}}.get(show)
+    rows = [e for e in st.entries if (not wanted or e.state in wanted)]
+    if rows:
+        table = Table(title="Canonical → Devin projection")
+        table.add_column("Concept", style="cyan", max_width=44)
+        table.add_column("State")
+        table.add_column("v", justify="right", style="dim")
+        table.add_column("Source (canonical)", style="magenta", max_width=40)
+        state_style = {"in_sync": "green", "drift": "yellow", "unprojected": "red", "orphan": "red"}
+        for e in rows:
+            table.add_row(e.concept_id, f"[{state_style.get(e.state,'white')}]{e.state}[/]",
+                          str(e.version or "-"), e.source_ref)
+        console.print(table)
+
+    from agentic_cli.tracker import record_action
+    try:
+        record_action("knowledge", "projection_status", entity_type="okf_bundle",
+                       entity_id=st.domain or str(bundle_dir), source="cli",
+                       details={"state": st.state, "drift": st.drift,
+                                "unprojected": st.unprojected, "orphan": st.orphan})
+    except Exception:  # noqa: BLE001 - never break on audit
+        pass
+
+    if st.drift or st.unprojected or st.orphan:
+        console.print("[dim]next: re-project with[/dim] [cyan]dva kg okf push-devin[/cyan] "
+                      "[dim](orphans:[/dim] [cyan]dva kg okf devin prune[/cyan][dim]).[/dim]")
+        raise typer.Exit(2)
+
+
 @okf_app.command("push-devin")
 def push_devin(
     domain: Annotated[str | None, typer.Option("--domain", help="Domain slug, e.g. cwow-facility")] = None,
@@ -664,6 +728,18 @@ def push_devin(
                   f"failed={len(result.failed)}")
     for cid, err in result.failed:
         console.print(f"  [red]x[/red] {cid}: {err}")
+
+    from agentic_cli.tracker import record_action
+    try:
+        record_action("knowledge", "project", entity_type="okf_bundle",
+                       entity_id=domain or str(bundle_dir), source="cli",
+                       status="error" if result.failed else "success",
+                       details={"created": len(result.created), "updated": len(result.updated),
+                                "skipped": len(result.skipped), "failed": len(result.failed),
+                                "types": ",".join(type_tuple)})
+    except Exception:  # noqa: BLE001 - never break on audit
+        pass
+
     if result.failed:
         raise typer.Exit(1)
 

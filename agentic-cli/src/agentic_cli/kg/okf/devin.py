@@ -310,6 +310,16 @@ def default_folder_name(domain: str) -> str:
     return f"{domain}-okf" if domain else ""
 
 
+def source_ref(domain: str, concept_id: str) -> str:
+    """Canonical provenance reference for a projected knowledge entry.
+
+    The org's OKF bundle is the source of truth; a projected Devin entry always
+    points back here via ``okf://<domain>/<concept_id>`` so it can be traced,
+    drift-checked, and regenerated.
+    """
+    return f"okf://{domain}/{concept_id}" if domain else f"okf://{concept_id}"
+
+
 def feature_folder_name(domain: str, feature: str) -> str:
     """Per-feature Devin folder, e.g. ('cwow-facility','cwow-27901') ->
     'cwow-facility-cwow-27901'. Shared (no feature) -> '<domain>-shared'."""
@@ -465,14 +475,16 @@ def push_bundle(
                     version = rec.get("version", 1) + (1 if content_changed else 0)
                     client.update(rec["id"], e.to_payload(version, target_fid, release))
                     sync[e.concept_id] = {"id": rec["id"], "version": version, "hash": new_hash,
-                                          "folder_id": target_fid, "synced_at": now}
+                                          "folder_id": target_fid, "synced_at": now,
+                                          "source": source_ref(domain, e.concept_id)}
                     e.knowledge_id, e.version = rec["id"], version
                     result.updated.append(e.concept_id)
                 else:
                     resp = client.create(e.to_payload(1, target_fid, release))
                     new_id = resp.get("id")
                     sync[e.concept_id] = {"id": new_id, "version": 1, "hash": new_hash,
-                                          "folder_id": target_fid, "synced_at": now}
+                                          "folder_id": target_fid, "synced_at": now,
+                                          "source": source_ref(domain, e.concept_id)}
                     e.knowledge_id, e.version = new_id, 1
                     result.created.append(e.concept_id)
             except Exception as exc:  # noqa: BLE001 — collect per-entry failures
@@ -529,3 +541,110 @@ def prune_bundle(
                 result.failed.append((cid, str(exc)))
     save_sync(root, sync, folder_id=meta.get("folder_id"), folder_name=meta.get("folder_name"))
     return result
+
+
+# ── Projection status (pure-read drift + provenance) ─────────────────────────
+#
+# The org's OKF bundle is canonical; Devin Knowledge is a one-way projection of
+# it. This reads *only local state* — the current bundle vs the recorded
+# ``.devin-sync.json`` — to classify each concept without touching the network,
+# so drift is observable at a glance (the ``verify_snapshot`` analog for
+# knowledge). No push side effects.
+
+# Per-entry projection states.
+IN_SYNC = "in_sync"          # projected copy matches the canonical concept
+DRIFT = "drift"              # canonical concept changed since it was projected
+UNPROJECTED = "unprojected"  # canonical concept never projected to Devin
+ORPHAN = "orphan"            # projected copy whose canonical concept is gone
+
+
+@dataclass
+class ProjectionEntryStatus:
+    concept_id: str
+    name: str
+    source_ref: str                  # canonical ref, e.g. okf://payments/features/...
+    state: str                       # IN_SYNC | DRIFT | UNPROJECTED | ORPHAN
+    knowledge_id: str | None = None  # Devin entry id (if projected)
+    version: int = 0
+    canonical_hash: str = ""         # hash of the current canonical concept
+    projected_hash: str = ""         # hash recorded at last projection
+    synced_at: str = ""
+
+
+@dataclass
+class ProjectionStatus:
+    domain: str
+    root: Path
+    total_canonical: int = 0
+    in_sync: int = 0
+    drift: int = 0
+    unprojected: int = 0
+    orphan: int = 0
+    entries: list[ProjectionEntryStatus] = field(default_factory=list)
+
+    @property
+    def projected(self) -> int:
+        return self.in_sync + self.drift
+
+    @property
+    def state(self) -> str:
+        """Bundle-level rollup for a single badge."""
+        if self.total_canonical == 0:
+            return "empty"
+        if self.unprojected == self.total_canonical and self.projected == 0:
+            return "unprojected"
+        if self.drift or self.unprojected or self.orphan:
+            return "drift"
+        return "in_sync"
+
+
+def projection_status(root: Path, types: tuple[str, ...] = DEFAULT_PUSH_TYPES) -> ProjectionStatus:
+    """Classify every canonical concept against its recorded projection.
+
+    Pure/local: compares the current bundle's rendered entries (their content
+    hashes) with the ``.devin-sync.json`` provenance map. Detects drift
+    (canonical changed), unprojected (never sent), and orphan (projected copy
+    whose source concept no longer exists) — all without a Devin API call.
+    """
+    root = Path(root)
+    bundle = Bundle.load(root)
+    domain = bundle_domain(bundle)
+    entries = build_knowledge_entries(bundle, types)
+    sync = load_sync(root)
+
+    out: list[ProjectionEntryStatus] = []
+    canonical_ids: set[str] = set()
+    for e in entries:
+        cid = e.concept_id
+        canonical_ids.add(cid)
+        chash = e.content_hash()
+        rec = sync.get(cid)
+        if not rec or not rec.get("id"):
+            out.append(ProjectionEntryStatus(
+                concept_id=cid, name=e.name, source_ref=source_ref(domain, cid),
+                state=UNPROJECTED, canonical_hash=chash))
+        else:
+            phash = rec.get("hash", "")
+            state = IN_SYNC if phash and phash == chash else DRIFT
+            out.append(ProjectionEntryStatus(
+                concept_id=cid, name=e.name, source_ref=rec.get("source") or source_ref(domain, cid),
+                state=state, knowledge_id=rec.get("id"), version=rec.get("version", 1),
+                canonical_hash=chash, projected_hash=phash, synced_at=rec.get("synced_at", "")))
+
+    # Orphans: recorded projections whose canonical concept is gone.
+    for cid, rec in sync.items():
+        if cid not in canonical_ids and rec.get("id"):
+            out.append(ProjectionEntryStatus(
+                concept_id=cid, name=cid, source_ref=rec.get("source") or source_ref(domain, cid),
+                state=ORPHAN, knowledge_id=rec.get("id"), version=rec.get("version", 1),
+                projected_hash=rec.get("hash", ""), synced_at=rec.get("synced_at", "")))
+
+    out.sort(key=lambda s: (s.state, s.concept_id))
+    return ProjectionStatus(
+        domain=domain, root=root, total_canonical=len(canonical_ids),
+        in_sync=sum(1 for s in out if s.state == IN_SYNC),
+        drift=sum(1 for s in out if s.state == DRIFT),
+        unprojected=sum(1 for s in out if s.state == UNPROJECTED),
+        orphan=sum(1 for s in out if s.state == ORPHAN),
+        entries=out,
+    )

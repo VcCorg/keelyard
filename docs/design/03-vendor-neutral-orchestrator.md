@@ -105,12 +105,24 @@ vendor-specific.
 |------------|-------|-------|
 | Org knowledge layer (KG + meta-repo + governance) | ✅ Built | Canonical, portable, org-owned |
 | Jira work item → Task Contract → Devin session, linked | ✅ Built | `workflow_service` + `StartWorkDialog` + `createDevinSession` |
-| Org → Devin knowledge sync (one-way projection) | ✅ Partial | `knowledge_from_sync` exports domain bundles into Devin |
 | Cross-feature audit (correlation_id · source) | ✅ Built | `tracker` / `record_action` |
-| **ExecutionEngine adapter (swappable)** | 🔶 Roadmap | Launch is bound to `create_session`; needs an interface + Devin adapter |
-| **Canonical-knowledge guarantee (no Devin-only authoring)** | 🔶 Roadmap | Provenance so snapshots/playbooks are generated, not sources |
+| **ExecutionEngine adapter (swappable)** | ✅ Built | `agentic_cli.execution` seam; Devin is one adapter; dashboard routes through it (`source="dashboard"`) |
+| **Canonical → Devin projection, one-way** | ✅ Built | `push-devin` is idempotent + versioned; each entry carries a provenance footer |
+| **Provenance + drift status (no Devin-only authoring)** | ✅ Built | `dva kg okf project-status`: `okf://…` source refs + `in_sync/drift/unprojected/orphan`; surfaced as a per-bundle badge in the UI |
 | **Portable context bundle (non-Devin agents)** | 🔶 Roadmap | Render the same context for Claude Code / Codex / etc. |
 | **Enterprise auth (SSO / RBAC / secrets)** | 🔶 Roadmap | Today a local role switcher |
+
+### What "canonical → projection" now guarantees, concretely
+
+- **One source of truth.** Knowledge is authored in the OKF bundle (KG + meta-repo). The
+  Devin Knowledge panel is labelled a *projection* — a regenerable copy, not an edit surface.
+- **Provenance.** Every projected entry points back at `okf://<domain>/<concept_id>` and
+  carries a content-hash + version footer, so any Devin entry is traceable to its canonical origin.
+- **Drift is observable at a glance.** `dva kg okf project-status` (and the per-bundle badge)
+  compares the live bundle against the recorded projection — *without* calling Devin — and flags
+  `drift` (canonical changed), `unprojected` (never sent), and `orphan` (source concept deleted).
+- **Regenerable.** Delete every entry in the vendor and re-project; swap the engine and the
+  knowledge comes with you. The vendor holds a copy, never the original.
 
 ---
 
