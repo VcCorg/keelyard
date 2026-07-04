@@ -109,8 +109,23 @@ vendor-specific.
 | **ExecutionEngine adapter (swappable)** | ✅ Built | `agentic_cli.execution` seam; Devin is one adapter; dashboard routes through it (`source="dashboard"`) |
 | **Canonical → Devin projection, one-way** | ✅ Built | `push-devin` is idempotent + versioned; each entry carries a provenance footer |
 | **Provenance + drift status (no Devin-only authoring)** | ✅ Built | `dva kg okf project-status`: `okf://…` source refs + `in_sync/drift/unprojected/orphan`; surfaced as a per-bundle badge in the UI |
-| **Portable context bundle (non-Devin agents)** | 🔶 Roadmap | Render the same context for Claude Code / Codex / etc. |
+| **Portable context bundle (non-Devin agents)** | ✅ Built | `local` execution engine + `dva context build`: renders CONTEXT.md + prompt.md + manifest.json (provenance) for Claude Code / Codex / any agent — no API key |
 | **Enterprise auth (SSO / RBAC / secrets)** | 🔶 Roadmap | Today a local role switcher |
+
+### The seam is demonstrably multi-engine
+
+`dva execution list` now shows **two** engines behind the same neutral `ExecutionSpec`:
+
+| Engine | Kind | Needs a key? | Produces |
+|--------|------|--------------|----------|
+| `devin` | cloud | yes (`DEVIN_API_KEY`) | a Devin Cloud session |
+| `local` | local | **no** | a portable context bundle any agent can consume |
+
+The *same* task spec, routed to a different engine, yields either a Devin session or a
+vendor-free bundle (`CONTEXT.md` + `prompt.md` + `manifest.json` with provenance). Switch with
+`DVA_EXECUTION_ENGINE` or `--engine local` — proof that the org owns the context and the
+engine is swappable, not aspirational. In the dashboard, "Start work" offers a third path —
+**Render context** — that previews and downloads the same bundle for a Jira task.
 
 ### What "canonical → projection" now guarantees, concretely
 

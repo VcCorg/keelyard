@@ -394,6 +394,31 @@ export interface CreateDevinSessionResponse {
   knowledge_count: number;
 }
 
+export interface ExecutionEngineInfo {
+  name: string;
+  available: boolean;
+  kind: string; // "cloud" | "local"
+  description: string;
+  detail: string;
+}
+
+export interface PortableContextRequest {
+  prompt: string;
+  title?: string;
+  jira?: string;
+  domain?: string | null;
+  tags?: string[];
+  refs?: string[];
+}
+
+export interface PortableContextResult {
+  engine: string;
+  bundle_id?: string | null;
+  context_md: string;
+  item_count: number;
+  resolved: number;
+}
+
 export interface DevinSessionDetail {
   session_id: string;
   url?: string | null;
@@ -1581,6 +1606,19 @@ class APIClient {
 
   async createDevinSession(body: CreateDevinSessionRequest): Promise<CreateDevinSessionResponse> {
     return this.request("/devin/sessions", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  }
+
+  /* ---- Execution engines (vendor-neutral seam) ---- */
+  async listExecutionEngines(): Promise<ExecutionEngineInfo[]> {
+    return this.request("/execution/engines");
+  }
+
+  /** Render a task's portable, engine-neutral context bundle (preview, no files). */
+  async previewPortableContext(body: PortableContextRequest): Promise<PortableContextResult> {
+    return this.request("/execution/context/preview", {
       method: "POST",
       body: JSON.stringify(body),
     });
