@@ -281,7 +281,7 @@
   <span class="brand">Agentic Platform</span>
   <span>Architecture Review</span>
   <span class="spacer"></span>
-  <span class="counter"><b id="cur">01</b> / 08</span>
+  <span class="counter"><b id="cur">01</b> / 09</span>
   <button id="theme" type="button" aria-label="Toggle theme">Theme</button>
 </div>
 
@@ -418,7 +418,50 @@
     </div>
   </section>
 
-  <!-- 5 · Capability — context to session -->
+  <!-- 5 · Vendor-neutral durability -->
+  <section class="slide" id="s-neutral">
+    <div class="inner reveal">
+      <p class="eyebrow">Vendor-Neutral · Durability</p>
+      <h2>Your knowledge outlives the vendor.</h2>
+      <p class="lede" style="margin-bottom:24px">The org owns the knowledge, governance, and
+        history. The coding engine is a replaceable execution provider — author in the org layer,
+        project into the vendor, swap the engine without losing a thing.</p>
+      <div class="arch">
+        <div class="zone cli">
+          <div class="zt"><span style="width:7px;height:7px;border-radius:50%;background:var(--govern);display:inline-block"></span>Org knowledge layer — canonical · portable · <b>stays</b></div>
+          <div class="mods">
+            <span class="mod">Knowledge Graph</span>
+            <span class="mod">Meta-repo domain context</span>
+            <span class="mod">Governance</span>
+            <span class="mod audit">▣ Audit · Jira ↔ session ↔ actions</span>
+          </div>
+        </div>
+
+        <div class="boundary" style="color:var(--ideate);border-color:color-mix(in oklab, var(--ideate) 45%, var(--hair))">▼ projected one-way · disposable ▼</div>
+
+        <div class="cols2">
+          <div class="zone" style="border-color:color-mix(in oklab, var(--ideate) 45%, var(--hair-strong))">
+            <div class="zt"><span style="width:7px;height:7px;border-radius:50%;background:var(--ideate);display:inline-block"></span>Projections</div>
+            <div class="mods">
+              <span class="mod">Devin Knowledge</span><span class="mod">Playbooks / Snapshots</span>
+              <span class="mod">Context bundle · any agent</span>
+            </div>
+          </div>
+          <div class="zone band">
+            <div class="zt"><span style="width:7px;height:7px;border-radius:50%;background:var(--run);display:inline-block"></span>Execution engines — swappable</div>
+            <div class="split">
+              <span class="mod run">Devin Cloud · Sessions API</span>
+              <span class="vs">⇄ swap</span>
+              <span class="mod">Alternative engine</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="foot">The platform is the front door and the memory · the vendor is the hands</p>
+    </div>
+  </section>
+
+  <!-- 6 · Capability — context to session -->
   <section class="slide" id="s4">
     <div class="inner reveal">
       <p class="eyebrow">Capability · Context → Session</p>
@@ -438,7 +481,7 @@
     </div>
   </section>
 
-  <!-- 6 · Capability — governance and Agent Builder -->
+  <!-- 7 · Capability — governance and Agent Builder -->
   <section class="slide" id="s5">
     <div class="inner reveal">
       <p class="eyebrow">Capability · Governance and Agents</p>
@@ -467,7 +510,7 @@
     </div>
   </section>
 
-  <!-- 7 · Traceability — Jira to outcome -->
+  <!-- 8 · Traceability — Jira to outcome -->
   <section class="slide" id="s6">
     <div class="inner reveal">
       <p class="eyebrow">Traceability · Jira → Outcome</p>
@@ -489,7 +532,7 @@
     </div>
   </section>
 
-  <!-- 8 · Outcomes -->
+  <!-- 9 · Outcomes -->
   <section class="slide" id="s7">
     <div class="inner reveal">
       <p class="eyebrow">Outcome</p>
