@@ -130,7 +130,7 @@ def _knowledge_ids_from_sync(bundle_dir: Optional[Path]) -> list[str]:
 
 # ── Sessions ─────────────────────────────────────────────────────────────────
 
-def create_session(req: CreateSessionRequest) -> CreateSessionResponse:
+def create_session(req: CreateSessionRequest, actor: str | None = None) -> CreateSessionResponse:
     """Launch a coding session through the vendor-neutral execution seam.
 
     The dashboard resolves *org-owned* inputs (portable knowledge refs, domain
@@ -172,7 +172,7 @@ def create_session(req: CreateSessionRequest) -> CreateSessionResponse:
         },
     )
 
-    res = run_session(spec, source="dashboard")
+    res = run_session(spec, source="dashboard", actor=actor)
     return CreateSessionResponse(
         dry_run=res.dry_run,
         session_id=res.session_id,

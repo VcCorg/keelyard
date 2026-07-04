@@ -26,6 +26,7 @@ from agentic_cli.commands.devin import devin_app
 from agentic_cli.commands.retriever import retriever_app
 from agentic_cli.commands.execution import execution_app
 from agentic_cli.commands.context import context_app
+from agentic_cli.commands.auth import auth_app
 
 app = typer.Typer(
     name=CLI_NAME,
@@ -56,6 +57,7 @@ app.add_typer(devin_app, name="devin")
 app.add_typer(retriever_app, name="retriever")
 app.add_typer(execution_app, name="execution")
 app.add_typer(context_app, name="context")
+app.add_typer(auth_app, name="auth")
 
 
 def version_callback(value: bool) -> None:

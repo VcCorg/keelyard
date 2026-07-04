@@ -7,12 +7,15 @@ import {
   useMemo,
   type ReactNode,
 } from "react";
+import { api, type AuthMe } from "@/lib/api";
 
 /**
- * Phase A local identity seam.
+ * Identity seam.
  *
- * Everything user-aware reads from `useUser()` so that graduating to real
- * SSO/OIDC (Phase C) is a single provider swap — no call-site changes.
+ * Everything user-aware reads from `useUser()`. Identity is hydrated from the
+ * backend `/auth/me`, which the configured provider resolves — a dev principal
+ * locally, or the SSO proxy's verified identity in production. Permissions come
+ * from the same source; `can(permission)` gates UI (the server still enforces).
  */
 
 export type UserRole = "member" | "lead" | "admin";
@@ -83,6 +86,29 @@ export function initials(name: string): string {
     .join("");
 }
 
+/** Map an auth-provider role to the sidebar's coarse nav role. */
+function navRoleFor(roles: string[]): UserRole {
+  if (roles.includes("admin")) return "admin";
+  if (roles.includes("maintainer")) return "lead";
+  return "member";
+}
+
+interface AuthInfo {
+  provider: string;   // dev | forward-auth | none
+  mode: string;       // DVA_AUTH_MODE
+  authenticated: boolean;
+  roles: string[];
+  permissions: string[];
+}
+
+const DEFAULT_AUTH: AuthInfo = {
+  provider: "dev",
+  mode: "dev",
+  authenticated: true,
+  roles: ["admin"],
+  permissions: ["admin:*"], // optimistic local-admin default (matches dev provider)
+};
+
 interface UserContextValue {
   user: CurrentUser;
   workspace: Workspace;
@@ -91,6 +117,9 @@ interface UserContextValue {
   theme: Theme;
   setTheme: (t: Theme) => void;
   toggleTheme: () => void;
+  auth: AuthInfo;
+  /** UI gate — server still enforces. Admins (admin:* or dev default) pass all. */
+  can: (permission: string) => boolean;
 }
 
 const UserContext = createContext<UserContextValue | null>(null);
@@ -105,6 +134,42 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<CurrentUser>(loadUser);
   const [workspace, setWorkspaceState] = useState<Workspace>(loadWorkspace);
   const [theme, setThemeState] = useState<Theme>(loadTheme);
+  const [auth, setAuth] = useState<AuthInfo>(DEFAULT_AUTH);
+
+  // Hydrate identity from the backend provider (dev locally, SSO proxy in prod).
+  useEffect(() => {
+    let alive = true;
+    api
+      .getMe()
+      .then((me: AuthMe) => {
+        if (!alive) return;
+        setAuth({
+          provider: me.provider,
+          mode: me.mode,
+          authenticated: me.authenticated,
+          roles: me.roles,
+          permissions: me.permissions,
+        });
+        setUser((prev) => ({
+          ...prev,
+          name: me.display_name || me.subject || prev.name,
+          email: me.subject || prev.email,
+          role: navRoleFor(me.roles),
+        }));
+      })
+      .catch(() => {
+        // No auth endpoint (older backend) → keep the local default (admin).
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const can = useCallback(
+    (permission: string) =>
+      auth.permissions.includes("admin:*") || auth.permissions.includes(permission),
+    [auth.permissions]
+  );
 
   // Apply the theme class to <html> and persist the choice.
   useEffect(() => {
@@ -145,8 +210,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, workspace, setWorkspace, updateUser, theme, setTheme, toggleTheme }),
-    [user, workspace, setWorkspace, updateUser, theme, setTheme, toggleTheme]
+    () => ({ user, workspace, setWorkspace, updateUser, theme, setTheme, toggleTheme, auth, can }),
+    [user, workspace, setWorkspace, updateUser, theme, setTheme, toggleTheme, auth, can]
   );
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

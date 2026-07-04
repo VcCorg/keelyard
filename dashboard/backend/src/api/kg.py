@@ -2,8 +2,16 @@
 
 from typing import Optional
 
-from fastapi import APIRouter, Body, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from sse_starlette.sse import EventSourceResponse
+
+from agentic_cli.auth import (
+    PERM_KNOWLEDGE_DELETE,
+    PERM_KNOWLEDGE_PROJECT,
+    AuthorizationError,
+    authorize,
+)
+from src.services.auth_service import principal_from_request, require
 
 from src.services.kg_service import (
     get_all_products_kg_summary,
@@ -117,6 +125,7 @@ async def okf_devin_status():
 
 @router.get("/okf/devin/push/stream")
 async def okf_devin_push_stream(
+    request: Request,
     domain: str = Query(..., description="Domain slug whose bundle to push"),
     source: str = Query("export", description="'export' (generated) or 'authored'"),
     types: str = Query("FREQ,Requirement", description="Comma-separated concept types"),
@@ -126,7 +135,16 @@ async def okf_devin_push_stream(
 
     The Devin API key is read from the backend env ($DEVIN_API_KEY) and is never
     accepted as a query parameter. A live push requires that key to be present.
+    A live projection (``dry_run=false``) requires the ``knowledge:project``
+    permission; dry-run previews stay open for anyone who can view.
     """
+    if not dry_run:
+        principal = principal_from_request(request)
+        try:
+            authorize(principal, PERM_KNOWLEDGE_PROJECT)
+        except AuthorizationError as e:
+            raise HTTPException(status_code=401 if not principal.authenticated else 403,
+                                detail=str(e))
     if not dry_run and not okf_service.devin_api_key_present():
         raise HTTPException(
             status_code=400,
@@ -149,8 +167,8 @@ async def okf_devin_knowledge():
 
 
 @router.delete("/okf/devin/knowledge/{note_id}")
-async def okf_devin_delete(note_id: str):
-    """Delete a single Devin Knowledge entry by id."""
+async def okf_devin_delete(note_id: str, _principal=Depends(require(PERM_KNOWLEDGE_DELETE))):
+    """Delete a single Devin Knowledge entry by id. Requires ``knowledge:delete``."""
     if not okf_service.devin_api_key_present():
         raise HTTPException(status_code=400, detail="DEVIN_API_KEY not set in the backend environment.")
     try:
@@ -185,8 +203,9 @@ async def okf_devin_update(note_id: str, update: okf_service.DevinKnowledgeUpdat
 
 
 @router.post("/okf/devin/knowledge/bulk-delete")
-async def okf_devin_bulk_delete(payload: dict = Body(...)):
-    """Delete multiple entries. Body: ``{"ids": ["note-...", ...]}``."""
+async def okf_devin_bulk_delete(payload: dict = Body(...),
+                                _principal=Depends(require(PERM_KNOWLEDGE_DELETE))):
+    """Delete multiple entries. Body: ``{"ids": [...]}``. Requires ``knowledge:delete``."""
     if not okf_service.devin_api_key_present():
         raise HTTPException(status_code=400, detail="DEVIN_API_KEY not set in the backend environment.")
     ids = payload.get("ids") or []

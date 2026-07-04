@@ -394,6 +394,17 @@ export interface CreateDevinSessionResponse {
   knowledge_count: number;
 }
 
+export interface AuthMe {
+  subject: string;
+  display_name: string;
+  roles: string[];
+  permissions: string[];
+  groups: string[];
+  provider: string;
+  authenticated: boolean;
+  mode: string;
+}
+
 export interface ExecutionEngineInfo {
   name: string;
   available: boolean;
@@ -1609,6 +1620,11 @@ class APIClient {
       method: "POST",
       body: JSON.stringify(body),
     });
+  }
+
+  /* ---- Auth (identity resolved by the configured provider) ---- */
+  async getMe(): Promise<AuthMe> {
+    return this.request("/auth/me");
   }
 
   /* ---- Execution engines (vendor-neutral seam) ---- */

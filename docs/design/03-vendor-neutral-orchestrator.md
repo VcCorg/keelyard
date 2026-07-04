@@ -110,7 +110,31 @@ vendor-specific.
 | **Canonical → Devin projection, one-way** | ✅ Built | `push-devin` is idempotent + versioned; each entry carries a provenance footer |
 | **Provenance + drift status (no Devin-only authoring)** | ✅ Built | `dva kg okf project-status`: `okf://…` source refs + `in_sync/drift/unprojected/orphan`; surfaced as a per-bundle badge in the UI |
 | **Portable context bundle (non-Devin agents)** | ✅ Built | `local` execution engine + `dva context build`: renders CONTEXT.md + prompt.md + manifest.json (provenance) for Claude Code / Codex / any agent — no API key |
-| **Enterprise auth (SSO / RBAC / secrets)** | 🔶 Roadmap | Today a local role switcher |
+| **Enterprise auth (SSO / RBAC / actor audit)** | ✅ Built | Forward-auth provider trusts an SSO proxy's verified identity; RBAC blocks unauthorized actions (403); the authenticated **actor** is written to the audit trail. `dva auth whoami/roles/check` |
+
+### Enterprise auth without running an IdP
+
+We don't operate an identity provider — and enterprises rarely want the login flow *in* the
+app. The app sits behind an **SSO reverse proxy** (oauth2-proxy / Okta / Azure AD / Cloudflare
+Access) that performs the OIDC/SAML handshake and injects a verified identity header; a swappable
+`AuthProvider` trusts it (mirroring the execution seam):
+
+| Provider | When | Identity source |
+|----------|------|-----------------|
+| `dev` | local / default | env principal (defaults to admin — no lockout) |
+| `forward-auth` | production | SSO proxy's verified headers, gated by a shared secret |
+
+- **RBAC is enforced, not advisory.** Roles (`viewer < developer < maintainer < admin`) map to
+  permissions; sensitive actions (`session:create`, `knowledge:project`, `knowledge:delete`,
+  `context:build`) are blocked at the API with **403** when the principal lacks them.
+- **Trusted headers can't be spoofed.** Forward-auth is opt-in (`DVA_AUTH_MODE=forward-auth`) and,
+  when `DVA_FORWARD_AUTH_SECRET` is set, a shared secret the proxy injects must match — a client
+  bypassing the proxy is treated as anonymous.
+- **The actor is audited.** Every gated action records *who* did it (`actor` column, schema v13)
+  alongside `source` — the CLI stays the central auditor across CLI and dashboard.
+- **Single provider swap.** The dashboard's identity seam (`UserContext`) hydrates from
+  `/api/auth/me`; call sites use `useUser()`/`can()` unchanged. Deployment: see
+  [`04-enterprise-auth.md`](04-enterprise-auth.md).
 
 ### The seam is demonstrably multi-engine
 

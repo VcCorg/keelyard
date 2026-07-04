@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StreamConsole } from "@/components/StreamConsole";
+import { useUser } from "@/context/UserContext";
 import {
   api,
   type TaskContract,
@@ -33,6 +34,9 @@ import {
  * P1: no hard enforcement — governance is surfaced and injected into the prompt.
  */
 export function StartWorkDialog({ issueKey, onClose }: { issueKey: string; onClose: () => void }) {
+  const { can } = useUser();
+  const canCreateSession = can("session:create");
+  const canBuildContext = can("context:build");
   const [contract, setContract] = useState<TaskContract | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
@@ -337,7 +341,8 @@ export function StartWorkDialog({ issueKey, onClose }: { issueKey: string; onClo
                   <Button
                     size="sm"
                     className="w-full mt-2"
-                    disabled={!contract.can_launch_devin || creating}
+                    disabled={!contract.can_launch_devin || creating || (!dryRun && !canCreateSession)}
+                    title={!dryRun && !canCreateSession ? "Requires the session:create permission (developer+)" : undefined}
                     onClick={createDevin}
                   >
                     {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : dryRun ? "Preview Devin session" : "Create Devin session"}
@@ -355,7 +360,13 @@ export function StartWorkDialog({ issueKey, onClose }: { issueKey: string; onClo
                       any agent
                     </span>
                   </div>
-                  <Button size="sm" variant="outline" disabled={portableBusy} onClick={buildPortable}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={portableBusy || !canBuildContext}
+                    title={canBuildContext ? undefined : "Requires the context:build permission (developer+)"}
+                    onClick={buildPortable}
+                  >
                     {portableBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Render context"}
                   </Button>
                 </div>
