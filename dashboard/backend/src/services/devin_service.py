@@ -131,42 +131,57 @@ def _knowledge_ids_from_sync(bundle_dir: Optional[Path]) -> list[str]:
 # ── Sessions ─────────────────────────────────────────────────────────────────
 
 def create_session(req: CreateSessionRequest) -> CreateSessionResponse:
-    from agentic_cli.devin import SessionSpec, create_session as core_create
+    """Launch a coding session through the vendor-neutral execution seam.
+
+    The dashboard resolves *org-owned* inputs (portable knowledge refs, domain
+    defaults, tags) and hands them to ``agentic_cli.execution`` as an engine-
+    neutral ``ExecutionSpec``. The CLI selects the engine (Devin today) and
+    records the launch in the central audit trail with ``source="dashboard"``.
+    Devin-specific extras travel in ``engine_options`` so this layer stays
+    vendor-neutral.
+    """
     from agentic_cli.devin.config import DevinConfig
+    from agentic_cli.execution import ExecutionSpec, create_session as run_session
 
     cfg = DevinConfig.load()
     dconf = cfg.domain(req.domain) if req.domain else {}
 
+    # Portable knowledge references (org knowledge layer → context bundle).
     kids = list(req.knowledge_ids)
     if req.knowledge_from_sync:
         kids += _knowledge_ids_from_sync(_bundle_dir(req.domain, req.bundle))
+    context = sorted(set(kids))
 
     tags = ["dva"] + ([req.domain] if req.domain else []) + ([req.jira] if req.jira else []) + list(req.tags)
 
-    spec = SessionSpec(
+    spec = ExecutionSpec(
         prompt=req.prompt,
         title=req.title or (f"{req.domain or 'devin'} · {req.jira}".strip(" ·")),
-        snapshot_id=req.snapshot_id or dconf.get("snapshot_id"),
-        playbook_id=req.playbook_id or dconf.get("playbook_id"),
-        knowledge_ids=sorted(set(kids)),
-        tags=sorted(set(tags)),
-        idempotent=req.idempotent,
-        max_acu_limit=req.max_acu if req.max_acu is not None else cfg.default_max_acu,
-        unlisted=req.unlisted,
-        domain=req.domain or "",
         jira=req.jira,
+        domain=req.domain or "",
+        tags=sorted(set(tags)),
+        context=context,
+        idempotent=req.idempotent,
+        dry_run=req.dry_run,
+        engine_options={
+            "snapshot_id": req.snapshot_id or dconf.get("snapshot_id"),
+            "playbook_id": req.playbook_id or dconf.get("playbook_id"),
+            "max_acu_limit": req.max_acu if req.max_acu is not None else cfg.default_max_acu,
+            "unlisted": req.unlisted,
+            "base_url": cfg.base_url,
+        },
     )
 
-    res = core_create(spec, dry_run=req.dry_run, base_url=cfg.base_url)
+    res = run_session(spec, source="dashboard")
     return CreateSessionResponse(
         dry_run=res.dry_run,
         session_id=res.session_id,
         url=res.url,
         status=res.status,
         is_new=res.is_new,
-        reused_local=res.reused_local,
-        payload=res.payload,
-        knowledge_count=len(spec.knowledge_ids),
+        reused_local=res.reused,
+        payload=res.raw,
+        knowledge_count=len(context),
     )
 
 
