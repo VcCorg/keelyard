@@ -19,7 +19,7 @@ from typing import Any, Optional
 DB_DIR = Path.home() / ".agent-cli-agentic"
 DB_PATH = DB_DIR / "tracker.db"
 
-_SCHEMA_VERSION = 12
+_SCHEMA_VERSION = 13
 
 _SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -40,7 +40,8 @@ CREATE TABLE IF NOT EXISTS activity_log (
     correlation_id TEXT,          -- links a chain of actions across features
     entity_type    TEXT,          -- entity kind: project|skill|retriever|story|...
     entity_id      TEXT,          -- entity identifier (path/name/key)
-    source         TEXT DEFAULT 'cli'  -- origin of the action: cli|dashboard
+    source         TEXT DEFAULT 'cli',  -- origin of the action: cli|dashboard
+    actor          TEXT           -- authenticated principal (email/subject) if known
 );
 
 -- Central registry of onboarded repositories
@@ -279,6 +280,12 @@ CREATE INDEX IF NOT EXISTS idx_activity_correlation ON activity_log(correlation_
 CREATE INDEX IF NOT EXISTS idx_activity_entity      ON activity_log(entity_type, entity_id);
 """
 
+_MIGRATION_V13 = """
+-- v13: record the authenticated principal behind an action (enterprise auth).
+ALTER TABLE activity_log ADD COLUMN actor TEXT;
+CREATE INDEX IF NOT EXISTS idx_activity_actor ON activity_log(actor);
+"""
+
 
 def _ensure_db() -> Path:
     """Create the database and schema if they don't exist. Run migrations."""
@@ -341,6 +348,10 @@ def _ensure_db() -> Path:
                 conn.executescript(_MIGRATION_V12)
                 conn.execute("UPDATE schema_version SET version = 12")
                 current_version = 12
+            if current_version < 13:
+                conn.executescript(_MIGRATION_V13)
+                conn.execute("UPDATE schema_version SET version = 13")
+                current_version = 13
         conn.commit()
     finally:
         conn.close()
@@ -435,21 +446,23 @@ def record_activity(
     entity_type: str = None,
     entity_id: str = None,
     source: str = "cli",
+    actor: str = None,
 ) -> None:
     """Insert a row into the activity log (the central audit trail).
 
     The ``correlation_id`` links a chain of actions across features, and
     ``entity_type``/``entity_id`` tag the thing acted upon so audits can be
     correlated (e.g. every action on a given project). ``source`` records
-    whether the action originated from the CLI or the dashboard.
+    whether the action originated from the CLI or the dashboard; ``actor``
+    records the authenticated principal (email/subject) when known.
     """
     try:
         with _get_conn() as conn:
             conn.execute(
                 """INSERT INTO activity_log
                    (timestamp, command, subcommand, status, duration_ms, args,
-                    details, repo_path, correlation_id, entity_type, entity_id, source)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    details, repo_path, correlation_id, entity_type, entity_id, source, actor)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     _now_iso(),
                     command,
@@ -463,6 +476,7 @@ def record_activity(
                     entity_type,
                     entity_id,
                     source or "cli",
+                    actor,
                 ),
             )
     except Exception:
@@ -487,12 +501,14 @@ def record_action(
     status: str = "success",
     details: dict = None,
     repo_path: str = None,
+    actor: str = None,
 ) -> None:
     """Auditor entry point: record a feature action in the central audit trail.
 
     ``feature`` is the top-level area (e.g. "project", "skill", "retriever",
     "ideate"); ``action`` is the verb (e.g. "manifest", "scan", "create",
-    "push"). This is a thin, intention-revealing wrapper over record_activity.
+    "push"). ``actor`` records the authenticated principal when known. This is
+    a thin, intention-revealing wrapper over record_activity.
     """
     record_activity(
         command=feature,
@@ -505,6 +521,7 @@ def record_action(
         entity_type=entity_type,
         entity_id=entity_id,
         source=source,
+        actor=actor,
     )
 
 

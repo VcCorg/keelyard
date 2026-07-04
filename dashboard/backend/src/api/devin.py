@@ -1,8 +1,10 @@
 """Devin workflow API routes — Sessions + Knowledge."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
+from agentic_cli.auth import PERM_SESSION_CREATE
+from src.services.auth_service import actor_of, require
 from src.services.devin_service import (
     CreateSessionRequest,
     CreateSessionResponse,
@@ -49,10 +51,14 @@ async def api_list_sessions():
 
 
 @router.post("/sessions", response_model=CreateSessionResponse)
-async def api_create_session(req: CreateSessionRequest):
-    """Create (trigger) a Devin session. Use ``dry_run`` to preview the payload."""
+async def api_create_session(
+    req: CreateSessionRequest,
+    request: Request,
+    _principal=Depends(require(PERM_SESSION_CREATE)),
+):
+    """Create (trigger) a Devin session. Requires the ``session:create`` permission."""
     try:
-        return create_session(req)
+        return create_session(req, actor=actor_of(request))
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=str(exc))
 

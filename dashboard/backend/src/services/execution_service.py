@@ -48,7 +48,7 @@ def list_engines() -> list[EngineInfoModel]:
     ]
 
 
-def preview_portable_context(req: PortableContextRequest) -> PortableContextResult:
+def preview_portable_context(req: PortableContextRequest, actor: str | None = None) -> PortableContextResult:
     """Render a task's portable context bundle (preview — no files written).
 
     Routes through the neutral seam with the ``local`` engine in dry-run so the
@@ -68,7 +68,7 @@ def preview_portable_context(req: PortableContextRequest) -> PortableContextResu
         context=list(req.refs),
         dry_run=True,
     )
-    res = create_session(spec, engine="local", source="dashboard")
+    res = create_session(spec, engine="local", source="dashboard", actor=actor)
     raw = res.raw or {}
     return PortableContextResult(
         engine=res.engine,

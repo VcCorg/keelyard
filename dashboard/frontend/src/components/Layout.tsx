@@ -337,7 +337,7 @@ function NavGroupSection({ group }: { group: NavGroup }) {
 
 
 export function Layout() {
-  const { user, theme, toggleTheme, updateUser } = useUser();
+  const { user, theme, toggleTheme, updateUser, auth } = useUser();
   const { panelOpen, closePanel } = useSetup();
 
   const meetsRole = (min?: UserRole) =>
@@ -381,17 +381,41 @@ export function Layout() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium truncate">{user.name}</p>
-              <select
-                value={user.role}
-                onChange={(e) => updateUser({ role: e.target.value as UserRole })}
-                title="Switch role (local preview)"
-                className="-ml-0.5 text-[11px] bg-transparent text-gray-400 capitalize outline-none cursor-pointer hover:text-gray-600 dark:hover:text-gray-300"
-              >
-                <option value="member">member</option>
-                <option value="lead">lead</option>
-                <option value="admin">admin</option>
-              </select>
+              {auth.provider === "dev" ? (
+                <select
+                  value={user.role}
+                  onChange={(e) => updateUser({ role: e.target.value as UserRole })}
+                  title="Switch role (local dev preview — real roles come from SSO)"
+                  className="-ml-0.5 text-[11px] bg-transparent text-gray-400 capitalize outline-none cursor-pointer hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  <option value="member">member</option>
+                  <option value="lead">lead</option>
+                  <option value="admin">admin</option>
+                </select>
+              ) : (
+                <p
+                  className="text-[11px] text-gray-400 truncate"
+                  title={`Identity from ${auth.provider} · roles: ${auth.roles.join(", ") || "none"}`}
+                >
+                  {auth.roles.join(", ") || "no roles"}
+                </p>
+              )}
             </div>
+            <span
+              className={cn(
+                "text-[9px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wide",
+                auth.provider === "dev"
+                  ? "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                  : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+              )}
+              title={
+                auth.provider === "dev"
+                  ? "Local dev identity — set DVA_AUTH_MODE=forward-auth behind an SSO proxy"
+                  : `Enterprise SSO via ${auth.provider}`
+              }
+            >
+              {auth.provider === "dev" ? "dev" : "SSO"}
+            </span>
             <button
               onClick={toggleTheme}
               title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}

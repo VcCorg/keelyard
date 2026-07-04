@@ -29,6 +29,7 @@ from src.api.jira import router as jira_router
 from src.api.build import router as build_router
 from src.api.ideate import router as ideate_router
 from src.api.execution import router as execution_router
+from src.api.auth import router as auth_router
 
 
 @asynccontextmanager
@@ -89,6 +90,7 @@ app.include_router(jira_router)
 app.include_router(build_router)
 app.include_router(ideate_router)
 app.include_router(execution_router)
+app.include_router(auth_router)
 
 
 @app.get("/api/health")

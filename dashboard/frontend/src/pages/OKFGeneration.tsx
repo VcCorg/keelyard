@@ -35,6 +35,7 @@ import {
   type DevinKnowledgeUpdate,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { useUser } from "@/context/UserContext";
 
 /* ── Streaming console (mirrors KGIngest) ─────────────────────────────────── */
 function StreamConsole({
@@ -321,6 +322,8 @@ function ProjectionBadge({ domain, source }: { domain: string; source: "authored
 
 /* ── Devin Knowledge management panel ─────────────────────────────────────── */
 function DevinKnowledgePanel({ apiKeyPresent }: { apiKeyPresent: boolean }) {
+  const { can } = useUser();
+  const canDelete = can("knowledge:delete");
   const [data, setData] = useState<DevinKnowledgeList | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -437,7 +440,8 @@ function DevinKnowledgePanel({ apiKeyPresent }: { apiKeyPresent: boolean }) {
             <Button
               size="sm"
               onClick={onBulkDelete}
-              disabled={bulkBusy}
+              disabled={bulkBusy || !canDelete}
+              title={canDelete ? undefined : "Requires the knowledge:delete permission (maintainer+)"}
               className="bg-red-600 hover:bg-red-700 text-white"
             >
               <Trash2 className={cn("h-4 w-4 mr-1.5", bulkBusy && "animate-pulse")} /> Delete selected ({selected.size})
@@ -559,9 +563,9 @@ function DevinKnowledgePanel({ apiKeyPresent }: { apiKeyPresent: boolean }) {
                     </button>
                     <button
                       onClick={() => onDelete(k.id, k.name)}
-                      disabled={busyId === k.id}
+                      disabled={busyId === k.id || !canDelete}
                       className="text-red-500 hover:text-red-600 disabled:opacity-50"
-                      title="Delete entry"
+                      title={canDelete ? "Delete entry" : "Requires the knowledge:delete permission (maintainer+)"}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -758,12 +762,14 @@ function DevinEditModal({
 }
 
 export function OKFGeneration() {
+  const { can } = useUser();
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [streamLabel, setStreamLabel] = useState("dva kg okf export");
   const [running, setRunning] = useState(false);
   const [mintFreqs, setMintFreqs] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [devinKey, setDevinKey] = useState(false);
+  const canProject = can("knowledge:project");
 
   const bundlesFetcher = useCallback(() => api.listOKFBundles(), []);
   const domainsFetcher = useCallback(() => api.listIngestableDomains(), []);
@@ -1014,16 +1020,24 @@ export function OKFGeneration() {
                 </Button>
                 <Button
                   size="sm"
-                  disabled={running || !devinKey}
-                  title={devinKey ? "Project canonical concepts to Devin Cloud Knowledge (one-way)" : "Set DEVIN_API_KEY on the backend to enable projection"}
+                  disabled={running || !devinKey || !canProject}
+                  title={
+                    !canProject
+                      ? "Requires the knowledge:project permission (maintainer+)"
+                      : devinKey
+                        ? "Project canonical concepts to Devin Cloud Knowledge (one-way)"
+                        : "Set DEVIN_API_KEY on the backend to enable projection"
+                  }
                   onClick={() => pushDevin(b, false)}
                 >
                   <UploadCloud className="h-4 w-4 mr-1.5" /> Project to Devin
                 </Button>
                 <span className="text-xs text-gray-400">
-                  {devinKey
-                    ? "One-way projection of FREQ + Requirement concepts (idempotent, provenance-stamped)"
-                    : "Projection disabled — no DEVIN_API_KEY on backend"}
+                  {!canProject
+                    ? "Projection requires maintainer+ (knowledge:project)"
+                    : devinKey
+                      ? "One-way projection of FREQ + Requirement concepts (idempotent, provenance-stamped)"
+                      : "Projection disabled — no DEVIN_API_KEY on backend"}
                 </span>
               </div>
 

@@ -1,7 +1,9 @@
 """Execution API routes — vendor-neutral engines + portable context bundles."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
+from agentic_cli.auth import PERM_CONTEXT_BUILD
+from src.services.auth_service import actor_of, require
 from src.services.execution_service import (
     EngineInfoModel,
     PortableContextRequest,
@@ -23,9 +25,16 @@ async def get_engines():
 
 
 @router.post("/context/preview", response_model=PortableContextResult)
-async def post_context_preview(req: PortableContextRequest):
-    """Render a task's portable, engine-neutral context bundle (no files written)."""
+async def post_context_preview(
+    req: PortableContextRequest,
+    request: Request,
+    _principal=Depends(require(PERM_CONTEXT_BUILD)),
+):
+    """Render a task's portable, engine-neutral context bundle (no files written).
+
+    Requires the ``context:build`` permission.
+    """
     try:
-        return preview_portable_context(req)
+        return preview_portable_context(req, actor=actor_of(request))
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))

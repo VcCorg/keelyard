@@ -1,0 +1,99 @@
+# Enterprise Auth — SSO via forward-auth, enforced RBAC, audited actor
+
+*How the platform authenticates and authorizes without running its own identity provider.*
+
+---
+
+## The shape
+
+We do **not** operate an IdP, and we do not put an OIDC/SAML login flow in the app. Instead the
+app runs behind an **SSO reverse proxy** that already does the handshake and injects a *verified*
+identity header. A swappable `AuthProvider` (in `agentic_cli.auth`) trusts that header, and the
+dashboard enforces RBAC on top of it.
+
+```mermaid
+flowchart LR
+  U["User"] --> P["SSO proxy<br/>oauth2-proxy · Okta · Azure AD · Cloudflare Access"]
+  P -->|"verified headers<br/>+ shared secret"| A["Dashboard API<br/>(enforcement point)"]
+  A --> R{"RBAC<br/>authorize(permission)"}
+  R -->|allowed| S["Action + audit(actor)"]
+  R -->|denied| X["403"]
+  A -. "identity + role model" .-> C["agentic_cli.auth<br/>(source of truth)"]
+```
+
+The proxy is the only thing that talks OIDC/SAML. Swap Okta for Azure AD and **nothing in the app
+changes** — same headers, same seam.
+
+---
+
+## Providers
+
+| Provider | Activated by | Identity source |
+|----------|--------------|-----------------|
+| `dev` | default | `DVA_DEV_USER` / `DVA_DEV_ROLES` env (defaults to `dev@local` as **admin** — no lockout in local/CI) |
+| `forward-auth` | `DVA_AUTH_MODE=forward-auth` | the SSO proxy's verified headers |
+
+`resolve_provider()` picks by `DVA_AUTH_MODE`; the dashboard resolves the principal per request
+from headers, the CLI from env (`dva auth whoami`).
+
+---
+
+## RBAC
+
+Roles are ordered and grant a fixed permission set:
+
+| Role | Permissions |
+|------|-------------|
+| `viewer` | (read-only) |
+| `developer` | `context:build`, `session:create` |
+| `maintainer` | + `knowledge:project`, `knowledge:delete` |
+| `admin` | `admin:*` (all) |
+
+Enforced (HTTP **403**) on: create session, project knowledge to Devin (live), delete Devin
+knowledge, render portable context. Read-only surfaces need no permission.
+
+---
+
+## Deploying behind oauth2-proxy (example)
+
+Configure the proxy to pass identity headers and a shared secret, then set the app's env:
+
+```bash
+# App (dashboard backend) environment
+DVA_AUTH_MODE=forward-auth
+DVA_FORWARD_AUTH_SECRET=<random-secret-also-set-on-the-proxy>   # anti-spoofing
+DVA_ROLE_MAP=eng-admins:admin,platform-maintainers:maintainer,engineers:developer
+DVA_DEFAULT_ROLE=developer          # authenticated users with no mapped group
+DVA_ADMIN_EMAILS=cto@corp.com       # optional explicit admins
+```
+
+Headers consumed (oauth2-proxy defaults; common fallbacks also accepted):
+
+| Header | Meaning |
+|--------|---------|
+| `X-Auth-Request-Email` | subject (identity) |
+| `X-Auth-Request-Preferred-Username` / `X-Auth-Request-User` | display name |
+| `X-Auth-Request-Groups` | groups → mapped to roles via `DVA_ROLE_MAP` |
+| `X-Auth-Proxy-Secret` | must equal `DVA_FORWARD_AUTH_SECRET`, else the request is anonymous |
+
+> **Security invariant:** the app must be reachable **only** through the proxy. The shared-secret
+> gate enforces this — a client that reaches the app directly cannot present the secret and is
+> treated as unauthenticated (401), so identity headers cannot be spoofed.
+
+---
+
+## Audit
+
+Every gated action records the **actor** (authenticated subject) next to `source` (`cli` /
+`dashboard`) in the central audit trail (`activity_log.actor`, schema **v13**). The CLI remains the
+auditor across both surfaces — "who did what, from where" is answerable for every sensitive action.
+
+---
+
+## Inspecting from the CLI
+
+```bash
+dva auth whoami                 # resolved identity, provider, roles, permissions
+dva auth roles                  # role → permission matrix
+dva auth check knowledge:project  # exit 0 if permitted, 1 otherwise
+```

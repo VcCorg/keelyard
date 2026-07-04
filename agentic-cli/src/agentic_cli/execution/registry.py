@@ -42,7 +42,8 @@ def list_engines() -> List[EngineInfo]:
     return out
 
 
-def create_session(spec: ExecutionSpec, engine: Optional[str] = None, *, source: str = "cli") -> ExecutionResult:
+def create_session(spec: ExecutionSpec, engine: Optional[str] = None, *,
+                   source: str = "cli", actor: Optional[str] = None) -> ExecutionResult:
     """Launch a session on the selected engine and audit it (engine-neutral)."""
     eng = get_engine(engine)
     result = eng.create_session(spec)
@@ -54,6 +55,7 @@ def create_session(spec: ExecutionSpec, engine: Optional[str] = None, *, source:
             entity_type="session",
             entity_id=result.session_id or spec.jira or "",
             source=source,
+            actor=actor,
             status="success" if not result.dry_run else "success",
             details={
                 "engine": eng.name,

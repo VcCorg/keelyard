@@ -12,7 +12,8 @@ agents) get built on the platform, contrasted with the current manual process.
 | 01 | [Development Lifecycle](./01-development-lifecycle.md) | High | Current-state vs new-state dev cycle (flow) |
 | 02 | [Architecture](./02-architecture.md) | High | Internal build architecture (CLI-first) |
 | 03 | [Vendor-Neutral Orchestrator](./03-vendor-neutral-orchestrator.md) | High | Org-owned knowledge; Devin as a swappable engine; built-vs-roadmap |
-| — | [Slides — `slides/deck.html`](./slides/deck.html) | Deck | **Done** — professionally designed 7-slide deck (current → new) |
+| 04 | [Enterprise Auth](./04-enterprise-auth.md) | Detail | SSO via forward-auth proxy; enforced RBAC; audited actor |
+| — | [Slides — `slides/deck.html`](./slides/deck.html) | Deck | **Done** — professionally designed 9-slide deck (current → new) |
 | 03 | Phase Detail — Ideate → Build → Govern → Run | Detail | *(planned)* per-phase flows + data |
 | 04 | Audit & Traceability | Detail | *(planned)* how the CLI links actions across features |
 
