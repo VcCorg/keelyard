@@ -2,6 +2,12 @@
 
 *High-level. Each section is a slide.*
 
+> **Scope:** this is the **internal build architecture** — how the platform itself is
+> structured (CLI as engine + auditor, dashboard as lens). For the **product** view of
+> the unified developer tool (connectors, Devin runtimes, meta-repo governance, Agent
+> Builder), see [01 — Development Lifecycle](./01-development-lifecycle.md) and the
+> System-Context slide in the deck.
+
 ---
 
 ## Principle
