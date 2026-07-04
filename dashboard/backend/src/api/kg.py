@@ -44,6 +44,23 @@ async def get_okf_bundle(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/okf/projection/{domain}", response_model=okf_service.ProjectionStatusModel)
+async def get_okf_projection(
+    domain: str,
+    source: str = Query("export", description="'export' (generated) or 'authored'"),
+    types: str = Query("FREQ,Requirement", description="Concept types to project"),
+):
+    """Canonical → Devin projection status (drift + provenance), computed by the CLI.
+
+    The org's OKF bundle is the source of truth; Devin Knowledge is a one-way
+    copy. Reads local state only — no Devin API call.
+    """
+    try:
+        return okf_service.projection_status(domain, source=source, types=types)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/okf/export/stream")
 async def okf_export_stream(
     domain: str = Query(..., description="Domain slug to export from Neo4j"),

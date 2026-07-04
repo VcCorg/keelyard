@@ -291,6 +291,63 @@ def okf_push_devin_args(
     return args
 
 
+# ── Projection status (canonical → Devin drift + provenance) ─────────────────
+
+class ProjectionEntry(BaseModel):
+    concept_id: str
+    name: str
+    source_ref: str                 # canonical ref, e.g. okf://payments/features/...
+    state: str                      # in_sync | drift | unprojected | orphan
+    knowledge_id: Optional[str] = None
+    version: int = 0
+    synced_at: Optional[str] = None
+
+
+class ProjectionStatusModel(BaseModel):
+    domain: str
+    source: str = SOURCE_EXPORT
+    exists: bool = False
+    state: str = "empty"            # in_sync | drift | unprojected | empty
+    total_canonical: int = 0
+    projected: int = 0
+    in_sync: int = 0
+    drift: int = 0
+    unprojected: int = 0
+    orphan: int = 0
+    entries: list[ProjectionEntry] = []
+
+
+def projection_status(domain: str, source: str = SOURCE_EXPORT,
+                      types: str = "FREQ,Requirement") -> ProjectionStatusModel:
+    """Read how the canonical OKF bundle maps onto its Devin projection.
+
+    Pure/local (no Devin API): delegates to the CLI's ``projection_status`` which
+    compares the current bundle against ``.devin-sync.json`` to classify drift,
+    unprojected concepts, and orphans. The CLI is the source of truth for the
+    computation; the dashboard is a lens.
+    """
+    bdir = bundle_dir(domain, source)
+    if not (bdir / "okf.schema.yaml").exists():
+        return ProjectionStatusModel(domain=domain, source=source, exists=False)
+
+    from agentic_cli.kg.okf.devin import projection_status as cli_projection_status
+
+    type_tuple = tuple(t.strip() for t in types.split(",") if t.strip())
+    st = cli_projection_status(bdir, type_tuple)
+    return ProjectionStatusModel(
+        domain=domain, source=source, exists=True, state=st.state,
+        total_canonical=st.total_canonical, projected=st.projected,
+        in_sync=st.in_sync, drift=st.drift, unprojected=st.unprojected, orphan=st.orphan,
+        entries=[
+            ProjectionEntry(
+                concept_id=e.concept_id, name=e.name, source_ref=e.source_ref,
+                state=e.state, knowledge_id=e.knowledge_id, version=e.version,
+                synced_at=e.synced_at or None,
+            ) for e in st.entries
+        ],
+    )
+
+
 # ── Devin Knowledge management (in-process API calls) ────────────────────────
 
 class DevinKnowledgeItem(BaseModel):

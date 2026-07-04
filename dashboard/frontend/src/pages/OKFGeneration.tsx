@@ -28,6 +28,7 @@ import {
   api,
   type OKFBundleInfo,
   type OKFBundleDetail,
+  type OKFProjectionStatus,
   type IngestableDomain,
   type DevinKnowledgeList,
   type DevinKnowledgeItem,
@@ -228,6 +229,96 @@ function Metric({ label, value, warn }: { label: string; value: number; warn?: b
 const Ok = () => <Check className="h-4 w-4 text-emerald-500" />;
 const Gap = () => <AlertCircle className="h-4 w-4 text-red-500" />;
 
+/* ── Projection status: canonical OKF bundle → Devin projection ──────────────
+ * The bundle is the source of truth; Devin Knowledge is a one-way copy. This
+ * badge surfaces drift (canonical changed since projected), unprojected
+ * concepts, and orphans — a local read (no Devin API call). */
+
+const PROJECTION_BADGE: Record<
+  OKFProjectionStatus["state"],
+  { label: string; className: string }
+> = {
+  in_sync: {
+    label: "projected · in sync",
+    className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+  },
+  drift: {
+    label: "projection drift",
+    className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+  },
+  unprojected: {
+    label: "not projected",
+    className: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
+  },
+  empty: {
+    label: "empty",
+    className: "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-500",
+  },
+};
+
+function ProjectionBadge({ domain, source }: { domain: string; source: "authored" | "export" }) {
+  const [st, setSt] = useState<OKFProjectionStatus | null>(null);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    api
+      .getOKFProjection(domain, source)
+      .then((s) => alive && setSt(s))
+      .catch(() => alive && setSt(null));
+    return () => {
+      alive = false;
+    };
+  }, [domain, source]);
+
+  if (!st || !st.exists) return null;
+  const badge = PROJECTION_BADGE[st.state];
+  const drifted = st.entries.filter((e) => e.state === "drift" || e.state === "orphan");
+  const canInspect = st.state === "drift";
+
+  return (
+    <div className="mt-3">
+      <button
+        type="button"
+        disabled={!canInspect}
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          "text-[11px] font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1.5",
+          badge.className,
+          canInspect && "cursor-pointer hover:brightness-95"
+        )}
+        title="Canonical OKF bundle vs its Devin projection (local read — no Devin call)"
+      >
+        {badge.label}
+        <span className="opacity-70 font-normal">
+          {st.in_sync}/{st.total_canonical} synced
+          {st.drift ? ` · ${st.drift} drift` : ""}
+          {st.unprojected ? ` · ${st.unprojected} new` : ""}
+          {st.orphan ? ` · ${st.orphan} orphan` : ""}
+        </span>
+      </button>
+
+      {open && drifted.length > 0 && (
+        <div className="mt-2 rounded-lg border border-amber-200 dark:border-amber-900/40 bg-amber-50/60 dark:bg-amber-900/10 p-3 space-y-1.5">
+          <p className="text-xs text-amber-800 dark:text-amber-300">
+            Canonical changed since these were projected — re-project to refresh Devin.
+          </p>
+          {drifted.slice(0, 8).map((e) => (
+            <div key={e.concept_id} className="flex items-center justify-between gap-3 text-[11px]">
+              <span className="font-mono text-gray-700 dark:text-gray-300 truncate">{e.concept_id}</span>
+              <span className="text-gray-400 truncate" title={e.source_ref}>
+                {e.state === "orphan" ? "orphan (source gone)" : e.source_ref}
+              </span>
+            </div>
+          ))}
+          {drifted.length > 8 && (
+            <p className="text-[11px] text-gray-400">+{drifted.length - 8} more…</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Devin Knowledge management panel ─────────────────────────────────────── */
 function DevinKnowledgePanel({ apiKeyPresent }: { apiKeyPresent: boolean }) {
   const [data, setData] = useState<DevinKnowledgeList | null>(null);
@@ -365,6 +456,12 @@ function DevinKnowledgePanel({ apiKeyPresent }: { apiKeyPresent: boolean }) {
             <RefreshCw className={cn("h-4 w-4 mr-1.5", loading && "animate-spin")} /> Refresh
           </Button>
         </div>
+      </div>
+
+      <div className="rounded-lg border border-blue-200 dark:border-blue-900/40 bg-blue-50/60 dark:bg-blue-900/10 p-3 text-xs text-blue-800 dark:text-blue-300">
+        These entries are a <span className="font-semibold">one-way projection</span> of the org's
+        canonical OKF bundles — the source of truth. Author knowledge in the bundle and re-project;
+        entries here are regenerable copies, not the place to edit. Drift is shown per bundle above.
       </div>
 
       {data && data.folders.length === 0 && (
@@ -918,17 +1015,19 @@ export function OKFGeneration() {
                 <Button
                   size="sm"
                   disabled={running || !devinKey}
-                  title={devinKey ? "Push to Devin Cloud Knowledge" : "Set DEVIN_API_KEY on the backend to enable live push"}
+                  title={devinKey ? "Project canonical concepts to Devin Cloud Knowledge (one-way)" : "Set DEVIN_API_KEY on the backend to enable projection"}
                   onClick={() => pushDevin(b, false)}
                 >
-                  <UploadCloud className="h-4 w-4 mr-1.5" /> Push to Devin
+                  <UploadCloud className="h-4 w-4 mr-1.5" /> Project to Devin
                 </Button>
                 <span className="text-xs text-gray-400">
                   {devinKey
-                    ? "Pushes FREQ + Requirement concepts (idempotent)"
-                    : "Live push disabled — no DEVIN_API_KEY on backend"}
+                    ? "One-way projection of FREQ + Requirement concepts (idempotent, provenance-stamped)"
+                    : "Projection disabled — no DEVIN_API_KEY on backend"}
                 </span>
               </div>
+
+              <ProjectionBadge domain={b.domain} source={b.source} />
 
               {expanded === key && <BundleDetail domain={b.domain} source={b.source} />}
             </div>

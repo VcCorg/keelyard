@@ -266,6 +266,30 @@ export interface OKFExportParams {
   mint_freqs?: boolean;
 }
 
+export interface ProjectionEntry {
+  concept_id: string;
+  name: string;
+  source_ref: string;
+  state: "in_sync" | "drift" | "unprojected" | "orphan";
+  knowledge_id?: string | null;
+  version: number;
+  synced_at?: string | null;
+}
+
+export interface OKFProjectionStatus {
+  domain: string;
+  source: "authored" | "export";
+  exists: boolean;
+  state: "in_sync" | "drift" | "unprojected" | "empty";
+  total_canonical: number;
+  projected: number;
+  in_sync: number;
+  drift: number;
+  unprojected: number;
+  orphan: number;
+  entries: ProjectionEntry[];
+}
+
 export interface OKFDevinStatus {
   api_key_present: boolean;
 }
@@ -1041,6 +1065,11 @@ class APIClient {
 
   async getOKFBundle(domain: string, source: "authored" | "export" = "export"): Promise<OKFBundleDetail> {
     return this.request(`/kg/okf/bundles/${encodeURIComponent(domain)}?source=${source}`);
+  }
+
+  /** Canonical → Devin projection status (drift + provenance); local read, no Devin call. */
+  async getOKFProjection(domain: string, source: "authored" | "export" = "export"): Promise<OKFProjectionStatus> {
+    return this.request(`/kg/okf/projection/${encodeURIComponent(domain)}?source=${source}`);
   }
 
   /** Build an SSE URL for `dva kg okf export ...` (no reindex). */
