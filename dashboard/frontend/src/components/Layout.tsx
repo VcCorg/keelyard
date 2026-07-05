@@ -1,48 +1,15 @@
-import { useState, type ComponentType } from "react";
+import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import {
-  LayoutDashboard,
-  Bot,
-  Server,
-  Activity,
-  MessageSquare,
-  Camera,
-  FolderKanban,
-  TerminalSquare,
-  Package,
-  Sparkles,
-  Store,
-  Rocket,
-  GitBranch,
-  Boxes,
-  DatabaseZap,
-  FileStack,
-  Database,
-  FolderGit2,
-  FolderOpen,
-  FlaskConical,
-  SquareTerminal,
-  Bot as DevinBot,
-  ListTodo,
-  ClipboardList,
-  Users,
-  Share2,
-  BrainCircuit,
   ChevronDown,
   ChevronRight,
   User as UserIcon,
   Sun,
   Moon,
-  Wrench,
   CheckCircle2,
   AlertTriangle,
-  Wand2,
-  Workflow,
-  Cpu,
-  Search,
-  Plug,
-  Blocks,
-  Lightbulb,
+  Users,
+  FolderOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -52,165 +19,20 @@ import {
   type UserRole,
 } from "@/context/UserContext";
 import { useSetup } from "@/context/SetupContext";
+import { useAdminSettings } from "@/context/AdminSettingsContext";
 import { SetupPanel } from "@/components/SetupPanel";
 import { IntegrationStatusBar } from "@/components/IntegrationStatusBar";
+import {
+  navGroups,
+  groupId,
+  subgroupId,
+  itemId,
+  roleCanSee,
+  type NavItem,
+  type NavSubgroup,
+  type NavGroup,
+} from "@/lib/nav";
 
-type NavItem = {
-  to: string;
-  icon: ComponentType<{ className?: string }>;
-  label: string;
-  /** If set, renders as a button that triggers an action instead of navigating. */
-  action?: "setup";
-  /** If set, only shown to users with this role or higher. */
-  minRole?: UserRole;
-};
-type NavSubgroup = {
-  label: string;
-  icon?: ComponentType<{ className?: string }>;
-  items: NavItem[];
-  /** If set, only shown to users with this role or higher. */
-  minRole?: UserRole;
-};
-type NavGroup = {
-  label: string;
-  items: NavItem[];
-  /** Nested, indented sub-sections rendered under this group's items. */
-  subgroups?: NavSubgroup[];
-  /** Top-level items rendered AFTER the subgroups (e.g. trailing shortcuts). */
-  footerItems?: NavItem[];
-  /** If set, only shown to users with this role or higher. */
-  minRole?: UserRole;
-};
-
-const ROLE_RANK: Record<UserRole, number> = { member: 0, lead: 1, admin: 2 };
-
-const navGroups: NavGroup[] = [
-  {
-    label: "Overview",
-    items: [
-      { to: "/", icon: LayoutDashboard, label: "Dashboard" },
-      { to: "/activity", icon: Activity, label: "Activity" },
-    ],
-  },
-  {
-    label: "Ideate",
-    items: [{ to: "/ideate", icon: Lightbulb, label: "Requirements" }],
-  },
-  {
-    label: "Work",
-    items: [
-      { to: "/tasks", icon: ListTodo, label: "Tasks" },
-      { to: "/assignments", icon: ClipboardList, label: "Assignments", minRole: "lead" },
-    ],
-  },
-  {
-    label: "Build",
-    items: [
-      { to: "/code-onboard", icon: FolderGit2, label: "Repository" },
-      { to: "/skills", icon: Package, label: "Skills" },
-    ],
-    subgroups: [
-      {
-        label: "Devin",
-        icon: DevinBot,
-        items: [
-          { to: "/devin", icon: DevinBot, label: "Devin Sessions" },
-          { to: "/snapshots", icon: Camera, label: "Snapshots", minRole: "lead" },
-        ],
-      },
-    ],
-  },
-  {
-    label: "Agent Builder",
-    minRole: "lead",
-    items: [
-      { to: "/quickstart", icon: Wand2, label: "Quickstart" },
-      { to: "/projects", icon: FolderKanban, label: "Agent Projects" },
-      { to: "/canvas", icon: Workflow, label: "Project Canvas" },
-      { to: "/agents", icon: Bot, label: "Agents" },
-      { to: "/eval", icon: FlaskConical, label: "Evaluation" },
-    ],
-    subgroups: [
-      {
-        label: "Components",
-        icon: Blocks,
-        items: [
-          { to: "/models", icon: Cpu, label: "Models" },
-          { to: "/tools", icon: Wrench, label: "Tools" },
-          { to: "/retrievers", icon: Search, label: "Retrievers" },
-          { to: "/databases", icon: Database, label: "Databases" },
-          { to: "/data", icon: Plug, label: "Data Sources" },
-          { to: "/mcp", icon: Server, label: "MCP Connectors" },
-          { to: "/skills", icon: Package, label: "Skills" },
-        ],
-      },
-    ],
-  },
-  {
-    label: "Governance",
-    minRole: "lead",
-    items: [],
-    subgroups: [
-      {
-        label: "Onboarding",
-        icon: Boxes,
-        items: [
-          { to: "/onboarding", icon: Boxes, label: "Domain", minRole: "lead" },
-          { to: "/workspaces", icon: FolderOpen, label: "Workspaces" },
-        ],
-      },
-      {
-        label: "Registry",
-        icon: Package,
-        items: [
-          { to: "/skills/personas", icon: Sparkles, label: "Persona Skills" },
-          { to: "/marketplace", icon: Store, label: "Marketplace" },
-        ],
-      },
-    ],
-  },
-  {
-    label: "Knowledge",
-    minRole: "lead",
-    items: [
-      { to: "/kg", icon: GitBranch, label: "KG Context" },
-      { to: "/kg/ingest", icon: DatabaseZap, label: "KG Ingest" },
-      { to: "/kg/okf", icon: FileStack, label: "OKF Generation", minRole: "admin" },
-      { to: "/data", icon: Database, label: "Data Sources" },
-    ],
-  },
-  {
-    label: "Admin",
-    minRole: "admin",
-    items: [
-      { to: "/people", icon: Users, label: "People" },
-      { to: "/shared/agents", icon: Share2, label: "Shared Agents" },
-      { to: "/shared/kg", icon: BrainCircuit, label: "Shared KG" },
-    ],
-  },
-  {
-    label: "Platform",
-    minRole: "lead",
-    items: [
-      { to: "/mcp", icon: Server, label: "MCP Servers" },
-      { to: "/deployments", icon: Rocket, label: "Deployments" },
-    ],
-    subgroups: [
-      {
-        label: "CLI",
-        icon: SquareTerminal,
-        items: [
-          { to: "/cli", icon: SquareTerminal, label: "CLI Console" },
-          { to: "#cli-setup", icon: Wrench, label: "CLI Setup", action: "setup" },
-        ],
-      },
-    ],
-    footerItems: [
-      { to: "/terminal", icon: TerminalSquare, label: "Terminal" },
-      { to: "/chat", icon: MessageSquare, label: "Chat" },
-    ],
-  },
-];
 
 function WorkspaceLabel() {
   const { user } = useUser();
@@ -339,22 +161,26 @@ function NavGroupSection({ group }: { group: NavGroup }) {
 export function Layout() {
   const { user, theme, toggleTheme, updateUser, auth } = useUser();
   const { panelOpen, closePanel } = useSetup();
+  const { settings } = useAdminSettings();
+  const overrides = settings.nav_visibility;
+  const role = user.role;
 
-  const meetsRole = (min?: UserRole) =>
-    !min || ROLE_RANK[user.role] >= ROLE_RANK[min];
-  const isVisible = (x: { minRole?: UserRole }) => meetsRole(x.minRole);
+  const canGroup = (g: NavGroup) => roleCanSee(role, groupId(g.label), g.minRole, overrides);
+  const canSub = (sg: NavSubgroup) => roleCanSee(role, subgroupId(sg.label), sg.minRole, overrides);
+  const canItem = (it: NavItem) => roleCanSee(role, itemId(it.to), it.minRole, overrides);
 
   const visibleGroups = navGroups
-    .filter(isVisible)
+    .filter(canGroup)
     .map((g) => ({
       ...g,
-      items: g.items.filter(isVisible),
+      items: g.items.filter(canItem),
       subgroups: (g.subgroups ?? [])
-        .filter(isVisible)
-        .map((sg) => ({ ...sg, items: sg.items.filter(isVisible) }))
+        .filter(canSub)
+        .map((sg) => ({ ...sg, items: sg.items.filter(canItem) }))
         .filter((sg) => sg.items.length > 0),
+      footerItems: (g.footerItems ?? []).filter(canItem),
     }))
-    .filter((g) => g.items.length > 0 || g.subgroups.length > 0);
+    .filter((g) => g.items.length > 0 || g.subgroups.length > 0 || g.footerItems.length > 0);
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100">
@@ -362,8 +188,8 @@ export function Layout() {
       <aside className="w-60 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-col">
         <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800 space-y-3">
           <div>
-            <h1 className="text-lg font-bold tracking-tight">Agent Playground</h1>
-            <p className="text-xs text-gray-500 mt-0.5">Agentic Platform</p>
+            <h1 className="text-lg font-bold tracking-tight">{settings.branding.app_title}</h1>
+            <p className="text-xs text-gray-500 mt-0.5">{settings.branding.app_name}</p>
           </div>
           <WorkspaceLabel />
         </div>

@@ -96,10 +96,10 @@ export function SetupPanel({ onClose }: { onClose: () => void }) {
   // Per-integration URL + token (Jira / Bitbucket / Confluence).
   const [intg, setIntg] = useState<Record<string, { url: string; token: string }>>({});
   const setIntgField = (key: IntegrationKind, field: "url" | "token", value: string) =>
-    setIntg((prev) => ({
-      ...prev,
-      [key]: { url: "", token: "", ...prev[key], [field]: value },
-    }));
+    setIntg((prev) => {
+      const existing = prev[key] ?? { url: "", token: "" };
+      return { ...prev, [key]: { ...existing, [field]: value } };
+    });
 
   const toggle = (key: string) => {
     setStreamUrl(null);

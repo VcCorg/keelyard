@@ -36,13 +36,16 @@ import { Sessions } from "@/pages/Sessions";
 import { People } from "@/pages/People";
 import { SharedAgents } from "@/pages/SharedAgents";
 import { SharedKG } from "@/pages/SharedKG";
+import { Admin } from "@/pages/Admin";
 import { TerminalProvider } from "@/context/TerminalContext";
 import { UserProvider } from "@/context/UserContext";
 import { SetupProvider } from "@/context/SetupContext";
+import { AdminSettingsProvider } from "@/context/AdminSettingsContext";
 
 function App() {
   return (
     <UserProvider>
+    <AdminSettingsProvider>
     <SetupProvider>
     <TerminalProvider>
       <BrowserRouter>
@@ -52,6 +55,7 @@ function App() {
             <Route path="/tasks" element={<Tasks />} />
             <Route path="/assignments" element={<Assignments />} />
             <Route path="/sessions" element={<Sessions />} />
+            <Route path="/admin" element={<Admin />} />
             <Route path="/people" element={<People />} />
             <Route path="/shared/agents" element={<SharedAgents />} />
             <Route path="/shared/kg" element={<SharedKG />} />
@@ -89,6 +93,7 @@ function App() {
       </BrowserRouter>
     </TerminalProvider>
     </SetupProvider>
+    </AdminSettingsProvider>
     </UserProvider>
   );
 }
