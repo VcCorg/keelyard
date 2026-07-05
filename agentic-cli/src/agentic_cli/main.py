@@ -29,6 +29,7 @@ from agentic_cli.commands.execution import execution_app
 from agentic_cli.commands.context import context_app
 from agentic_cli.commands.auth import auth_app
 from agentic_cli.commands.admin import admin_app
+from agentic_cli.commands.glean import glean_app
 
 # Load .env files (global ~/.dva/.env then project ./.env) before any command
 # runs, so integration tokens don't have to be exported every session. Real
@@ -66,6 +67,7 @@ app.add_typer(execution_app, name="execution")
 app.add_typer(context_app, name="context")
 app.add_typer(auth_app, name="auth")
 app.add_typer(admin_app, name="admin")
+app.add_typer(glean_app, name="glean")
 
 
 def version_callback(value: bool) -> None:

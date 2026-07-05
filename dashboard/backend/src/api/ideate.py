@@ -50,7 +50,7 @@ class SearchRequest(BaseModel):
 
 @router.post("/search")
 async def search(req: SearchRequest):
-    """Gather context text from a Glean/Confluence MCP server."""
+    """Gather context text — configured Glean REST (preferred) or MCP fallback."""
     try:
         text = await svc.search_source(req.source, req.query, limit=req.limit)
         return {"source": req.source, "query": req.query, "text": text, "chars": len(text)}
@@ -58,6 +58,12 @@ async def search(req: SearchRequest):
         raise HTTPException(status_code=400, detail=str(e))
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
+
+
+@router.get("/glean-status")
+async def glean_status():
+    """How the Glean source resolves: configured REST API vs MCP fallback."""
+    return svc.glean_status()
 
 
 class PushStory(BaseModel):
