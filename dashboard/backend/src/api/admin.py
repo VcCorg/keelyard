@@ -9,7 +9,11 @@ from agentic_cli.auth import PERM_ADMIN
 from src.services.admin_service import (
     AdminSettingsModel,
     AdminSettingsUpdate,
+    RoleAssignmentsModel,
+    RoleAssignmentUpdate,
+    get_role_assignments,
     get_settings,
+    set_role_assignment,
     update_settings,
 )
 from src.services.auth_service import actor_of, require
@@ -35,5 +39,29 @@ async def api_update_settings(
     """Update branding and/or nav visibility. Requires the ``admin:*`` permission."""
     try:
         return update_settings(update, actor=actor_of(request))
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/roles", response_model=RoleAssignmentsModel)
+async def api_get_roles(_principal=Depends(require(PERM_ADMIN))):
+    """User → role assignments (admin-only view)."""
+    try:
+        return get_role_assignments()
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/roles", response_model=RoleAssignmentsModel)
+async def api_set_role(
+    update: RoleAssignmentUpdate,
+    request: Request,
+    _principal=Depends(require(PERM_ADMIN)),
+):
+    """Assign roles to a user (empty roles removes the assignment). Requires ``admin:*``."""
+    try:
+        return set_role_assignment(update, actor=actor_of(request))
+    except HTTPException:
+        raise
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))

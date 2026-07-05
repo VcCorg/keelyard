@@ -25,6 +25,14 @@ from agentic_cli.auth.providers import (
     current_principal,
     resolve_provider,
 )
+from agentic_cli.auth.assignments import (
+    VALID_ROLES,
+    effective_roles,
+    get_roles,
+    load_assignments,
+    remove as remove_assignment,
+    set_roles,
+)
 
 __all__ = [
     "ADMIN", "MAINTAINER", "DEVELOPER", "VIEWER", "ROLE_ORDER",
@@ -34,4 +42,6 @@ __all__ = [
     "Principal", "AuthorizationError", "authorize", "permissions_for",
     "AuthProvider", "DevProvider", "ForwardAuthProvider",
     "resolve_provider", "current_principal",
+    "VALID_ROLES", "load_assignments", "get_roles", "set_roles",
+    "remove_assignment", "effective_roles",
 ]

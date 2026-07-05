@@ -75,7 +75,8 @@ class DevProvider:
 
     def identity(self, headers: Optional[Mapping[str, str]] = None) -> Principal:
         user = os.environ.get(ENV_DEV_USER, "dev@local")
-        roles = _split(os.environ.get(ENV_DEV_ROLES, "")) or [ADMIN]
+        fallback = _split(os.environ.get(ENV_DEV_ROLES, "")) or [ADMIN]
+        roles = _apply_assignments(user, fallback)
         return Principal(subject=user, display_name=user, roles=roles,
                          provider=self.name, authenticated=True)
 
@@ -103,7 +104,7 @@ class ForwardAuthProvider:
 
         subject = email or user
         groups = _split(h.get(HDR_GROUPS, ""))
-        roles = self._roles_for(subject, groups)
+        roles = _apply_assignments(subject, self._roles_for(subject, groups))
         return Principal(subject=subject, display_name=user or subject, roles=roles,
                          groups=groups, provider=self.name, authenticated=True)
 
@@ -116,6 +117,16 @@ class ForwardAuthProvider:
         if not roles:
             roles.add(os.environ.get(ENV_DEFAULT_ROLE, DEVELOPER))
         return sorted(roles)
+
+
+def _apply_assignments(subject: str, fallback: list[str]) -> list[str]:
+    """Admin-assigned roles win over provider-derived roles (best-effort)."""
+    try:
+        from agentic_cli.auth.assignments import effective_roles
+
+        return effective_roles(subject, fallback)
+    except Exception:  # noqa: BLE001 - assignments are optional
+        return fallback
 
 
 def resolve_provider(mode: Optional[str] = None) -> AuthProvider:
