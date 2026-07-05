@@ -30,6 +30,7 @@ from src.api.build import router as build_router
 from src.api.ideate import router as ideate_router
 from src.api.execution import router as execution_router
 from src.api.auth import router as auth_router
+from src.api.admin import router as admin_router
 
 
 @asynccontextmanager
@@ -99,6 +100,7 @@ app.include_router(build_router)
 app.include_router(ideate_router)
 app.include_router(execution_router)
 app.include_router(auth_router)
+app.include_router(admin_router)
 
 
 @app.get("/api/health")

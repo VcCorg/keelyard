@@ -394,6 +394,22 @@ export interface CreateDevinSessionResponse {
   knowledge_count: number;
 }
 
+export interface AdminBranding {
+  app_title: string;
+  app_name: string;
+}
+
+export interface AdminSettings {
+  branding: AdminBranding;
+  nav_visibility: Record<string, string[]>;
+}
+
+export interface AdminSettingsUpdate {
+  branding?: AdminBranding;
+  nav_visibility?: Record<string, string[]>;
+  replace_nav?: boolean;
+}
+
 export interface AuthMe {
   subject: string;
   display_name: string;
@@ -1635,6 +1651,15 @@ class APIClient {
   /* ---- Auth (identity resolved by the configured provider) ---- */
   async getMe(): Promise<AuthMe> {
     return this.request("/auth/me");
+  }
+
+  /* ---- Admin (branding + nav visibility) ---- */
+  async getAdminSettings(): Promise<AdminSettings> {
+    return this.request("/admin/settings");
+  }
+
+  async updateAdminSettings(body: AdminSettingsUpdate): Promise<AdminSettings> {
+    return this.request("/admin/settings", { method: "PUT", body: JSON.stringify(body) });
   }
 
   /* ---- Execution engines (vendor-neutral seam) ---- */
