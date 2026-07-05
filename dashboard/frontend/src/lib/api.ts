@@ -1215,6 +1215,16 @@ class APIClient {
     return this.streamUrl(`/setup/init/neo4j/stream?${q.toString()}`);
   }
 
+  /** Persist a Jira/Bitbucket/Confluence URL + token to ~/.dva/.env via the CLI. */
+  setupIntegrationStreamUrl(
+    kind: "jira" | "bitbucket" | "confluence",
+    url: string,
+    token: string
+  ): string {
+    const q = new URLSearchParams({ url, token });
+    return this.streamUrl(`/setup/init/integration/${kind}/stream?${q.toString()}`);
+  }
+
   /* ---- Code Onboard ---- */
   codeOnboardStreamUrl(params: OnboardParams): string {
     const q = new URLSearchParams();

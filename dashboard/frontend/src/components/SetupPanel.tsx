@@ -7,12 +7,22 @@ import { api, type SetupItem } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 /**
- * Items configured through an in-panel form (streams `dva init ...`). Every
- * other item — Devin and the PAT-based integrations (Jira/Bitbucket/Confluence)
- * — is env-only: we detect the credentials in the backend environment and show
- * the export hint instead of a Configure form.
+ * Items configured through an in-panel form (streams `dva init ...`). The
+ * PAT-based integrations (Jira/Bitbucket/Confluence) write their URL + token to
+ * ~/.dva/.env via the CLI, so they no longer need to be exported into the shell.
+ * Devin remains env-only (its key is never persisted to disk).
  */
-const FORM_CONFIGURABLE = new Set(["workspaces", "vertex_ai", "neo4j"]);
+const FORM_CONFIGURABLE = new Set([
+  "workspaces",
+  "vertex_ai",
+  "neo4j",
+  "jira",
+  "bitbucket",
+  "confluence",
+]);
+
+const INTEGRATION_KEYS = ["jira", "bitbucket", "confluence"] as const;
+type IntegrationKind = (typeof INTEGRATION_KEYS)[number];
 
 function StatusDot({ ok }: { ok: boolean }) {
   return ok ? (
@@ -83,6 +93,13 @@ export function SetupPanel({ onClose }: { onClose: () => void }) {
   const [neoUri, setNeoUri] = useState("bolt://localhost:7687");
   const [neoUser, setNeoUser] = useState("neo4j");
   const [neoPwd, setNeoPwd] = useState("");
+  // Per-integration URL + token (Jira / Bitbucket / Confluence).
+  const [intg, setIntg] = useState<Record<string, { url: string; token: string }>>({});
+  const setIntgField = (key: IntegrationKind, field: "url" | "token", value: string) =>
+    setIntg((prev) => ({
+      ...prev,
+      [key]: { url: "", token: "", ...prev[key], [field]: value },
+    }));
 
   const toggle = (key: string) => {
     setStreamUrl(null);
@@ -171,6 +188,41 @@ export function SetupPanel({ onClose }: { onClose: () => void }) {
                     <input className={fieldCls} type="password" placeholder="Password" value={neoPwd} onChange={(e) => setNeoPwd(e.target.value)} />
                     <Button size="sm" disabled={!neoPwd.trim()} onClick={() => setStreamUrl(api.setupNeo4jStreamUrl({ uri: neoUri.trim(), username: neoUser.trim(), password: neoPwd }))}>
                       Run kg init (neo4j)
+                    </Button>
+                  </>
+                )}
+                {INTEGRATION_KEYS.includes(item.key as IntegrationKind) && (
+                  <>
+                    <input
+                      className={fieldCls}
+                      placeholder={`${item.label} server URL (e.g. https://${item.key}.company.com)`}
+                      value={intg[item.key]?.url ?? ""}
+                      onChange={(e) => setIntgField(item.key as IntegrationKind, "url", e.target.value)}
+                    />
+                    <input
+                      className={fieldCls}
+                      type="password"
+                      placeholder="Personal access token"
+                      value={intg[item.key]?.token ?? ""}
+                      onChange={(e) => setIntgField(item.key as IntegrationKind, "token", e.target.value)}
+                    />
+                    <p className="text-[11px] text-gray-400">
+                      Saved to <code>~/.dva/.env</code> (chmod 600) — loaded automatically, no shell export needed.
+                    </p>
+                    <Button
+                      size="sm"
+                      disabled={!intg[item.key]?.url?.trim() || !intg[item.key]?.token?.trim()}
+                      onClick={() =>
+                        setStreamUrl(
+                          api.setupIntegrationStreamUrl(
+                            item.key as IntegrationKind,
+                            intg[item.key].url.trim(),
+                            intg[item.key].token.trim()
+                          )
+                        )
+                      }
+                    >
+                      Run init {item.key}
                     </Button>
                   </>
                 )}

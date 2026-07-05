@@ -106,9 +106,9 @@ def _integration_item(
     else:
         detail = f"Set {url_env} and {token_env} on the backend environment"
 
-    hint = f"export {url_env}=<url>  {token_env}=<pat>"
+    hint = f"dva init {key} --url <url> --token <pat>"
     if extra_env:
-        hint += f"  [{extra_env}=<optional>]"
+        hint += f"  (optional: {extra_env})"
 
     return SetupItem(
         key=key, label=label, configured=configured, required=False,
@@ -117,6 +117,14 @@ def _integration_item(
 
 
 def get_setup_status() -> SetupStatus:
+    # Re-read ~/.dva/.env so tokens written via the setup panel are reflected
+    # without restarting the backend (real exports still take precedence).
+    try:
+        from agentic_cli.env import load_env
+        load_env(force=True)
+    except Exception:
+        pass
+
     cli_available, cli_version = _cli_available()
     cfg = _main_config()
 
@@ -194,3 +202,19 @@ def init_vertex_args(project_id: str, location: str = "us-central1", model: str 
 def kg_init_neo4j_args(uri: str, username: str, password: str) -> list[str]:
     return ["kg", "init", "--provider", "neo4j", "--uri", uri,
             "--username", username, "--password", password]
+
+
+# ── Integration credential writers (persist to ~/.dva/.env via the CLI) ──────
+
+_INTEGRATION_KEYS = {"jira", "bitbucket", "confluence"}
+
+
+def init_integration_args(kind: str, url: str, token: str) -> list[str]:
+    """Build `dva init <kind> --url <> --token <>` for Jira/Bitbucket/Confluence.
+
+    The CLI writes the credentials to ~/.dva/.env (chmod 600); no shell export
+    is needed. Raises ValueError for an unknown integration kind.
+    """
+    if kind not in _INTEGRATION_KEYS:
+        raise ValueError(f"Unknown integration: {kind}")
+    return ["init", kind, "--url", url, "--token", token]

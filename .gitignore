@@ -58,6 +58,11 @@ coverage.xml
 *.db
 *.sqlite
 *.sqlite3
+
+# Dashboard background service pid files (logs covered by *.log)
+*.pid
+dashboard/.backend.pid
+dashboard/.frontend.pid
 chroma_db/
 data/
 logs/

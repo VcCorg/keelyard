@@ -12,6 +12,7 @@ dependencies = [
     "httpx>=0.25.0",
     "mcp>=1.0.0",
     "PyYAML>=6.0",
+    "python-dotenv>=1.0.0",
     # Core agent dependencies - commonly needed
     "google-cloud-aiplatform>=1.45.0",
 ]

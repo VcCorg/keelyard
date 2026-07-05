@@ -35,6 +35,14 @@ from src.api.auth import router as auth_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup/shutdown lifecycle."""
+    # Load ~/.dva/.env (then project ./.env) so integration tokens configured
+    # via the CLI / setup panel are visible to the backend without exporting
+    # them into the environment. Real exported vars still take precedence.
+    try:
+        from agentic_cli.env import load_env
+        load_env()
+    except Exception:
+        pass
     # Ensure tracker DB exists (creates schema if needed)
     try:
         from agentic_cli.tracker import _ensure_db

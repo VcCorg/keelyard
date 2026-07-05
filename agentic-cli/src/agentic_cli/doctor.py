@@ -148,17 +148,21 @@ def _check_registry() -> Section:
 
 
 def _check_integration(name: str, url_env: str, token_env: str, default_port: int,
-                        probe: bool) -> List[CheckResult]:
-    """Validate one Bitbucket/Jira/Confluence-style integration."""
+                        probe: bool, require: bool = False) -> List[CheckResult]:
+    """Validate one Bitbucket/Jira/Confluence-style integration.
+
+    When ``require`` is True, an unconfigured integration is a FAIL instead of a
+    SKIP so ``--require-integrations`` can hard-fail (used by the installer).
+    """
     out: List[CheckResult] = []
     url = os.environ.get(url_env, "").strip()
     token = os.environ.get(token_env, "").strip()
 
     if not url and not token:
         out.append(CheckResult(
-            "Integrations", name, SKIP,
+            "Integrations", name, FAIL if require else SKIP,
             f"Not configured ({url_env} / {token_env} unset)",
-            fix=f"Set {url_env} and {token_env} to enable {name}."))
+            fix=f"{CLI_NAME} init {name.lower()} --url <url> --token <pat>"))
         return out
 
     # URL
@@ -191,14 +195,28 @@ def _check_integration(name: str, url_env: str, token_env: str, default_port: in
     return out
 
 
-def _check_integrations(probe: bool) -> Section:
-    sec = Section("Integrations", required=False)
+def _check_integrations(probe: bool, require: bool = False) -> Section:
+    sec = Section("Integrations", required=require)
+    # Surface which .env files supply these credentials (loaded at startup).
+    try:
+        from agentic_cli.env import resolved_env_files
+        files = resolved_env_files()
+        if files:
+            sec.results.append(CheckResult(
+                "Integrations", ".env files", OK,
+                ", ".join(str(f) for f in files)))
+        else:
+            sec.results.append(CheckResult(
+                "Integrations", ".env files", SKIP, "none found",
+                fix=f"Scaffold one: {CLI_NAME} init env"))
+    except Exception:
+        pass
     sec.results += _check_integration(
-        "Bitbucket", "BITBUCKET_SERVER_URL", "BITBUCKET_PERSONAL_ACCESS_TOKEN", 443, probe)
+        "Bitbucket", "BITBUCKET_SERVER_URL", "BITBUCKET_PERSONAL_ACCESS_TOKEN", 443, probe, require)
     sec.results += _check_integration(
-        "Jira", "JIRA_SERVER_URL", "JIRA_PERSONAL_ACCESS_TOKEN", 443, probe)
+        "Jira", "JIRA_SERVER_URL", "JIRA_PERSONAL_ACCESS_TOKEN", 443, probe, require)
     sec.results += _check_integration(
-        "Confluence", "CONFLUENCE_SERVER_URL", "CONFLUENCE_PERSONAL_ACCESS_TOKEN", 443, probe)
+        "Confluence", "CONFLUENCE_SERVER_URL", "CONFLUENCE_PERSONAL_ACCESS_TOKEN", 443, probe, require)
     return sec
 
 
@@ -293,12 +311,18 @@ def _check_optional() -> Section:
 # Orchestration
 # ---------------------------------------------------------------------------
 
-def run_doctor(probe: bool = False, as_json: bool = False, strict: bool = False) -> int:
-    """Run all checks. Returns a process exit code (0 = healthy)."""
+def run_doctor(probe: bool = False, as_json: bool = False, strict: bool = False,
+               require_integrations: bool = False) -> int:
+    """Run all checks. Returns a process exit code (0 = healthy).
+
+    When ``require_integrations`` is True, the Integrations section is treated
+    as required, so missing Bitbucket/Jira/Confluence credentials cause a
+    non-zero exit (useful for installers / CI gates).
+    """
     sections = [
         _check_runtime(),
         _check_registry(),
-        _check_integrations(probe),
+        _check_integrations(probe, require=require_integrations),
         _check_mcp(),
         _check_kg(),
         _check_optional(),

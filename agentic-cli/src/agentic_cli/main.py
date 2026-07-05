@@ -6,6 +6,7 @@ from typing_extensions import Annotated
 
 from agentic_cli import __version__
 from agentic_cli.config import CLI_NAME
+from agentic_cli.env import load_env
 from agentic_cli.commands.project import project_app
 from agentic_cli.commands.init import init_app
 from agentic_cli.commands.kg import kg_app
@@ -27,6 +28,11 @@ from agentic_cli.commands.retriever import retriever_app
 from agentic_cli.commands.execution import execution_app
 from agentic_cli.commands.context import context_app
 from agentic_cli.commands.auth import auth_app
+
+# Load .env files (global ~/.dva/.env then project ./.env) before any command
+# runs, so integration tokens don't have to be exported every session. Real
+# exported env vars always take precedence.
+load_env()
 
 app = typer.Typer(
     name=CLI_NAME,
@@ -129,6 +135,13 @@ def doctor(
         bool,
         typer.Option("--json", help="Emit machine-readable JSON instead of tables"),
     ] = False,
+    require_integrations: Annotated[
+        bool,
+        typer.Option(
+            "--require-integrations",
+            help="Fail (non-zero exit) if Bitbucket/Jira/Confluence credentials are missing",
+        ),
+    ] = False,
 ) -> None:
     """
     Run preflight diagnostics on your environment.
@@ -136,10 +149,17 @@ def doctor(
     Validates Python runtime, skills registry, integration credentials
     (Bitbucket/Jira/Confluence), MCP server reachability, Knowledge Graph
     connection, and optional tooling (Devin, Docker). Reports actionable fixes.
+
+    Integrations are optional by default; pass --require-integrations to treat
+    missing Jira/Bitbucket/Confluence credentials as a failure (e.g. in CI or
+    the installer).
     """
     from agentic_cli.doctor import run_doctor
 
-    exit_code = run_doctor(probe=probe, as_json=json_output, strict=strict)
+    exit_code = run_doctor(
+        probe=probe, as_json=json_output, strict=strict,
+        require_integrations=require_integrations,
+    )
     raise typer.Exit(exit_code)
 
 
