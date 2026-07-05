@@ -89,6 +89,12 @@ RECOGNIZED_VARS: List[EnvVar] = [
            description="OIDC issuer URL for Glean SSO (sso mode)"),
     EnvVar("GLEAN_OAUTH_CLIENT_ID", "Glean", required=False,
            description="OAuth client id for Glean SSO (sso mode)"),
+    EnvVar("GLEAN_OAUTH_CLIENT_SECRET", "Glean", required=False, secret=True,
+           description="OAuth client secret for a Glean service token (sso mode)"),
+    EnvVar("GLEAN_OAUTH_SCOPE", "Glean", required=False,
+           description="OAuth scope(s) for the Glean service token (sso mode)"),
+    EnvVar("GLEAN_OAUTH_TOKEN_URL", "Glean", required=False,
+           description="OAuth token endpoint (else derived via OIDC discovery)"),
     # --- Optional tooling -------------------------------------------------
     EnvVar("DEVIN_API_KEY", "Optional", required=False, secret=True,
            description="Devin API key for cloud sessions/knowledge"),

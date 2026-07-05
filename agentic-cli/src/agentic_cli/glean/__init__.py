@@ -8,6 +8,13 @@ from agentic_cli.glean.client import (
     search,
     search_text,
 )
+from agentic_cli.glean.oauth import (
+    OAuthError,
+    access_token_for,
+    fetch_client_credentials_token,
+    parse_discovery,
+    parse_token_response,
+)
 
 __all__ = [
     "GleanConfig",
@@ -16,4 +23,9 @@ __all__ = [
     "parse_search_response",
     "search",
     "search_text",
+    "OAuthError",
+    "access_token_for",
+    "fetch_client_credentials_token",
+    "parse_discovery",
+    "parse_token_response",
 ]
