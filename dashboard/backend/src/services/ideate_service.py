@@ -170,47 +170,56 @@ def _result_text(result: Any, limit: int) -> str:
     return joined[: limit * 2000] if joined else ""
 
 
-def glean_status() -> Dict[str, Any]:
+def glean_status(user_token: Optional[str] = None) -> Dict[str, Any]:
     """Report how the Glean source will resolve (configured REST vs MCP fallback)."""
     try:
         from agentic_cli.glean import GleanConfig
     except Exception:  # noqa: BLE001
         return {"mode": "mcp", "configured": False, "detail": "Glean package unavailable — using MCP server."}
     cfg = GleanConfig.load()
-    reason = cfg.unavailable_reason()
+    reason = cfg.unavailable_reason(user_token)
     if reason is None:
-        return {"mode": "rest", "configured": True, "auth": cfg.auth_mode,
-                "detail": f"Configured Glean ({cfg.auth_mode}) at {cfg.api_url}"}
-    # SSO configured but not live, or unconfigured → MCP fallback.
+        auth = cfg.auth_mode
+        if auth == "sso":
+            how = "per-user token" if user_token else "service token"
+            detail = f"Configured Glean (SSO · {how}) at {cfg.api_url}"
+        else:
+            detail = f"Configured Glean (token) at {cfg.api_url}"
+        return {"mode": "rest", "configured": True, "auth": auth, "detail": detail}
+    # SSO configured but not live here, or unconfigured → MCP fallback.
     return {"mode": "mcp", "configured": cfg.is_configured(), "auth": cfg.auth_mode, "detail": reason}
 
 
-def _glean_configured_search(query: str, limit: int) -> Optional[str]:
-    """Query the org-configured Glean (token mode) via its REST API.
+def _glean_configured_search(query: str, limit: int, user_token: Optional[str] = None) -> Optional[str]:
+    """Query the org-configured Glean (token or SSO) via its REST API.
 
     Returns text on success, ``None`` if Glean isn't configured for a live query
     (so the caller can fall back to the MCP server). Raises RuntimeError on a
-    real failure (bad token, unreachable host).
+    real failure (bad token, unreachable host). ``user_token`` is the signed-in
+    user's forwarded access token, enabling per-user SSO (on-behalf-of).
     """
     try:
         from agentic_cli.glean import GleanConfig, GleanError, search_text
     except Exception:  # noqa: BLE001 - package optional
         return None
     cfg = GleanConfig.load()
-    if cfg.unavailable_reason():
+    if cfg.unavailable_reason(user_token):
         return None  # not configured for a live query → let MCP handle it
     try:
-        return search_text(query, limit=limit, config=cfg)
+        return search_text(query, limit=limit, config=cfg, user_token=user_token)
     except GleanError as exc:
         raise RuntimeError(str(exc)) from exc
 
 
-async def search_source(source: str, query: str, limit: int = 5) -> str:
+async def search_source(source: str, query: str, limit: int = 5,
+                        user_token: Optional[str] = None) -> str:
     """Gather context text for Ideate.
 
     For Glean, prefer the org-configured Glean REST API (``dva init glean``);
     fall back to a Glean/Confluence MCP server when Glean isn't configured for a
-    live query. Degrades with a clear RuntimeError when nothing is available."""
+    live query. ``user_token`` (the signed-in user's forwarded access token)
+    enables per-user SSO. Degrades with a clear RuntimeError when nothing is
+    available."""
     url = _MCP_URLS.get(source)
     if not url:
         raise ValueError(f"Unknown source '{source}'. Valid: {', '.join(_MCP_URLS)}")
@@ -218,7 +227,7 @@ async def search_source(source: str, query: str, limit: int = 5) -> str:
         raise ValueError("A search query is required")
 
     if source == "glean":
-        text = _glean_configured_search(query, limit)
+        text = _glean_configured_search(query, limit, user_token)
         if text is not None:
             return text
         # else: not configured for a live query — try the MCP server below.

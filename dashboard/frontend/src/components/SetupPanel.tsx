@@ -102,6 +102,8 @@ export function SetupPanel({ onClose }: { onClose: () => void }) {
   const [gleanToken, setGleanToken] = useState("");
   const [gleanIssuer, setGleanIssuer] = useState("");
   const [gleanClientId, setGleanClientId] = useState("");
+  const [gleanClientSecret, setGleanClientSecret] = useState("");
+  const [gleanScope, setGleanScope] = useState("");
   // Per-integration URL + token (Jira / Bitbucket / Confluence).
   const [intg, setIntg] = useState<Record<string, { url: string; token: string }>>({});
   const setIntgField = (key: IntegrationKind, field: "url" | "token", value: string) =>
@@ -269,9 +271,23 @@ export function SetupPanel({ onClose }: { onClose: () => void }) {
                           value={gleanClientId}
                           onChange={(e) => setGleanClientId(e.target.value)}
                         />
+                        <input
+                          className={fieldCls}
+                          type="password"
+                          placeholder="OAuth client secret (service token — optional)"
+                          value={gleanClientSecret}
+                          onChange={(e) => setGleanClientSecret(e.target.value)}
+                        />
+                        <input
+                          className={fieldCls}
+                          placeholder="OAuth scope (optional)"
+                          value={gleanScope}
+                          onChange={(e) => setGleanScope(e.target.value)}
+                        />
                         <p className="text-[11px] text-gray-400">
-                          Authenticates via your org SSO — no static token. Replaces the
-                          per-user IDE plugin with a governed, shared connector.
+                          Authenticates via your org SSO — no static token. With a client secret,
+                          a shared service token is minted; without one, queries run on-behalf-of
+                          the signed-in user (per-user results, like the IDE plugin).
                         </p>
                       </>
                     )}
@@ -291,6 +307,8 @@ export function SetupPanel({ onClose }: { onClose: () => void }) {
                             token: gleanToken.trim(),
                             issuer: gleanIssuer.trim(),
                             client_id: gleanClientId.trim(),
+                            client_secret: gleanClientSecret.trim(),
+                            scope: gleanScope.trim(),
                           })
                         )
                       }

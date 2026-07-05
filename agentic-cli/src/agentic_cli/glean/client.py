@@ -68,10 +68,30 @@ def parse_search_response(data: Any) -> List[GleanResult]:
     return out
 
 
-def search(query: str, page_size: int = 5, config: Optional[GleanConfig] = None) -> List[GleanResult]:
-    """Run a Glean search (token mode). Raises :class:`GleanError` if unavailable."""
+def _auth_headers(cfg: GleanConfig, user_token: Optional[str]) -> dict:
+    """Build the auth headers for a Glean request (token or OAuth/SSO)."""
+    headers = {"Content-Type": "application/json"}
+    if cfg.is_token_mode:
+        headers["Authorization"] = f"Bearer {cfg.api_token}"
+        return headers
+    # SSO: acquire an OAuth access token (user token if forwarded, else service).
+    from agentic_cli.glean.oauth import OAuthError, access_token_for
+
+    try:
+        token = access_token_for(cfg, user_token)
+    except OAuthError as exc:
+        raise GleanError(str(exc)) from exc
+    headers["Authorization"] = f"Bearer {token}"
+    # Glean requires this to distinguish an OAuth token from a Glean API token.
+    headers["X-Glean-Auth-Type"] = "OAUTH"
+    return headers
+
+
+def search(query: str, page_size: int = 5, config: Optional[GleanConfig] = None,
+           user_token: Optional[str] = None) -> List[GleanResult]:
+    """Run a Glean search (token or SSO). Raises :class:`GleanError` if unavailable."""
     cfg = config or GleanConfig.load()
-    reason = cfg.unavailable_reason()
+    reason = cfg.unavailable_reason(user_token)
     if reason:
         raise GleanError(reason)
     if not (query or "").strip():
@@ -83,7 +103,7 @@ def search(query: str, page_size: int = 5, config: Optional[GleanConfig] = None)
         raise GleanError("httpx is not available on the backend.") from exc
 
     payload = {"query": query.strip(), "pageSize": max(1, min(page_size, 50))}
-    headers = {"Authorization": f"Bearer {cfg.api_token}", "Content-Type": "application/json"}
+    headers = _auth_headers(cfg, user_token)
     try:
         with httpx.Client(timeout=15.0) as client:
             resp = client.post(cfg.search_url, json=payload, headers=headers)
@@ -101,8 +121,9 @@ def search(query: str, page_size: int = 5, config: Optional[GleanConfig] = None)
     return parse_search_response(data)
 
 
-def search_text(query: str, limit: int = 5, config: Optional[GleanConfig] = None) -> str:
+def search_text(query: str, limit: int = 5, config: Optional[GleanConfig] = None,
+                user_token: Optional[str] = None) -> str:
     """Search and render results as a single context block for drafting."""
-    results = search(query, page_size=limit, config=config)
+    results = search(query, page_size=limit, config=config, user_token=user_token)
     blocks = [r.as_text() for r in results[:limit] if r.as_text().strip()]
     return "\n\n".join(blocks).strip()

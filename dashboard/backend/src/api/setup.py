@@ -104,6 +104,8 @@ async def init_glean_stream(
     token: str = Query("", description="Glean API token (token mode)"),
     issuer: str = Query("", description="OIDC issuer (sso mode)"),
     client_id: str = Query("", description="OAuth client id (sso mode)"),
+    client_secret: str = Query("", description="OAuth client secret (sso service token)"),
+    scope: str = Query("", description="OAuth scope (sso mode, optional)"),
 ):
     """Run `dva init glean ...` — configure Glean via API token or SSO/OAuth."""
     if not url.strip():
@@ -115,4 +117,5 @@ async def init_glean_stream(
     elif not token.strip():
         raise HTTPException(status_code=400, detail="Token mode needs a Glean API token.")
     return _stream("init glean", svc.init_glean_args(
-        url.strip(), mode=m, token=token.strip(), issuer=issuer.strip(), client_id=client_id.strip()))
+        url.strip(), mode=m, token=token.strip(), issuer=issuer.strip(), client_id=client_id.strip(),
+        client_secret=client_secret.strip(), scope=scope.strip()))

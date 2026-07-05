@@ -1267,11 +1267,15 @@ class APIClient {
     token?: string;
     issuer?: string;
     client_id?: string;
+    client_secret?: string;
+    scope?: string;
   }): string {
     const q = new URLSearchParams({ url: params.url, mode: params.mode });
     if (params.token) q.append("token", params.token);
     if (params.issuer) q.append("issuer", params.issuer);
     if (params.client_id) q.append("client_id", params.client_id);
+    if (params.client_secret) q.append("client_secret", params.client_secret);
+    if (params.scope) q.append("scope", params.scope);
     return this.streamUrl(`/setup/init/glean/stream?${q.toString()}`);
   }
 

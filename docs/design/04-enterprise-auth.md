@@ -90,6 +90,22 @@ auditor across both surfaces — "who did what, from where" is answerable for ev
 
 ---
 
+## Glean SSO (reuses this identity layer)
+
+Glean can authenticate two ways under SSO — both live today:
+
+| Mode | Config | Token used |
+|------|--------|------------|
+| **Service token** (client-credentials) | `dva init glean --sso --issuer <> --client-id <> --client-secret <>` | Minted from the IdP (OIDC discovery → `token_endpoint`), cached in-process |
+| **On-behalf-of** (per-user) | `dva init glean --sso --issuer <> --client-id <>` (no secret) | The **signed-in user's** access token, forwarded by the SSO proxy |
+
+For on-behalf-of, configure the SSO proxy to pass the user's access token
+(oauth2-proxy: `--pass-access-token`, header `X-Auth-Request-Access-Token`).
+The dashboard forwards it to Glean, which applies that user's document
+permissions — mirroring the per-user IDE plugin. Glean requests carry
+`X-Glean-Auth-Type: OAUTH` so the token is treated as an OAuth token. Verify
+with `dva glean status` / `dva doctor`.
+
 ## Inspecting from the CLI
 
 ```bash

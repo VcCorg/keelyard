@@ -243,11 +243,16 @@ def init_devin_args(api_key: str) -> list[str]:
 
 
 def init_glean_args(url: str, mode: str = "token", token: str = "",
-                    issuer: str = "", client_id: str = "") -> list[str]:
+                    issuer: str = "", client_id: str = "",
+                    client_secret: str = "", scope: str = "") -> list[str]:
     """Build `dva init glean ...` for token or SSO mode."""
     args = ["init", "glean", "--url", url]
     if mode == "sso":
         args += ["--sso", "--issuer", issuer, "--client-id", client_id]
+        if client_secret:
+            args += ["--client-secret", client_secret]
+        if scope:
+            args += ["--scope", scope]
     else:
         args += ["--token", token]
     return args

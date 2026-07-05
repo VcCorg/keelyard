@@ -7,12 +7,28 @@ confirmed step (added alongside the source connectors).
 
 from typing import List, Optional
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
 from src.services import ideate_service as svc
 
 router = APIRouter(prefix="/api/ideate", tags=["ideate"])
+
+
+def _forwarded_user_token(request: Request) -> Optional[str]:
+    """The signed-in user's OAuth access token forwarded by the SSO proxy.
+
+    oauth2-proxy sets ``X-Auth-Request-Access-Token`` (with --pass-access-token);
+    some proxies use an Authorization bearer. Enables per-user Glean SSO.
+    """
+    h = request.headers
+    tok = h.get("x-auth-request-access-token") or h.get("x-forwarded-access-token")
+    if tok:
+        return tok.strip()
+    authz = h.get("authorization", "")
+    if authz.lower().startswith("bearer "):
+        return authz[7:].strip()
+    return None
 
 
 class DraftRequest(BaseModel):
@@ -49,10 +65,11 @@ class SearchRequest(BaseModel):
 
 
 @router.post("/search")
-async def search(req: SearchRequest):
+async def search(req: SearchRequest, request: Request):
     """Gather context text — configured Glean REST (preferred) or MCP fallback."""
+    tok = _forwarded_user_token(request)
     try:
-        text = await svc.search_source(req.source, req.query, limit=req.limit)
+        text = await svc.search_source(req.source, req.query, limit=req.limit, user_token=tok)
         return {"source": req.source, "query": req.query, "text": text, "chars": len(text)}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -61,9 +78,10 @@ async def search(req: SearchRequest):
 
 
 @router.get("/glean-status")
-async def glean_status():
+async def glean_status(request: Request):
     """How the Glean source resolves: configured REST API vs MCP fallback."""
-    return svc.glean_status()
+    tok = _forwarded_user_token(request)
+    return svc.glean_status(user_token=tok)
 
 
 class PushStory(BaseModel):

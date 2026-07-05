@@ -240,12 +240,19 @@ def _check_glean(probe: bool) -> List[CheckResult]:
     if mode == "sso":
         issuer = os.environ.get("GLEAN_OAUTH_ISSUER", "").strip()
         client = os.environ.get("GLEAN_OAUTH_CLIENT_ID", "").strip()
-        if issuer and client:
-            out.append(CheckResult("Integrations", "Glean SSO", OK, f"issuer {issuer}"))
-        else:
+        secret = os.environ.get("GLEAN_OAUTH_CLIENT_SECRET", "").strip()
+        if not (issuer and client):
             out.append(CheckResult("Integrations", "Glean SSO", FAIL,
                                    "GLEAN_OAUTH_ISSUER / GLEAN_OAUTH_CLIENT_ID missing",
                                    fix="Set both, or switch to token mode."))
+        elif secret:
+            out.append(CheckResult("Integrations", "Glean SSO", OK,
+                                   f"issuer {issuer} · client-credentials (service token)"))
+        else:
+            out.append(CheckResult("Integrations", "Glean SSO", WARN,
+                                   f"issuer {issuer} · on-behalf-of user only (no client secret)",
+                                   fix="Add --client-secret for a service token, or ensure the "
+                                       "SSO proxy forwards the user's access token."))
     else:
         if os.environ.get("GLEAN_API_TOKEN", "").strip():
             out.append(CheckResult("Integrations", "Glean token", OK, "set (hidden)"))

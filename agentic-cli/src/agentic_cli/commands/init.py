@@ -779,13 +779,18 @@ def init_glean(
     sso: Annotated[bool, typer.Option("--sso", help="Use SSO/OAuth instead of a static API token")] = False,
     issuer: Annotated[str, typer.Option("--issuer", help="OIDC issuer URL (sso mode)")] = "",
     client_id: Annotated[str, typer.Option("--client-id", help="OAuth client id (sso mode)")] = "",
+    client_secret: Annotated[str, typer.Option("--client-secret", help="OAuth client secret (sso service token)")] = "",
+    scope: Annotated[str, typer.Option("--scope", help="OAuth scope(s) for the service token (sso mode)")] = "",
+    token_url: Annotated[str, typer.Option("--token-url", help="OAuth token endpoint (else OIDC discovery)")] = "",
 ) -> None:
     """Configure Glean (enterprise search / context), writing to ~/.dva/.env.
 
     Two auth modes:
       * token — set ``--url`` and ``--token`` (a Glean API token).
-      * sso   — pass ``--sso`` with ``--url``, ``--issuer`` and ``--client-id``
-                to authenticate via the org's SSO/OAuth (no static token).
+      * sso   — pass ``--sso`` with ``--url``, ``--issuer`` and ``--client-id``.
+                Add ``--client-secret`` (+ optional ``--scope`` / ``--token-url``)
+                for a service token via client-credentials; without a secret,
+                queries use the signed-in user's forwarded token (on-behalf-of).
     """
     from agentic_cli.env import mask, set_env_vars
 
@@ -799,9 +804,16 @@ def init_glean(
             console.print("[red]✗[/red] SSO mode needs --issuer and --client-id.")
             raise typer.Exit(1)
         updates["GLEAN_AUTH_MODE"] = "sso"
-        updates["GLEAN_OAUTH_ISSUER"] = issuer.strip()
+        updates["GLEAN_OAUTH_ISSUER"] = issuer.strip().rstrip("/")
         updates["GLEAN_OAUTH_CLIENT_ID"] = client_id.strip()
-        detail = f"SSO via {issuer.strip()}"
+        if client_secret.strip():
+            updates["GLEAN_OAUTH_CLIENT_SECRET"] = client_secret.strip()
+        if scope.strip():
+            updates["GLEAN_OAUTH_SCOPE"] = scope.strip()
+        if token_url.strip():
+            updates["GLEAN_OAUTH_TOKEN_URL"] = token_url.strip()
+        detail = (f"SSO via {issuer.strip()} "
+                  + ("(client-credentials)" if client_secret.strip() else "(on-behalf-of user)"))
     else:
         if not token.strip():
             console.print("[red]✗[/red] token mode needs --token (or pass --sso).")
