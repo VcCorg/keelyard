@@ -78,6 +78,17 @@ RECOGNIZED_VARS: List[EnvVar] = [
            default="http://localhost:8129/sse", description="Confluence MCP SSE URL"),
     EnvVar("MCP_BITBUCKET_URL", "MCP", required=False,
            default="http://localhost:8126/sse", description="Bitbucket MCP SSE URL"),
+    # --- Glean (enterprise search / context) ------------------------------
+    EnvVar("GLEAN_API_URL", "Glean", required=False,
+           description="Glean instance URL, e.g. https://company-be.glean.com"),
+    EnvVar("GLEAN_AUTH_MODE", "Glean", required=False, default="token",
+           description="How to authenticate to Glean: 'token' or 'sso'"),
+    EnvVar("GLEAN_API_TOKEN", "Glean", required=False, secret=True,
+           description="Glean API token (token mode)"),
+    EnvVar("GLEAN_OAUTH_ISSUER", "Glean", required=False,
+           description="OIDC issuer URL for Glean SSO (sso mode)"),
+    EnvVar("GLEAN_OAUTH_CLIENT_ID", "Glean", required=False,
+           description="OAuth client id for Glean SSO (sso mode)"),
     # --- Optional tooling -------------------------------------------------
     EnvVar("DEVIN_API_KEY", "Optional", required=False, secret=True,
            description="Devin API key for cloud sessions/knowledge"),

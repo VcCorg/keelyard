@@ -713,6 +713,10 @@ def set_default_provider(
 
 @init_app.command("devin")
 def init_devin(
+    api_key: Annotated[
+        str | None,
+        typer.Option("--api-key", help="Devin API key — persisted to ~/.dva/.env (chmod 600)"),
+    ] = None,
     base_url: Annotated[
         str | None,
         typer.Option("--base-url", help="Devin API base URL"),
@@ -741,9 +745,16 @@ def init_devin(
     """Initialize Devin Cloud configuration.
 
     Alias of ``dva devin init`` — kept here for consistency with the other
-    provider init commands. The API key is NEVER stored; set $DEVIN_API_KEY.
+    provider init commands. Pass ``--api-key`` to persist the Devin API key to
+    ``~/.dva/.env`` (chmod 600), the same store used for the other integration
+    tokens; otherwise the key is read from ``$DEVIN_API_KEY``.
     """
     from agentic_cli.commands.devin import configure_devin
+    from agentic_cli.env import mask, set_env_vars
+
+    if api_key:
+        path = set_env_vars({"DEVIN_API_KEY": api_key.strip()})
+        console.print(f"[bold green]✓[/bold green] Saved DEVIN_API_KEY ({mask(api_key.strip())}) to {path}")
 
     configure_devin(
         base_url=base_url,
@@ -756,8 +767,53 @@ def init_devin(
     record_activity(
         command="init",
         subcommand="devin",
-        args={"base_url": base_url, "max_acu": max_acu, "domain": domain},
+        args={"base_url": base_url, "max_acu": max_acu, "domain": domain,
+              "api_key_set": bool(api_key)},
     )
+
+
+@init_app.command("glean")
+def init_glean(
+    url: Annotated[str, typer.Option("--url", help="Glean instance URL, e.g. https://company-be.glean.com")] = "",
+    token: Annotated[str, typer.Option("--token", help="Glean API token (token mode)")] = "",
+    sso: Annotated[bool, typer.Option("--sso", help="Use SSO/OAuth instead of a static API token")] = False,
+    issuer: Annotated[str, typer.Option("--issuer", help="OIDC issuer URL (sso mode)")] = "",
+    client_id: Annotated[str, typer.Option("--client-id", help="OAuth client id (sso mode)")] = "",
+) -> None:
+    """Configure Glean (enterprise search / context), writing to ~/.dva/.env.
+
+    Two auth modes:
+      * token — set ``--url`` and ``--token`` (a Glean API token).
+      * sso   — pass ``--sso`` with ``--url``, ``--issuer`` and ``--client-id``
+                to authenticate via the org's SSO/OAuth (no static token).
+    """
+    from agentic_cli.env import mask, set_env_vars
+
+    if not url.strip():
+        console.print("[red]✗[/red] --url is required (the Glean instance URL).")
+        raise typer.Exit(1)
+
+    updates = {"GLEAN_API_URL": url.strip().rstrip("/")}
+    if sso:
+        if not (issuer.strip() and client_id.strip()):
+            console.print("[red]✗[/red] SSO mode needs --issuer and --client-id.")
+            raise typer.Exit(1)
+        updates["GLEAN_AUTH_MODE"] = "sso"
+        updates["GLEAN_OAUTH_ISSUER"] = issuer.strip()
+        updates["GLEAN_OAUTH_CLIENT_ID"] = client_id.strip()
+        detail = f"SSO via {issuer.strip()}"
+    else:
+        if not token.strip():
+            console.print("[red]✗[/red] token mode needs --token (or pass --sso).")
+            raise typer.Exit(1)
+        updates["GLEAN_AUTH_MODE"] = "token"
+        updates["GLEAN_API_TOKEN"] = token.strip()
+        detail = f"API token {mask(token.strip())}"
+
+    path = set_env_vars(updates)
+    console.print(f"[bold green]✓[/bold green] Glean configured ({detail}) → {path}")
+    record_activity(command="init", subcommand="glean",
+                    args={"url": url.strip(), "mode": updates["GLEAN_AUTH_MODE"]})
 
 
 # ---------------------------------------------------------------------------
