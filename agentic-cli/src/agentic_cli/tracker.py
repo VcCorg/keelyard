@@ -154,8 +154,6 @@ CREATE TABLE IF NOT EXISTS workspaces (
 
 CREATE INDEX IF NOT EXISTS idx_activity_timestamp   ON activity_log(timestamp);
 CREATE INDEX IF NOT EXISTS idx_activity_command     ON activity_log(command);
-CREATE INDEX IF NOT EXISTS idx_activity_correlation ON activity_log(correlation_id);
-CREATE INDEX IF NOT EXISTS idx_activity_entity      ON activity_log(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_repos_name         ON repos(name);
 CREATE INDEX IF NOT EXISTS idx_projects_name      ON projects(name);
 CREATE INDEX IF NOT EXISTS idx_products_name      ON products(name);
@@ -286,6 +284,16 @@ ALTER TABLE activity_log ADD COLUMN actor TEXT;
 CREATE INDEX IF NOT EXISTS idx_activity_actor ON activity_log(actor);
 """
 
+# Indexes that depend on columns added in v12/v13 migrations.  These are safe
+# to run after all migrations have completed (IF NOT EXISTS makes them no-ops
+# when already present).  They are NOT part of _SCHEMA_SQL to avoid a crash on
+# existing databases that haven't yet been migrated to v12.
+_POST_MIGRATION_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_activity_correlation ON activity_log(correlation_id);
+CREATE INDEX IF NOT EXISTS idx_activity_entity      ON activity_log(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_activity_actor       ON activity_log(actor);
+"""
+
 
 def _ensure_db() -> Path:
     """Create the database and schema if they don't exist. Run migrations."""
@@ -352,6 +360,8 @@ def _ensure_db() -> Path:
                 conn.executescript(_MIGRATION_V13)
                 conn.execute("UPDATE schema_version SET version = 13")
                 current_version = 13
+            # Ensure post-migration indexes exist (safe no-ops if already present)
+            conn.executescript(_POST_MIGRATION_INDEXES)
         conn.commit()
     finally:
         conn.close()
