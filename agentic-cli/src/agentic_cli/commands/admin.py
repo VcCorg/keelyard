@@ -65,6 +65,50 @@ def clear_nav(
     console.print(f"[green]✓[/green] Cleared override for {nav_id} (default applies).")
 
 
+@admin_app.command("roles", help="List user → role assignments.")
+def roles() -> None:
+    from agentic_cli.auth import load_assignments
+
+    data = load_assignments()
+    if not data:
+        console.print("[dim]No role assignments — roles come from the SSO proxy / dev default.[/dim]")
+        return
+    table = Table(show_header=True, header_style="bold magenta", title="Role assignments")
+    table.add_column("User", style="cyan")
+    table.add_column("Roles", style="green")
+    for subject, r in sorted(data.items()):
+        table.add_row(subject, ", ".join(r))
+    console.print(table)
+
+
+@admin_app.command("assign-role", help="Assign roles to a user (overrides SSO-derived roles).")
+def assign_role(
+    subject: Annotated[str, typer.Argument(help="User email / subject")],
+    role: Annotated[List[str], typer.Argument(help="Roles: viewer/developer/maintainer/admin")],
+) -> None:
+    from agentic_cli.auth import VALID_ROLES, get_roles, set_roles
+
+    unknown = [r for r in role if r not in VALID_ROLES]
+    if unknown:
+        console.print(f"[red]✗[/red] Unknown role(s): {', '.join(unknown)}. Valid: {', '.join(VALID_ROLES)}")
+        raise typer.Exit(1)
+    set_roles(subject, role)
+    applied = get_roles(subject) or []
+    _audit("assign_role", {"subject": subject, "roles": applied})
+    console.print(f"[green]✓[/green] {subject} → [green]{', '.join(applied) or '(none)'}[/green]")
+
+
+@admin_app.command("revoke-role", help="Remove a user's explicit role assignment.")
+def revoke_role(
+    subject: Annotated[str, typer.Argument(help="User email / subject")],
+) -> None:
+    from agentic_cli.auth import remove_assignment
+
+    remove_assignment(subject)
+    _audit("revoke_role", {"subject": subject})
+    console.print(f"[green]✓[/green] Cleared role assignment for {subject}.")
+
+
 def _audit(action: str, details: dict) -> None:
     try:
         from agentic_cli.tracker import record_action

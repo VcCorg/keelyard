@@ -410,6 +410,21 @@ export interface AdminSettingsUpdate {
   replace_nav?: boolean;
 }
 
+export interface RoleAssignment {
+  subject: string;
+  roles: string[];
+}
+
+export interface RoleAssignments {
+  valid_roles: string[];
+  assignments: RoleAssignment[];
+}
+
+export interface RoleAssignmentUpdate {
+  subject: string;
+  roles: string[];
+}
+
 export interface AuthMe {
   subject: string;
   display_name: string;
@@ -1660,6 +1675,14 @@ class APIClient {
 
   async updateAdminSettings(body: AdminSettingsUpdate): Promise<AdminSettings> {
     return this.request("/admin/settings", { method: "PUT", body: JSON.stringify(body) });
+  }
+
+  async getRoleAssignments(): Promise<RoleAssignments> {
+    return this.request("/admin/roles");
+  }
+
+  async setRoleAssignment(body: RoleAssignmentUpdate): Promise<RoleAssignments> {
+    return this.request("/admin/roles", { method: "PUT", body: JSON.stringify(body) });
   }
 
   /* ---- Execution engines (vendor-neutral seam) ---- */
