@@ -65,3 +65,23 @@ async def init_neo4j_stream(
     if not password.strip():
         raise HTTPException(status_code=400, detail="Neo4j password is required.")
     return _stream("kg init (neo4j)", svc.kg_init_neo4j_args(uri.strip(), username.strip(), password))
+
+
+@router.get("/init/integration/{kind}/stream")
+async def init_integration_stream(
+    kind: str,
+    url: str = Query(..., description="Integration server URL"),
+    token: str = Query(..., description="Personal access token"),
+):
+    """Run `dva init <jira|bitbucket|confluence> --url <> --token <>`.
+
+    Persists the credentials to ~/.dva/.env (chmod 600) via the CLI so they are
+    loaded automatically — no shell export required.
+    """
+    if not url.strip() or not token.strip():
+        raise HTTPException(status_code=400, detail="Both URL and token are required.")
+    try:
+        args = svc.init_integration_args(kind, url.strip(), token.strip())
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return _stream(f"init {kind}", args)

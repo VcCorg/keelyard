@@ -288,6 +288,23 @@ def show_config() -> None:
         console.print("\n[bold]LLM Settings:[/bold]")
         console.print(f"  Default Provider: {llm_config.get('default_provider', 'Not set')}")
 
+    # Integration credentials (from .env / environment)
+    import os
+    from agentic_cli.env import resolved_env_files
+    console.print("\n[bold]Integrations (.env / environment):[/bold]")
+    for name, (label, url_env, token_env) in _INTEGRATIONS.items():
+        url = os.environ.get(url_env, "").strip()
+        token = os.environ.get(token_env, "").strip()
+        if url and token:
+            console.print(f"  {label}: [green]✓ configured[/green] ({url})")
+        elif url or token:
+            console.print(f"  {label}: [yellow]partial[/yellow] (missing {'token' if url else 'URL'})")
+        else:
+            console.print(f"  {label}: [dim]not set[/dim]  →  {CLI_NAME} init {name} --url <> --token <>")
+    env_files = resolved_env_files()
+    if env_files:
+        console.print(f"[dim]  .env: {', '.join(str(f) for f in env_files)}[/dim]")
+
     console.print(f"\n[dim]Config file: {CONFIG_FILE}[/dim]")
 
 
@@ -740,6 +757,114 @@ def init_devin(
         command="init",
         subcommand="devin",
         args={"base_url": base_url, "max_acu": max_acu, "domain": domain},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Integration credentials (.env — Jira / Confluence / Bitbucket)
+#
+# These live in ~/.dva/.env (loaded automatically at CLI startup) instead of
+# being exported into the shell every session. See agentic_cli.env.
+# ---------------------------------------------------------------------------
+
+_INTEGRATIONS = {
+    "jira": ("Jira", "JIRA_SERVER_URL", "JIRA_PERSONAL_ACCESS_TOKEN"),
+    "confluence": ("Confluence", "CONFLUENCE_SERVER_URL", "CONFLUENCE_PERSONAL_ACCESS_TOKEN"),
+    "bitbucket": ("Bitbucket", "BITBUCKET_SERVER_URL", "BITBUCKET_PERSONAL_ACCESS_TOKEN"),
+}
+
+
+def _configure_integration(name: str, url: str, token: str) -> None:
+    """Write an integration's URL + token to ~/.dva/.env."""
+    from agentic_cli.env import mask, set_env_vars
+
+    label, url_env, token_env = _INTEGRATIONS[name]
+
+    if not url:
+        url = Prompt.ask(f"Enter {label} server URL (e.g. https://{name}.company.com)")
+    if not token:
+        token = Prompt.ask(f"Enter {label} personal access token", password=True)
+
+    if not url or not token:
+        console.print(f"[red]✗ Error:[/red] Both URL and token are required for {label}")
+        raise typer.Exit(1)
+
+    path = set_env_vars({url_env: url.rstrip("/"), token_env: token})
+
+    record_activity(command="init", subcommand=name, args={"url": url})
+    console.print(
+        Panel.fit(
+            f"[bold green]✓ {label} configured![/bold green]\n\n"
+            f"  {url_env}: {url.rstrip('/')}\n"
+            f"  {token_env}: {mask(token)}\n\n"
+            f"[dim]Saved to: {path} (chmod 600)[/dim]\n"
+            f"[dim]Loaded automatically on next {CLI_NAME} run — no shell export needed.[/dim]",
+            title="Success",
+            border_style="green",
+        )
+    )
+
+
+@init_app.command("jira")
+def init_jira(
+    url: Annotated[str, typer.Option("--url", help="Jira server URL")] = "",
+    token: Annotated[str, typer.Option("--token", help="Jira personal access token")] = "",
+) -> None:
+    """Configure Jira credentials (writes to ~/.dva/.env)."""
+    _configure_integration("jira", url, token)
+
+
+@init_app.command("confluence")
+def init_confluence(
+    url: Annotated[str, typer.Option("--url", help="Confluence server URL")] = "",
+    token: Annotated[str, typer.Option("--token", help="Confluence personal access token")] = "",
+) -> None:
+    """Configure Confluence credentials (writes to ~/.dva/.env)."""
+    _configure_integration("confluence", url, token)
+
+
+@init_app.command("bitbucket")
+def init_bitbucket(
+    url: Annotated[str, typer.Option("--url", help="Bitbucket server URL")] = "",
+    token: Annotated[str, typer.Option("--token", help="Bitbucket personal access token")] = "",
+) -> None:
+    """Configure Bitbucket credentials (writes to ~/.dva/.env)."""
+    _configure_integration("bitbucket", url, token)
+
+
+@init_app.command("env")
+def init_env(
+    scope: Annotated[
+        str,
+        typer.Option("--scope", help="Where to create .env: 'global' (~/.dva/.env) or 'project' (./.env)"),
+    ] = "global",
+    force: Annotated[bool, typer.Option("--force", help="Overwrite an existing .env")] = False,
+) -> None:
+    """Scaffold a .env file with all recognized integration/AI keys."""
+    from agentic_cli.env import GLOBAL_ENV_PATH, resolved_env_files, scaffold_env
+
+    if scope == "global":
+        target = GLOBAL_ENV_PATH
+    elif scope == "project":
+        target = Path.cwd() / ".env"
+    else:
+        console.print(f"[red]✗[/red] Invalid --scope '{scope}' (use 'global' or 'project')")
+        raise typer.Exit(1)
+
+    created = scaffold_env(target, force=force)
+    if not created:
+        console.print(f"[yellow]⚠[/yellow] {target} already exists. Use --force to overwrite.")
+    else:
+        console.print(f"[green]✓[/green] Created {target} [dim](chmod 600)[/dim]")
+
+    loaded = resolved_env_files()
+    if loaded:
+        console.print("\n[bold]Loaded .env files (low → high precedence):[/bold]")
+        for f in loaded:
+            console.print(f"  • {f}")
+    console.print(
+        f"\n[dim]Fill in tokens, or run: {CLI_NAME} init jira|confluence|bitbucket --url <> --token <>[/dim]\n"
+        f"[dim]Validate anytime with: {CLI_NAME} doctor[/dim]"
     )
 
 

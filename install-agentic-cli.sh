@@ -41,6 +41,37 @@ log_warn()  { echo -e "${YELLOW}⚠${NC} $*"; }
 log_error() { echo -e "${RED}✗${NC} $*"; }
 log_header(){ echo -e "\n${BOLD}$*${NC}\n"; }
 
+# ── Background service launch ────────────────────────────────────────────────
+# Delegates to the cross-platform launcher (scripts/dashboard.py) so macOS,
+# Linux, and Windows all share ONE implementation of the port-guard + start
+# logic. Nothing OS-specific lives here anymore.
+
+start_dashboard_services() {
+  local launcher="$ROOT_DIR/scripts/dashboard.py"
+  if [ ! -f "$launcher" ]; then
+    log_warn "Launcher not found ($launcher); skipping dashboard start."
+    return 0
+  fi
+
+  # Resolve a Python interpreter to run the launcher.
+  local py=""
+  if [ -x "$PROJECT_VENV/bin/python" ]; then
+    py="$PROJECT_VENV/bin/python"
+  elif command -v python3 &> /dev/null; then
+    py="python3"
+  elif command -v python &> /dev/null; then
+    py="python"
+  fi
+  if [ -z "$py" ]; then
+    log_warn "Python not found; start the dashboard manually: python scripts/dashboard.py start"
+    return 0
+  fi
+
+  local args=(start)
+  [ -n "$FORCE_RESTART" ] && args+=(--force-restart)
+  "$py" "$launcher" "${args[@]}"
+}
+
 # Configuration
 INSTALL_TYPE="project"  # project, local, or global
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -51,7 +82,14 @@ DEV_MODE=""  # Development mode flag
 FORCE_REINSTALL=""  # Force reinstall from source
 USE_NATIVE_TLS=""  # Use system TLS certificates
 SKIP_DASHBOARD=""  # Skip installing dashboard (frontend npm + backend pip) deps
+REQUIRE_INTEGRATIONS=""  # Hard-fail install if Jira/Bitbucket/Confluence tokens are missing
+START_SERVICES=""  # Start dashboard backend + frontend in the background after install
+FORCE_RESTART=""  # Kill processes occupying the service ports without prompting
 PROJECT_VENV="$ROOT_DIR/.venv"  # Project-level uv venv
+BACKEND_DIR="$ROOT_DIR/dashboard/backend"
+FRONTEND_DIR="$ROOT_DIR/dashboard/frontend"
+BACKEND_PORT=8000
+FRONTEND_PORT=5173
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -96,15 +134,32 @@ while [[ $# -gt 0 ]]; do
       log_info "Skipping dashboard dependency installation"
       shift
       ;;
+    --require-integrations)
+      REQUIRE_INTEGRATIONS="1"
+      log_info "Integration tokens (Jira/Bitbucket/Confluence) will be required"
+      shift
+      ;;
+    --start)
+      START_SERVICES="1"
+      log_info "Dashboard backend + frontend will be started in the background"
+      shift
+      ;;
+    --force-restart)
+      FORCE_RESTART="1"
+      shift
+      ;;
     --project)
       INSTALL_TYPE="project"
       log_info "Installing into project venv"
       shift
       ;;
     --help|-h)
-      echo "Usage: $0 [--project] [--local] [--global] [--with PACKAGE] [--group GROUP] [--dev] [--force] [--native-tls] [--skip-dashboard]"
+      echo "Usage: $0 [--project] [--local] [--global] [--with PACKAGE] [--group GROUP] [--dev] [--force] [--native-tls] [--skip-dashboard] [--require-integrations] [--start] [--force-restart]"
       echo ""
       echo "Options:"
+      echo "  --start         Start dashboard backend (:$BACKEND_PORT) + frontend (:$FRONTEND_PORT) in the background after install"
+      echo "  --force-restart Kill any process already using those ports (no prompt) before starting"
+      echo "  --require-integrations  Fail install if Jira/Bitbucket/Confluence tokens are missing"
       echo "  --project     Install into project venv (default: $PROJECT_VENV)"
       echo "  --local       Install in local agentic-cli/.venv (legacy)"
       echo "  --global      Install globally with sudo"
@@ -346,6 +401,61 @@ fi
 
 log_header "Environment Validation"
 
+# ── .env setup ──────────────────────────────────────────────────────────────
+# Configure integration tokens (Jira/Confluence/Bitbucket/AI) ONCE in a .env
+# file so users don't have to export them into the shell every session.
+GLOBAL_ENV_DIR="$HOME/.dva"
+GLOBAL_ENV_FILE="$GLOBAL_ENV_DIR/.env"
+ENV_EXAMPLE="$ROOT_DIR/.env.example"
+
+# Resolve the dva binary for the chosen install type (may not be on PATH yet).
+DVA_BIN=""
+if [ "$INSTALL_TYPE" = "project" ] && [ -x "$PROJECT_VENV/bin/dva" ]; then
+    DVA_BIN="$PROJECT_VENV/bin/dva"
+elif [ "$INSTALL_TYPE" = "local" ] && [ -x "$ROOT_DIR/agentic-cli/.venv/bin/dva" ]; then
+    DVA_BIN="$ROOT_DIR/agentic-cli/.venv/bin/dva"
+elif command -v dva &> /dev/null; then
+    DVA_BIN="$(command -v dva)"
+fi
+
+if [ ! -f "$GLOBAL_ENV_FILE" ]; then
+    if [ -f "$ENV_EXAMPLE" ]; then
+        log_info "Creating $GLOBAL_ENV_FILE from .env.example..."
+        mkdir -p "$GLOBAL_ENV_DIR"
+        cp "$ENV_EXAMPLE" "$GLOBAL_ENV_FILE"
+        chmod 600 "$GLOBAL_ENV_FILE"
+        log_ok "Created $GLOBAL_ENV_FILE (chmod 600)"
+        log_warn "Edit $GLOBAL_ENV_FILE and fill in your tokens (Jira/Confluence/Bitbucket)."
+    else
+        log_warn ".env.example not found — skipping .env scaffold."
+    fi
+else
+    log_ok "Existing .env found at $GLOBAL_ENV_FILE"
+fi
+
+# Validate the environment. Non-blocking by default; with --require-integrations
+# a missing Jira/Bitbucket/Confluence token fails the install.
+if [ -n "$DVA_BIN" ]; then
+    DOCTOR_ARGS=""
+    if [ -n "$REQUIRE_INTEGRATIONS" ]; then
+        DOCTOR_ARGS="--require-integrations"
+    fi
+    log_info "Validating environment with 'dva doctor ${DOCTOR_ARGS}'..."
+    if "$DVA_BIN" doctor $DOCTOR_ARGS; then
+        log_ok "Environment validation passed"
+    elif [ -n "$REQUIRE_INTEGRATIONS" ]; then
+        log_error "Required integration tokens are missing."
+        log_error "Configure them, then re-run the installer:"
+        log_error "  dva init jira|confluence|bitbucket --url <url> --token <pat>"
+        log_error "  (or edit $GLOBAL_ENV_FILE)"
+        exit 1
+    else
+        log_warn "Some checks failed — edit $GLOBAL_ENV_FILE (or run: dva init jira|confluence|bitbucket), then re-run: dva doctor"
+    fi
+else
+    log_info "Run 'dva doctor' after activating your environment to check tokens."
+fi
+
 # Validate environment and dependencies
 if [ "$INSTALL_TYPE" = "global" ]; then
     # Test if dependencies are available in the isolated environment
@@ -386,6 +496,19 @@ else
         log_info "For local installation, activate the venv:"
         echo "  source $ROOT_DIR/agentic-cli/.venv/bin/activate"
     fi
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+
+if [ -n "$START_SERVICES" ] && [ -z "$SKIP_DASHBOARD" ]; then
+    log_header "Starting Dashboard Services (background)"
+    start_dashboard_services
+    echo ""
+    log_info "Tail logs:   tail -f dashboard/backend.log dashboard/frontend.log"
+    log_info "Stop later:  python scripts/dashboard.py stop   (or ./start-dashboard.ps1 -Stop on Windows)"
+elif [ -z "$START_SERVICES" ] && [ -z "$SKIP_DASHBOARD" ]; then
+    log_info "Start the dashboard (any OS):  python scripts/dashboard.py start"
+    log_info "  or during install:  ./install-agentic-cli.sh --start [--force-restart]"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────

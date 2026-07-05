@@ -34,6 +34,49 @@ make backend   # Terminal 1
 make frontend  # Terminal 2
 ```
 
+### One command for every OS (macOS / Linux / Windows)
+
+A single cross-platform launcher (`scripts/dashboard.py`) auto-detects the OS
+and runs both services in the background — same invocation everywhere:
+
+```bash
+python scripts/dashboard.py start            # backend (:8000) + frontend (:5173)
+python scripts/dashboard.py start --force-restart   # reclaim busy ports, no prompt
+python scripts/dashboard.py start --backend  # backend only
+python scripts/dashboard.py status
+python scripts/dashboard.py stop
+python scripts/dashboard.py restart
+```
+
+It logs to `dashboard/backend.log` / `dashboard/frontend.log`, records PIDs in
+`dashboard/.backend.pid` / `.frontend.pid`, and **warns before killing** a
+process that already owns a port (unless `--force-restart`, or a non-interactive
+shell, which skips). Integration tokens are read from `~/.dva/.env`
+(`%USERPROFILE%\.dva\.env`) automatically — no shell exports needed.
+
+The bash installer can start it after install:
+
+```bash
+./install-agentic-cli.sh --start [--force-restart]
+```
+
+### Windows (PowerShell convenience wrappers)
+
+If you prefer PowerShell verbs, thin wrappers at the repo root call the same
+launcher (no Git Bash/WSL needed):
+
+```powershell
+./start-dashboard.ps1                 # start both
+./start-dashboard.ps1 -ForceRestart   # reclaim busy ports
+./start-backend.ps1                   # backend only
+./start-frontend.ps1                  # frontend only
+./start-dashboard.ps1 -Status
+./start-dashboard.ps1 -Stop
+
+# If scripts are blocked by execution policy:
+#   pwsh -ExecutionPolicy Bypass -File .\start-dashboard.ps1
+```
+
 ## Production (Docker)
 
 A production stack is provided via `docker-compose.prod.yml`: the backend runs
