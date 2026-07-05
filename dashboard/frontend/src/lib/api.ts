@@ -1256,6 +1256,25 @@ class APIClient {
     return this.streamUrl(`/setup/init/integration/${kind}/stream?${q.toString()}`);
   }
 
+  setupDevinStreamUrl(apiKey: string): string {
+    const q = new URLSearchParams({ api_key: apiKey });
+    return this.streamUrl(`/setup/init/devin/stream?${q.toString()}`);
+  }
+
+  setupGleanStreamUrl(params: {
+    url: string;
+    mode: "token" | "sso";
+    token?: string;
+    issuer?: string;
+    client_id?: string;
+  }): string {
+    const q = new URLSearchParams({ url: params.url, mode: params.mode });
+    if (params.token) q.append("token", params.token);
+    if (params.issuer) q.append("issuer", params.issuer);
+    if (params.client_id) q.append("client_id", params.client_id);
+    return this.streamUrl(`/setup/init/glean/stream?${q.toString()}`);
+  }
+
   /* ---- Code Onboard ---- */
   codeOnboardStreamUrl(params: OnboardParams): string {
     const q = new URLSearchParams();

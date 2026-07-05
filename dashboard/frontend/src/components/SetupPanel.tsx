@@ -16,6 +16,8 @@ const FORM_CONFIGURABLE = new Set([
   "workspaces",
   "vertex_ai",
   "neo4j",
+  "devin",
+  "glean",
   "jira",
   "bitbucket",
   "confluence",
@@ -93,6 +95,13 @@ export function SetupPanel({ onClose }: { onClose: () => void }) {
   const [neoUri, setNeoUri] = useState("bolt://localhost:7687");
   const [neoUser, setNeoUser] = useState("neo4j");
   const [neoPwd, setNeoPwd] = useState("");
+  const [devinKey, setDevinKey] = useState("");
+  // Glean: token or SSO mode.
+  const [gleanUrl, setGleanUrl] = useState("");
+  const [gleanMode, setGleanMode] = useState<"token" | "sso">("token");
+  const [gleanToken, setGleanToken] = useState("");
+  const [gleanIssuer, setGleanIssuer] = useState("");
+  const [gleanClientId, setGleanClientId] = useState("");
   // Per-integration URL + token (Jira / Bitbucket / Confluence).
   const [intg, setIntg] = useState<Record<string, { url: string; token: string }>>({});
   const setIntgField = (key: IntegrationKind, field: "url" | "token", value: string) =>
@@ -188,6 +197,105 @@ export function SetupPanel({ onClose }: { onClose: () => void }) {
                     <input className={fieldCls} type="password" placeholder="Password" value={neoPwd} onChange={(e) => setNeoPwd(e.target.value)} />
                     <Button size="sm" disabled={!neoPwd.trim()} onClick={() => setStreamUrl(api.setupNeo4jStreamUrl({ uri: neoUri.trim(), username: neoUser.trim(), password: neoPwd }))}>
                       Run kg init (neo4j)
+                    </Button>
+                  </>
+                )}
+                {item.key === "devin" && (
+                  <>
+                    <input
+                      className={fieldCls}
+                      type="password"
+                      placeholder="Devin API key (apk_...)"
+                      value={devinKey}
+                      onChange={(e) => setDevinKey(e.target.value)}
+                    />
+                    <p className="text-[11px] text-gray-400">
+                      Saved to <code>~/.dva/.env</code> (chmod 600) — loaded automatically.
+                    </p>
+                    <Button
+                      size="sm"
+                      disabled={!devinKey.trim()}
+                      onClick={() => setStreamUrl(api.setupDevinStreamUrl(devinKey.trim()))}
+                    >
+                      Save Devin key
+                    </Button>
+                  </>
+                )}
+                {item.key === "glean" && (
+                  <>
+                    <input
+                      className={fieldCls}
+                      placeholder="Glean instance URL (e.g. https://company-be.glean.com)"
+                      value={gleanUrl}
+                      onChange={(e) => setGleanUrl(e.target.value)}
+                    />
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="text-gray-500">Auth:</span>
+                      {(["token", "sso"] as const).map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setGleanMode(m)}
+                          className={cn(
+                            "px-2 py-0.5 rounded-full border capitalize",
+                            gleanMode === m
+                              ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-900/40"
+                              : "bg-transparent text-gray-400 border-gray-200 dark:border-gray-700"
+                          )}
+                        >
+                          {m === "sso" ? "SSO sign-in" : "API token"}
+                        </button>
+                      ))}
+                    </div>
+                    {gleanMode === "token" ? (
+                      <input
+                        className={fieldCls}
+                        type="password"
+                        placeholder="Glean API token"
+                        value={gleanToken}
+                        onChange={(e) => setGleanToken(e.target.value)}
+                      />
+                    ) : (
+                      <>
+                        <input
+                          className={fieldCls}
+                          placeholder="OIDC issuer URL (e.g. https://login.company.com)"
+                          value={gleanIssuer}
+                          onChange={(e) => setGleanIssuer(e.target.value)}
+                        />
+                        <input
+                          className={fieldCls}
+                          placeholder="OAuth client id"
+                          value={gleanClientId}
+                          onChange={(e) => setGleanClientId(e.target.value)}
+                        />
+                        <p className="text-[11px] text-gray-400">
+                          Authenticates via your org SSO — no static token. Replaces the
+                          per-user IDE plugin with a governed, shared connector.
+                        </p>
+                      </>
+                    )}
+                    <Button
+                      size="sm"
+                      disabled={
+                        !gleanUrl.trim() ||
+                        (gleanMode === "token"
+                          ? !gleanToken.trim()
+                          : !gleanIssuer.trim() || !gleanClientId.trim())
+                      }
+                      onClick={() =>
+                        setStreamUrl(
+                          api.setupGleanStreamUrl({
+                            url: gleanUrl.trim(),
+                            mode: gleanMode,
+                            token: gleanToken.trim(),
+                            issuer: gleanIssuer.trim(),
+                            client_id: gleanClientId.trim(),
+                          })
+                        )
+                      }
+                    >
+                      Save Glean {gleanMode === "sso" ? "SSO" : "token"}
                     </Button>
                   </>
                 )}

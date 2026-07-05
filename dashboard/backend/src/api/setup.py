@@ -85,3 +85,34 @@ async def init_integration_stream(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return _stream(f"init {kind}", args)
+
+
+@router.get("/init/devin/stream")
+async def init_devin_stream(
+    api_key: str = Query(..., description="Devin API key"),
+):
+    """Run `dva init devin --api-key <>` — persists DEVIN_API_KEY to ~/.dva/.env."""
+    if not api_key.strip():
+        raise HTTPException(status_code=400, detail="A Devin API key is required.")
+    return _stream("init devin", svc.init_devin_args(api_key.strip()))
+
+
+@router.get("/init/glean/stream")
+async def init_glean_stream(
+    url: str = Query(..., description="Glean instance URL"),
+    mode: str = Query("token", description="'token' or 'sso'"),
+    token: str = Query("", description="Glean API token (token mode)"),
+    issuer: str = Query("", description="OIDC issuer (sso mode)"),
+    client_id: str = Query("", description="OAuth client id (sso mode)"),
+):
+    """Run `dva init glean ...` — configure Glean via API token or SSO/OAuth."""
+    if not url.strip():
+        raise HTTPException(status_code=400, detail="The Glean instance URL is required.")
+    m = (mode or "token").strip().lower()
+    if m == "sso":
+        if not (issuer.strip() and client_id.strip()):
+            raise HTTPException(status_code=400, detail="SSO mode needs issuer and client_id.")
+    elif not token.strip():
+        raise HTTPException(status_code=400, detail="Token mode needs a Glean API token.")
+    return _stream("init glean", svc.init_glean_args(
+        url.strip(), mode=m, token=token.strip(), issuer=issuer.strip(), client_id=client_id.strip()))

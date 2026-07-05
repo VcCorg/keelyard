@@ -217,7 +217,56 @@ def _check_integrations(probe: bool, require: bool = False) -> Section:
         "Jira", "JIRA_SERVER_URL", "JIRA_PERSONAL_ACCESS_TOKEN", 443, probe, require)
     sec.results += _check_integration(
         "Confluence", "CONFLUENCE_SERVER_URL", "CONFLUENCE_PERSONAL_ACCESS_TOKEN", 443, probe, require)
+    sec.results += _check_glean(probe)
+    sec.results += _check_devin()
     return sec
+
+
+def _check_glean(probe: bool) -> List[CheckResult]:
+    """Validate Glean (search/context) in either token or SSO mode."""
+    out: List[CheckResult] = []
+    url = os.environ.get("GLEAN_API_URL", "").strip()
+    mode = (os.environ.get("GLEAN_AUTH_MODE", "token").strip() or "token").lower()
+    if not url:
+        out.append(CheckResult("Integrations", "Glean", SKIP, "Not configured (GLEAN_API_URL unset)",
+                               fix=f"{CLI_NAME} init glean --url <url> --token <token>  (or --sso ...)"))
+        return out
+    if not _is_valid_url(url):
+        out.append(CheckResult("Integrations", "Glean URL", FAIL, f"Invalid URL: {url}",
+                               fix="Set GLEAN_API_URL to a full http(s) URL."))
+    else:
+        out.append(CheckResult("Integrations", "Glean URL", OK, f"{url} ({mode} auth)"))
+
+    if mode == "sso":
+        issuer = os.environ.get("GLEAN_OAUTH_ISSUER", "").strip()
+        client = os.environ.get("GLEAN_OAUTH_CLIENT_ID", "").strip()
+        if issuer and client:
+            out.append(CheckResult("Integrations", "Glean SSO", OK, f"issuer {issuer}"))
+        else:
+            out.append(CheckResult("Integrations", "Glean SSO", FAIL,
+                                   "GLEAN_OAUTH_ISSUER / GLEAN_OAUTH_CLIENT_ID missing",
+                                   fix="Set both, or switch to token mode."))
+    else:
+        if os.environ.get("GLEAN_API_TOKEN", "").strip():
+            out.append(CheckResult("Integrations", "Glean token", OK, "set (hidden)"))
+        else:
+            out.append(CheckResult("Integrations", "Glean token", FAIL, "GLEAN_API_TOKEN is empty",
+                                   fix="Set GLEAN_API_TOKEN, or use --sso."))
+
+    if probe and _is_valid_url(url):
+        host, port = _host_port(url, 443)
+        state = OK if _tcp_reachable(host, port) else WARN
+        out.append(CheckResult("Integrations", "Glean reachable",
+                               state, f"{host}:{port}" if state == OK else f"Cannot reach {host}:{port}"))
+    return out
+
+
+def _check_devin() -> List[CheckResult]:
+    """Report Devin API key presence (optional tooling)."""
+    if os.environ.get("DEVIN_API_KEY", "").strip():
+        return [CheckResult("Integrations", "Devin", OK, "API key set (hidden)")]
+    return [CheckResult("Integrations", "Devin", SKIP, "Not configured (DEVIN_API_KEY unset)",
+                        fix=f"{CLI_NAME} init devin --api-key <key>")]
 
 
 def _check_mcp() -> Section:

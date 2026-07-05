@@ -143,6 +143,18 @@ def get_setup_status() -> SetupStatus:
 
     devin_ok = bool(os.environ.get("DEVIN_API_KEY"))
 
+    glean_url = os.environ.get("GLEAN_API_URL", "").strip()
+    glean_mode = (os.environ.get("GLEAN_AUTH_MODE", "token").strip() or "token").lower()
+    if glean_mode == "sso":
+        glean_ok = bool(glean_url and os.environ.get("GLEAN_OAUTH_ISSUER", "").strip()
+                        and os.environ.get("GLEAN_OAUTH_CLIENT_ID", "").strip())
+        glean_detail = (f"SSO via {os.environ.get('GLEAN_OAUTH_ISSUER')}" if glean_ok
+                        else "SSO mode — set GLEAN_API_URL, GLEAN_OAUTH_ISSUER, GLEAN_OAUTH_CLIENT_ID")
+    else:
+        glean_ok = bool(glean_url and os.environ.get("GLEAN_API_TOKEN", "").strip())
+        glean_detail = (f"API token set ({glean_url})" if glean_ok
+                        else "Token mode — set GLEAN_API_URL + GLEAN_API_TOKEN (or switch to SSO)")
+
     items = [
         SetupItem(
             key="workspaces", label="Workspaces", configured=workspaces_ok, required=True,
@@ -161,8 +173,13 @@ def get_setup_status() -> SetupStatus:
         ),
         SetupItem(
             key="devin", label="Devin Cloud (optional)", configured=devin_ok, required=False,
-            detail=("$DEVIN_API_KEY present" if devin_ok else "Set $DEVIN_API_KEY for Devin push"),
-            fix_hint="export DEVIN_API_KEY=<key>  (backend environment)",
+            detail=("Devin API key set" if devin_ok else "Add your Devin API key to enable cloud sessions/push"),
+            fix_hint="dva init devin --api-key <key>",
+        ),
+        SetupItem(
+            key="glean", label="Glean (Search / Context)", configured=glean_ok, required=False,
+            detail=glean_detail,
+            fix_hint="dva init glean --url <url> --token <token>   |   --sso --issuer <> --client-id <>",
         ),
         _integration_item(
             key="jira", label="Jira (Work Items)",
@@ -218,3 +235,19 @@ def init_integration_args(kind: str, url: str, token: str) -> list[str]:
     if kind not in _INTEGRATION_KEYS:
         raise ValueError(f"Unknown integration: {kind}")
     return ["init", kind, "--url", url, "--token", token]
+
+
+def init_devin_args(api_key: str) -> list[str]:
+    """Build `dva init devin --api-key <>` (persists DEVIN_API_KEY to ~/.dva/.env)."""
+    return ["init", "devin", "--api-key", api_key]
+
+
+def init_glean_args(url: str, mode: str = "token", token: str = "",
+                    issuer: str = "", client_id: str = "") -> list[str]:
+    """Build `dva init glean ...` for token or SSO mode."""
+    args = ["init", "glean", "--url", url]
+    if mode == "sso":
+        args += ["--sso", "--issuer", issuer, "--client-id", client_id]
+    else:
+        args += ["--token", token]
+    return args
