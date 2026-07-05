@@ -170,14 +170,58 @@ def _result_text(result: Any, limit: int) -> str:
     return joined[: limit * 2000] if joined else ""
 
 
+def glean_status() -> Dict[str, Any]:
+    """Report how the Glean source will resolve (configured REST vs MCP fallback)."""
+    try:
+        from agentic_cli.glean import GleanConfig
+    except Exception:  # noqa: BLE001
+        return {"mode": "mcp", "configured": False, "detail": "Glean package unavailable — using MCP server."}
+    cfg = GleanConfig.load()
+    reason = cfg.unavailable_reason()
+    if reason is None:
+        return {"mode": "rest", "configured": True, "auth": cfg.auth_mode,
+                "detail": f"Configured Glean ({cfg.auth_mode}) at {cfg.api_url}"}
+    # SSO configured but not live, or unconfigured → MCP fallback.
+    return {"mode": "mcp", "configured": cfg.is_configured(), "auth": cfg.auth_mode, "detail": reason}
+
+
+def _glean_configured_search(query: str, limit: int) -> Optional[str]:
+    """Query the org-configured Glean (token mode) via its REST API.
+
+    Returns text on success, ``None`` if Glean isn't configured for a live query
+    (so the caller can fall back to the MCP server). Raises RuntimeError on a
+    real failure (bad token, unreachable host).
+    """
+    try:
+        from agentic_cli.glean import GleanConfig, GleanError, search_text
+    except Exception:  # noqa: BLE001 - package optional
+        return None
+    cfg = GleanConfig.load()
+    if cfg.unavailable_reason():
+        return None  # not configured for a live query → let MCP handle it
+    try:
+        return search_text(query, limit=limit, config=cfg)
+    except GleanError as exc:
+        raise RuntimeError(str(exc)) from exc
+
+
 async def search_source(source: str, query: str, limit: int = 5) -> str:
-    """Gather context text from a Glean/Confluence MCP server. Degrades with a
-    clear RuntimeError when the client or server is unavailable."""
+    """Gather context text for Ideate.
+
+    For Glean, prefer the org-configured Glean REST API (``dva init glean``);
+    fall back to a Glean/Confluence MCP server when Glean isn't configured for a
+    live query. Degrades with a clear RuntimeError when nothing is available."""
     url = _MCP_URLS.get(source)
     if not url:
         raise ValueError(f"Unknown source '{source}'. Valid: {', '.join(_MCP_URLS)}")
     if not query.strip():
         raise ValueError("A search query is required")
+
+    if source == "glean":
+        text = _glean_configured_search(query, limit)
+        if text is not None:
+            return text
+        # else: not configured for a live query — try the MCP server below.
 
     try:
         from mcp import ClientSession

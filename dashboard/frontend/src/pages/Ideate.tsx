@@ -53,6 +53,7 @@ export function Ideate() {
   const [searchSource, setSearchSource] = useState<"glean" | "confluence">("glean");
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
+  const [gleanStatus, setGleanStatus] = useState<{ mode: string; detail: string } | null>(null);
 
   const [jira, setJira] = useState<{ configured: boolean; projects: string[] } | null>(null);
   const [project, setProject] = useState("");
@@ -76,6 +77,12 @@ export function Ideate() {
           setJira(d);
           if (d.projects?.length) setProject(d.projects[0]);
         }
+      } catch {
+        /* non-fatal */
+      }
+      try {
+        const gs = await fetch("/api/ideate/glean-status");
+        if (gs.ok && !cancelled) setGleanStatus(await gs.json());
       } catch {
         /* non-fatal */
       }
@@ -273,6 +280,20 @@ export function Ideate() {
               Search
             </button>
           </div>
+
+          {searchSource === "glean" && gleanStatus && (
+            <p className="text-[11px] text-gray-400 flex items-center gap-1.5">
+              <span
+                className={cn(
+                  "inline-block h-1.5 w-1.5 rounded-full",
+                  gleanStatus.mode === "rest" ? "bg-emerald-500" : "bg-amber-400"
+                )}
+              />
+              {gleanStatus.mode === "rest"
+                ? "Using configured Glean (live search)"
+                : `Glean not live — ${gleanStatus.detail} Falling back to the Glean MCP server.`}
+            </p>
+          )}
 
           <textarea
             value={context}
