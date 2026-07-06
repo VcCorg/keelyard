@@ -54,8 +54,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Agent Playground",
-    description="Web dashboard for Agentic Platform — manage agents, deploy applications, and interact via chat",
+    title="Keel",
+    description="Keel — agentic product development platform. Governed, vendor-neutral orchestration for agent-driven development.",
     version="0.1.0",
     lifespan=lifespan,
 )

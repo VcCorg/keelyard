@@ -16,7 +16,7 @@ import { api, type AdminSettings, type AdminSettingsUpdate } from "@/lib/api";
  */
 
 const DEFAULTS: AdminSettings = {
-  branding: { app_title: "Agent Playground", app_name: "Agentic Platform" },
+  branding: { app_title: "Keel", app_name: "Agentic Product Development Platform" },
   nav_visibility: {},
 };
 

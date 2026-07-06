@@ -31,7 +31,7 @@ export function Admin() {
   const saveBranding = async () => {
     setSavingBrand(true);
     try {
-      await updateSettings({ branding: { app_title: title.trim() || "Agent Playground", app_name: name.trim() || "Agentic Platform" } });
+      await updateSettings({ branding: { app_title: title.trim() || "Keel", app_name: name.trim() || "Agentic Product Development Platform" } });
     } finally {
       setSavingBrand(false);
     }
@@ -135,8 +135,8 @@ export function Admin() {
           </Button>
           {/* Live preview */}
           <div className="ml-auto rounded-lg border border-gray-200 dark:border-gray-800 px-3 py-1.5">
-            <p className="text-sm font-bold leading-tight">{title || "Agent Playground"}</p>
-            <p className="text-[11px] text-gray-500">{name || "Agentic Platform"}</p>
+            <p className="text-sm font-bold leading-tight">{title || "Keel"}</p>
+            <p className="text-[11px] text-gray-500">{name || "Agentic Product Development Platform"}</p>
           </div>
         </div>
       </section>

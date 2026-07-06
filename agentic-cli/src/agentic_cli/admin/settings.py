@@ -22,8 +22,8 @@ UI_ROLES = ["member", "lead", "admin"]
 
 SETTINGS_PATH = Path.home() / ".dva" / "admin-settings.json"
 
-DEFAULT_APP_TITLE = "Agent Playground"
-DEFAULT_APP_NAME = "Agentic Platform"
+DEFAULT_APP_TITLE = "Keel"
+DEFAULT_APP_NAME = "Agentic Product Development Platform"
 
 
 @dataclass

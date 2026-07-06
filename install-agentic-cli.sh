@@ -3,8 +3,8 @@
 # Agentic CLI Installation Script with DVA Alias
 #
 # This script installs the agentic-cli package with all required dependencies
-# and creates a 'dva' alias. The Vertex AI SDK and other core dependencies
-# are installed by default.
+# and creates 'dva' / 'keel' aliases (keel is the platform name, same CLI).
+# The Vertex AI SDK and other core dependencies are installed by default.
 #
 # Usage:
 #   ./install-agentic-cli.sh [--local] [--global] [--with PACKAGE] [--group GROUP]
@@ -329,7 +329,7 @@ fi
 
 # ─────────────────────────────────────────────────────────────────────────────
 
-log_header "Setting up 'dva' alias"
+log_header "Setting up 'dva' / 'keel' aliases"
 
 # Detect shell
 SHELL_NAME=$(basename "$SHELL")
@@ -361,13 +361,14 @@ case "$SHELL_NAME" in
         ;;
 esac
 
-# Create alias function based on shell
+# Create alias function based on shell. `keel` is the platform name and is an
+# alias of `dva` (same CLI), so it works wherever `dva` resolves.
 case "$SHELL_NAME" in
     bash|zsh)
-        ALIAS_COMMAND="alias dva='dva'"
+        ALIAS_COMMAND=$'alias dva=\'dva\'\nalias keel=\'dva\''
         ;;
     fish)
-        ALIAS_COMMAND="alias dva 'dva'"
+        ALIAS_COMMAND=$'alias dva \'dva\'\nalias keel \'dva\''
         ;;
     *)
         ALIAS_COMMAND=""
