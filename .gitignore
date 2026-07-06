@@ -22,6 +22,11 @@ wheels/
 .installed.cfg
 *.egg
 
+# The Python build-artifact rules above (lib/, build/, dist/, ...) are unanchored
+# and would also swallow real frontend SOURCE dirs. Keep those tracked.
+!dashboard/frontend/src/lib/
+!dashboard/frontend/src/lib/**
+
 # Virtual environments
 .venv/
 venv/
