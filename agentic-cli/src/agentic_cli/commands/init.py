@@ -23,7 +23,7 @@ def check_workspace_config(
     """
     Check if workspaces are configured before running init commands.
     
-    If workspaces are not configured, prompt the user to run 'dva init workspace'.
+    If workspaces are not configured, prompt the user to run 'keel init workspace'.
     """
     # Skip check for show, reset, and workspace commands
     if ctx.invoked_subcommand in ["show", "reset", "workspace"]:
@@ -421,8 +421,8 @@ def init_workspace(
             console.print(f"[dim]Using existing code workspace: {existing_code}[/dim]")
             code_workspace = existing_code
         else:
-            # Default to ~/dva-code-workspace
-            default_code = str(Path.home() / "dva-code-workspace")
+            # Default to ~/keel-code-workspace
+            default_code = str(Path.home() / "keel-code-workspace")
             code_workspace = Prompt.ask(
                 "Enter code workspace directory",
                 default=default_code
@@ -435,8 +435,8 @@ def init_workspace(
             console.print(f"[dim]Using existing docs workspace: {existing_docs}[/dim]")
             docs_workspace = existing_docs
         else:
-            # Default to ~/dva-doc-workspace
-            default_docs = str(Path.home() / "dva-doc-workspace")
+            # Default to ~/keel-doc-workspace
+            default_docs = str(Path.home() / "keel-doc-workspace")
             docs_workspace = Prompt.ask(
                 "Enter docs workspace directory",
                 default=default_docs
@@ -715,7 +715,7 @@ def set_default_provider(
 def init_devin(
     api_key: Annotated[
         str | None,
-        typer.Option("--api-key", help="Devin API key — persisted to ~/.dva/.env (chmod 600)"),
+        typer.Option("--api-key", help="Devin API key — persisted to ~/.keel/.env (chmod 600)"),
     ] = None,
     base_url: Annotated[
         str | None,
@@ -744,9 +744,9 @@ def init_devin(
 ) -> None:
     """Initialize Devin Cloud configuration.
 
-    Alias of ``dva devin init`` — kept here for consistency with the other
+    Alias of ``keel devin init`` — kept here for consistency with the other
     provider init commands. Pass ``--api-key`` to persist the Devin API key to
-    ``~/.dva/.env`` (chmod 600), the same store used for the other integration
+    ``~/.keel/.env`` (chmod 600), the same store used for the other integration
     tokens; otherwise the key is read from ``$DEVIN_API_KEY``.
     """
     from agentic_cli.commands.devin import configure_devin
@@ -783,7 +783,7 @@ def init_glean(
     scope: Annotated[str, typer.Option("--scope", help="OAuth scope(s) for the service token (sso mode)")] = "",
     token_url: Annotated[str, typer.Option("--token-url", help="OAuth token endpoint (else OIDC discovery)")] = "",
 ) -> None:
-    """Configure Glean (enterprise search / context), writing to ~/.dva/.env.
+    """Configure Glean (enterprise search / context), writing to ~/.keel/.env.
 
     Two auth modes:
       * token — set ``--url`` and ``--token`` (a Glean API token).
@@ -831,7 +831,7 @@ def init_glean(
 # ---------------------------------------------------------------------------
 # Integration credentials (.env — Jira / Confluence / Bitbucket)
 #
-# These live in ~/.dva/.env (loaded automatically at CLI startup) instead of
+# These live in ~/.keel/.env (loaded automatically at CLI startup) instead of
 # being exported into the shell every session. See agentic_cli.env.
 # ---------------------------------------------------------------------------
 
@@ -843,7 +843,7 @@ _INTEGRATIONS = {
 
 
 def _configure_integration(name: str, url: str, token: str) -> None:
-    """Write an integration's URL + token to ~/.dva/.env."""
+    """Write an integration's URL + token to ~/.keel/.env."""
     from agentic_cli.env import mask, set_env_vars
 
     label, url_env, token_env = _INTEGRATIONS[name]
@@ -878,7 +878,7 @@ def init_jira(
     url: Annotated[str, typer.Option("--url", help="Jira server URL")] = "",
     token: Annotated[str, typer.Option("--token", help="Jira personal access token")] = "",
 ) -> None:
-    """Configure Jira credentials (writes to ~/.dva/.env)."""
+    """Configure Jira credentials (writes to ~/.keel/.env)."""
     _configure_integration("jira", url, token)
 
 
@@ -887,7 +887,7 @@ def init_confluence(
     url: Annotated[str, typer.Option("--url", help="Confluence server URL")] = "",
     token: Annotated[str, typer.Option("--token", help="Confluence personal access token")] = "",
 ) -> None:
-    """Configure Confluence credentials (writes to ~/.dva/.env)."""
+    """Configure Confluence credentials (writes to ~/.keel/.env)."""
     _configure_integration("confluence", url, token)
 
 
@@ -896,7 +896,7 @@ def init_bitbucket(
     url: Annotated[str, typer.Option("--url", help="Bitbucket server URL")] = "",
     token: Annotated[str, typer.Option("--token", help="Bitbucket personal access token")] = "",
 ) -> None:
-    """Configure Bitbucket credentials (writes to ~/.dva/.env)."""
+    """Configure Bitbucket credentials (writes to ~/.keel/.env)."""
     _configure_integration("bitbucket", url, token)
 
 
@@ -904,7 +904,7 @@ def init_bitbucket(
 def init_env(
     scope: Annotated[
         str,
-        typer.Option("--scope", help="Where to create .env: 'global' (~/.dva/.env) or 'project' (./.env)"),
+        typer.Option("--scope", help="Where to create .env: 'global' (~/.keel/.env) or 'project' (./.env)"),
     ] = "global",
     force: Annotated[bool, typer.Option("--force", help="Overwrite an existing .env")] = False,
 ) -> None:

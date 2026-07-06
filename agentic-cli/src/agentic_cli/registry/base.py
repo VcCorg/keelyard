@@ -66,7 +66,7 @@ class BaseRegistry(ABC):
             return Path(self.config.path)
         elif self.config.is_remote:
             # For remote registries, use cached local path
-            cache_path = Path.home() / ".dva" / "registries" / self.config.name
+            cache_path = Path.home() / ".keel" / "registries" / self.config.name
             if not cache_path.exists():
                 self._clone_remote_registry(cache_path)
             return cache_path

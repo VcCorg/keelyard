@@ -319,7 +319,7 @@ def create_confluence_space(
 
     Args:
         key: Space key — uppercase letters/numbers, e.g. 'DVACWOW', 'DVAFAC'
-        name: Display name for the space (e.g. 'DVA CWOW Facility')
+        name: Display name for the space (e.g. 'KEEL CWOW Facility')
         description: Optional space description
 
     Creates a global space. Returns the new space key and link.

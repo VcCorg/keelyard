@@ -435,7 +435,7 @@ RETURN node, related, score
 
 ---
 
-## Part 8: Recommended for DVA
+## Part 8: Recommended for KEEL
 
 ### Current Context
 - example is on Google Cloud
@@ -468,7 +468,7 @@ If the team prefers Cypher over SQL, Memgraph is a strong alternative:
 - Single database with graph + vector
 - Local development support
 
-**Not Recommended for DVA:**
+**Not Recommended for KEEL:**
 - **Spanner Graph**: Too expensive, no local development
 - **Neptune**: AWS lock-in (example is on GCP), no local development
 - **Neo4j + Weaviate**: Higher cost and complexity than necessary
@@ -606,7 +606,7 @@ RETURN node.name, related.name, score;
 
 ### Final Recommendation
 
-For DVA's context (Google Cloud, cost-conscious, SQL expertise, local development needed):
+For KEEL's context (Google Cloud, cost-conscious, SQL expertise, local development needed):
 
 **Primary Choice: PostgreSQL + pgvector + Apache AGE**
 - Lowest cost ($250/month)

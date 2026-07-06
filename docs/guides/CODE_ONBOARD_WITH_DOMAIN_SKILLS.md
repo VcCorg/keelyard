@@ -69,7 +69,7 @@ This document explains how to integrate domain-validated skills into the `code o
 
 ### New Flags
 ```bash
-dva code onboard --path <repo> \
+keel code onboard --path <repo> \
   --domain <domain-slug> \
   --use-domain-skills
 ```
@@ -374,7 +374,7 @@ See `.domain/skills-manifest.json` for validation status of each skill.
 To contribute validated skills back to superpowers:
 
 ```bash
-dva domain contribute-skill {domain_slug} --skill <skill-name>
+keel domain contribute-skill {domain_slug} --skill <skill-name>
 ```
 """
     
@@ -421,18 +421,18 @@ def _save_onboard_manifest(
 
 ```bash
 # Step 1: Create domain-context repo (one-time)
-dva domain init-context cwow-facility \
+keel domain init-context cwow-facility \
   --git-remote https://github.com/company/cwow-facility-domain-context.git \
   --bootstrap-skills superpowers
 
 # Step 2: Validate skills (ongoing)
-dva domain validate-skills cwow-facility \
+keel domain validate-skills cwow-facility \
   --skill pr-reviewer \
   --task "Review PR #123" \
   --feedback "works"
 
 # Step 3: Onboard repo with domain skills
-dva code onboard --path ./cwow-facility-service \
+keel code onboard --path ./cwow-facility-service \
   --domain cwow-facility \
   --use-domain-skills
 

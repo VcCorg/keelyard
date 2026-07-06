@@ -13,7 +13,7 @@ def test_version_command():
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
     assert __version__ in result.stdout
-    assert "dva-agentic-cli" in result.stdout
+    assert "keel-agentic-cli" in result.stdout
 
 
 def test_version_short_flag():
@@ -27,7 +27,7 @@ def test_help_command():
     """Test that --help displays help information."""
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
-    assert "DVA Agentic CLI" in result.stdout
+    assert "KEEL Agentic CLI" in result.stdout
 
 
 def test_hello_command():
@@ -40,7 +40,7 @@ def test_hello_command():
 
 def test_hello_command_with_name():
     """Test the hello command with a custom name."""
-    result = runner.invoke(app, ["hello", "DVA"])
+    result = runner.invoke(app, ["hello", "KEEL"])
     assert result.exit_code == 0
     assert "Hello" in result.stdout
-    assert "DVA" in result.stdout
+    assert "KEEL" in result.stdout

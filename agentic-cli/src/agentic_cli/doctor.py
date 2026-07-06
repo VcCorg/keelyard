@@ -124,7 +124,7 @@ def _check_runtime() -> Section:
 def _check_registry() -> Section:
     sec = Section("Skills registry", required=True)
     cfg = _load_agent_config()
-    registry = cfg.get("skills_registry") or os.environ.get("DVA_SKILLS_REGISTRY", "")
+    registry = cfg.get("skills_registry") or os.environ.get("KEEL_SKILLS_REGISTRY", "")
 
     if not registry:
         sec.results.append(CheckResult(

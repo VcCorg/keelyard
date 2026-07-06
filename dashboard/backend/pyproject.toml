@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "dashboard"
 version = "0.1.0"
-description = "Web dashboard for DVA Agentic Platform — manage agents, MCP servers, and interact via chat"
+description = "Web dashboard for KEEL Agentic Platform — manage agents, MCP servers, and interact via chat"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.0",

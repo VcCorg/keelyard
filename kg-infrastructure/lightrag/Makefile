@@ -70,9 +70,9 @@ validate:
 	@echo ""
 	@echo "2. Container Status"
 	@echo "-------------------"
-	@if docker ps --filter "name=dva-lightrag" --format "{{.Names}}" | grep -q "dva-lightrag"; then \
+	@if docker ps --filter "name=keel-lightrag" --format "{{.Names}}" | grep -q "keel-lightrag"; then \
 		echo "✓ LightRAG container running"; \
-		docker ps --filter "name=dva-lightrag" --format "  Status: {{.Status}}"; \
+		docker ps --filter "name=keel-lightrag" --format "  Status: {{.Status}}"; \
 	else \
 		echo "✗ LightRAG container not running"; \
 		exit 1; \
@@ -119,7 +119,7 @@ validate:
 		echo "  Response: $$body"; \
 		echo ""; \
 		echo "Checking container logs for errors..."; \
-		docker logs --tail 20 dva-lightrag 2>&1 | grep -i error || echo "No obvious errors in logs"; \
+		docker logs --tail 20 keel-lightrag 2>&1 | grep -i error || echo "No obvious errors in logs"; \
 		exit 1; \
 	fi
 	@echo ""
@@ -142,7 +142,7 @@ backup:
 	@echo "Creating backup..."
 	@mkdir -p backups
 	@timestamp=$$(date +%Y%m%d_%H%M%S); \
-	docker cp dva-lightrag:/data/lightrag backups/lightrag_$$timestamp || echo "Failed to create backup"
+	docker cp keel-lightrag:/data/lightrag backups/lightrag_$$timestamp || echo "Failed to create backup"
 	@echo "Backup created in backups/"
 
 restore:
@@ -150,7 +150,7 @@ restore:
 	@ls -1 backups/ 2>/dev/null || echo "No backups found"
 	@read -p "Enter backup name to restore: " backup; \
 	if [ -d "backups/$$backup" ]; then \
-		docker cp backups/$$backup dva-lightrag:/data/lightrag; \
+		docker cp backups/$$backup keel-lightrag:/data/lightrag; \
 		make restart; \
 		echo "Restored from $$backup"; \
 	else \
@@ -172,7 +172,7 @@ start-prod:
 
 # Development helpers
 shell:
-	docker exec -it dva-lightrag bash
+	docker exec -it keel-lightrag bash
 
 python-shell:
 	@python3 -i -c "import sys; sys.path.insert(0, 'lib'); from lightrag_client import LightRAGClient; client = LightRAGClient(); print('LightRAG client ready. Use: client.insert(), client.query(), etc.')"

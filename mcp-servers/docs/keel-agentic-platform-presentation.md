@@ -356,9 +356,9 @@ All services are **Dockerized**, use **SSE transport** for network access, and a
 | Repository | Bitbucket URL |
 |------------|--------------|
 | agentic-cli | https://bitbucket.example.com/users/your-user/repos/agentic-cli |
-| dva-agent-skills | https://bitbucket.example.com/users/your-user/repos/dva-agent-skills |
-| dva-agent-mcp-servers | https://bitbucket.example.com/users/your-user/repos/dva-agent-mcp-servers |
-| dva-agent-kg-infra | https://bitbucket.example.com/users/your-user/repos/dva-agent-kg-infra |
+| keel-agent-skills | https://bitbucket.example.com/users/your-user/repos/keel-agent-skills |
+| keel-agent-mcp-servers | https://bitbucket.example.com/users/your-user/repos/keel-agent-mcp-servers |
+| keel-agent-kg-infra | https://bitbucket.example.com/users/your-user/repos/keel-agent-kg-infra |
 
 ## Appendix B: Port Map
 

@@ -15,7 +15,7 @@ from typing import Optional
 from agentic_cli.execution.base import EngineInfo, ExecutionResult, ExecutionSpec
 
 # Default workspace for rendered bundles.
-CONTEXT_ROOT = Path.home() / ".dva" / "context"
+CONTEXT_ROOT = Path.home() / ".keel" / "context"
 
 
 class LocalContextEngine:

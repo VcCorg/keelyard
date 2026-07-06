@@ -61,7 +61,7 @@
 ┌──────────────────────────────────────────────────────────────────┐
 │              Step 1: Create Domain Context Repository            │
 │                                                                  │
-│  $ dva domain create facility \                                  │
+│  $ keel domain create facility \                                  │
 │    --confluence-space FACILITY \                                 │
 │    --git-repo https://github.com/company/facility-domain-context │
 │                                                                  │
@@ -75,7 +75,7 @@
 ┌──────────────────────────────────────────────────────────────────┐
 │         Step 2: Onboard Individual Repositories                  │
 │                                                                  │
-│  $ dva code onboard --path ./facility-query \                    │
+│  $ keel code onboard --path ./facility-query \                    │
 │    --domain facility \                                           │
 │    --domain-context-repo https://github.com/company/facility-domain-context
 │                                                                  │
@@ -346,13 +346,13 @@ $ cat .gitmodules
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │ 1. Create Central Domain Context Repository                     │
-│    $ dva domain create facility --git-repo https://...          │
+│    $ keel domain create facility --git-repo https://...          │
 │    Result: facility-domain-context/ (git repo)                  │
 └─────────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │ 2. Onboard Individual Repositories                              │
-│    $ dva code onboard --path ./facility-query \                 │
+│    $ keel code onboard --path ./facility-query \                 │
 │      --domain-context-repo https://...                          │
 │    Result: facility-query/ with git submodules                  │
 └─────────────────────────────────────────────────────────────────┘

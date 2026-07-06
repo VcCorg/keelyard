@@ -20,7 +20,7 @@ Complete reference for building, managing, and deploying AI agents with `agentic
 
 ```
 agentic-cli/
-├── src/dva_agentic_cli/
+├── src/agentic_cli/
 │   ├── main.py                          # CLI entry point (Typer app)
 │   ├── commands/
 │   │   ├── code.py                      # agent code {onboard,skills,validate,config}
@@ -51,9 +51,9 @@ agentic-cli/
 │           └── ...                      # pyproject, readme, docker, a2a, kg_mcp, etc.
 ```
 
-### How `dva project create` works
+### How `keel project create` works
 
-1. User runs `dva project create my-bot --use-case pr-reviewer [--jira-mcp]`
+1. User runs `keel project create my-bot --use-case pr-reviewer [--jira-mcp]`
 2. `commands/project.py` validates inputs, builds a `TemplateConfig` object
 3. `TemplateGenerator.generate()` calls per-file generators in sequence
 4. For PR reviewer, it generates: core files → PR reviewer files → OpenCode agent → Agent Skill
@@ -124,7 +124,7 @@ skills/
 
 ### MCP-Backed Skills
 
-MCP skills (jira, bitbucket, pr-reviewer) are regular skills whose `SKILL.md` references MCP tools. They are auto-installed when `dva code onboard` detects the MCP server is configured in:
+MCP skills (jira, bitbucket, pr-reviewer) are regular skills whose `SKILL.md` references MCP tools. They are auto-installed when `keel code onboard` detects the MCP server is configured in:
 - `.windsurf/mcp_config.json` (Windsurf workspace)
 - `~/.codeium/windsurf/mcp_config.json` (Windsurf global)
 - `~/.config/opencode/config.json` (OpenCode)
@@ -133,43 +133,43 @@ MCP skills (jira, bitbucket, pr-reviewer) are regular skills whose `SKILL.md` re
 
 ## CLI Command Reference
 
-### `dva code` — Code Onboarding
+### `keel code` — Code Onboarding
 
 | Command | Description | Key Flags |
 |---------|-------------|-----------|
-| `dva code onboard` | Clone/analyze repo, install skills | `--repo`, `--path`, `--target`, `--registry` |
-| `dva code skills` | Manage installed skills | `list\|available\|add\|remove\|update`, `--path`, `--tag`, `--registry` |
-| `dva code validate` | Show onboarding summary | `--path`, `--registry` |
-| `dva code config` | Configure settings | `--registry`, `--show` |
+| `keel code onboard` | Clone/analyze repo, install skills | `--repo`, `--path`, `--target`, `--registry` |
+| `keel code skills` | Manage installed skills | `list\|available\|add\|remove\|update`, `--path`, `--tag`, `--registry` |
+| `keel code validate` | Show onboarding summary | `--path`, `--registry` |
+| `keel code config` | Configure settings | `--registry`, `--show` |
 
-**Config storage**: `~/.dva/config.json` (registry path/URL). Manifest: `.skills/onboard.json` per project.
+**Config storage**: `~/.keel/config.json` (registry path/URL). Manifest: `.skills/onboard.json` per project.
 
-### `dva agent` — Agent Lifecycle Management
-
-| Command | Description | Key Flags |
-|---------|-------------|-----------|
-| `dva agent run` | Run agent in foreground | `--path`, `--mode {interactive,daemon,once}`, `--review-mode`, `--poll-interval` |
-| `dva agent start` | Start as background daemon | `--path`, `--name`, `--review-mode`, `--poll-interval` |
-| `dva agent stop` | Stop a running agent | `--name`, `--all` |
-| `dva agent status` | Show all tracked agents | — |
-| `dva agent logs` | View agent logs | `--name`, `--tail` |
-| `dva agent list` | List agents in a project | `--path` |
-| `dva agent register` | Register agent with IDE | `--path`, `--target {opencode}`, `--jira/--no-jira`, `--name` |
-
-**State tracking**: Running agents are tracked in `~/.dva/agents/running.json`. Logs go to `<project>/logs/agent.log`.
-
-### `dva skill` — Agent Skills (agentskills.io)
+### `keel agent` — Agent Lifecycle Management
 
 | Command | Description | Key Flags |
 |---------|-------------|-----------|
-| `dva skill create <name>` | Create a new skill | `--path`, `--description`, `--template {pr-reviewer}`, `--jira` |
-| `dva skill list` | List installed skills | `--path` |
-| `dva skill show <name>` | Show skill details/tree | `--path` |
-| `dva skill install <source>` | Install from GitHub | `--path`, `--name` |
+| `keel agent run` | Run agent in foreground | `--path`, `--mode {interactive,daemon,once}`, `--review-mode`, `--poll-interval` |
+| `keel agent start` | Start as background daemon | `--path`, `--name`, `--review-mode`, `--poll-interval` |
+| `keel agent stop` | Stop a running agent | `--name`, `--all` |
+| `keel agent status` | Show all tracked agents | — |
+| `keel agent logs` | View agent logs | `--name`, `--tail` |
+| `keel agent list` | List agents in a project | `--path` |
+| `keel agent register` | Register agent with IDE | `--path`, `--target {opencode}`, `--jira/--no-jira`, `--name` |
 
-**Install format**: `dva skill install anthropics/skills/skills/mcp-builder` (uses git sparse checkout for subdirectories).
+**State tracking**: Running agents are tracked in `~/.keel/agents/running.json`. Logs go to `<project>/logs/agent.log`.
 
-### `dva project create` — PR Reviewer Flags
+### `keel skill` — Agent Skills (agentskills.io)
+
+| Command | Description | Key Flags |
+|---------|-------------|-----------|
+| `keel skill create <name>` | Create a new skill | `--path`, `--description`, `--template {pr-reviewer}`, `--jira` |
+| `keel skill list` | List installed skills | `--path` |
+| `keel skill show <name>` | Show skill details/tree | `--path` |
+| `keel skill install <source>` | Install from GitHub | `--path`, `--name` |
+
+**Install format**: `keel skill install anthropics/skills/skills/mcp-builder` (uses git sparse checkout for subdirectories).
+
+### `keel project create` — PR Reviewer Flags
 
 ```bash
 `agent project create <name> --use-case pr-reviewer [OPTIONS]

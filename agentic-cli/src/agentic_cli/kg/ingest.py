@@ -240,7 +240,7 @@ def ingest_data(
                 "name": entity["name"],
                 "content": entity.get("content", ""),
                 "persona": persona,
-                "_source": "dva_kg",
+                "_source": "keel_kg",
                 "metadata": json.dumps(entity_metadata),
             }
             

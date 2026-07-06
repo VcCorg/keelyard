@@ -4,7 +4,7 @@ Design principle (mirrors kg_ingest_service.py / domain_service.py):
 - Reads (list bundles, validate, trace) import the CLI's `agentic_cli.kg.okf`
   package directly — fast, no subprocess.
 - The long-running `okf export` (which reads the live Neo4j graph) is executed
-  by shelling out to the real `dva kg okf export ...` and streaming its stdout,
+  by shelling out to the real `keel kg okf export ...` and streaming its stdout,
   so all export logic lives in exactly one place.
 """
 from __future__ import annotations
@@ -218,7 +218,7 @@ def okf_export_args(
     product: Optional[str] = None,
     mint_freqs: bool = True,
 ) -> list[str]:
-    """Build args for `dva kg okf export ...` (consumed by stream_kg_command)."""
+    """Build args for `keel kg okf export ...` (consumed by stream_kg_command)."""
     out = bundle_dir(domain, SOURCE_EXPORT)
     args = ["okf", "export", "--domain", domain, "--out", str(out)]
     if product:
@@ -236,7 +236,7 @@ def okf_enrich_args(
     model: Optional[str] = None,
     dry_run: bool = False,
 ) -> list[str]:
-    """Build args for `dva kg okf enrich ...` (consumed by stream_kg_command).
+    """Build args for `keel kg okf enrich ...` (consumed by stream_kg_command).
 
     This is the structural (graphify, no-LLM by default via --code-source auto)
     + Confluence enrichment path. Unlike export, it resolves all repo/doc inputs
@@ -279,7 +279,7 @@ def okf_push_devin_args(
     types: str = "FREQ,Requirement",
     dry_run: bool = True,
 ) -> list[str]:
-    """Build args for `dva kg okf push-devin ...` (consumed by stream_kg_command).
+    """Build args for `keel kg okf push-devin ...` (consumed by stream_kg_command).
 
     The API key is NEVER passed as an argument — the CLI reads $DEVIN_API_KEY
     from the (inherited) process environment so it is never logged in URLs.

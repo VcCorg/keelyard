@@ -1,4 +1,4 @@
-"""CLI setup API — report config status and stream `dva init ...` steps."""
+"""CLI setup API — report config status and stream `keel init ...` steps."""
 
 from typing import Optional
 
@@ -33,7 +33,7 @@ async def init_workspace_stream(
     code: str = Query(..., description="Code workspace directory"),
     docs: str = Query(..., description="Docs workspace directory"),
 ):
-    """Run `dva init workspace --code <> --docs <>` (non-interactive)."""
+    """Run `keel init workspace --code <> --docs <>` (non-interactive)."""
     if not code.strip() or not docs.strip():
         raise HTTPException(status_code=400, detail="Both code and docs directories are required.")
     return _stream("init workspace", svc.init_workspace_args(code.strip(), docs.strip()))
@@ -45,7 +45,7 @@ async def init_vertex_stream(
     location: str = Query("us-central1", description="Google Cloud region"),
     model: Optional[str] = Query(None, description="Default model"),
 ):
-    """Run `dva init vertex-ai --project-id <> --skip-auth` (non-interactive).
+    """Run `keel init vertex-ai --project-id <> --skip-auth` (non-interactive).
 
     gcloud Application Default Credentials login is interactive — run
     `gcloud auth application-default login` in the Terminal page if needed.
@@ -61,7 +61,7 @@ async def init_neo4j_stream(
     username: str = Query("neo4j", description="Neo4j username"),
     password: str = Query(..., description="Neo4j password"),
 ):
-    """Run `dva kg init --provider neo4j ...` (non-interactive)."""
+    """Run `keel kg init --provider neo4j ...` (non-interactive)."""
     if not password.strip():
         raise HTTPException(status_code=400, detail="Neo4j password is required.")
     return _stream("kg init (neo4j)", svc.kg_init_neo4j_args(uri.strip(), username.strip(), password))
@@ -73,9 +73,9 @@ async def init_integration_stream(
     url: str = Query(..., description="Integration server URL"),
     token: str = Query(..., description="Personal access token"),
 ):
-    """Run `dva init <jira|bitbucket|confluence> --url <> --token <>`.
+    """Run `keel init <jira|bitbucket|confluence> --url <> --token <>`.
 
-    Persists the credentials to ~/.dva/.env (chmod 600) via the CLI so they are
+    Persists the credentials to ~/.keel/.env (chmod 600) via the CLI so they are
     loaded automatically — no shell export required.
     """
     if not url.strip() or not token.strip():
@@ -91,7 +91,7 @@ async def init_integration_stream(
 async def init_devin_stream(
     api_key: str = Query(..., description="Devin API key"),
 ):
-    """Run `dva init devin --api-key <>` — persists DEVIN_API_KEY to ~/.dva/.env."""
+    """Run `keel init devin --api-key <>` — persists DEVIN_API_KEY to ~/.keel/.env."""
     if not api_key.strip():
         raise HTTPException(status_code=400, detail="A Devin API key is required.")
     return _stream("init devin", svc.init_devin_args(api_key.strip()))
@@ -107,7 +107,7 @@ async def init_glean_stream(
     client_secret: str = Query("", description="OAuth client secret (sso service token)"),
     scope: str = Query("", description="OAuth scope (sso mode, optional)"),
 ):
-    """Run `dva init glean ...` — configure Glean via API token or SSO/OAuth."""
+    """Run `keel init glean ...` — configure Glean via API token or SSO/OAuth."""
     if not url.strip():
         raise HTTPException(status_code=400, detail="The Glean instance URL is required.")
     m = (mode or "token").strip().lower()

@@ -34,8 +34,8 @@ def _get_code_workspace() -> Path:
     workspace = config.get("code_workspace")
     if workspace:
         return Path(workspace).expanduser().resolve()
-    # Default to ~/dva-code-workspace
-    return Path.home() / "dva-code-workspace"
+    # Default to ~/keel-code-workspace
+    return Path.home() / "keel-code-workspace"
 
 
 @agent_tool_app.command("list")

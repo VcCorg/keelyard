@@ -250,7 +250,7 @@ class {class_name}(BaseAgent):
 
 # --- Evaluation entrypoint --------------------------------------------------
 # Module-level callable so this agent is evaluation-ready by default:
-#   dva eval run agent <module.path>:answer <eval-config>
+#   keel eval run agent <module.path>:answer <eval-config>
 # The eval framework's resolve_agent() calls fn(str) -> str; this wraps the
 # agent's async process() and returns just the response text.
 _eval_agent = None

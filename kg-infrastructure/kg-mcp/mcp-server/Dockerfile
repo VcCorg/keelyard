@@ -26,7 +26,7 @@ COPY src/resources/ /app/src/resources/
 COPY src/prompts/ /app/src/prompts/
 
 # Create directories for runtime mounts
-RUN mkdir -p /root/.dva-agentic /app/src/kg
+RUN mkdir -p /root/.keel-agentic /app/src/kg
 
 # Expose MCP server port
 EXPOSE 8125

@@ -1,4 +1,4 @@
-"""DVA Knowledge Graph MCP Server.
+"""KEEL Knowledge Graph MCP Server.
 
 Exposes knowledge graph search, query, and management tools via Model Context Protocol.
 Supports both Neo4j and LightRAG backends. Designed for use with any MCP-compatible
@@ -27,10 +27,10 @@ logger = logging.getLogger(__name__)
 
 _transport = os.environ.get("MCP_TRANSPORT", "stdio").lower()
 _mcp_kwargs = {
-    "name": "DVA Knowledge Graph",
+    "name": "KEEL Knowledge Graph",
     "instructions": (
         "Access domain knowledge, business requirements, and project context "
-        "from the DVA Knowledge Graph. Use these tools to understand business "
+        "from the KEEL Knowledge Graph. Use these tools to understand business "
         "rules, search requirements, and explore domain entities when writing "
         "or reviewing code."
     ),
@@ -367,7 +367,7 @@ def query_domain_context(
         context["message"] = (
             f"No context found for domain '{domain}'. "
             "The domain may not be ingested yet. "
-            "Use 'dva kg ingest' to add domain knowledge."
+            "Use 'keel kg ingest' to add domain knowledge."
         )
 
     return json.dumps(context, indent=2)
@@ -431,7 +431,7 @@ def list_knowledge_projects() -> str:
     if not sources:
         return json.dumps({
             "message": "No knowledge sources registered yet.",
-            "hint": "Register sources using the CLI: dva data create --name <name> --source-type doc --source-location /path --project <project>",
+            "hint": "Register sources using the CLI: keel data create --name <name> --source-type doc --source-location /path --project <project>",
         })
 
     # Group by project
@@ -453,25 +453,25 @@ def list_knowledge_projects() -> str:
 def register_knowledge_source() -> str:
     """How to register a knowledge source for the knowledge graph.
 
-    Sources are registered using the DVA CLI. Run these commands in a terminal:
+    Sources are registered using the KEEL CLI. Run these commands in a terminal:
 
     For documents:
-      dva data create --name <name> --source-type doc --source-location /path/to/docs --project <project>
+      keel data create --name <name> --source-type doc --source-location /path/to/docs --project <project>
 
     For Confluence:
-      dva data create --name <name> --source-type confluence --source-location https://confluence.example.com --confluence-space <SPACE> --project <project>
+      keel data create --name <name> --source-type confluence --source-location https://confluence.example.com --confluence-space <SPACE> --project <project>
 
     After registration, use ingest_knowledge_source(name='<name>') to index the source.
     Use list_knowledge_projects() to see registered sources.
     """
     return json.dumps({
-        "instructions": "Register sources using the DVA CLI",
+        "instructions": "Register sources using the KEEL CLI",
         "commands": {
-            "document": "dva data create --name <name> --source-type doc --source-location /path/to/docs --project <project>",
-            "confluence": "dva data create --name <name> --source-type confluence --source-location https://confluence.example.com --confluence-space <SPACE> --project <project>",
+            "document": "keel data create --name <name> --source-type doc --source-location /path/to/docs --project <project>",
+            "confluence": "keel data create --name <name> --source-type confluence --source-location https://confluence.example.com --confluence-space <SPACE> --project <project>",
         },
-        "list": "dva data list",
-        "delete": "dva data delete <name>",
+        "list": "keel data list",
+        "delete": "keel data delete <name>",
     }, indent=2)
 
 
@@ -684,7 +684,7 @@ def get_sources_resource() -> str:
 def main():
     """Run the MCP server."""
     transport = os.environ.get("MCP_TRANSPORT", "stdio").lower()
-    logger.info(f"Starting DVA Knowledge Graph MCP server (transport={transport})...")
+    logger.info(f"Starting KEEL Knowledge Graph MCP server (transport={transport})...")
     mcp.run(transport=transport)
 
 

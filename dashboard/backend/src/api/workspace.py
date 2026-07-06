@@ -1,6 +1,6 @@
 """Persona-tiered workspace API.
 
-Lets the dashboard reflect the `dva workspace` / `dva domain sync` model:
+Lets the dashboard reflect the `keel workspace` / `keel domain sync` model:
 list workspaces, resolve the folder a persona should open, stream worktree /
 domain-sync creation, and launch a local editor at the resolved folder.
 """
@@ -82,7 +82,7 @@ async def api_sync_stream(
     graphify: bool = Query(True),
     editor: Optional[str] = Query(None, description="Target editor (devin/windsurf/cursor/code) — sets skill placement"),
 ):
-    """Stream `dva domain sync` — assembles the tech-lead (domain-tier) workspace."""
+    """Stream `keel domain sync` — assembles the tech-lead (domain-tier) workspace."""
     from src.services import okf_service
     if okf_service.domain_busy(domain):
         raise HTTPException(status_code=409, detail=f"Domain '{domain}' is busy (enrich/export/sync running).")
@@ -98,6 +98,6 @@ async def api_open_stream(
     graphify: bool = Query(False),
     editor: Optional[str] = Query(None, description="Target editor (devin/windsurf/cursor/code) — sets skill placement"),
 ):
-    """Stream `dva workspace open` — materializes the dev (repo-tier) worktree."""
+    """Stream `keel workspace open` — materializes the dev (repo-tier) worktree."""
     tool = svc.tool_for_editor(editor)
     return _sse(svc.stream_open_workspace(domain, repo, persona=persona, graphify=graphify, tool=tool))

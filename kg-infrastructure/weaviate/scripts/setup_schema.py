@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Weaviate schema setup for DVA Knowledge Graph.
+Weaviate schema setup for KEEL Knowledge Graph.
 
 This script creates the schema for code entities, documents, and relationships
-in Weaviate for the DVA knowledge graph infrastructure.
+in Weaviate for the KEEL knowledge graph infrastructure.
 """
 
 import weaviate
@@ -20,7 +20,7 @@ WEAVIATE_PORT = os.getenv("WEAVIATE_PORT", "8080")
 WEAVIATE_URL = f"http://{WEAVIATE_HOST}:{WEAVIATE_PORT}"
 
 def create_schema():
-    """Create Weaviate schema for DVA KG."""
+    """Create Weaviate schema for KEEL KG."""
     
     # Connect using standard connection with gRPC on port 50051
     client = weaviate.connect_to_local(
@@ -102,7 +102,7 @@ def create_schema():
         client.close()
 
 if __name__ == "__main__":
-    print("Setting up Weaviate schema for DVA KG...")
+    print("Setting up Weaviate schema for KEEL KG...")
     print(f"Weaviate URL: {WEAVIATE_URL}")
     print()
     create_schema()

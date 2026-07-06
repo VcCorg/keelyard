@@ -2,7 +2,7 @@
 
 ## Overview
 
-Implemented a complete asynchronous, parallel ingestion system for DVA Knowledge Graph CLI that supports non-blocking background processing for both Neo4j and LightRAG.
+Implemented a complete asynchronous, parallel ingestion system for KEEL Knowledge Graph CLI that supports non-blocking background processing for both Neo4j and LightRAG.
 
 ---
 
@@ -18,7 +18,7 @@ Implemented a complete asynchronous, parallel ingestion system for DVA Knowledge
 
 **Features:**
 - ThreadPoolExecutor for parallel processing (default: 4 workers)
-- Persistent job storage in `~/.dva-agentic/jobs/`
+- Persistent job storage in `~/.keel-agentic/jobs/`
 - Support for both Neo4j and LightRAG ingestion
 - Progress tracking and error handling
 - Job cancellation and cleanup
@@ -47,32 +47,32 @@ completed = manager.wait_for_job(job.job_id, timeout=3600)
 
 **Commands Added:**
 
-#### `dva kg async submit`
+#### `keel kg async submit`
 Submit ingestion job for background processing
 ```bash
 `agent kg async submit --path /docs --provider both
 `agent kg async submit --source my-dataset --wait
 ```
 
-#### `dva kg async status`
+#### `keel kg async status`
 Check job status and progress
 ```bash
 `agent kg async status <job-id> --verbose
 ```
 
-#### `dva kg async list`
+#### `keel kg async list`
 List all jobs with filtering
 ```bash
 `agent kg async list --status running --limit 50
 ```
 
-#### `dva kg async cancel`
+#### `keel kg async cancel`
 Cancel pending or running job
 ```bash
 `agent kg async cancel <job-id>
 ```
 
-#### `dva kg async cleanup`
+#### `keel kg async cleanup`
 Remove old completed/failed jobs
 ```bash
 `agent kg async cleanup --days 7 --force
@@ -137,7 +137,7 @@ ThreadPoolExecutor (4 workers)
 
 1. User submits job via CLI
 2. JobQueue creates job record
-3. Job saved to `~/.dva-agentic/jobs/<job_id>.json`
+3. Job saved to `~/.keel-agentic/jobs/<job_id>.json`
 4. ThreadPoolExecutor assigns to worker
 5. Worker runs ingestion:
    - Parse documents
@@ -153,7 +153,7 @@ ThreadPoolExecutor (4 workers)
 
 ```
 agentic-cli/
-├── src/dva_agentic_cli/
+├── src/agentic_cli/
 │   ├── kg/
 │   │   ├── async_ingest.py          # NEW: Core async module
 │   │   ├── ingest.py                 # Existing sync ingestion
@@ -246,19 +246,19 @@ agentic-cli/
 
 Modify in code:
 ```python
-from dva_agentic_cli.kg.async_ingest import AsyncIngestionManager
+from agentic_cli.kg.async_ingest import AsyncIngestionManager
 
 manager = AsyncIngestionManager(max_workers=8)
 ```
 
 ### Job Storage Location
 
-Default: `~/.dva-agentic/jobs/`
+Default: `~/.keel-agentic/jobs/`
 
 Modify in code:
 ```python
 from pathlib import Path
-from dva_agentic_cli.kg.async_ingest import JobQueue
+from agentic_cli.kg.async_ingest import JobQueue
 
 queue = JobQueue(storage_path=Path("/custom/path"))
 ```
@@ -317,11 +317,11 @@ python scripts/validate_concurrent_ingestion.py
 
 ### With Existing Commands
 
-- `dva data create` - Configure sources
-- `dva data list` - View available sources
-- `dva kg ingest` - Sync ingestion (still available)
-- `dva kg query` - Query while ingestion runs
-- `dva kg search` - Search while ingestion runs
+- `keel data create` - Configure sources
+- `keel data list` - View available sources
+- `keel kg ingest` - Sync ingestion (still available)
+- `keel kg query` - Query while ingestion runs
+- `keel kg search` - Search while ingestion runs
 
 ### With Infrastructure
 

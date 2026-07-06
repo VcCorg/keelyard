@@ -8,7 +8,7 @@
 
 ## Overview
 
-This document maps DVA evaluation framework components to the OpenSkill format as recommended by Claude's skill creator tool. It ensures our evaluation system is compatible with the broader skill ecosystem.
+This document maps KEEL evaluation framework components to the OpenSkill format as recommended by Claude's skill creator tool. It ensures our evaluation system is compatible with the broader skill ecosystem.
 
 ---
 
@@ -31,7 +31,7 @@ updated: 2026-05-02
 ---
 ```
 
-**DVA Implementation**:
+**KEEL Implementation**:
 ```python
 # From SKILL.md frontmatter
 @dataclass
@@ -65,7 +65,7 @@ SKILL.md
 └── Notes (optional)
 ```
 
-**DVA Implementation**:
+**KEEL Implementation**:
 ```python
 # From validator.py
 REQUIRED_SECTIONS = {"Instructions", "Available Tools", "Workflow"}
@@ -80,7 +80,7 @@ OPTIONAL_SECTIONS = {"Overview", "Examples", "Related Skills", "Notes"}
 
 ### 2.1 Quantitative Metrics
 
-| OpenSkill Metric | DVA Implementation | Unit | Range | Notes |
+| OpenSkill Metric | KEEL Implementation | Unit | Range | Notes |
 |------------------|-------------------|------|-------|-------|
 | **Accuracy** | `accuracy` in metrics.py | Ratio | 0-1 | Exact match with expected output |
 | **F1 Score** | `f1_score` in metrics.py | Ratio | 0-1 | Harmonic mean of precision/recall |
@@ -95,7 +95,7 @@ OPTIONAL_SECTIONS = {"Overview", "Examples", "Related Skills", "Notes"}
 
 ### 2.2 Qualitative Metrics (1-5 Scale, LLM-Judged)
 
-| OpenSkill Metric | DVA Implementation | Threshold | Judge | Notes |
+| OpenSkill Metric | KEEL Implementation | Threshold | Judge | Notes |
 |------------------|-------------------|-----------|-------|-------|
 | **Helpfulness** | `helpfulness` in llm_judges.py | 3.0 | Vertex AI/Claude/GPT-4 | Does it help solve the problem? |
 | **Clarity** | `clarity` in llm_judges.py | 3.0 | Vertex AI/Claude/GPT-4 | Is the output clear and understandable? |
@@ -109,7 +109,7 @@ OPTIONAL_SECTIONS = {"Overview", "Examples", "Related Skills", "Notes"}
 
 ### 2.3 Boolean Metrics
 
-| OpenSkill Metric | DVA Implementation | Notes |
+| OpenSkill Metric | KEEL Implementation | Notes |
 |------------------|-------------------|-------|
 | **Contains Hallucination** | `contains_hallucination` in llm_judges.py | Detected via LLM judgment |
 | **Is Complete** | `is_complete` in validator.py | Structural completeness check |
@@ -126,7 +126,7 @@ OPTIONAL_SECTIONS = {"Overview", "Examples", "Related Skills", "Notes"}
 **OpenSkill Standard**:
 > Establish baseline performance without the skill to measure impact
 
-**DVA Implementation**:
+**KEEL Implementation**:
 ```python
 # From runner.py - SkillImpactEvaluator
 baseline_runner = EvaluationRunner(
@@ -149,7 +149,7 @@ baseline_result = await baseline_runner.run()
 **OpenSkill Standard**:
 > Measure performance with the skill enabled
 
-**DVA Implementation**:
+**KEEL Implementation**:
 ```python
 # From runner.py - SkillImpactEvaluator
 impact_runner = EvaluationRunner(
@@ -173,7 +173,7 @@ impact_result = await impact_runner.run()
 **OpenSkill Standard**:
 > Calculate improvement (delta) between baseline and impact
 
-**DVA Implementation**:
+**KEEL Implementation**:
 ```python
 # From runner.py - SkillImpactEvaluator
 @staticmethod
@@ -201,7 +201,7 @@ def _calculate_deltas(baseline_metrics, impact_metrics):
 **OpenSkill Standard**:
 > Aggregate metrics into 0-100 quality score
 
-**DVA Implementation**:
+**KEEL Implementation**:
 ```python
 # NEW: To be implemented in Phase 1
 @dataclass
@@ -228,7 +228,7 @@ class QualityScorer:
 **OpenSkill Standard**:
 > Assign certification level based on quality score
 
-**DVA Implementation**:
+**KEEL Implementation**:
 ```python
 # NEW: To be implemented in Phase 5
 class CertificationLevel(Enum):
@@ -318,7 +318,7 @@ class SkillCertification:
 }
 ```
 
-### 4.2 DVA Implementation
+### 4.2 KEEL Implementation
 
 ```python
 # From skill_evaluator.py - SkillEvaluationReporter
@@ -358,13 +358,13 @@ class SkillEvaluationReport:
 ### 5.1 Agent-Generated Skills
 
 **Characteristics**:
-- Created via `dva skill generate`
+- Created via `keel skill generate`
 - AI-generated using Claude/Gemini/GPT-4
 - Follows OpenSkill format by default
 - Auto-validated on creation
 - Includes generation metadata
 
-**DVA Tracking**:
+**KEEL Tracking**:
 ```python
 @dataclass
 class SkillMetadata:
@@ -382,13 +382,13 @@ class SkillMetadata:
 ### 5.2 User-Generated Skills
 
 **Characteristics**:
-- Installed via `dva skill install`
+- Installed via `keel skill install`
 - From GitHub repositories or local sources
 - May not follow OpenSkill format
 - Manual validation required
 - Includes installation metadata
 
-**DVA Tracking**:
+**KEEL Tracking**:
 ```python
 @dataclass
 class SkillMetadata:
@@ -489,7 +489,7 @@ class SkillMetadata:
 - [Claude Skill Creator Documentation](https://docs.anthropic.com/skills)
 - [Skill Format Specification](https://github.com/anthropics/skills/blob/main/SKILL_FORMAT.md)
 
-### DVA Implementation Files
+### KEEL Implementation Files
 - `agentic-cli/src/agentic_cli/evaluation/metrics.py` - Metric definitions
 - `agentic-cli/src/agentic_cli/evaluation/runner.py` - Evaluation execution
 - `agentic-cli/src/agentic_cli/evaluation/validator.py` - Skill validation

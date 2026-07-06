@@ -359,7 +359,7 @@ security_policies = config['security_policies']
 
 ```bash
 # Create domain context repo
-$ dva domain create facility \
+$ keel domain create facility \
   --repos facility-query,facility-command,facility-events \
   --confluence-space FACILITY \
   --git-repo https://github.com/company/facility-domain-context.git
@@ -378,7 +378,7 @@ Creates:
 
 ```bash
 # Onboard query repository
-$ dva code onboard --path ./facility-query \
+$ keel code onboard --path ./facility-query \
   --domain facility \
   --domain-context-repo https://github.com/company/facility-domain-context.git
 
@@ -392,12 +392,12 @@ Creates:
 └─ Commits submodule references
 
 # Onboard command repository
-$ dva code onboard --path ./facility-command \
+$ keel code onboard --path ./facility-command \
   --domain facility \
   --domain-context-repo https://github.com/company/facility-domain-context.git
 
 # Onboard events repository
-$ dva code onboard --path ./facility-events \
+$ keel code onboard --path ./facility-events \
   --domain facility \
   --domain-context-repo https://github.com/company/facility-domain-context.git
 ```
@@ -636,7 +636,7 @@ $ git commit -m "Initial domain context template"
 
 ```bash
 # Use template to create facility domain context
-$ dva domain create facility \
+$ keel domain create facility \
   --template domain-context-template \
   --confluence-space FACILITY \
   --git-repo https://github.com/company/facility-domain-context.git
@@ -652,7 +652,7 @@ $ dva domain create facility \
 
 ```bash
 # For each repository
-$ dva code onboard --path ./facility-query \
+$ keel code onboard --path ./facility-query \
   --domain facility \
   --domain-context-repo https://github.com/company/facility-domain-context.git
 
@@ -689,18 +689,18 @@ $ windsurf .
 
 ```bash
 # Create domain context repository
-$ dva domain create facility \
+$ keel domain create facility \
   --confluence-space FACILITY \
   --git-repo https://github.com/company/facility-domain-context.git
 
 # List domains
-$ dva domain list
+$ keel domain list
 
 # Show domain details
-$ dva domain show facility
+$ keel domain show facility
 
 # Update domain context
-$ dva domain update facility \
+$ keel domain update facility \
   --confluence-space FACILITY
 ```
 
@@ -708,12 +708,12 @@ $ dva domain update facility \
 
 ```bash
 # Onboard repository with git submodule reference
-$ dva code onboard --path ./facility-query \
+$ keel code onboard --path ./facility-query \
   --domain facility \
   --domain-context-repo https://github.com/company/facility-domain-context.git
 
 # Onboard with specific branch
-$ dva code onboard --path ./facility-query \
+$ keel code onboard --path ./facility-query \
   --domain facility \
   --domain-context-repo https://github.com/company/facility-domain-context.git \
   --domain-context-branch v1.0.0

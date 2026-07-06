@@ -66,7 +66,7 @@ DEFAULT_MCP_SERVERS = {
 # Default model
 DEFAULT_MODEL = "gemini-2.5-flash"
 
-DEFAULT_INSTRUCTION = """You are a helpful DVA platform assistant with access to various tools.
+DEFAULT_INSTRUCTION = """You are a helpful KEEL platform assistant with access to various tools.
 You can search Bitbucket PRs, query Jira issues, search Confluence docs,
 access the knowledge graph, and use memory for context.
 Be concise and helpful. When using tools, explain what you're doing."""
@@ -102,7 +102,7 @@ async def _get_available_mcp_tools(
 
 
 async def create_session(
-    agent_name: str = "dva-assistant",
+    agent_name: str = "keel-assistant",
     mcp_servers: Optional[dict[str, str]] = None,
 ) -> ChatSession:
     """Create a new chat session with an ADK agent."""

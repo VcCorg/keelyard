@@ -117,7 +117,7 @@ def default_personas_config() -> PersonasConfig:
     return PersonasConfig()
 
 
-# ── Mutations (used by `dva product persona` commands) ───────────────────────
+# ── Mutations (used by `keel product persona` commands) ───────────────────────
 
 def save_product_personas(product_meta_path: Path, config: PersonasConfig) -> Path:
     """Write a PersonasConfig to the product meta-repo's personas.yaml."""

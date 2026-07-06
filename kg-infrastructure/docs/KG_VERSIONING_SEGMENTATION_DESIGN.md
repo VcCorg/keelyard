@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This document proposes a comprehensive design for implementing versioning and segmentation in the DVA Knowledge Graph system to support:
+This document proposes a comprehensive design for implementing versioning and segmentation in the KEEL Knowledge Graph system to support:
 1. **Agent Evaluation** with different KG data patterns
 2. **Multi-tenant KG environments** for different use cases
 3. **Time-based versioning** for data evolution tracking
@@ -52,7 +52,7 @@ Create separate working directories for different KG versions/segments.
 
 #### 1.1 Configuration Extension
 ```python
-# src/dva_agentic_cli/kg/config.py
+# src/agentic_cli/kg/config.py
 class KGConfig(BaseModel):
     # ... existing fields ...
     

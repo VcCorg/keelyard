@@ -53,12 +53,12 @@ def preview_portable_context(req: PortableContextRequest, actor: str | None = No
 
     Routes through the neutral seam with the ``local`` engine in dry-run so the
     launch is audited (``source="dashboard"``) exactly like a Devin launch, then
-    returns the full CONTEXT.md for preview/download. The CLI's ``dva context
+    returns the full CONTEXT.md for preview/download. The CLI's ``keel context
     build`` writes the bundle to disk when you want the files.
     """
     from agentic_cli.execution import ExecutionSpec, create_session
 
-    tags = ["dva"] + ([req.domain] if req.domain else []) + ([req.jira] if req.jira else []) + list(req.tags)
+    tags = ["keel"] + ([req.domain] if req.domain else []) + ([req.jira] if req.jira else []) + list(req.tags)
     spec = ExecutionSpec(
         prompt=req.prompt,
         title=req.title or (f"{req.jira}: {req.prompt}" if req.jira else req.prompt)[:120],

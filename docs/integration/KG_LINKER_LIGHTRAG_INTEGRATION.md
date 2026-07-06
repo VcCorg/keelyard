@@ -41,18 +41,18 @@ combined_confidence = (lightrag_weight * lightrag_score) + ((1 - lightrag_weight
 
 ### Enable LightRAG (default)
 ```bash
-dva kg link --domain cwow-facility --dry-run
-dva kg link --domain cwow-facility
+keel kg link --domain cwow-facility --dry-run
+keel kg link --domain cwow-facility
 ```
 
 ### Disable LightRAG (LLM-only mode)
 ```bash
-dva kg link --domain cwow-facility --dry-run --no-lightrag
+keel kg link --domain cwow-facility --dry-run --no-lightrag
 ```
 
 ### Adjust LightRAG weight
 ```bash
-dva kg link --domain cwow-facility --lightrag-weight 0.7  # 70% LightRAG, 30% LLM
+keel kg link --domain cwow-facility --lightrag-weight 0.7  # 70% LightRAG, 30% LLM
 ```
 
 ## Requirements
@@ -115,7 +115,7 @@ If LightRAG service is unavailable:
 cd kg-infrastructure/lightrag && docker-compose up -d
 
 # Run linker with LightRAG
-dva kg link --domain cwow-facility --dry-run --lightrag
+keel kg link --domain cwow-facility --dry-run --lightrag
 ```
 
 ## Benefits

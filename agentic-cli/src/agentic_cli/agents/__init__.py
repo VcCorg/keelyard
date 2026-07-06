@@ -1,1 +1,1 @@
-"""Agents module — AI-powered agents for DVA Agentic CLI."""
+"""Agents module — AI-powered agents for KEEL Agentic CLI."""

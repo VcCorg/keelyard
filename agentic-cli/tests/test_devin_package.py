@@ -69,7 +69,7 @@ def test_session_spec_payload_includes_set_fields():
         snapshot_id="snap-1",
         playbook_id="pb-1",
         knowledge_ids=["k1", "k2"],
-        tags=["dva", "cwow"],
+        tags=["keel", "cwow"],
         idempotent=True,
         max_acu_limit=5,
         unlisted=True,
@@ -79,7 +79,7 @@ def test_session_spec_payload_includes_set_fields():
     assert payload["snapshot_id"] == "snap-1"
     assert payload["playbook_id"] == "pb-1"
     assert payload["knowledge_ids"] == ["k1", "k2"]
-    assert payload["tags"] == ["dva", "cwow"]
+    assert payload["tags"] == ["keel", "cwow"]
     assert payload["idempotent"] is True
     assert payload["max_acu_limit"] == 5
     assert payload["unlisted"] is True

@@ -8,21 +8,21 @@ Agentic CLI supports two knowledge graph providers: **Neo4j** and **LightRAG**. 
 
 | Command | Neo4j | LightRAG | Notes |
 |---------|-------|----------|-------|
-| `dva kg init` | ✅ | ✅ | Configure provider settings |
-| `dva kg config` | ✅ | ✅ | View/manage configuration |
-| `dva kg check` | ✅ | ⚠️ | Neo4j-focused validation |
-| `dva kg ingest` | ✅ | ✅ | Full support for both |
-| `dva kg query` | ✅ | ✅ | Different query modes |
-| `dva kg search` | ✅ | ✅ | Semantic search |
-| `dva kg stats` | ✅ | ✅ | Provider-specific stats |
-| `dva kg tool` | ✅ | ❌ | Neo4j only |
-| `dva kg visualize` | ✅ | ❌ | Neo4j only |
+| `keel kg init` | ✅ | ✅ | Configure provider settings |
+| `keel kg config` | ✅ | ✅ | View/manage configuration |
+| `keel kg check` | ✅ | ⚠️ | Neo4j-focused validation |
+| `keel kg ingest` | ✅ | ✅ | Full support for both |
+| `keel kg query` | ✅ | ✅ | Different query modes |
+| `keel kg search` | ✅ | ✅ | Semantic search |
+| `keel kg stats` | ✅ | ✅ | Provider-specific stats |
+| `keel kg tool` | ✅ | ❌ | Neo4j only |
+| `keel kg visualize` | ✅ | ❌ | Neo4j only |
 
 ## Command Details
 
 ### ✅ Fully Supported (Both Providers)
 
-#### `dva kg init`
+#### `keel kg init`
 Configure your knowledge graph provider.
 
 **Neo4j:**
@@ -39,7 +39,7 @@ Configure your knowledge graph provider.
   --lightrag-url http://localhost:8001
 ```
 
-#### `dva kg config`
+#### `keel kg config`
 View or reset configuration.
 
 ```bash
@@ -52,7 +52,7 @@ View or reset configuration.
 
 Works identically for both providers.
 
-#### `dva kg ingest`
+#### `keel kg ingest`
 Ingest documents into the knowledge graph.
 
 **Neo4j:**
@@ -75,7 +75,7 @@ Both support:
 - PDF, text, CSV, JSON files
 - Data source integration (`--source`)
 
-#### `dva kg query`
+#### `keel kg query`
 Query the knowledge graph.
 
 **Neo4j:**
@@ -101,7 +101,7 @@ Query the knowledge graph.
 - `global` - Global knowledge search
 - `hybrid` - Combined approach (default)
 
-#### `dva kg search`
+#### `keel kg search`
 Semantic search in the knowledge graph.
 
 **Neo4j:**
@@ -119,7 +119,7 @@ Semantic search in the knowledge graph.
 `agent kg search "machine learning concepts"
 ```
 
-#### `dva kg stats`
+#### `keel kg stats`
 Display knowledge graph statistics.
 
 **Neo4j Output:**
@@ -151,7 +151,7 @@ Knowledge Graph Statistics (LightRAG)
 
 ### ⚠️ Partial Support
 
-#### `dva kg check`
+#### `keel kg check`
 Validates prerequisites and availability.
 
 Currently focused on Neo4j validation. Shows helpful message for LightRAG users to use infrastructure validation instead:
@@ -167,7 +167,7 @@ make validate
 
 ### ❌ Neo4j Only
 
-#### `dva kg tool`
+#### `keel kg tool`
 Generate ADK tool classes for knowledge graph operations.
 
 **Why Neo4j only?**
@@ -187,13 +187,13 @@ Generate ADK tool classes for knowledge graph operations.
 **Workaround for LightRAG:**
 Use the LightRAG client directly in your code:
 ```python
-from dva_agentic_cli.kg.lightrag_client import LightRAGClient
+from agentic_cli.kg.lightrag_client import LightRAGClient
 
 client = LightRAGClient(base_url="http://localhost:8001")
 result = client.query("Your query here")
 ```
 
-#### `dva kg visualize`
+#### `keel kg visualize`
 Generate interactive graph visualization.
 
 **Why Neo4j only?**
@@ -314,8 +314,8 @@ You can easily switch between providers without losing data:
 ```
 
 **Solution:**
-1. Check current provider: `dva kg config --show`
-2. Switch provider if needed: `dva kg init --provider neo4j ...`
+1. Check current provider: `keel kg config --show`
+2. Switch provider if needed: `keel kg init --provider neo4j ...`
 3. Or use provider-specific infrastructure commands
 
 ### Provider Not Configured

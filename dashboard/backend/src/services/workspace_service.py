@@ -1,9 +1,9 @@
 """Persona-tiered workspace service — thin proxy over the agentic-cli core.
 
-Mirrors the `dva workspace` / `dva domain sync` model in the dashboard:
+Mirrors the `keel workspace` / `keel domain sync` model in the dashboard:
 
 - Reads (tracker + path resolution) import the CLI library directly.
-- Long-running steps (`dva workspace open`, `dva domain sync`) shell out to the
+- Long-running steps (`keel workspace open`, `keel domain sync`) shell out to the
   real CLI and stream stdout so the worktree/graphify logic lives in one place.
 - "Open in IDE" launches a local editor (windsurf / code / cursor) at the folder
   that matches the chosen persona's tier:
@@ -68,9 +68,9 @@ def _pw():
 
 
 def resolve_cli_command() -> list[str]:
-    dva = shutil.which("dva")
-    if dva:
-        return [dva]
+    keel = shutil.which("keel")
+    if keel:
+        return [keel]
     return [sys.executable, "-m", "agentic_cli.main"]
 
 
@@ -204,7 +204,7 @@ _DEVIN_APP = Path("/Applications/Devin.app")
 
 
 def tool_for_editor(editor: Optional[str]) -> str:
-    """Map a launcher/editor key to its `dva --code-assist-tool` value."""
+    """Map a launcher/editor key to its `keel --code-assist-tool` value."""
     return EDITOR_TOOL.get((editor or "").lower(), "generic")
 
 
@@ -317,7 +317,7 @@ async def _stream_cli(args: list[str]) -> AsyncGenerator[str, None]:
 def stream_sync_domain(domain: str, persona: str = "tech-lead",
                        graphify: bool = True,
                        tool: str = "generic") -> AsyncGenerator[str, None]:
-    """Stream `dva domain sync <domain>` (tech-lead domain-tier assembly).
+    """Stream `keel domain sync <domain>` (tech-lead domain-tier assembly).
 
     ``tool`` is the resolved `code_assist_tool` (e.g. ``devin``) controlling
     where the tech-lead persona skill is written.
@@ -331,7 +331,7 @@ def stream_sync_domain(domain: str, persona: str = "tech-lead",
 def stream_open_workspace(domain: str, repo: str, persona: str = "dev",
                           graphify: bool = False,
                           tool: str = "generic") -> AsyncGenerator[str, None]:
-    """Stream `dva workspace open <domain> <repo>` (dev repo-tier worktree).
+    """Stream `keel workspace open <domain> <repo>` (dev repo-tier worktree).
 
     ``tool`` is the resolved `code_assist_tool` (e.g. ``devin``) controlling
     where the dev persona skill is written.

@@ -43,7 +43,7 @@ This service wraps the open-source `neo4j-agent-memory` package as an MCP server
 ### Docker (with existing Neo4j)
 
 ```bash
-# Requires Neo4j running on dva-network (from kg-infrastructure)
+# Requires Neo4j running on keel-network (from kg-infrastructure)
 docker compose up -d memory-mcp
 ```
 
@@ -75,7 +75,7 @@ neo4j-agent-memory mcp serve --password <neo4j-pw>
 
 | Env Var | Default | Description |
 |---------|---------|-------------|
-| `NEO4J_URI` | `bolt://dva-neo4j:7687` | Neo4j connection URI |
+| `NEO4J_URI` | `bolt://keel-neo4j:7687` | Neo4j connection URI |
 | `NEO4J_USER` | `neo4j` | Neo4j username |
 | `NEO4J_PASSWORD` | (required) | Neo4j password |
 | `NEO4J_DATABASE` | `neo4j` | Neo4j database name |

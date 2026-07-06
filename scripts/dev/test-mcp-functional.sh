@@ -52,7 +52,7 @@ for svc in "${CORE_SERVICES[@]}"; do
     fi
 
     # Check if container is running
-    container_status=$(docker ps --filter "name=dva-${svc}" --format "{{.Status}}" 2>/dev/null || echo "not found")
+    container_status=$(docker ps --filter "name=keel-${svc}" --format "{{.Status}}" 2>/dev/null || echo "not found")
 
     if [[ "$container_status" == *"Up"* ]]; then
         log_ok "$svc — running (port $port)"

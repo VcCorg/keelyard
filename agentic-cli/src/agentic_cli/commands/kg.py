@@ -276,7 +276,7 @@ def _check_lightrag() -> None:
         console.print("\nTo start LightRAG:")
         console.print("  1. Navigate to LightRAG directory")
         console.print("  2. Run: docker-compose up -d")
-        console.print("  3. Configure with: dva kg init --provider lightrag --lightrag-url <url>")
+        console.print("  3. Configure with: keel kg init --provider lightrag --lightrag-url <url>")
 
 
 def _check_postgres() -> None:
@@ -346,7 +346,7 @@ def _check_postgres() -> None:
         console.print("  1. Navigate to: /Users/your-user/agentic-project/myAgentPG/kg-infrastructure/postgres-graph")
         console.print("  2. Run: docker-compose up -d")
         console.print("  3. Run: ./setup-kg.sh")
-        console.print("  4. Configure with: dva kg init --provider postgres --postgres-host <host>")
+        console.print("  4. Configure with: keel kg init --provider postgres --postgres-host <host>")
 
 
 def _check_weaviate() -> None:
@@ -406,7 +406,7 @@ def _check_weaviate() -> None:
         console.print("\nTo start Weaviate:")
         console.print("  1. Navigate to: /Users/your-user/agentic-project/myAgentPG/kg-infrastructure/weaviate")
         console.print("  2. Run: docker-compose up -d")
-        console.print("  3. Configure with: dva kg init --provider weaviate --weaviate-host <host>")
+        console.print("  3. Configure with: keel kg init --provider weaviate --weaviate-host <host>")
 
 
 @kg_app.command()
@@ -2452,7 +2452,7 @@ def clear(
                         result = client.execute_cypher(f"MATCH (n) WHERE n.domain = '{domain}' DELETE n")
                 else:
                     with console.status("[bold green]Deleting all nodes and relationships..."):
-                        result = client.execute_cypher("MATCH (n) WHERE n._source = 'dva_kg' DETACH DELETE n")
+                        result = client.execute_cypher("MATCH (n) WHERE n._source = 'keel_kg' DETACH DELETE n")
                 
                 client.close()
                 if domain:
@@ -2782,9 +2782,9 @@ def link(
     Run with --dry-run first to preview candidates before committing.
 
     Example:
-        dva kg link --domain cwow-facility --dry-run
-        dva kg link --domain cwow-facility --threshold 0.8
-        dva kg link --domain cwow-facility --no-lightrag  # LLM-only mode
+        keel kg link --domain cwow-facility --dry-run
+        keel kg link --domain cwow-facility --threshold 0.8
+        keel kg link --domain cwow-facility --no-lightrag  # LLM-only mode
     """
     from agentic_cli.kg.config import KGConfig
     from agentic_cli.kg.linker import KGLinker
@@ -2908,7 +2908,7 @@ def refresh_links(
     Useful after code changes or requirement updates.
 
     Example:
-        dva kg refresh-links --path ./my-project --domain cwow-facility
+        keel kg refresh-links --path ./my-project --domain cwow-facility
     """
     from pathlib import Path
     from agentic_cli.kg.context_builder import link_code_to_requirements

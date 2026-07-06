@@ -105,11 +105,11 @@ Track progress with: agent kg async status abc123-def456
 
 | Command | Purpose |
 |---------|---------|
-| `dva kg async submit` | Submit background job |
-| `dva kg async status <id>` | Check job status |
-| `dva kg async list` | List all jobs |
-| `dva kg async cancel <id>` | Cancel job |
-| `dva kg async cleanup` | Remove old jobs |
+| `keel kg async submit` | Submit background job |
+| `keel kg async status <id>` | Check job status |
+| `keel kg async list` | List all jobs |
+| `keel kg async cancel <id>` | Cancel job |
+| `keel kg async cleanup` | Remove old jobs |
 
 ---
 

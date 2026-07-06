@@ -3,7 +3,7 @@
 ## Help Display Error (Non-Breaking)
 
 ### Issue
-Running `dva --help` or `dva <command> --help` shows a TypeError:
+Running `keel --help` or `keel <command> --help` shows a TypeError:
 ```
 TypeError: Parameter.make_metavar() missing 1 required positional argument: 'ctx'
 ```

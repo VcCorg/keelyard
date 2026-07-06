@@ -152,7 +152,7 @@ def create_session(req: CreateSessionRequest, actor: str | None = None) -> Creat
         kids += _knowledge_ids_from_sync(_bundle_dir(req.domain, req.bundle))
     context = sorted(set(kids))
 
-    tags = ["dva"] + ([req.domain] if req.domain else []) + ([req.jira] if req.jira else []) + list(req.tags)
+    tags = ["keel"] + ([req.domain] if req.domain else []) + ([req.jira] if req.jira else []) + list(req.tags)
 
     spec = ExecutionSpec(
         prompt=req.prompt,

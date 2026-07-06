@@ -2,7 +2,7 @@ import { AlertTriangle, Wrench } from "lucide-react";
 import { useSetup } from "@/context/SetupContext";
 
 /**
- * Validation banner shown on pages whose workflow needs specific `dva init`
+ * Validation banner shown on pages whose workflow needs specific `keel init`
  * steps. Renders nothing when all `requires` items are configured (or while
  * the status is still loading). Clicking "Configure" opens the global setup
  * modal mounted in Layout.
@@ -25,7 +25,7 @@ export function SetupRequiredBanner({
       <div className="flex items-start gap-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3">
         <AlertTriangle className="h-4 w-4 mt-0.5 text-red-600 dark:text-red-400 shrink-0" />
         <div className="flex-1 text-sm text-red-700 dark:text-red-300">
-          The <code>dva</code> CLI is not available. {feature} cannot run until it is installed.
+          The <code>keel</code> CLI is not available. {feature} cannot run until it is installed.
         </div>
         <button
           onClick={openPanel}

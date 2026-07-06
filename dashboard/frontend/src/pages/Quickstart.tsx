@@ -23,7 +23,7 @@ import { StreamConsole } from "@/components/StreamConsole";
  * Quickstart — a goal-first wizard that scaffolds an agent project in one flow:
  *   Mode → Configure → Build → Done.
  *
- * It builds a `dva project create ...` invocation from the chosen goal and
+ * It builds a `keel project create ...` invocation from the chosen goal and
  * streams it through the existing whitelisted CLI runner, so the wizard is a
  * thin design layer over the real CLI engine (no bespoke backend).
  */
@@ -32,7 +32,7 @@ type Framework = "adk" | "langgraph";
 
 interface Mode {
   id: string;
-  useCase: string; // maps to `dva project create --use-case <value>`
+  useCase: string; // maps to `keel project create --use-case <value>`
   title: string;
   blurb: string;
   icon: ComponentType<{ className?: string }>;
@@ -193,7 +193,7 @@ export function Quickstart() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Quickstart</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            Scaffold an agent project from a goal — powered by the <code className="font-mono">dva</code> CLI.
+            Scaffold an agent project from a goal — powered by the <code className="font-mono">keel</code> CLI.
           </p>
         </div>
       </div>
@@ -305,7 +305,7 @@ export function Quickstart() {
               <Terminal className="h-3 w-3" /> Command
             </div>
             <code className="text-xs font-mono text-gray-700 dark:text-gray-300 break-all">
-              {command ? `dva ${command}` : "Enter a project name…"}
+              {command ? `keel ${command}` : "Enter a project name…"}
             </code>
           </div>
 
@@ -332,11 +332,11 @@ export function Quickstart() {
         <div className="space-y-4">
           <SelectedModeBanner mode={mode} />
           <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 p-3">
-            <code className="text-xs font-mono text-gray-700 dark:text-gray-300 break-all">dva {command}</code>
+            <code className="text-xs font-mono text-gray-700 dark:text-gray-300 break-all">keel {command}</code>
           </div>
           <StreamConsole
             url={streamUrl}
-            title={`dva project create ${projectSlug}`}
+            title={`keel project create ${projectSlug}`}
             onDone={(code) => {
               setDoneCode(code);
               setStep(3);

@@ -233,7 +233,7 @@ async with MemoryClient(settings) as memory:
         name="Example",
         entity_type="ORGANIZATION",
         description="Healthcare company, largest dialysis provider in the US",
-        aliases=["DVA", "Example Inc."],
+        aliases=["KEEL", "Example Inc."],
         **opts,
     )
 
@@ -385,7 +385,7 @@ async with MemoryClient(settings) as memory:
     )
 
     f4 = await memory.long_term.add_fact(
-        subject="DVA Skills Registry",
+        subject="KEEL Skills Registry",
         predicate="skill_count",
         obj="26 reusable developer skills",
         valid_from=datetime(2026, 3, 1),  # temporal validity
@@ -789,7 +789,7 @@ memory_service = Neo4jMemoryService(settings)
 # Use with Google ADK Agent
 from google.adk import Agent
 agent = Agent(
-    name="dva-agent",
+    name="keel-agent",
     memory_service=memory_service,
 )
 ```

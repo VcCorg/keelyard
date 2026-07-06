@@ -1,4 +1,4 @@
-"""Skills API endpoints for DVA Dashboard."""
+"""Skills API endpoints for KEEL Dashboard."""
 
 from pathlib import Path
 from typing import Optional, List, Dict, Any
@@ -582,8 +582,8 @@ async def configure_registry(
         if local_path:
             target_path = Path(local_path).expanduser().resolve()
         else:
-            # Use default location in ~/.dva/skills-registry
-            target_path = Path.home() / ".dva" / "skills-registry"
+            # Use default location in ~/.keel/skills-registry
+            target_path = Path.home() / ".keel" / "skills-registry"
         
         # Create parent directory if needed
         target_path.parent.mkdir(parents=True, exist_ok=True)

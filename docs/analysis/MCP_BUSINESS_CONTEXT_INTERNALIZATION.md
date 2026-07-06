@@ -511,7 +511,7 @@ $ agent code onboard https://github.com/myteam/order-api \
 
 🔄 Phase 3: Understanding Generation
 ✓ Merged code analysis + business context
-✓ Generated .dva/codebase-understanding.md
+✓ Generated .keel/codebase-understanding.md
 
 # 3. During skill generation, skills reference business context
 $ agent skill generate fastapi-endpoint-skill \
@@ -652,13 +652,13 @@ CONFLUENCE_SERVER_URL=https://company.atlassian.net
 CONFLUENCE_PERSONAL_ACCESS_TOKEN=xxx
 
 # Memory MCP (already running via Neo4j)
-NEO4J_URI=bolt://dva-neo4j:7687
+NEO4J_URI=bolt://keel-neo4j:7687
 NEO4J_USER=neo4j
 NEO4J_PASSWORD=xxx
 
 # KG MCP
-KG_NEO4J_URI=bolt://dva-neo4j:7687
-KG_LIGHTRAG_URL=http://dva-lightrag:8001
+KG_NEO4J_URI=bolt://keel-neo4j:7687
+KG_LIGHTRAG_URL=http://keel-lightrag:8001
 
 # LLM for entity extraction
 OPENAI_API_KEY=xxx  # or VERTEX_AI_PROJECT, etc.

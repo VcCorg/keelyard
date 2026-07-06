@@ -2,7 +2,7 @@
 
 Reads import the CLI's config loader directly (single source of truth for the
 `~/.agent-cli-agentic/config.json` layout). Mutations (create/delete) shell out
-to the real `dva data ...` CLI so all validation lives in exactly one place.
+to the real `keel data ...` CLI so all validation lives in exactly one place.
 """
 
 import os
@@ -39,9 +39,9 @@ def _load_config() -> dict:
 
 
 def resolve_cli_command() -> list[str]:
-    dva = shutil.which("dva")
-    if dva:
-        return [dva]
+    keel = shutil.which("keel")
+    if keel:
+        return [keel]
     return [sys.executable, "-m", "agentic_cli.main"]
 
 
@@ -115,7 +115,7 @@ def create_data_source(
     git_branch: str = "",
     git_tag: str = "",
 ) -> CommandResult:
-    """Create a data source by shelling out to `dva data create` (reuses validation)."""
+    """Create a data source by shelling out to `keel data create` (reuses validation)."""
     args = [
         "data", "create",
         "--name", name,

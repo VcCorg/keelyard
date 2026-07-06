@@ -1,6 +1,6 @@
 # Agentic Skills Registry
 
-Curated skills for AI code assistants. Used by `dva code onboard` to auto-detect project tech stack and install matching context skills.
+Curated skills for AI code assistants. Used by `keel code onboard` to auto-detect project tech stack and install matching context skills.
 
 ## What Are Skills?
 
@@ -154,7 +154,7 @@ description: >-
 
 ## Auto-Detection Rules
 
-The `auto_detect` field in `registry.json` determines when a skill is automatically installed during `dva code onboard`:
+The `auto_detect` field in `registry.json` determines when a skill is automatically installed during `keel code onboard`:
 
 - **`files`** — Skill matches if any of these files exist in the project root
 - **`dependencies`** — Skill matches if any of these strings appear in parsed dependency files (pom.xml, package.json, requirements.txt, build.gradle, go.mod, pyproject.toml)

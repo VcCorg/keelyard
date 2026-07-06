@@ -108,9 +108,9 @@ vendor-specific.
 | Cross-feature audit (correlation_id · source) | ✅ Built | `tracker` / `record_action` |
 | **ExecutionEngine adapter (swappable)** | ✅ Built | `agentic_cli.execution` seam; Devin is one adapter; dashboard routes through it (`source="dashboard"`) |
 | **Canonical → Devin projection, one-way** | ✅ Built | `push-devin` is idempotent + versioned; each entry carries a provenance footer |
-| **Provenance + drift status (no Devin-only authoring)** | ✅ Built | `dva kg okf project-status`: `okf://…` source refs + `in_sync/drift/unprojected/orphan`; surfaced as a per-bundle badge in the UI |
-| **Portable context bundle (non-Devin agents)** | ✅ Built | `local` execution engine + `dva context build`: renders CONTEXT.md + prompt.md + manifest.json (provenance) for Claude Code / Codex / any agent — no API key |
-| **Enterprise auth (SSO / RBAC / actor audit)** | ✅ Built | Forward-auth provider trusts an SSO proxy's verified identity; RBAC blocks unauthorized actions (403); the authenticated **actor** is written to the audit trail. `dva auth whoami/roles/check`. *Eval-phase; PROD hardening tracked in [`04`](04-enterprise-auth.md) (streamed-push actor attribution, managed role source, secret rotation).* |
+| **Provenance + drift status (no Devin-only authoring)** | ✅ Built | `keel kg okf project-status`: `okf://…` source refs + `in_sync/drift/unprojected/orphan`; surfaced as a per-bundle badge in the UI |
+| **Portable context bundle (non-Devin agents)** | ✅ Built | `local` execution engine + `keel context build`: renders CONTEXT.md + prompt.md + manifest.json (provenance) for Claude Code / Codex / any agent — no API key |
+| **Enterprise auth (SSO / RBAC / actor audit)** | ✅ Built | Forward-auth provider trusts an SSO proxy's verified identity; RBAC blocks unauthorized actions (403); the authenticated **actor** is written to the audit trail. `keel auth whoami/roles/check`. *Eval-phase; PROD hardening tracked in [`04`](04-enterprise-auth.md) (streamed-push actor attribution, managed role source, secret rotation).* |
 
 ### Enterprise auth without running an IdP
 
@@ -127,8 +127,8 @@ Access) that performs the OIDC/SAML handshake and injects a verified identity he
 - **RBAC is enforced, not advisory.** Roles (`viewer < developer < maintainer < admin`) map to
   permissions; sensitive actions (`session:create`, `knowledge:project`, `knowledge:delete`,
   `context:build`) are blocked at the API with **403** when the principal lacks them.
-- **Trusted headers can't be spoofed.** Forward-auth is opt-in (`DVA_AUTH_MODE=forward-auth`) and,
-  when `DVA_FORWARD_AUTH_SECRET` is set, a shared secret the proxy injects must match — a client
+- **Trusted headers can't be spoofed.** Forward-auth is opt-in (`KEEL_AUTH_MODE=forward-auth`) and,
+  when `KEEL_FORWARD_AUTH_SECRET` is set, a shared secret the proxy injects must match — a client
   bypassing the proxy is treated as anonymous.
 - **The actor is audited.** Every gated action records *who* did it (`actor` column, schema v13)
   alongside `source` — the CLI stays the central auditor across CLI and dashboard.
@@ -138,7 +138,7 @@ Access) that performs the OIDC/SAML handshake and injects a verified identity he
 
 ### The seam is demonstrably multi-engine
 
-`dva execution list` now shows **two** engines behind the same neutral `ExecutionSpec`:
+`keel execution list` now shows **two** engines behind the same neutral `ExecutionSpec`:
 
 | Engine | Kind | Needs a key? | Produces |
 |--------|------|--------------|----------|
@@ -147,7 +147,7 @@ Access) that performs the OIDC/SAML handshake and injects a verified identity he
 
 The *same* task spec, routed to a different engine, yields either a Devin session or a
 vendor-free bundle (`CONTEXT.md` + `prompt.md` + `manifest.json` with provenance). Switch with
-`DVA_EXECUTION_ENGINE` or `--engine local` — proof that the org owns the context and the
+`KEEL_EXECUTION_ENGINE` or `--engine local` — proof that the org owns the context and the
 engine is swappable, not aspirational. In the dashboard, "Start work" offers a third path —
 **Render context** — that previews and downloads the same bundle for a Jira task.
 
@@ -157,7 +157,7 @@ engine is swappable, not aspirational. In the dashboard, "Start work" offers a t
   Devin Knowledge panel is labelled a *projection* — a regenerable copy, not an edit surface.
 - **Provenance.** Every projected entry points back at `okf://<domain>/<concept_id>` and
   carries a content-hash + version footer, so any Devin entry is traceable to its canonical origin.
-- **Drift is observable at a glance.** `dva kg okf project-status` (and the per-bundle badge)
+- **Drift is observable at a glance.** `keel kg okf project-status` (and the per-bundle badge)
   compares the live bundle against the recorded projection — *without* calling Devin — and flags
   `drift` (canonical changed), `unprojected` (never sent), and `orphan` (source concept deleted).
 - **Regenerable.** Delete every entry in the vendor and re-project; swap the engine and the

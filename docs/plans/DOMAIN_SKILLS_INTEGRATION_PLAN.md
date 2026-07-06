@@ -9,14 +9,14 @@ Integrate the **superpowers** project's standardized skills framework and develo
 ## Current State Analysis
 
 ### MyAgentPG (This Project)
-- **Code Onboard Flow**: `dva code onboard --path <repo> [--domain <slug>] [--kg]`
+- **Code Onboard Flow**: `keel code onboard --path <repo> [--domain <slug>] [--kg]`
   - Analyzes project tech stack
   - Matches skills from registry
   - Generates project-context skill
   - Optionally ingests into KG
   - Optionally attaches domain context
 
-- **Domain Context**: `dva domain init-context <slug>`
+- **Domain Context**: `keel domain init-context <slug>`
   - Creates central domain-context repo
   - Scaffolds `.domain/`, `.skills/shared/`, `README.md`
   - Generates domain-context skill from KG
@@ -42,7 +42,7 @@ Integrate the **superpowers** project's standardized skills framework and develo
 Add a new flag to bootstrap skills from superpowers:
 
 ```bash
-dva domain init-context <domain-slug> \
+keel domain init-context <domain-slug> \
   --git-remote <domain-context-repo-url> \
   --bootstrap-skills superpowers \
   --superpowers-url https://github.com/venkatchinta/superpowers.git
@@ -144,21 +144,21 @@ def bootstrap_domain_skills(
 **Goal**: Evolve injected skills based on domain-specific development tasks.
 
 #### 2.1 Skill Validation Workflow
-Create new command: `dva domain validate-skills`
+Create new command: `keel domain validate-skills`
 
 ```bash
 # Validate a specific skill against a task
-dva domain validate-skills <domain-slug> \
+keel domain validate-skills <domain-slug> \
   --skill pr-reviewer \
   --task "Review PR #123 in cwow-facility-service" \
   --feedback "works|needs-tuning|broken" \
   --notes "Feedback notes"
 
 # List validation status
-dva domain validate-skills <domain-slug> --list
+keel domain validate-skills <domain-slug> --list
 
 # Generate validation report
-dva domain validate-skills <domain-slug> --report
+keel domain validate-skills <domain-slug> --report
 ```
 
 **Implementation**: `agentic_cli/commands/domain.py` → new subcommand
@@ -168,7 +168,7 @@ When a skill needs domain-specific tuning:
 
 ```bash
 # Fork a superpowers skill for domain customization
-dva domain fork-skill <domain-slug> \
+keel domain fork-skill <domain-slug> \
   --skill pr-reviewer \
   --reason "Add domain-specific code review rules"
 ```
@@ -214,12 +214,12 @@ Add domain-aware skill injection:
 
 ```bash
 # Onboard repo with domain-validated skills
-dva code onboard --path ./cwow-facility-service \
+keel code onboard --path ./cwow-facility-service \
   --domain cwow-facility \
   --use-domain-skills
 
 # Or explicitly:
-dva code onboard --path ./cwow-facility-service \
+keel code onboard --path ./cwow-facility-service \
   --domain cwow-facility \
   --domain-context-repo https://github.com/company/cwow-facility-domain-context.git \
   --use-domain-skills
@@ -289,11 +289,11 @@ def match_skills_with_domain(
 **Goal**: Enable domain-validated skills to be contributed back to superpowers.
 
 #### 4.1 Contribution Workflow
-New command: `dva domain contribute-skill`
+New command: `keel domain contribute-skill`
 
 ```bash
 # Propose a domain-customized skill back to superpowers
-dva domain contribute-skill <domain-slug> \
+keel domain contribute-skill <domain-slug> \
   --skill pr-reviewer-domain \
   --upstream-skill pr-reviewer \
   --message "Add domain-specific code review rules for facility domain"
@@ -320,7 +320,7 @@ Document in: `docs/plans/SKILL_CONTRIBUTION_GUIDE.md`
 - Skill improves on upstream version
 
 ## Contribution Process
-1. Run `dva domain contribute-skill`
+1. Run `keel domain contribute-skill`
 2. Review generated patch
 3. Submit PR to superpowers repo
 4. Superpowers maintainers review & merge
@@ -346,8 +346,8 @@ git submodule update --remote .skills/superpowers
 - [ ] Tests: 8 tests for skill injection logic
 
 ### Week 2: Phase 2 (Skill Customization)
-- [ ] Create `dva domain validate-skills` command
-- [ ] Create `dva domain fork-skill` command
+- [ ] Create `keel domain validate-skills` command
+- [ ] Create `keel domain fork-skill` command
 - [ ] Create `agentic_cli/kg/skill_evolution.py`
 - [ ] Implement skill evolution tracking
 - [ ] Tests: 12 tests for validation & forking
@@ -359,7 +359,7 @@ git submodule update --remote .skills/superpowers
 - [ ] Tests: 10 tests for domain-aware matching
 
 ### Week 4: Phase 4 (Contribution Workflow)
-- [ ] Create `dva domain contribute-skill` command
+- [ ] Create `keel domain contribute-skill` command
 - [ ] Implement patch generation & PR template
 - [ ] Create contribution guide documentation
 - [ ] Tests: 6 tests for contribution workflow
@@ -444,21 +444,21 @@ File: `.domain/skills-evolution.json`
 
 ```bash
 # Phase 1: Bootstrap
-dva domain init-context <slug> \
+keel domain init-context <slug> \
   --bootstrap-skills superpowers \
   --superpowers-url <url>
 
 # Phase 2: Validate & Customize
-dva domain validate-skills <slug> --skill <name> --task <desc> --feedback <result>
-dva domain validate-skills <slug> --list
-dva domain validate-skills <slug> --report
-dva domain fork-skill <slug> --skill <name> --reason <reason>
+keel domain validate-skills <slug> --skill <name> --task <desc> --feedback <result>
+keel domain validate-skills <slug> --list
+keel domain validate-skills <slug> --report
+keel domain fork-skill <slug> --skill <name> --reason <reason>
 
 # Phase 3: Onboard with Domain Skills
-dva code onboard --path <repo> --domain <slug> --use-domain-skills
+keel code onboard --path <repo> --domain <slug> --use-domain-skills
 
 # Phase 4: Contribute Back
-dva domain contribute-skill <slug> --skill <name> --upstream-skill <name>
+keel domain contribute-skill <slug> --skill <name> --upstream-skill <name>
 ```
 
 ---

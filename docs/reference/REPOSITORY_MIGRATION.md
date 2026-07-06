@@ -11,16 +11,16 @@ On April 21, 2026, the Agentic Platform underwent a major repository consolidati
   - URL: `https://bitbucket.example.com/scm/~your-user/agentic-cli.git`
   - Status: **ARCHIVED** - Migration notice added
 
-- **dva-agent-kg-infra** - Knowledge graph infrastructure  
-  - URL: `https://bitbucket.example.com/scm/~your-user/dva-agent-kg-infra.git`
+- **keel-agent-kg-infra** - Knowledge graph infrastructure  
+  - URL: `https://bitbucket.example.com/scm/~your-user/keel-agent-kg-infra.git`
   - Status: **ARCHIVED** - Migration notice added
 
-- **dva-agent-skills** - Agent skills registry
-  - URL: `https://bitbucket.example.com/scm/~your-user/dva-agent-skills.git`
+- **keel-agent-skills** - Agent skills registry
+  - URL: `https://bitbucket.example.com/scm/~your-user/keel-agent-skills.git`
   - Status: **ARCHIVED** - Migration notice added
 
-- **dva-agent-mcp-servers** - MCP servers for integrations
-  - URL: `https://bitbucket.example.com/scm/~your-user/dva-agent-mcp-servers.git`
+- **keel-agent-mcp-servers** - MCP servers for integrations
+  - URL: `https://bitbucket.example.com/scm/~your-user/keel-agent-mcp-servers.git`
   - Status: **ARCHIVED** - Migration notice added
 
 ### To (single monorepo)
@@ -36,9 +36,9 @@ The new monorepo maintains the same structure as the individual repositories:
 agentic-project/
 |
 |--- agentic-cli/          # CLI tool (from agentic-cli)
-|--- kg-infrastructure/    # KG infrastructure (from dva-agent-kg-infra)  
-|--- mcp-servers/          # MCP servers (from dva-agent-mcp-servers)
-|--- skills/               # Skills registry (from dva-agent-skills)
+|--- kg-infrastructure/    # KG infrastructure (from keel-agent-kg-infra)  
+|--- mcp-servers/          # MCP servers (from keel-agent-mcp-servers)
+|--- skills/               # Skills registry (from keel-agent-skills)
 |--- dashboard/            # Dashboard application
 |--- agent-templates/     # Agent development templates
 |--- docs/                    # Consolidated documentation
@@ -76,7 +76,7 @@ agentic-project/
 1. **Update local repositories:**
    ```bash
    # Remove old repositories
-   rm -rf agentic-cli dva-agent-kg-infra dva-agent-skills dva-agent-mcp-servers
+   rm -rf agentic-cli keel-agent-kg-infra keel-agent-skills keel-agent-mcp-servers
    
    # Clone new monorepo
    git clone https://bitbucket.example.com/scm/~your-user/agentic-project.git

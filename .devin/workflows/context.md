@@ -7,12 +7,12 @@ description: Bootstrap project context — read this workspace's skills, MCP con
 When starting a new session or resuming work on the Agentic Platform:
 
 1. **Read the platform skill** for full workspace context:
-   - File: `.skills/dva-agentic-platform/SKILL.md`
+   - File: `.skills/keel-agentic-platform/SKILL.md`
    - Covers: all 4 repos, 9 CLI commands, 8 MCP servers, KG infra, port map, config files
 
 2. **Check Docker services** are running:
    ```bash
-   docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep dva
+   docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep keel
    ```
 
 3. **If services are down**, start them:
@@ -55,11 +55,11 @@ activity_recent(limit=10)                 # Recent activity
 
 | AI Tool | Reads | File |
 |---------|-------|------|
-| **Any** (agentskills.io) | `.skills/` directory | `.skills/dva-agentic-platform/SKILL.md` |
+| **Any** (agentskills.io) | `.skills/` directory | `.skills/keel-agentic-platform/SKILL.md` |
 | **Any** (MCP) | Agentic Platform MCP | `activity_summary()` |
 | **Windsurf** | MCP config | `.windsurf/mcp_config.json` |
 | **Windsurf** | Workflows | `.windsurf/workflows/*.md` |
-| **OpenCode** | Agent + MCP | `.opencode/agent/dva-platform.md` + `.opencode/mcp.json` |
+| **OpenCode** | Agent + MCP | `.opencode/agent/keel-platform.md` + `.opencode/mcp.json` |
 | **Claude Code** | CLAUDE.md | `CLAUDE.md` |
 | **Cursor** | .cursorrules | `.cursorrules` |
 
@@ -69,10 +69,10 @@ These skills teach AI assistants how to use Agentic Platform MCP tools:
 
 | Skill | What It Teaches |
 |-------|-----------------|
-| `dva-onboard` | Repository onboarding via MCP |
-| `dva-manage-domains` | Product and domain management via MCP |
-| `dva-kg-context` | Knowledge Graph search and context via MCP |
-| `dva-skill-management` | Skill resolution and lifecycle via MCP |
+| `keel-onboard` | Repository onboarding via MCP |
+| `keel-manage-domains` | Product and domain management via MCP |
+| `keel-kg-context` | Knowledge Graph search and context via MCP |
+| `keel-skill-management` | Skill resolution and lifecycle via MCP |
 
 ## Operations Guide
 

@@ -2,7 +2,7 @@
 
 The org's admins control app-level presentation (title/name shown top-left) and
 which UI roles may see which navigation entries, instead of those being
-hard-coded. The CLI owns the store (``~/.dva/admin-settings.json``); the
+hard-coded. The CLI owns the store (``~/.keel/admin-settings.json``); the
 dashboard is a lens that reads it for every user and writes it for admins only.
 
 Nav visibility is stored as ``{nav_id: [roles...]}`` overrides. The *catalogue*
@@ -20,7 +20,7 @@ from typing import Dict, List, Optional
 # UI roles the sidebar understands (least → most privileged).
 UI_ROLES = ["member", "lead", "admin"]
 
-SETTINGS_PATH = Path.home() / ".dva" / "admin-settings.json"
+SETTINGS_PATH = Path.home() / ".keel" / "admin-settings.json"
 
 DEFAULT_APP_TITLE = "Keel"
 DEFAULT_APP_NAME = "Agentic Product Development Platform"

@@ -1,7 +1,7 @@
 """Knowledge source registry for KG MCP Server.
 
-Reads from the DVA CLI config file (~/.dva-agentic/config.json) as the single
-source of truth for registered data sources. The CLI's `dva data create` command
+Reads from the KEEL CLI config file (~/.keel-agentic/config.json) as the single
+source of truth for registered data sources. The CLI's `keel data create` command
 is the primary way to register sources.
 """
 
@@ -20,7 +20,7 @@ _TYPE_MAP_REVERSE = {"document": "doc", "confluence": "confluence", "git": "git"
 
 
 class KnowledgeSource:
-    """A registered knowledge source (read from DVA CLI config)."""
+    """A registered knowledge source (read from KEEL CLI config)."""
 
     def __init__(
         self,
@@ -60,7 +60,7 @@ class KnowledgeSource:
 
     @classmethod
     def from_cli_dict(cls, data: dict[str, Any]) -> "KnowledgeSource":
-        """Create from a DVA CLI config source entry."""
+        """Create from a KEEL CLI config source entry."""
         return cls(
             name=data.get("name", ""),
             source_type=data.get("type", "doc"),
@@ -75,9 +75,9 @@ class KnowledgeSource:
 
 
 class SourceRegistry:
-    """Reads knowledge sources from DVA CLI config (~/.dva-agentic/config.json).
+    """Reads knowledge sources from KEEL CLI config (~/.keel-agentic/config.json).
 
-    The CLI's `dva data create` command is the primary registration method.
+    The CLI's `keel data create` command is the primary registration method.
     This class provides read access + status updates for the kg-mcp server.
     """
 

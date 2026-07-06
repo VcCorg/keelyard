@@ -29,7 +29,7 @@ def detect_domain_meta_repo(domain_slug: str, search_paths: list[Path] = None) -
         Path.cwd().parent / meta_repo_name,
     ]
 
-    # Search the configured code workspace, where `dva domain init-meta`
+    # Search the configured code workspace, where `keel domain init-meta`
     # creates meta-repos: <workspace>/<domain>/domain-<domain>-meta
     workspace = _get_code_workspace()
     if workspace:
@@ -55,8 +55,8 @@ def detect_domain_meta_repo(domain_slug: str, search_paths: list[Path] = None) -
 def _get_code_workspace() -> Path | None:
     """Return the configured code workspace directory, if any.
 
-    Reads the same global CLI config used by `dva code onboard` /
-    `dva domain init-meta` so detection matches creation location.
+    Reads the same global CLI config used by `keel code onboard` /
+    `keel domain init-meta` so detection matches creation location.
     """
     config_file = Path.home() / ".agent-cli-agentic" / "config.json"
     if not config_file.exists():

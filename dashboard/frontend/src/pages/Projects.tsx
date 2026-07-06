@@ -177,7 +177,7 @@ export function Projects() {
           <p className="text-xs text-gray-400 mt-1">
             Create one with{" "}
             <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded">
-              dva project create --use-case scrum-master
+              keel project create --use-case scrum-master
             </code>
           </p>
         </div>

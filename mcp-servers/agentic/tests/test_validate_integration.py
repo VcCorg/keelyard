@@ -222,13 +222,13 @@ def check_mcp_tools_registered():
 
 
 def check_mcp_no_dva_prefix():
-    """Ensure no tool has a 'dva_' prefix."""
+    """Ensure no tool has a 'keel_' prefix."""
     from agentic_mcp.server import mcp
     import asyncio
     tool_list = asyncio.run(mcp.list_tools())
-    dva_tools = [t.name for t in tool_list if t.name.startswith("dva_")]
-    assert not dva_tools, f"Found dva_ prefixed tools: {dva_tools}"
-    return "no dva_ prefixed tools"
+    keel_tools = [t.name for t in tool_list if t.name.startswith("keel_")]
+    assert not keel_tools, f"Found keel_ prefixed tools: {keel_tools}"
+    return "no keel_ prefixed tools"
 
 
 # ── Phase 6: Docker Build ───────────────────────────────────────────────────
@@ -249,21 +249,21 @@ def check_docker_build():
 
 
 def check_no_dva_in_server_code():
-    """Verify no 'dva' references in Python server code."""
+    """Verify no 'keel' references in Python server code."""
     src_dir = Path(__file__).resolve().parent.parent / "src" / "agentic_mcp"
     violations = []
     for py_file in src_dir.glob("*.py"):
         content = py_file.read_text()
         for i, line in enumerate(content.splitlines(), 1):
             lower = line.lower()
-            if "dva" in lower and not line.strip().startswith("#"):
+            if "keel" in lower and not line.strip().startswith("#"):
                 violations.append(f"{py_file.name}:{i}: {line.strip()}")
-    assert not violations, f"Found 'dva' in code:\n" + "\n".join(violations)
+    assert not violations, f"Found 'keel' in code:\n" + "\n".join(violations)
     return f"scanned {len(list(src_dir.glob('*.py')))} files, clean"
 
 
 def check_registry_server_name():
-    """Verify registry.json uses 'agentic' not 'dva' for MCP server."""
+    """Verify registry.json uses 'agentic' not 'keel' for MCP server."""
     from agentic_mcp.config import AgenticConfig
     cfg = AgenticConfig()
     if not cfg.skills_registry.exists():
@@ -272,8 +272,8 @@ def check_registry_server_name():
         registry = json.load(f)
     for skill in registry.get("skills", []):
         mcp_cfg = skill.get("mcp", {})
-        if mcp_cfg.get("server") == "dva":
-            raise AssertionError(f"Skill '{skill['name']}' still uses server='dva'")
+        if mcp_cfg.get("server") == "keel":
+            raise AssertionError(f"Skill '{skill['name']}' still uses server='keel'")
     agentic_skills = [s["name"] for s in registry["skills"] if s.get("mcp", {}).get("server") == "agentic"]
     return f"{len(agentic_skills)} skills use server='agentic'"
 
@@ -330,7 +330,7 @@ def main():
     # Phase 5
     print("\n── Phase 5: MCP Registration ──")
     check("All 19 tools registered", check_mcp_tools_registered)
-    check("No dva_ prefix on tools", check_mcp_no_dva_prefix)
+    check("No keel_ prefix on tools", check_mcp_no_dva_prefix)
 
     # Phase 6
     if docker_ok:
@@ -342,7 +342,7 @@ def main():
 
     # Phase 7
     print("\n── Phase 7: Naming Convention ──")
-    check("No 'dva' in server code", check_no_dva_in_server_code)
+    check("No 'keel' in server code", check_no_dva_in_server_code)
     check("Registry uses server='agentic'", check_registry_server_name)
 
     # Summary

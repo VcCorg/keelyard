@@ -10,7 +10,7 @@ This is particularly useful when you've ingested both code repositories (develop
 
 ## Commands Supporting Persona Filtering
 
-### 1. Query Command (`dva kg query`)
+### 1. Query Command (`keel kg query`)
 
 Query the knowledge graph with natural language or Cypher, filtered by persona.
 
@@ -44,7 +44,7 @@ Query the knowledge graph with natural language or Cypher, filtered by persona.
 `agent kg query "patient" --limit 20
 ```
 
-### 2. Search Command (`dva kg search`)
+### 2. Search Command (`keel kg search`)
 
 Semantic search across the knowledge graph, filtered by persona.
 
@@ -118,7 +118,7 @@ This guides the LLM and vector search to focus on the relevant context.
 
 ### Query Command with Persona
 
-```@/Users/your-user/agentic-project/agentic-cli/src/dva_agentic_cli/commands/kg.py#723:735
+```@/Users/your-user/agentic-project/agentic-cli/src/agentic_cli/commands/kg.py#723:735
 # Add persona context to LightRAG query
 enhanced_query = query_text
 if persona:
@@ -135,7 +135,7 @@ result = client.query(enhanced_query, mode=mode, top_k=limit)
 
 ### Search Command with Persona
 
-```@/Users/your-user/agentic-project/agentic-cli/src/dva_agentic_cli/commands/kg.py#846:857
+```@/Users/your-user/agentic-project/agentic-cli/src/agentic_cli/commands/kg.py#846:857
 # Add persona context to LightRAG search
 enhanced_text = text
 if persona:
@@ -289,7 +289,7 @@ result = client.search(enhanced_text, top_k=limit)
 
 ## Files Modified
 
-1. **`src/dva_agentic_cli/commands/kg.py`**
+1. **`src/agentic_cli/commands/kg.py`**
    - Added `persona` parameter to `search` command (line 760-763)
    - Added persona context enhancement for LightRAG search (line 846-852)
    - Updated docstring with persona examples (line 770-786)
@@ -299,7 +299,7 @@ result = client.search(enhanced_text, top_k=limit)
 - **Ingestion Guide:** How persona is assigned during data ingestion
 - **Query Modes:** Understanding LightRAG query modes (naive, local, global, hybrid)
 - **Timeout Configuration:** Adjusting timeouts for large graphs
-- **Knowledge Graph Stats:** `dva kg stats` to understand your graph size
+- **Knowledge Graph Stats:** `keel kg stats` to understand your graph size
 
 ## Summary
 
@@ -309,4 +309,4 @@ Persona filtering enables focused queries and searches within mixed-context know
 - **`--persona business`**: Focus on documentation, requirements, business logic
 - **No persona**: Search across all contexts
 
-Both `dva kg query` and `dva kg search` now support persona filtering with the same syntax and behavior.
+Both `keel kg query` and `keel kg search` now support persona filtering with the same syntax and behavior.

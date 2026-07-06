@@ -85,7 +85,7 @@ Reality:
 ```
 Step 1: Create Domain Context Repository
 ┌─────────────────────────────────────────────────────────────┐
-│ $ dva domain create facility \                              │
+│ $ keel domain create facility \                              │
 │   --repos facility-query,facility-command,facility-events \ │
 │   --confluence-space FACILITY \                             │
 │   --context-repo                                            │
@@ -99,15 +99,15 @@ Step 1: Create Domain Context Repository
 
 Step 2: Onboard Each Repository
 ┌─────────────────────────────────────────────────────────────┐
-│ $ dva code onboard --path ./facility-query \                │
+│ $ keel code onboard --path ./facility-query \                │
 │   --domain facility \                                       │
 │   --domain-context ../facility-domain                       │
 │                                                             │
-│ $ dva code onboard --path ./facility-command \              │
+│ $ keel code onboard --path ./facility-command \              │
 │   --domain facility \                                       │
 │   --domain-context ../facility-domain                       │
 │                                                             │
-│ $ dva code onboard --path ./facility-events \               │
+│ $ keel code onboard --path ./facility-events \               │
 │   --domain facility \                                       │
 │   --domain-context ../facility-domain                       │
 │                                                             │
@@ -115,7 +115,7 @@ Step 2: Onboard Each Repository
 │ ├─ .skills/generated/ (repo-specific skills)               │
 │ ├─ .skills/domain/ → symlink to shared skills              │
 │ ├─ kg-context.md → symlink to shared context               │
-│ └─ .dva/codebase-understanding.md (repo-specific)          │
+│ └─ .keel/codebase-understanding.md (repo-specific)          │
 └─────────────────────────────────────────────────────────────┘
 
 Step 3: Developer Opens Any Repo in Windsurf

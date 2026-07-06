@@ -1,17 +1,17 @@
-"""CLI setup/config status — reports which `dva init` steps are done.
+"""CLI setup/config status — reports which `keel init` steps are done.
 
 Many dashboard workflows (onboarding, KG ingest/export, OKF enrich, agents)
 require the CLI to be initialized first:
 
-  - workspaces   `dva init workspace`   (code + docs directories)
-  - vertex_ai    `dva init vertex-ai`   (LLM / embeddings provider)
-  - neo4j        `dva kg init`           (graph DB for KG ingest/export)
+  - workspaces   `keel init workspace`   (code + docs directories)
+  - vertex_ai    `keel init vertex-ai`   (LLM / embeddings provider)
+  - neo4j        `keel kg init`           (graph DB for KG ingest/export)
   - devin        $DEVIN_API_KEY          (optional — Devin Cloud push)
 
 This service reads the same config the CLI uses (single source of truth) and
 exposes a status the dashboard surfaces in the sidebar + as per-feature
 validation banners. Mutations are performed by shelling out to the real
-`dva init ...` so all setup logic lives in exactly one place.
+`keel init ...` so all setup logic lives in exactly one place.
 """
 from __future__ import annotations
 
@@ -43,14 +43,14 @@ class SetupStatus(BaseModel):
 
 
 def resolve_cli_command() -> list[str]:
-    dva = shutil.which("dva")
-    if dva:
-        return [dva]
+    keel = shutil.which("keel")
+    if keel:
+        return [keel]
     return [sys.executable, "-m", "agentic_cli.main"]
 
 
 def _cli_available() -> tuple[bool, str]:
-    if shutil.which("dva"):
+    if shutil.which("keel"):
         try:
             from agentic_cli import __version__  # type: ignore
             return True, str(__version__)
@@ -106,7 +106,7 @@ def _integration_item(
     else:
         detail = f"Set {url_env} and {token_env} on the backend environment"
 
-    hint = f"dva init {key} --url <url> --token <pat>"
+    hint = f"keel init {key} --url <url> --token <pat>"
     if extra_env:
         hint += f"  (optional: {extra_env})"
 
@@ -117,7 +117,7 @@ def _integration_item(
 
 
 def get_setup_status() -> SetupStatus:
-    # Re-read ~/.dva/.env so tokens written via the setup panel are reflected
+    # Re-read ~/.keel/.env so tokens written via the setup panel are reflected
     # without restarting the backend (real exports still take precedence).
     try:
         from agentic_cli.env import load_env
@@ -159,27 +159,27 @@ def get_setup_status() -> SetupStatus:
         SetupItem(
             key="workspaces", label="Workspaces", configured=workspaces_ok, required=True,
             detail=(f"code: {code_ws}" if workspaces_ok else "Code & docs directories not set"),
-            fix_hint="dva init workspace --code <dir> --docs <dir>",
+            fix_hint="keel init workspace --code <dir> --docs <dir>",
         ),
         SetupItem(
             key="vertex_ai", label="Vertex AI (LLM)", configured=vertex_ok, required=True,
             detail=(f"project: {google.get('project_id')}" if vertex_ok else "Google Cloud project not set"),
-            fix_hint="dva init vertex-ai --project-id <id> --location <region>",
+            fix_hint="keel init vertex-ai --project-id <id> --location <region>",
         ),
         SetupItem(
             key="neo4j", label="Knowledge Graph (Neo4j)", configured=neo4j_ok, required=False,
             detail=("configured" if neo4j_ok else "Required for KG ingest / OKF export"),
-            fix_hint="dva kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password <pwd>",
+            fix_hint="keel kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password <pwd>",
         ),
         SetupItem(
             key="devin", label="Devin Cloud (optional)", configured=devin_ok, required=False,
             detail=("Devin API key set" if devin_ok else "Add your Devin API key to enable cloud sessions/push"),
-            fix_hint="dva init devin --api-key <key>",
+            fix_hint="keel init devin --api-key <key>",
         ),
         SetupItem(
             key="glean", label="Glean (Search / Context)", configured=glean_ok, required=False,
             detail=glean_detail,
-            fix_hint="dva init glean --url <url> --token <token>   |   --sso --issuer <> --client-id <>",
+            fix_hint="keel init glean --url <url> --token <token>   |   --sso --issuer <> --client-id <>",
         ),
         _integration_item(
             key="jira", label="Jira (Work Items)",
@@ -221,15 +221,15 @@ def kg_init_neo4j_args(uri: str, username: str, password: str) -> list[str]:
             "--username", username, "--password", password]
 
 
-# ── Integration credential writers (persist to ~/.dva/.env via the CLI) ──────
+# ── Integration credential writers (persist to ~/.keel/.env via the CLI) ──────
 
 _INTEGRATION_KEYS = {"jira", "bitbucket", "confluence"}
 
 
 def init_integration_args(kind: str, url: str, token: str) -> list[str]:
-    """Build `dva init <kind> --url <> --token <>` for Jira/Bitbucket/Confluence.
+    """Build `keel init <kind> --url <> --token <>` for Jira/Bitbucket/Confluence.
 
-    The CLI writes the credentials to ~/.dva/.env (chmod 600); no shell export
+    The CLI writes the credentials to ~/.keel/.env (chmod 600); no shell export
     is needed. Raises ValueError for an unknown integration kind.
     """
     if kind not in _INTEGRATION_KEYS:
@@ -238,14 +238,14 @@ def init_integration_args(kind: str, url: str, token: str) -> list[str]:
 
 
 def init_devin_args(api_key: str) -> list[str]:
-    """Build `dva init devin --api-key <>` (persists DEVIN_API_KEY to ~/.dva/.env)."""
+    """Build `keel init devin --api-key <>` (persists DEVIN_API_KEY to ~/.keel/.env)."""
     return ["init", "devin", "--api-key", api_key]
 
 
 def init_glean_args(url: str, mode: str = "token", token: str = "",
                     issuer: str = "", client_id: str = "",
                     client_secret: str = "", scope: str = "") -> list[str]:
-    """Build `dva init glean ...` for token or SSO mode."""
+    """Build `keel init glean ...` for token or SSO mode."""
     args = ["init", "glean", "--url", url]
     if mode == "sso":
         args += ["--sso", "--issuer", issuer, "--client-id", client_id]

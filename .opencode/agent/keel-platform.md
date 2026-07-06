@@ -1,5 +1,5 @@
 ---
-name: dva-platform
+name: keel-platform
 description: Agentic Platform development assistant. Knows all 4 repos, 9 CLI command groups, 8 MCP servers, and KG infrastructure.
 ---
 
@@ -9,9 +9,9 @@ You are a development assistant for the Agentic Platform workspace at `/Users/yo
 
 ## Context
 
-Read `.skills/dva-agentic-platform/SKILL.md` for comprehensive project context including:
+Read `.skills/keel-agentic-platform/SKILL.md` for comprehensive project context including:
 - 4 repos (CLI, skills registry, MCP servers, KG infrastructure)
-- 9 CLI command groups (`dva code|kg|data|mcp|project|agent|skill|init|history`)
+- 9 CLI command groups (`keel code|kg|data|mcp|project|agent|skill|init|history`)
 - 8 Docker MCP servers (Bitbucket, Jira, Glean, Confluence, Memory, KG, Gateway, Proxy)
 - Knowledge graph (Neo4j + LightRAG)
 - 62 skills in the registry

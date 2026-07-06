@@ -73,10 +73,10 @@ fi
 CLI_BIN=""
 if [[ -x "$ROOT_DIR/.venv/bin/agent-cli" ]]; then
   CLI_BIN="$ROOT_DIR/.venv/bin/agent-cli"
-elif [[ -x "$ROOT_DIR/.venv/bin/dva" ]]; then
-  CLI_BIN="$ROOT_DIR/.venv/bin/dva"
-elif command -v dva >/dev/null 2>&1; then
-  CLI_BIN="dva"
+elif [[ -x "$ROOT_DIR/.venv/bin/keel" ]]; then
+  CLI_BIN="$ROOT_DIR/.venv/bin/keel"
+elif command -v keel >/dev/null 2>&1; then
+  CLI_BIN="keel"
 elif command -v agent-cli >/dev/null 2>&1; then
   CLI_BIN="agent-cli"
 fi
@@ -87,7 +87,7 @@ fi
 log_header "3/5  Configuring skills registry"
 if [[ -n "$CLI_BIN" && -d "$ROOT_DIR/skills" ]]; then
   "$CLI_BIN" code config --registry "$ROOT_DIR/skills" || \
-    log_warn "Could not set skills registry automatically; run: dva code config --registry ./skills"
+    log_warn "Could not set skills registry automatically; run: keel code config --registry ./skills"
   log_ok "Skills registry set to ./skills"
 else
   log_warn "Skipping registry config (CLI or ./skills not found)."
@@ -124,18 +124,18 @@ fi
 # ---------------------------------------------------------------------------
 # 5. Preflight diagnostics
 # ---------------------------------------------------------------------------
-log_header "5/5  Running diagnostics (dva doctor)"
+log_header "5/5  Running diagnostics (keel doctor)"
 if [[ -n "$CLI_BIN" ]]; then
   "$CLI_BIN" doctor || true
 else
-  log_warn "CLI not found on PATH; activate the venv then run: dva doctor"
+  log_warn "CLI not found on PATH; activate the venv then run: keel doctor"
 fi
 
 log_header "Setup complete"
 cat <<EOF
 Next steps:
   • Activate the project venv:   source .venv/bin/activate
-  • Re-run diagnostics anytime:  dva doctor
-  • Onboard a repo:              dva code onboard --path ./your-project
+  • Re-run diagnostics anytime:  keel doctor
+  • Onboard a repo:              keel code onboard --path ./your-project
   • Start the dashboard:         ./start-backend.sh   (and ./start-frontend.sh)
 EOF

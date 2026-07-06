@@ -2,9 +2,9 @@
 
 Adapted from the GoogleCloudPlatform/knowledge-catalog OKF enrichment agent
 (https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf), wired
-to DVA CLI domain data instead of BigQuery + arbitrary web crawl:
+to KEEL CLI domain data instead of BigQuery + arbitrary web crawl:
 
-  GCP enrichment agent          ->   DVA OKF enrichment
+  GCP enrichment agent          ->   KEEL OKF enrichment
   ---------------------------        --------------------------------
   BigQuerySource                ->   CodebaseSource (domain repos)
   web pass (fetch_url crawl)    ->   Confluence pass (tracked domain docs via MCP)

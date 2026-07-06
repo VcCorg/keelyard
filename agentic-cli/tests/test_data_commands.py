@@ -16,7 +16,7 @@ runner = CliRunner()
 @pytest.fixture
 def temp_config_dir(tmp_path):
     """Create a temporary config directory."""
-    config_dir = tmp_path / ".dva-agentic"
+    config_dir = tmp_path / ".keel-agentic"
     config_dir.mkdir()
     return config_dir
 

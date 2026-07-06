@@ -1,4 +1,4 @@
-"""`dva kg okf` — Open Knowledge Format bundle commands.
+"""`keel kg okf` — Open Knowledge Format bundle commands.
 
 The OKF bundle is a directory of Markdown concept files governed by an
 okf.schema.yaml contract. It is the source of truth for the KG; Neo4j/LightRAG
@@ -59,7 +59,7 @@ def init(
     )
     console.print(f"[bold green]✓[/bold green] Initialized OKF bundle at [cyan]{out_dir}[/cyan]")
     console.print(f"  schema:  {schema_path}")
-    console.print("  next:    add concepts, then run [cyan]dva kg okf validate[/cyan]")
+    console.print("  next:    add concepts, then run [cyan]keel kg okf validate[/cyan]")
 
 
 @okf_app.command()
@@ -83,7 +83,7 @@ def export(
 
     config = KGConfig.load()
     if not config.is_neo4j_configured():
-        console.print("[red]✗[/red] Neo4j is not configured. Run [cyan]dva kg init[/cyan] first.")
+        console.print("[red]✗[/red] Neo4j is not configured. Run [cyan]keel kg init[/cyan] first.")
         raise typer.Exit(1)
 
     out_dir = Path(out or _default_bundle_dir(domain))
@@ -147,7 +147,7 @@ def enrich(
 
     ALL inputs are resolved from registered domain data (repos, docs, confluence,
     product) — there are no manual path flags. Register them first with
-    `dva domain create`, `dva domain link-repo`, and `dva domain add-docs`.
+    `keel domain create`, `keel domain link-repo`, and `keel domain add-docs`.
     """
     from agentic_cli.kg.okf.enrichment.domain_paths import resolve_domain_enrichment_context
     from agentic_cli.kg.okf.enrichment.runner import EnrichmentRunner
@@ -231,7 +231,7 @@ def enrich(
                 if code_source == "graphify":
                     console.print(
                         "[red]✗[/red] --code-source graphify requested but no repo has a graphify "
-                        "graph (and none could be generated). Install graphify or run `dva code onboard --graphify`."
+                        "graph (and none could be generated). Install graphify or run `keel code onboard --graphify`."
                     )
                     raise typer.Exit(1)
                 # auto with no graphs anywhere -> fall back to LLM on primary repo.
@@ -251,7 +251,7 @@ def enrich(
         if ctx.confluence_docs:
             confluence_src = ConfluenceSource.from_domain_docs(ctx.confluence_docs)
         elif source == "confluence":
-            console.print("[red]✗[/red] No tracked Confluence docs for this domain. Run `dva domain add-docs` first.")
+            console.print("[red]✗[/red] No tracked Confluence docs for this domain. Run `keel domain add-docs` first.")
             raise typer.Exit(1)
 
     if code_src is None and confluence_src is None:
@@ -365,7 +365,7 @@ def freshness(
     Compares the SHA-256 of each linked repo's current ``graphify-out/graph.json``
     against the hashes recorded in the bundle's provenance at the last enrich.
     A differing hash means code changed and the graph was refreshed, so the
-    bundle should be re-enriched (`dva kg okf enrich --domain <slug>`).
+    bundle should be re-enriched (`keel kg okf enrich --domain <slug>`).
     """
     from agentic_cli.kg.okf.enrichment.domain_paths import resolve_domain_enrichment_context
     from agentic_cli.kg.okf.provenance import check_freshness
@@ -381,7 +381,7 @@ def freshness(
     if not report.has_provenance:
         console.print(
             f"[yellow]?[/yellow] No provenance for [cyan]{domain}[/cyan] — the bundle was never "
-            f"enriched from graphify (or pre-dates tracking). Run: dva kg okf enrich --domain {domain}"
+            f"enriched from graphify (or pre-dates tracking). Run: keel kg okf enrich --domain {domain}"
         )
         raise typer.Exit(2)
 
@@ -412,7 +412,7 @@ def freshness(
 
     if report.stale:
         console.print(
-            f"[red]✗ stale[/red] — re-enrich with: [cyan]dva kg okf enrich --domain {domain}[/cyan]"
+            f"[red]✗ stale[/red] — re-enrich with: [cyan]keel kg okf enrich --domain {domain}[/cyan]"
         )
         raise typer.Exit(1)
     console.print("[green]✓ fresh[/green] — bundle matches current code graphs.")
@@ -638,8 +638,8 @@ def project_status(
         pass
 
     if st.drift or st.unprojected or st.orphan:
-        console.print("[dim]next: re-project with[/dim] [cyan]dva kg okf push-devin[/cyan] "
-                      "[dim](orphans:[/dim] [cyan]dva kg okf devin prune[/cyan][dim]).[/dim]")
+        console.print("[dim]next: re-project with[/dim] [cyan]keel kg okf push-devin[/cyan] "
+                      "[dim](orphans:[/dim] [cyan]keel kg okf devin prune[/cyan][dim]).[/dim]")
         raise typer.Exit(2)
 
 

@@ -1,8 +1,8 @@
 """ConfluenceSource — fetches tracked domain docs for the enrichment pass.
 
-This is the DVA analog of the GCP agent's web pass. Instead of crawling arbitrary
+This is the KEEL analog of the GCP agent's web pass. Instead of crawling arbitrary
 URLs via fetch_url, it reads the Confluence pages already registered for the
-domain (`dva domain add-docs`) through the Confluence MCP server. Each page
+domain (`keel domain add-docs`) through the Confluence MCP server. Each page
 becomes enrichment material the LLM uses to augment existing OKF concepts or mint
 `references/<slug>` concepts.
 

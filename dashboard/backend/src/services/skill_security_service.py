@@ -1,7 +1,7 @@
 """Skill security scanning — thin dashboard delegation to the CLI.
 
 The canonical SkillSpector wrapper lives in ``agentic_cli.skill_security`` so
-the CLI (`dva skill scan`, the `dva skill install` gate) and the dashboard
+the CLI (`keel skill scan`, the `keel skill install` gate) and the dashboard
 share one implementation and one verdict. The dashboard calls it and records
 user-initiated scans in the CLI audit trail as ``source="dashboard"``.
 """

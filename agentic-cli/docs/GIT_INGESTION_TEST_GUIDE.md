@@ -39,7 +39,7 @@ python -c "import git; print('✓ GitPython installed')"
 ```bash
 cd /Users/your-user/agentic-project/lightrag-infrastructure
 docker-compose up -d
-docker logs -f dva-lightrag
+docker logs -f keel-lightrag
 ```
 
 **Option B: Neo4j**
@@ -515,7 +515,7 @@ Files with syntax errors are automatically skipped with warnings. Check logs for
 ### Issue: No Results from Query
 
 **Possible Causes:**
-1. Documents still processing (check `dva kg stats`)
+1. Documents still processing (check `keel kg stats`)
 2. Persona filter too restrictive
 3. Query doesn't match content
 
@@ -630,9 +630,9 @@ After successful testing:
 
 If you encounter issues:
 
-1. Check logs: `docker logs dva-lightrag`
-2. Verify configuration: `dva kg config show`
-3. Check data sources: `dva data list`
+1. Check logs: `docker logs keel-lightrag`
+2. Verify configuration: `keel kg config show`
+3. Check data sources: `keel data list`
 4. Review documentation: `docs/GIT_INGESTION.md`
 
 Happy Testing! 🎉

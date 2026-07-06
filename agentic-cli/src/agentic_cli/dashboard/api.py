@@ -1,4 +1,4 @@
-"""FastAPI backend for the DVA Agentic Dashboard."""
+"""FastAPI backend for the KEEL Agentic Dashboard."""
 
 import os
 from pathlib import Path
@@ -13,7 +13,7 @@ from agentic_cli import tracker
 from agentic_cli.templates.enums import UseCase, Framework, Tool
 from agentic_cli.templates.config import USE_CASE_TOOLS
 
-app = FastAPI(title="DVA Agentic Dashboard", version="0.1.0")
+app = FastAPI(title="KEEL Agentic Dashboard", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -232,4 +232,4 @@ def serve_index():
     index = STATIC_DIR / "index.html"
     if index.exists():
         return index.read_text()
-    return "<h1>DVA Dashboard</h1><p>Static files not found.</p>"
+    return "<h1>KEEL Dashboard</h1><p>Static files not found.</p>"

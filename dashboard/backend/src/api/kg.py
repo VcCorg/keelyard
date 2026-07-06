@@ -75,7 +75,7 @@ async def okf_export_stream(
     product: Optional[str] = Query(None),
     mint_freqs: bool = Query(True, description="Mint FREQ concepts from CWOW-NNNNNN"),
 ):
-    """Run `dva kg okf export --domain ...` (no reindex) and stream output over SSE."""
+    """Run `keel kg okf export --domain ...` (no reindex) and stream output over SSE."""
     if okf_service.domain_busy(domain):
         raise HTTPException(status_code=409, detail=f"OKF for '{domain}' is busy (enrich/export/sync running).")
     args = okf_service.okf_export_args(domain, product=product, mint_freqs=mint_freqs)
@@ -98,7 +98,7 @@ async def okf_enrich_stream(
     model: Optional[str] = Query(None, description="Vertex AI model for the LLM enrichment pass"),
     dry_run: bool = Query(False, description="Preview planned concepts/pages without writing"),
 ):
-    """Run `dva kg okf enrich --domain ...` (graphify structural + Confluence) over SSE.
+    """Run `keel kg okf enrich --domain ...` (graphify structural + Confluence) over SSE.
 
     The default `code_source=auto` uses each repo's graphify graph (no LLM),
     generating any missing graph first. This is the multi-repo, team-facing path
@@ -131,7 +131,7 @@ async def okf_devin_push_stream(
     types: str = Query("FREQ,Requirement", description="Comma-separated concept types"),
     dry_run: bool = Query(True, description="Preview payloads without calling the Devin API"),
 ):
-    """Run `dva kg okf push-devin ...` and stream output over SSE.
+    """Run `keel kg okf push-devin ...` and stream output over SSE.
 
     The Devin API key is read from the backend env ($DEVIN_API_KEY) and is never
     accepted as a query parameter. A live push requires that key to be present.
@@ -275,7 +275,7 @@ async def ingest_submit_stream(
     depth: int = Query(3, le=10),
     top: Optional[int] = Query(None, description="Limit to first N pages (testing)"),
 ):
-    """Run `dva kg ingest submit ...` (sync) and stream its output over SSE."""
+    """Run `keel kg ingest submit ...` (sync) and stream its output over SSE."""
     if not (domain or path or source):
         raise HTTPException(
             status_code=400,

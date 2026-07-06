@@ -4,7 +4,7 @@ Design principle (per project requirement):
 - The dashboard NEVER re-implements domain onboarding logic.
 - Reads + simple mutations import the CLI's `agentic_cli.tracker` functions directly.
 - Long-running / external-API steps (fetch-repos, add-docs, gen-skills,
-  init-context, init-meta) are executed by shelling out to the real `dva`
+  init-context, init-meta) are executed by shelling out to the real `keel`
   CLI and streaming its stdout, so the Bitbucket/Confluence/git logic lives
   in exactly one place.
 """
@@ -107,14 +107,14 @@ def _slugify(product: str, domain: str) -> str:
 
 
 def resolve_cli_command() -> list[str]:
-    """Resolve how to invoke the dva CLI for subprocess streaming.
+    """Resolve how to invoke the keel CLI for subprocess streaming.
 
-    Prefers the installed `dva` console script, falls back to running the
+    Prefers the installed `keel` console script, falls back to running the
     module with the current interpreter.
     """
-    dva = shutil.which("dva")
-    if dva:
-        return [dva]
+    keel = shutil.which("keel")
+    if keel:
+        return [keel]
     return [sys.executable, "-m", "agentic_cli.main"]
 
 
@@ -258,7 +258,7 @@ def delete_product(name: str) -> Optional[bool]:
     """Remove a product.
 
     Returns None if the product doesn't exist. Raises ProductInUseError if any
-    domains still reference it (mirrors `dva product remove`, which blocks).
+    domains still reference it (mirrors `keel product remove`, which blocks).
     """
     t = _tracker()
     name_upper = name.strip().upper()
@@ -361,7 +361,7 @@ def create_domain(
     product_upper = product.upper()
     if not t.get_product(product_upper):
         raise ValueError(
-            f"Product '{product_upper}' not found. Register it first via 'dva product create {product_upper}'."
+            f"Product '{product_upper}' not found. Register it first via 'keel product create {product_upper}'."
         )
     if not (bitbucket_project and bitbucket_project.strip()) and not (
         bitbucket_url and bitbucket_url.strip()
@@ -582,7 +582,7 @@ async def _stream_cli(cmd: list[str]) -> AsyncGenerator[str, None]:
 
 
 async def stream_domain_command(args: list[str]) -> AsyncGenerator[str, None]:
-    """Run `dva domain <args>` and yield stdout/stderr lines as they arrive.
+    """Run `keel domain <args>` and yield stdout/stderr lines as they arrive.
 
     This is the proxy mechanism for steps whose logic must not be duplicated
     (fetch-repos, add-docs, gen-skills, init-context, init-meta).
@@ -592,7 +592,7 @@ async def stream_domain_command(args: list[str]) -> AsyncGenerator[str, None]:
 
 
 async def stream_product_command(args: list[str]) -> AsyncGenerator[str, None]:
-    """Run `dva product <args>` and yield stdout/stderr lines as they arrive.
+    """Run `keel product <args>` and yield stdout/stderr lines as they arrive.
 
     Proxy for product-tier steps (init-meta, exceptions add) whose scaffolding
     and git logic must live in exactly one place (the CLI).
@@ -829,7 +829,7 @@ async def stream_product_regen_personas(
 ) -> AsyncGenerator[str, None]:
     """Regenerate personas across every domain in a product. Admin action.
 
-    Runs `dva domain regen-personas <slug>` for each domain under the product,
+    Runs `keel domain regen-personas <slug>` for each domain under the product,
     streaming a combined log. Emits a single final __EXIT__ at the end.
     """
     domains = _tracker().get_domains(product=product.upper()) or []

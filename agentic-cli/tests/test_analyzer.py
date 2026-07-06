@@ -99,8 +99,8 @@ public class PatientController {
 
 
 def _load_test_registry() -> dict:
-    """Load the real registry.json from dva-skills."""
-    registry_path = Path(__file__).parent.parent.parent / "dva-skills"
+    """Load the real registry.json from keel-skills."""
+    registry_path = Path(__file__).parent.parent.parent / "keel-skills"
     if not (registry_path / "registry.json").exists():
         # Fallback: inline minimal registry for CI
         return {

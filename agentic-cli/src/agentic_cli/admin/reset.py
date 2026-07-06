@@ -23,7 +23,7 @@ SCOPE_LABELS = {
     "settings": "Admin settings (branding, nav) + role assignments",
 }
 
-_DEVIN_SESSIONS = Path.home() / ".dva" / "devin" / "sessions.json"
+_DEVIN_SESSIONS = Path.home() / ".keel" / "devin" / "sessions.json"
 
 
 def _settings_files() -> List[Path]:

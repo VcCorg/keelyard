@@ -325,7 +325,7 @@ class TestKGConfigWorkspace:
     def test_get_workspace_dir_lightrag(self):
         """Test getting workspace directory for LightRAG."""
         import os
-        default_dir = os.path.expanduser("~/.dva-agentic/lightrag-workspaces")
+        default_dir = os.path.expanduser("~/.keel-agentic/lightrag-workspaces")
         
         config = KGConfig(
             provider="lightrag",

@@ -1,11 +1,11 @@
-# DVA KG MCP Server - Quick Start Guide
+# KEEL KG MCP Server - Quick Start Guide
 
 Get your Knowledge Graph MCP server running in 5 minutes!
 
 ## Prerequisites
 
 - ✅ Docker installed and running
-- ✅ Agentic CLI configured (`dva kg init`)
+- ✅ Agentic CLI configured (`keel kg init`)
 - ✅ Agentic CLI located at `../agentic-cli` (relative to this directory)
 
 ## Option 1: MCP Server Only (Fastest)
@@ -73,7 +73,7 @@ make test
    ```json
    {
      "mcpServers": {
-       "dva-kg": {
+       "keel-kg": {
          "url": "http://localhost:8125/mcp",
          "transport": "http"
        }
@@ -90,7 +90,7 @@ make test
 1. Open Settings → MCP Servers
 
 2. Add new server:
-   - Name: `dva-kg`
+   - Name: `keel-kg`
    - URL: `http://localhost:8125/mcp`
    - Transport: `http`
 
@@ -177,7 +177,7 @@ KG modules are **volume-mounted** from `../agentic-cli`, so changes are instant:
 
 ```bash
 # 1. Edit KG code in CLI
-cd ../agentic-cli/src/dva_agentic_cli/kg
+cd ../agentic-cli/src/agentic_cli/kg
 nano query.py  # Make your changes
 
 # 2. Restart container (no rebuild!)
@@ -199,10 +199,10 @@ make test
 make logs
 
 # Verify Docker network
-docker network ls | grep dva-network
+docker network ls | grep keel-network
 
 # Recreate network
-docker network create dva-network
+docker network create keel-network
 ```
 
 ### Can't Connect to Neo4j
@@ -212,7 +212,7 @@ docker network create dva-network
 curl http://localhost:7474
 
 # Check from MCP container
-docker exec dva-kg-mcp curl http://dva-neo4j:7474
+docker exec keel-kg-mcp curl http://keel-neo4j:7474
 ```
 
 ### IDE Not Seeing Tools

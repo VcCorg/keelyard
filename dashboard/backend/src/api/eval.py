@@ -1,4 +1,4 @@
-"""Evaluation API — reads via library, long-running steps stream `dva eval ...`."""
+"""Evaluation API — reads via library, long-running steps stream `keel eval ...`."""
 
 from typing import Optional
 
@@ -70,7 +70,7 @@ async def metrics():
 
 @router.post("/configs", response_model=svc.CommandResult)
 async def create_config(req: CreateEvalConfigRequest):
-    """Create an eval config (delegates validation to `dva eval create`)."""
+    """Create an eval config (delegates validation to `keel eval create`)."""
     if not req.metrics:
         raise HTTPException(status_code=400, detail="At least one metric is required.")
     result = svc.create_eval_config(**req.model_dump())
@@ -106,7 +106,7 @@ async def run_agent_stream(
         None, description="Agent project path; its src/ is added to PYTHONPATH so the agent module imports"
     ),
 ):
-    """Run `dva eval run agent <agent> <eval_name>` and stream output.
+    """Run `keel eval run agent <agent> <eval_name>` and stream output.
 
     When ``project_path`` is provided, the project's ``src`` directory is placed
     on PYTHONPATH and used as the working directory, so a generated agent's
@@ -136,7 +136,7 @@ async def compare_stream(
     eval_name: str = Query(...),
     compare_versions: bool = Query(False),
 ):
-    """Run `dva eval compare <eval_name>` and stream output."""
+    """Run `keel eval compare <eval_name>` and stream output."""
     args = ["compare", eval_name]
     if compare_versions:
         args.append("--compare-versions")
@@ -147,7 +147,7 @@ async def compare_stream(
 async def report_stream(
     eval_name: str = Query(...),
 ):
-    """Run `dva eval report generate <eval_name> -o <served-path>` and stream output."""
+    """Run `keel eval report generate <eval_name> -o <served-path>` and stream output."""
     out = svc.report_output_path(eval_name)
     return _sse(f"report {eval_name}", ["report", "generate", eval_name, "-o", str(out)])
 

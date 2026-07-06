@@ -9,7 +9,7 @@ Copy this JSON to `~/.codeium/windsurf/mcp_config.json`:
 ```json
 {
   "mcpServers": {
-    "dva-kg": {
+    "keel-kg": {
       "url": "http://localhost:8125",
       "transport": "http",
       "disabled": false,
@@ -151,4 +151,4 @@ Your Windsurf IDE can now:
 - ✅ Use pre-configured Cypher queries
 - ✅ Switch between providers dynamically
 
-**Happy coding with DVA KG MCP! 🚀**
+**Happy coding with KEEL KG MCP! 🚀**

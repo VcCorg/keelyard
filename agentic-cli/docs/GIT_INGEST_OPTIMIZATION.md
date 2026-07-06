@@ -61,17 +61,17 @@ Added `--detailed-analysis` flag to control ingestion depth. **Fast mode is now 
 
 ### Files Modified
 
-1. **`src/dva_agentic_cli/kg/parsers.py`**
+1. **`src/agentic_cli/kg/parsers.py`**
    - Added `detailed_analysis: bool = True` parameter to `parse_git_repository()`
    - Wrapped file analysis code in `if detailed_analysis:` block
    - Added else clause with skip message
 
-2. **`src/dva_agentic_cli/kg/ingest.py`**
+2. **`src/agentic_cli/kg/ingest.py`**
    - Added `detailed_analysis: bool = True` parameter to `ingest_data()`
    - Passed parameter to `parse_git_repository()`
    - Updated docstring
 
-3. **`src/dva_agentic_cli/commands/kg.py`**
+3. **`src/agentic_cli/commands/kg.py`**
    - Added `--detailed-analysis` flag (default: True)
    - Added `--no-detailed-analysis` flag for opt-out
    - Handled negation flag
@@ -119,7 +119,7 @@ def parse_git_repository(..., detailed_analysis: bool = True):
 [INFO] Generating repository digest with gitingest...
 [INFO] Skipping detailed code analysis (using gitingest digest only)
 [INFO] Parsed 1 documents from repository
-[INFO] Cleaning up temp directory: /tmp/dva_git_xyz123
+[INFO] Cleaning up temp directory: /tmp/keel_git_xyz123
 ✓ Successfully ingested data
   Source: https://github.com/org/patient-docs.git
   Format: git
@@ -150,7 +150,7 @@ def parse_git_repository(..., detailed_analysis: bool = True):
 [INFO] Performing detailed code analysis...
 [INFO] Found 150 source files (Python, Java, SQL/DDL/DML)
 [INFO] Parsed 450 documents from repository
-[INFO] Cleaning up temp directory: /tmp/dva_git_abc456
+[INFO] Cleaning up temp directory: /tmp/keel_git_abc456
 ✓ Successfully ingested data
   Source: https://github.com/org/backend.git
   Format: git

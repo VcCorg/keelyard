@@ -231,7 +231,7 @@ domain-context-repo/
 When onboarding a repo with domain context:
 
 ```bash
-dva code onboard --path ./my-repo \
+keel code onboard --path ./my-repo \
   --domain cwow-facility \
   --domain-context-repo <url> \
   --use-domain-skills
@@ -367,7 +367,7 @@ pr-reviewer-domain/
 
 ### Step 5: Validate Against Real Task
 ```bash
-dva domain validate-skills cwow-facility \
+keel domain validate-skills cwow-facility \
   --skill pr-reviewer-domain \
   --task "Review PR #123 in cwow-facility-service" \
   --feedback "works" \
@@ -388,7 +388,7 @@ dva domain validate-skills cwow-facility \
 Once a domain-customized skill is validated across multiple projects:
 
 ```bash
-dva domain contribute-skill cwow-facility \
+keel domain contribute-skill cwow-facility \
   --skill pr-reviewer-domain \
   --upstream-skill pr-reviewer \
   --message "Add facility-domain code review rules"

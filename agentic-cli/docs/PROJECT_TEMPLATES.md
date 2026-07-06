@@ -190,7 +190,7 @@ NEO4J_PASSWORD=password
 
 ## Pre-configured Google Cloud
 
-If you've run `dva init vertex-ai`, your Google Cloud settings will automatically be applied to new projects:
+If you've run `keel init vertex-ai`, your Google Cloud settings will automatically be applied to new projects:
 
 ```bash
 # Configure once

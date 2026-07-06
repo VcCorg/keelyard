@@ -56,7 +56,7 @@ class KGConfig(BaseModel):
     @classmethod
     def get_config_path(cls) -> Path:
         """Get the configuration file path."""
-        config_dir = Path.home() / ".dva-agentic"
+        config_dir = Path.home() / ".keel-agentic"
         config_dir.mkdir(parents=True, exist_ok=True)
         return config_dir / "kg-config.json"
     

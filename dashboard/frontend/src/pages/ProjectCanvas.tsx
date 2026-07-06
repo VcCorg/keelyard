@@ -322,7 +322,7 @@ function graphToManifest(nodes: Node[], project: AgentProject): Record<string, u
   };
 }
 
-/** Build a `dva project create … --force` command that regenerates the project. */
+/** Build a `keel project create … --force` command that regenerates the project. */
 function scaffoldCommand(manifest: Record<string, unknown>, project: AgentProject): string {
   const spec = (manifest.spec ?? {}) as Record<string, unknown>;
   const agent = (spec.agent ?? {}) as Record<string, unknown>;
@@ -725,7 +725,7 @@ export function ProjectCanvas() {
               </p>
 
               {scaffoldUrl && (
-                <StreamConsole url={scaffoldUrl} title={`dva project create ${project?.name}`} />
+                <StreamConsole url={scaffoldUrl} title={`keel project create ${project?.name}`} />
               )}
             </div>
             <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-100 dark:border-gray-800">

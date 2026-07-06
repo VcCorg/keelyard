@@ -1,7 +1,7 @@
 """Execution-engine registry + audited, engine-neutral launch.
 
 Callers ask for work to run; the registry picks the engine (default configurable
-via ``DVA_EXECUTION_ENGINE``) and records the launch in the central audit trail
+via ``KEEL_EXECUTION_ENGINE``) and records the launch in the central audit trail
 with the vendor attributed — so swapping engines never loses traceability.
 """
 
@@ -20,7 +20,7 @@ def register(name: str, factory: Callable[[], ExecutionEngine]) -> None:
 
 
 def _default_name() -> str:
-    return os.environ.get("DVA_EXECUTION_ENGINE", "devin").lower()
+    return os.environ.get("KEEL_EXECUTION_ENGINE", "devin").lower()
 
 
 def get_engine(name: Optional[str] = None) -> ExecutionEngine:

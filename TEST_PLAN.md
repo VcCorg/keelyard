@@ -1,10 +1,10 @@
 # Agentic Platform — Ground-Zero Test Plan
 
-End-to-end validation plan for the Agentic Platform (CLI `dva` + dashboard backend/frontend),
+End-to-end validation plan for the Agentic Platform (CLI `keel` + dashboard backend/frontend),
 designed to be run **from a clean slate**. Work top-to-bottom: set up prerequisites, reset to
 ground zero, then execute the scenarios in order (each builds on the previous).
 
-- **CLI**: `agentic-cli` (`dva`)
+- **CLI**: `agentic-cli` (`keel`)
 - **Backend**: `dashboard/backend` (FastAPI, `/api/*`)
 - **Frontend**: `dashboard/frontend` (React/Vite)
 
@@ -17,21 +17,21 @@ ground zero, then execute the scenarios in order (each builds on the previous).
 | Area | Frontend page | Backend router | CLI |
 |------|---------------|----------------|-----|
 | Overview | `Dashboard` | `/api/overview`, `/api/health` | — |
-| Activity | `ActivityFeed` | `/api/activity` | `dva history` |
-| Domain Onboarding | `DomainOnboarding` | `/api/domains` | `dva product`, `dva domain` |
-| Code Onboard | `CodeOnboard` | `/api/code` | `dva code` |
-| Skills | `Skills` | `/api/skills` (+ `validate-with-devin`, `targets`) | `dva skill` |
+| Activity | `ActivityFeed` | `/api/activity` | `keel history` |
+| Domain Onboarding | `DomainOnboarding` | `/api/domains` | `keel product`, `keel domain` |
+| Code Onboard | `CodeOnboard` | `/api/code` | `keel code` |
+| Skills | `Skills` | `/api/skills` (+ `validate-with-devin`, `targets`) | `keel skill` |
 | Deployments | `Deployments` | `/api/deployments` | deploy flow |
-| MCP Servers | `MCPServers` | `/api/mcp` | `dva mcp` |
-| Evaluation | `Eval` | `/api/eval` | `dva eval` |
-| KG Context / Domain | `KGContext`, `KGDomain` | `/api/kg` | `dva kg` |
-| KG Ingest | `KGIngest` | `/api/kg/ingest/*` | `dva kg ingest submit` |
-| OKF Generation | `OKFGeneration` | `/api/kg/okf/*` | `dva kg okf` |
-| Data Sources | `DataSources` | `/api/data` | `dva data` |
-| Agents | `Agents` | `/api/agents` | `dva agent` |
-| Agent Projects | `Projects` | `/api/agents` (projects) | `dva project` |
+| MCP Servers | `MCPServers` | `/api/mcp` | `keel mcp` |
+| Evaluation | `Eval` | `/api/eval` | `keel eval` |
+| KG Context / Domain | `KGContext`, `KGDomain` | `/api/kg` | `keel kg` |
+| KG Ingest | `KGIngest` | `/api/kg/ingest/*` | `keel kg ingest submit` |
+| OKF Generation | `OKFGeneration` | `/api/kg/okf/*` | `keel kg okf` |
+| Data Sources | `DataSources` | `/api/data` | `keel data` |
+| Agents | `Agents` | `/api/agents` | `keel agent` |
+| Agent Projects | `Projects` | `/api/agents` (projects) | `keel project` |
 | Chat | `Chat` | `/api/chat` | — |
-| Devin Sessions | `Devin` | `/api/devin` (+ `/knowledge`) | `dva devin` |
+| Devin Sessions | `Devin` | `/api/devin` (+ `/knowledge`) | `keel devin` |
 | Terminal | `Terminal` | `/api/terminal` | — |
 | CLI Console | `CLIRunner` | `/api/cli` | — |
 | Run streaming (SSE) | (consoles) | `/api/runs` | — |
@@ -48,7 +48,7 @@ Validate only that they render and navigate.
 ## 2. Prerequisites & Dependencies
 
 ### 2.1 Toolchain
-- [ ] Python env for `agentic-cli` installed (`dva --help` works)
+- [ ] Python env for `agentic-cli` installed (`keel --help` works)
 - [ ] Backend deps installed (`dashboard/backend`)
 - [ ] Frontend deps installed (`dashboard/frontend`, `npm install`)
 
@@ -57,7 +57,7 @@ Validate only that they render and navigate.
 |------------|-----------|--------------|
 | Devin API key | Skills validate-with-Devin, Devin Sessions, OKF push-devin | `DEVIN_API_KEY` |
 | Anchor MCP (Jira/Confluence/Bitbucket) | Domain Onboarding doc/repo tracking, KG Confluence ingest | MCP config |
-| KG provider (Neo4j / LightRAG / Postgres / Weaviate) | KG ingest/query/clear, OKF export | `dva kg config` |
+| KG provider (Neo4j / LightRAG / Postgres / Weaviate) | KG ingest/query/clear, OKF export | `keel kg config` |
 | Gemini / Vertex AI | Chat, entity extraction, OKF enrich | provider config |
 | gcloud auth | Vertex-backed features | `gcloud auth` |
 
@@ -80,22 +80,22 @@ There is currently **no single reset command** — perform these steps in order:
 
 1. **Wipe the knowledge graph** (all providers):
    ```bash
-   dva kg clear --provider both --yes
+   keel kg clear --provider both --yes
    ```
 2. **Clear async ingest jobs**:
    ```bash
-   dva kg async cleanup --days 0 --force
+   keel kg async cleanup --days 0 --force
    ```
 3. **Reset the tracker DB** (products, domains, repos, docs, projects, activity):
    ```bash
    # Back up first if desired:
    cp ~/.agent-cli-agentic/tracker.db ~/.agent-cli-agentic/tracker.db.bak
    rm ~/.agent-cli-agentic/tracker.db
-   # Recreated with fresh schema on next `dva` command / backend startup
+   # Recreated with fresh schema on next `keel` command / backend startup
    ```
 4. **(Optional) Reset CLI config** (workspaces + LLM providers — requires re-init afterward):
    ```bash
-   dva init reset --confirm
+   keel init reset --confirm
    ```
 5. **Remove local artifacts**:
    - `knowledge-export/`, generated OKF bundles
@@ -105,10 +105,10 @@ There is currently **no single reset command** — perform these steps in order:
 **Post-reset verification**
 - [ ] `GET /api/overview` shows 0 products / 0 domains / 0 projects
 - [ ] Dashboard home shows empty state
-- [ ] `dva kg query "test"` returns empty / no graph
+- [ ] `keel kg query "test"` returns empty / no graph
 - [ ] Activity feed is empty (or only the reset commands)
 
-> **Gap / TODO:** a guarded one-shot `dva reset` (`--all/--kg/--tracker/--config/--artifacts/--dry-run/--yes`)
+> **Gap / TODO:** a guarded one-shot `keel reset` (`--all/--kg/--tracker/--config/--artifacts/--dry-run/--yes`)
 > and an admin-only "Factory Reset" dashboard action would replace steps 1–5. Tracked as a follow-up.
 
 ---
@@ -125,7 +125,7 @@ Each scenario lists **preconditions → steps → expected**, and the **surface*
 
 ### S2 — Create a Product
 - **Pre:** S1
-- **Steps:** create product (e.g. `CWOW`) via Domain Onboarding **and/or** `dva product create`
+- **Steps:** create product (e.g. `CWOW`) via Domain Onboarding **and/or** `keel product create`
 - **Expected:** product appears in `GET /api/domains/products` and onboarding UI
 - **Surface:** dashboard + CLI
 
@@ -133,7 +133,7 @@ Each scenario lists **preconditions → steps → expected**, and the **surface*
 - **Pre:** S2
 - **Steps:** create domain (e.g. `cwow-facility`) tied to `CWOW`; set Jira/Bitbucket/Confluence refs
 - **Expected:** domain listed under product; carries product association
-- **Surface:** dashboard + CLI (`dva domain create`)
+- **Surface:** dashboard + CLI (`keel domain create`)
 
 ### S4 — Link repos & track docs (depends on Anchor MCP)
 - **Pre:** S3, Anchor MCP available
@@ -145,11 +145,11 @@ Each scenario lists **preconditions → steps → expected**, and the **surface*
 - **Pre:** S3
 - **Steps:** run Code Onboard on a target repo (auto-detect stack, install SKILL.md)
 - **Expected:** streaming console completes; skills installed; repo registered
-- **Surface:** dashboard (`/code-onboard`) + `dva code`
+- **Surface:** dashboard (`/code-onboard`) + `keel code`
 
 ### S6 — Register a Data Source
 - **Pre:** S2
-- **Steps:** create a data source (doc dir / Confluence / git) via Data Sources / `dva data create`
+- **Steps:** create a data source (doc dir / Confluence / git) via Data Sources / `keel data create`
 - **Expected:** source listed; selectable in KG Ingest
 - **Surface:** dashboard + CLI
 
@@ -157,38 +157,38 @@ Each scenario lists **preconditions → steps → expected**, and the **surface*
 - **Pre:** S4, KG provider configured
 - **Steps:** from KG Ingest, ingest the domain (depth/top as needed)
 - **Expected:** SSE log streams; job recorded; nodes tagged with `domain` + derived `product`
-- **Surface:** dashboard + `dva kg ingest submit --domain <slug>`
+- **Surface:** dashboard + `keel kg ingest submit --domain <slug>`
 
 ### S8 — KG Ingest: Path/URL mode (product mandatory)
 - **Pre:** S2, KG provider configured
 - **Steps:** ingest a path/URL; **verify Ingest is blocked until a Product is selected**; pick optional domain
 - **Expected:** submit blocked without product; on submit, nodes/job tagged with product (+ optional domain)
 - **Negative:** call `/api/kg/ingest/submit/stream` with no `domain` and no `product` → **HTTP 400**
-- **Surface:** dashboard + `dva kg ingest submit --path ... --product ...`
+- **Surface:** dashboard + `keel kg ingest submit --path ... --product ...`
 
 ### S9 — KG Ingest: Registered Source mode (product mandatory)
 - **Pre:** S6, KG provider configured
 - **Steps:** ingest the registered source; product required, domain optional
 - **Expected:** same product-tagging + 400 guard as S8
-- **Surface:** dashboard + `dva kg ingest submit --source ... --product ...`
+- **Surface:** dashboard + `keel kg ingest submit --source ... --product ...`
 
 ### S10 — KG Query / Context
 - **Pre:** S7 (or S8/S9)
 - **Steps:** open KG Context / KG Domain; run a query
 - **Expected:** entities/relationships returned; domain view shows ingested content
-- **Surface:** dashboard + `dva kg query`
+- **Surface:** dashboard + `keel kg query`
 
 ### S11 — OKF Generation (depends on KG + Vertex)
 - **Pre:** S7, Vertex available
 - **Steps:** init/export/enrich an OKF bundle for the domain; (optional) visualize
 - **Expected:** bundle created; concepts present; viz renders
-- **Surface:** dashboard (`/kg/okf`) + `dva kg okf`
+- **Surface:** dashboard (`/kg/okf`) + `keel kg okf`
 
 ### S12 — Skills: browse & install
 - **Pre:** S1
 - **Steps:** open Skills; install a skill into a target repo
 - **Expected:** install console completes; skill present in target
-- **Surface:** dashboard + `dva skill`
+- **Surface:** dashboard + `keel skill`
 
 ### S13 — Skills: Validate with Devin (depends on Devin key)
 - **Pre:** S12, `DEVIN_API_KEY` set
@@ -208,13 +208,13 @@ Each scenario lists **preconditions → steps → expected**, and the **surface*
 - **Pre:** Devin key
 - **Steps:** create a session; open detail; send a follow-up message; review verdict card + transcript
 - **Expected:** session lists/polls; transcript renders from `raw.messages`; messages send
-- **Surface:** dashboard + `dva devin`
+- **Surface:** dashboard + `keel devin`
 
 ### S16 — Agents & Agent Projects
 - **Pre:** S1
 - **Steps:** create/list agents; scaffold/validate an agent project
 - **Expected:** agent appears; project validation score reflects file checks
-- **Surface:** dashboard + `dva agent`, `dva project`
+- **Surface:** dashboard + `keel agent`, `keel project`
 
 ### S17 — Chat (depends on LLM provider)
 - **Pre:** provider configured
@@ -226,17 +226,17 @@ Each scenario lists **preconditions → steps → expected**, and the **surface*
 - **Pre:** MCP configured
 - **Steps:** open MCP Servers; trigger health check
 - **Expected:** per-server healthy/unhealthy status
-- **Surface:** dashboard + `dva mcp`
+- **Surface:** dashboard + `keel mcp`
 
 ### S19 — Evaluation
 - **Pre:** S16
 - **Steps:** run an eval
 - **Expected:** eval executes; results shown
-- **Surface:** dashboard + `dva eval`
+- **Surface:** dashboard + `keel eval`
 
 ### S20 — Terminal & CLI Console
 - **Pre:** S1
-- **Steps:** run a command in Terminal; run a `dva` command in CLI Console
+- **Steps:** run a command in Terminal; run a `keel` command in CLI Console
 - **Expected:** output streams; exit handled
 - **Surface:** dashboard
 
@@ -244,7 +244,7 @@ Each scenario lists **preconditions → steps → expected**, and the **surface*
 - **Pre:** after running prior scenarios
 - **Steps:** open Activity
 - **Expected:** prior CLI/dashboard actions recorded with command/subcommand/args
-- **Surface:** dashboard + `dva history`
+- **Surface:** dashboard + `keel history`
 
 ### S22 — Navigation & RBAC / lens
 - **Pre:** S1
@@ -267,7 +267,7 @@ Each scenario lists **preconditions → steps → expected**, and the **surface*
 - [ ] Registered Source mode requires product
 - [ ] Domain selector is scoped to the chosen product and is optional
 - [ ] Backend returns 400 when neither domain nor product is supplied
-- [ ] `dva kg ingest submit --product CWOW --path ...` tags job + node metadata
+- [ ] `keel kg ingest submit --product CWOW --path ...` tags job + node metadata
 - [ ] Jobs table shows the ingest (and source/domain)
 
 ### Skills ↔ Devin
@@ -281,7 +281,7 @@ Each scenario lists **preconditions → steps → expected**, and the **surface*
 ---
 
 ## 6. Known Gaps / Follow-ups
-- No one-shot `dva reset` / dashboard Factory Reset (manual steps in §3).
+- No one-shot `keel reset` / dashboard Factory Reset (manual steps in §3).
 - Devin sessions cannot be bulk-wiped (remote).
 - Mockup pages (§1 out-of-scope) need backends before functional testing.
 - Recent Ingest Jobs table does not yet surface a dedicated **Product** column.

@@ -36,7 +36,7 @@ console = Console()
 code_app = typer.Typer(help="Onboard repos with AI code assist skills", rich_markup_mode=None)
 
 # Default skills registry location
-DEFAULT_REGISTRY = Path.home() / ".dva" / "skills-registry"
+DEFAULT_REGISTRY = Path.home() / ".keel" / "skills-registry"
 AGENT_CONFIG_DIR = Path.home() / ".agent-cli-agentic"
 AGENT_CONFIG_FILE = AGENT_CONFIG_DIR / "config.json"
 
@@ -129,7 +129,7 @@ def _generate_project_context_skill(
 
     This creates a single root skill that provides access to:
     - graphify: Code structure queries
-    - dva-kg-mcp: Requirements and release context
+    - keel-kg-mcp: Requirements and release context
     - anchor mcp: Jira, Bitbucket, Confluence
     - glean: Fallback for general knowledge
 
@@ -774,7 +774,7 @@ def onboard(
                     console.print("[dim]No additional domain skills to install[/dim]")
             else:
                 console.print("[yellow]⚠ Domain context repo not found — skipping domain skills[/yellow]")
-                console.print(f"[dim]Use --domain-context-repo or run: dva domain init-context {domain}[/dim]")
+                console.print(f"[dim]Use --domain-context-repo or run: keel domain init-context {domain}[/dim]")
 
         except Exception as e:
             console.print(f"[yellow]⚠ Domain skills loading failed: {e}[/yellow]")
@@ -984,7 +984,7 @@ def onboard(
                 }
             else:
                 console.print(f"[yellow]⚠ Domain meta-repo not found for '{domain}'[/yellow]")
-                console.print(f"[dim]Create one with: dva domain init-meta {domain}[/dim]")
+                console.print(f"[dim]Create one with: keel domain init-meta {domain}[/dim]")
                 meta_repo_result = {
                     "detected": False,
                 }
@@ -1292,7 +1292,7 @@ def list_projects(
         # Show all, but mark missing ones
         missing_count = sum(1 for r in repos if not r.get("exists", True))
         if missing_count > 0:
-            console.print(f"[yellow]⚠ {missing_count} project(s) missing from disk. Use --show-missing to view them or 'dva code cleanup' to remove them.[/yellow]\n")
+            console.print(f"[yellow]⚠ {missing_count} project(s) missing from disk. Use --show-missing to view them or 'keel code cleanup' to remove them.[/yellow]\n")
 
     table = Table(
         show_header=True,
@@ -1902,7 +1902,7 @@ def config_cmd(
 
     Examples:
         {CLI_NAME} code config --registry /path/to/{CLI_NAME}-skills
-        {CLI_NAME} code config --registry https://bitbucket.example.com/scm/DVA/{CLI_NAME}-skills.git
+        {CLI_NAME} code config --registry https://bitbucket.example.com/scm/KEEL/{CLI_NAME}-skills.git
         {CLI_NAME} code config --show
     """.format(CLI_NAME=CLI_NAME)
     config = _get_config()

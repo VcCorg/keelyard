@@ -22,7 +22,7 @@ console = Console()
 agent_app = typer.Typer(help="Run and manage agents", rich_markup_mode=None)
 
 # State file for tracking scheduled/running agents
-AGENT_STATE_DIR = Path.home() / ".dva" / "agents"
+AGENT_STATE_DIR = Path.home() / ".keel" / "agents"
 
 
 def _get_state_file() -> Path:
@@ -48,7 +48,7 @@ def _save_state(state: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Imported agents (fetched via `agent import` into ~/.dva/agents/imported/)
+# Imported agents (fetched via `agent import` into ~/.keel/agents/imported/)
 # ---------------------------------------------------------------------------
 def _imported_dir() -> Path:
     return AGENT_STATE_DIR / "imported"
@@ -855,7 +855,7 @@ def import_agent(
     Import an external agent from a git repository as a local reference agent.
 
     Sparse-fetches the given repo (optionally a subpath) into the local agent
-    registry at ~/.dva/agents/imported/<name>/, records provenance, and can pip
+    registry at ~/.keel/agents/imported/<name>/, records provenance, and can pip
     install it. Used to bring in reference agents such as the GCP OKF enrichment
     agent so the CLI can build on them.
 
@@ -1244,7 +1244,7 @@ def test_agent(
             if reg_path_str:
                 reg_path = Path(reg_path_str)
             else:
-                reg_path = Path.home() / ".dva" / "skills-registry"
+                reg_path = Path.home() / ".keel" / "skills-registry"
 
             if (reg_path / "registry.json").exists():
                 registry_data = load_registry(reg_path)

@@ -189,7 +189,7 @@ export function CodeOnboard() {
 
       <StreamConsole
         url={streamUrl}
-        title="dva code onboard"
+        title="keel code onboard"
         onDone={() => {
           setRunning(false);
           setHistoryKey((k) => k + 1);

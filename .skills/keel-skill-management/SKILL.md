@@ -1,12 +1,12 @@
 ---
-name: dva-skill-management
+name: keel-skill-management
 description: >-
   Manage AI coding skills across local registry, marketplace, and domain sources
-  via DVA Central MCP. Install, resolve, validate, fork, and publish skills.
+  via KEEL Central MCP. Install, resolve, validate, fork, and publish skills.
 mcp_server: agentic
 ---
 
-# DVA Skill Management
+# KEEL Skill Management
 
 You have access to the Agentic Platform MCP server. Use these tools for unified
 skill lifecycle management across all sources: local registry, example marketplace,
@@ -104,6 +104,6 @@ domain_skills_fork(domain="cwow-facility", skill="pr-reviewer", reason="Need dom
 
 If the Agentic MCP server is not running:
 - Local skills: read `skills/registry.json` directly
-- Marketplace: `dva skill marketplace list` (CLI)
-- Domain: `dva domain list-skills <slug>` (CLI)
+- Marketplace: `keel skill marketplace list` (CLI)
+- Domain: `keel domain list-skills <slug>` (CLI)
 - Install: copy from `skills/skills/<name>/` to `<project>/.skills/<name>/`

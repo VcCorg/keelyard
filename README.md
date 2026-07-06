@@ -63,10 +63,10 @@ source .venv/bin/activate
 #    (set *_SERVER_URL and *_PERSONAL_ACCESS_TOKEN for Bitbucket/Jira/Confluence)
 
 # 5. Verify your environment anytime
-dva doctor                 # add --probe to test host reachability
+keel doctor                 # add --probe to test host reachability
 
 # 6. Onboard any project
-dva code onboard --path ./some-project
+keel code onboard --path ./some-project
 ```
 
 ### Manual setup (if you prefer step-by-step)
@@ -74,10 +74,10 @@ dva code onboard --path ./some-project
 ```bash
 ./install-agentic-cli.sh --project --native-tls   # install CLI into ./.venv
 source .venv/bin/activate
-dva code config --registry ./skills                # configure skills registry
+keel code config --registry ./skills                # configure skills registry
 cp mcp-servers/.env.example mcp-servers/.env       # then edit with your URLs/tokens
 cd mcp-servers && docker compose up -d && cd ..    # start MCP servers
-dva doctor                                         # validate everything
+keel doctor                                         # validate everything
 ```
 
 > All base URLs are configuration-driven. Set `BITBUCKET_SERVER_URL`,

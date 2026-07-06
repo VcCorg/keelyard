@@ -373,9 +373,9 @@ class TestJiraIntegrationTool:
 
 ## Support
 
-- **Documentation**: [Agentic CLI Documentation](https://docs.dva.com)
-- **Issues**: [GitHub Issues](https://github.com/dva/agent-tools/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/dva/agent-tools/discussions)
+- **Documentation**: [Agentic CLI Documentation](https://docs.keel.com)
+- **Issues**: [GitHub Issues](https://github.com/keel/agent-tools/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/keel/agent-tools/discussions)
 
 ## License
 

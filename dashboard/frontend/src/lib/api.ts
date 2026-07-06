@@ -1125,7 +1125,7 @@ class APIClient {
     return this.request("/kg/ingest/domains");
   }
 
-  /** Build an SSE URL for `dva kg ingest submit ...`. */
+  /** Build an SSE URL for `keel kg ingest submit ...`. */
   kgIngestStreamUrl(params: IngestSubmitParams): string {
     const q = new URLSearchParams();
     if (params.domain) q.append("domain", params.domain);
@@ -1154,7 +1154,7 @@ class APIClient {
     return this.request(`/kg/okf/projection/${encodeURIComponent(domain)}?source=${source}`);
   }
 
-  /** Build an SSE URL for `dva kg okf export ...` (no reindex). */
+  /** Build an SSE URL for `keel kg okf export ...` (no reindex). */
   okfExportStreamUrl(params: OKFExportParams): string {
     const q = new URLSearchParams();
     q.append("domain", params.domain);
@@ -1168,7 +1168,7 @@ class APIClient {
     return this.request("/kg/okf/devin/status");
   }
 
-  /** Build an SSE URL for `dva kg okf push-devin ...`. */
+  /** Build an SSE URL for `keel kg okf push-devin ...`. */
   okfDevinPushStreamUrl(params: OKFDevinPushParams): string {
     const q = new URLSearchParams();
     q.append("domain", params.domain);
@@ -1237,7 +1237,7 @@ class APIClient {
   }
 
   /* ---- CLI Setup ---- */
-  /** Report which `dva init` steps are done (drives sidebar + banners). */
+  /** Report which `keel init` steps are done (drives sidebar + banners). */
   async getSetupStatus(): Promise<SetupStatus> {
     return this.request("/setup/status");
   }
@@ -1261,7 +1261,7 @@ class APIClient {
     return this.streamUrl(`/setup/init/neo4j/stream?${q.toString()}`);
   }
 
-  /** Persist a Jira/Bitbucket/Confluence URL + token to ~/.dva/.env via the CLI. */
+  /** Persist a Jira/Bitbucket/Confluence URL + token to ~/.keel/.env via the CLI. */
   setupIntegrationStreamUrl(
     kind: "jira" | "bitbucket" | "confluence",
     url: string,
@@ -1314,7 +1314,7 @@ class APIClient {
     return this.streamUrl(`/code/onboard/stream?${q.toString()}`);
   }
 
-  /** Build an SSE URL for `dva kg okf enrich ...` (graphify structural + Confluence). */
+  /** Build an SSE URL for `keel kg okf enrich ...` (graphify structural + Confluence). */
   okfEnrichStreamUrl(params: OKFEnrichParams): string {
     const q = new URLSearchParams();
     q.append("domain", params.domain);
@@ -1497,7 +1497,7 @@ class APIClient {
     });
   }
 
-  /** SSE: `dva domain sync` (tech-lead domain-tier assembly). */
+  /** SSE: `keel domain sync` (tech-lead domain-tier assembly). */
   workspaceSyncStreamUrl(domain: string, opts?: { persona?: string; graphify?: boolean; editor?: string }): string {
     const q = new URLSearchParams({ domain });
     if (opts?.persona) q.append("persona", opts.persona);
@@ -1506,7 +1506,7 @@ class APIClient {
     return this.streamUrl(`/workspaces/sync/stream?${q.toString()}`);
   }
 
-  /** SSE: `dva workspace open` (dev repo-tier worktree). */
+  /** SSE: `keel workspace open` (dev repo-tier worktree). */
   workspaceOpenStreamUrl(domain: string, repo: string, opts?: { persona?: string; graphify?: boolean; editor?: string }): string {
     const q = new URLSearchParams({ domain, repo });
     if (opts?.persona) q.append("persona", opts.persona);
@@ -1634,7 +1634,7 @@ class APIClient {
 
   /* ---- Product Meta-Repo / Governance / Exceptions ---- */
 
-  /** Build an SSE URL for `dva product init-meta <name>`. */
+  /** Build an SSE URL for `keel product init-meta <name>`. */
   productInitMetaStreamUrl(
     name: string,
     orgMethodology?: string,
@@ -1776,7 +1776,7 @@ class APIClient {
     return this.request("/chat/sessions");
   }
 
-  async createChatSession(agentName: string = "dva-assistant"): Promise<ChatSessionInfo> {
+  async createChatSession(agentName: string = "keel-assistant"): Promise<ChatSessionInfo> {
     return this.request("/chat/sessions", {
       method: "POST",
       body: JSON.stringify({ agent_name: agentName }),

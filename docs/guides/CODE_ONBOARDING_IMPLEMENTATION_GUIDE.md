@@ -44,7 +44,7 @@
 NOT: agent run --path ./facility-service --task "..."
      (This is for custom agents)
 
-YES: dva code onboard --path ./facility-service --kg
+YES: keel code onboard --path ./facility-service --kg
      (This prepares the repository)
 ```
 
@@ -65,7 +65,7 @@ Code Onboarding
 ```
 Repository is now ready for development
 ├─ Skills available in .skills/generated/
-├─ Context available in .dva/ and kg-context.md
+├─ Context available in .keel/ and kg-context.md
 ├─ Domain metadata in .domain-context.json
 └─ Developer opens in Windsurf and gets intelligent suggestions
 ```
@@ -78,14 +78,14 @@ Repository is now ready for development
 
 ```bash
 # Onboard facility-service to cwow-facility domain
-$ dva code onboard --path ./facility-service --kg
+$ keel code onboard --path ./facility-service --kg
 
 ✓ Analyzed code structure
 ✓ Queried KG for cwow-facility domain
 ✓ Generated kg-context.md
 ✓ Generated 4 domain-aware skills with KG context
-✓ Created .dva/codebase-understanding.md
-✓ Created .dva/methodology.yaml
+✓ Created .keel/codebase-understanding.md
+✓ Created .keel/methodology.yaml
 ✓ Created .domain-context.json
 
 Result: Repository is ready for development
@@ -105,7 +105,7 @@ facility-service/
 │   └── sla-monitor-skill/
 │       └─ SKILL.md (with KG context embedded)
 │
-├── .dva/
+├── .keel/
 │   ├── codebase-understanding.md (architecture, patterns)
 │   ├── methodology.yaml (workflow config)
 │   └── onboarding/ (analysis, domain knowledge)
@@ -123,7 +123,7 @@ $ windsurf ./facility-service
 Windsurf detects and loads:
 ├─ .domain-context.json → Domain metadata
 ├─ .skills/generated/*.md → Domain-aware skills
-├─ .dva/codebase-understanding.md → Project context
+├─ .keel/codebase-understanding.md → Project context
 └─ kg-context.md → Business context
 
 Windsurf is now context-aware
@@ -302,7 +302,7 @@ examples:
 - 120 files, 25 dependencies
 ```
 
-### Generated .dva/codebase-understanding.md
+### Generated .keel/codebase-understanding.md
 
 ```markdown
 # Facility Service - Codebase Understanding
@@ -367,7 +367,7 @@ Windsurf learns:
 └─ Uses this to suggest code, patterns, and implementations
 ```
 
-### Windsurf Reads .dva/codebase-understanding.md
+### Windsurf Reads .keel/codebase-understanding.md
 ```
 Windsurf learns:
 ├─ Architecture: How code is organized
@@ -462,7 +462,7 @@ Generated skills include:
 ```
 After code onboarding:
 ├─ Skills available in .skills/
-├─ Context available in .dva/ and kg-context.md
+├─ Context available in .keel/ and kg-context.md
 ├─ Domain metadata in .domain-context.json
 ├─ No agent execution needed
 └─ Windsurf provides all guidance
@@ -506,7 +506,7 @@ Code Onboarding
 Windsurf opens repository
 ├─ Detects .domain-context.json
 ├─ Loads all SKILL.md files
-├─ Reads .dva/codebase-understanding.md
+├─ Reads .keel/codebase-understanding.md
 ├─ Reads kg-context.md
 ├─ Becomes context-aware
 └─ Provides intelligent suggestions for development
@@ -527,7 +527,7 @@ Windsurf opens repository
 
 ✅ **Code onboarding prepares the repository** - Not for agent execution  
 ✅ **Skills are stored in .skills/ directory** - Available for Windsurf to use  
-✅ **Context is stored in .dva/ and kg-context.md** - Available for Windsurf to read  
+✅ **Context is stored in .keel/ and kg-context.md** - Available for Windsurf to read  
 ✅ **Windsurf picks up context automatically** - No manual configuration needed  
 ✅ **Developer gets intelligent suggestions** - Based on domain, business, and code context  
 ✅ **No agent execution needed** - Windsurf provides all necessary guidance  

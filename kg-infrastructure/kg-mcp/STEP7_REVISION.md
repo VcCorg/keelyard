@@ -27,7 +27,7 @@
 
 **Before**:
 ```bash
-cp -r agentic-cli/src/dva_agentic_cli/kg/*.py kg-mcp-infrastructure/mcp-server/src/kg/
+cp -r agentic-cli/src/agentic_cli/kg/*.py kg-mcp-infrastructure/mcp-server/src/kg/
 ```
 
 **After**:
@@ -42,7 +42,7 @@ rm -rf kg-mcp-infrastructure/mcp-server/src/kg
 ```yaml
 volumes:
   # Mount KG modules from CLI (runtime - reflects code changes)
-  - ../agentic-cli/src/dva_agentic_cli/kg:/app/src/kg:ro
+  - ../agentic-cli/src/agentic_cli/kg:/app/src/kg:ro
 ```
 
 **Applied to**:
@@ -64,7 +64,7 @@ COPY src/mcp_server.py /app/src/
 COPY src/__init__.py /app/src/
 
 # Create directories for runtime mounts
-RUN mkdir -p /root/.dva-agentic /app/src/kg
+RUN mkdir -p /root/.keel-agentic /app/src/kg
 ```
 
 ### 4. Updated Documentation
@@ -81,7 +81,7 @@ RUN mkdir -p /root/.dva-agentic /app/src/kg
 
 ```bash
 # 1. Edit KG code in CLI
-cd agentic-cli/src/dva_agentic_cli/kg
+cd agentic-cli/src/agentic_cli/kg
 nano query.py  # Make your changes
 
 # 2. Restart MCP container (no rebuild!)
@@ -116,11 +116,11 @@ services:
   kg-mcp-server:
     volumes:
       # Read-only mount from host to container
-      - ../agentic-cli/src/dva_agentic_cli/kg:/app/src/kg:ro
+      - ../agentic-cli/src/agentic_cli/kg:/app/src/kg:ro
 ```
 
 **Breakdown**:
-- **Source**: `../agentic-cli/src/dva_agentic_cli/kg` (host)
+- **Source**: `../agentic-cli/src/agentic_cli/kg` (host)
 - **Target**: `/app/src/kg` (container)
 - **Mode**: `:ro` (read-only)
 
@@ -131,7 +131,7 @@ services:
 agentic-project/
 ├── agentic-cli/
 │   └── src/
-│       └── dva_agentic_cli/
+│       └── agentic_cli/
 │           └── kg/              ← Source
 │               ├── query.py
 │               ├── search.py
@@ -163,7 +163,7 @@ agentic-project/
 make start
 
 # Verify mount inside container
-docker exec dva-kg-mcp ls -la /app/src/kg
+docker exec keel-kg-mcp ls -la /app/src/kg
 
 # Should show files from agentic-cli
 ```
@@ -172,7 +172,7 @@ docker exec dva-kg-mcp ls -la /app/src/kg
 
 ```bash
 # 1. Make a test change
-cd ../agentic-cli/src/dva_agentic_cli/kg
+cd ../agentic-cli/src/agentic_cli/kg
 echo "# Test change" >> query.py
 
 # 2. Restart container
@@ -180,11 +180,11 @@ cd ../../kg-mcp-infrastructure
 make restart
 
 # 3. Verify change in container
-docker exec dva-kg-mcp cat /app/src/kg/query.py | tail -1
+docker exec keel-kg-mcp cat /app/src/kg/query.py | tail -1
 # Should show: # Test change
 
 # 4. Revert test change
-cd ../agentic-cli/src/dva_agentic_cli/kg
+cd ../agentic-cli/src/agentic_cli/kg
 git checkout query.py
 ```
 
@@ -244,10 +244,10 @@ Volume mount is automatic!
 
 ```bash
 # Check if CLI path is correct
-ls ../agentic-cli/src/dva_agentic_cli/kg
+ls ../agentic-cli/src/agentic_cli/kg
 
 # Check container mount
-docker exec dva-kg-mcp ls /app/src/kg
+docker exec keel-kg-mcp ls /app/src/kg
 ```
 
 ### Issue: Changes not reflected
@@ -264,7 +264,7 @@ docker-compose up -d --force-recreate
 
 ```bash
 # Check host permissions
-ls -la ../agentic-cli/src/dva_agentic_cli/kg
+ls -la ../agentic-cli/src/agentic_cli/kg
 
 # Volume is read-only which is correct
 ```
@@ -291,7 +291,7 @@ ls -la ../agentic-cli/src/dva_agentic_cli/kg
 - [ ] Build new image: `make build`
 - [ ] Start container: `make start`
 - [ ] Check health: `make health`
-- [ ] Verify mount: `docker exec dva-kg-mcp ls /app/src/kg`
+- [ ] Verify mount: `docker exec keel-kg-mcp ls /app/src/kg`
 - [ ] Test query: `make test`
 - [ ] Make code change in CLI
 - [ ] Restart: `make restart`

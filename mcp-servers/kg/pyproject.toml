@@ -1,7 +1,7 @@
 [project]
 name = "kg-mcp"
 version = "0.1.0"
-description = "MCP server for DVA Knowledge Graph - provides business context, requirements search, and domain knowledge tools for AI coding assistants"
+description = "MCP server for KEEL Knowledge Graph - provides business context, requirements search, and domain knowledge tools for AI coding assistants"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

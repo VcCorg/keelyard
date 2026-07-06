@@ -2,7 +2,7 @@
 
 An :class:`EvaluationConfig` binds together a dataset, the metrics to compute,
 and the framework/judge to use. Configs are persisted as YAML so they can be
-versioned and re-run (e.g. ``dva eval create``, ``dva eval run agent``).
+versioned and re-run (e.g. ``keel eval create``, ``keel eval run agent``).
 """
 
 import logging

@@ -1,5 +1,5 @@
 """
-Unified registry system for DVA external resources.
+Unified registry system for KEEL external resources.
 
 This module provides a unified system for managing external registries:
 - Skills (existing)

@@ -1,4 +1,4 @@
-# DVA Knowledge Graph MCP Server
+# KEEL Knowledge Graph MCP Server
 
 MCP server providing business context, requirements search, and domain knowledge tools for AI coding assistants.
 
@@ -36,10 +36,10 @@ docker compose up kg-mcp
 
 | Environment Variable | Default | Description |
 |---------------------|---------|-------------|
-| `KG_NEO4J_URI` | `bolt://dva-neo4j:7687` | Neo4j connection |
+| `KG_NEO4J_URI` | `bolt://keel-neo4j:7687` | Neo4j connection |
 | `KG_NEO4J_USER` | `neo4j` | Neo4j username |
 | `KG_NEO4J_PASSWORD` | | Neo4j password |
-| `KG_LIGHTRAG_URL` | `http://dva-lightrag:8001` | LightRAG REST API |
+| `KG_LIGHTRAG_URL` | `http://keel-lightrag:8001` | LightRAG REST API |
 | `KG_DEFAULT_PROVIDER` | `lightrag` | Default backend |
 | `KG_SOURCE_REGISTRY_PATH` | `/data/kg-sources.json` | Source registry file |
 | `CONFLUENCE_PERSONAL_ACCESS_TOKEN` | | For Confluence ingestion |

@@ -1,6 +1,6 @@
 """CodebaseSource — advertises a repository's structure as OKF concepts.
 
-This is the DVA analog of the GCP agent's BigQuerySource: instead of datasets and
+This is the KEEL analog of the GCP agent's BigQuerySource: instead of datasets and
 tables, it surfaces the code knowledge a repo carries:
 
   CodeModule   - a top-level source package/directory

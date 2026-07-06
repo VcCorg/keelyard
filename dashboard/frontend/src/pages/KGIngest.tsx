@@ -65,7 +65,7 @@ function StreamConsole({
   return (
     <div className="bg-gray-950 rounded-lg border border-gray-800 mt-3">
       <div className="flex items-center justify-between px-3 py-2 border-b border-gray-800">
-        <span className="text-xs text-gray-400 font-mono">dva kg ingest</span>
+        <span className="text-xs text-gray-400 font-mono">keel kg ingest</span>
         <span
           className={cn(
             "text-xs flex items-center gap-1",

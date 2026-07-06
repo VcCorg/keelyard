@@ -148,13 +148,13 @@ https://confluence.company.com/display/SPACEKEY
 2. **Use API tokens instead of passwords** (for Confluence Cloud)
 3. **Rotate API tokens regularly**
 4. **Use tokens with minimal required permissions**
-5. **Store tokens securely** (they're stored in `~/.dva-agentic/kg-config.json`)
+5. **Store tokens securely** (they're stored in `~/.keel-agentic/kg-config.json`)
 
 ## Configuration File Location
 
 Confluence credentials are stored in:
 ```
-~/.dva-agentic/kg-config.json
+~/.keel-agentic/kg-config.json
 ```
 
 This file contains sensitive information and should be protected.
@@ -238,6 +238,6 @@ After configuring Confluence:
 
 For issues or questions:
 1. Check the error message for specific guidance
-2. Verify your configuration with `dva kg config --show`
+2. Verify your configuration with `keel kg config --show`
 3. Test with a simple page first before ingesting entire spaces
 4. Check Confluence API documentation: https://developer.atlassian.com/cloud/confluence/rest/

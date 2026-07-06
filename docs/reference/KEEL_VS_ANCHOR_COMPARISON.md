@@ -1,4 +1,4 @@
-# DVA vs Anchor MCP — Implementation Comparison
+# KEEL vs Anchor MCP — Implementation Comparison
 
 Deep technical comparison between our **Agentic Platform** and the Framework Team's **Anchor MCP Server**.
 
@@ -42,7 +42,7 @@ Deep technical comparison between our **Agentic Platform** and the Framework Tea
 │ :8126    │ │  :8128   │ │  :8129   │ │  :8127   │ │  :8130   │ │  :8131   │
 └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘
      └──────┬─────┴──────┬─────┴──────┬──────┴──────┬─────┴──────┬─────┘
-            │         dva-network (Docker)           │
+            │         keel-network (Docker)           │
      ┌──────┴────────────────────────────────────────┴──────┐
      │            MCP Gateway :9090 (optional)              │
      │     Discovers tools dynamically, namespaces them     │
@@ -55,13 +55,13 @@ Deep technical comparison between our **Agentic Platform** and the Framework Tea
 - All share a common pattern: `config.py` (pydantic-settings) → `<name>_client.py` (httpx) → `server.py` (FastMCP)
 - Docker Compose orchestrates all services on a shared network
 - Gateway optionally aggregates all tools behind a single endpoint
-- CLI (`dva mcp`) manages lifecycle, health, and IDE config sync
+- CLI (`keel mcp`) manages lifecycle, health, and IDE config sync
 
 ---
 
 ## 2. Language & SDK
 
-| Aspect | Anchor | DVA |
+| Aspect | Anchor | KEEL |
 |--------|--------|-----|
 | **Language** | Node.js / JavaScript | Python 3.12 |
 | **MCP SDK** | `@modelcontextprotocol/sdk` (official JS SDK) | `mcp` package + `FastMCP` (official Python SDK) |
@@ -76,7 +76,7 @@ Deep technical comparison between our **Agentic Platform** and the Framework Tea
 
 ## 3. Transport & Deployment
 
-| Aspect | Anchor | DVA |
+| Aspect | Anchor | KEEL |
 |--------|--------|-----|
 | **Local mode** | stdio (`node index-stdio.js`) | stdio (`python -m <pkg>.server`) |
 | **Remote mode** | Express/SSE (`node index-server.js`, port 3000) | FastMCP SSE (one port per service) |
@@ -84,9 +84,9 @@ Deep technical comparison between our **Agentic Platform** and the Framework Tea
 | **Docker** | Single container | 8 containers (Docker Compose) |
 | **Health checks** | Not documented | `curl --max-time 2` per container, exit-code 28 trick for SSE |
 | **Scaling** | Scale the one container | Scale individual services independently |
-| **Network** | Standalone | Shared `dva-network` (external Docker network) |
+| **Network** | Standalone | Shared `keel-network` (external Docker network) |
 
-**Key difference:** Anchor is operationally simpler — one container, one port. DVA allows independent scaling and failure isolation (e.g., if Glean goes down, Jira stays up). The gateway provides the "single endpoint" option when wanted.
+**Key difference:** Anchor is operationally simpler — one container, one port. KEEL allows independent scaling and failure isolation (e.g., if Glean goes down, Jira stays up). The gateway provides the "single endpoint" option when wanted.
 
 ---
 
@@ -94,7 +94,7 @@ Deep technical comparison between our **Agentic Platform** and the Framework Tea
 
 ### 4a. Jira
 
-| Tool | Anchor | DVA |
+| Tool | Anchor | KEEL |
 |------|--------|-----|
 | Get issue details | `jira_get_issue` | `get_issue` |
 | JQL search | `jira_search_issues` | `search_issues` |
@@ -109,11 +109,11 @@ Deep technical comparison between our **Agentic Platform** and the Framework Tea
 | Sprint issues | ❌ | `get_sprint_issues` |
 | Config diagnostic | ❌ | `get_jira_config` |
 
-**Analysis:** Anchor is **read-only** by design (security choice). DVA has **write operations** (add comment, transition, assign) — more powerful but higher risk surface. DVA has 11 tools vs Anchor's 5. Anchor's `jira_get_remote_links` is unique — it follows links to Confluence/Figma automatically.
+**Analysis:** Anchor is **read-only** by design (security choice). KEEL has **write operations** (add comment, transition, assign) — more powerful but higher risk surface. KEEL has 11 tools vs Anchor's 5. Anchor's `jira_get_remote_links` is unique — it follows links to Confluence/Figma automatically.
 
 ### 4b. Bitbucket
 
-| Tool | Anchor | DVA |
+| Tool | Anchor | KEEL |
 |------|--------|-----|
 | Get file content | `get_file_content` | `get_file_content` |
 | Get PR diff | `get_pull_request_diff` | `get_pr_diff` |
@@ -134,11 +134,11 @@ Deep technical comparison between our **Agentic Platform** and the Framework Tea
 | Needs work / decline | ❌ | `needs_work_pr`, `decline_pr` ✏️ |
 | Merge PR | ❌ | `merge_pr` ✏️ |
 
-**Analysis:** Anchor has **repo-level tools** (browse code, list branches, search code across repos). DVA is **PR-focused** (deep review, inline comments, approve/merge, status changes). Anchor is read-only. DVA has full PR lifecycle write operations. Different design intents — Anchor for browsing, DVA for automated code review.
+**Analysis:** Anchor has **repo-level tools** (browse code, list branches, search code across repos). KEEL is **PR-focused** (deep review, inline comments, approve/merge, status changes). Anchor is read-only. KEEL has full PR lifecycle write operations. Different design intents — Anchor for browsing, KEEL for automated code review.
 
 ### 4c. Confluence
 
-| Tool | Anchor | DVA |
+| Tool | Anchor | KEEL |
 |------|--------|-----|
 | Search pages | `confluence_search_pages` | `search_confluence` |
 | Get page content | `confluence_get_page` | `get_confluence_page` |
@@ -152,17 +152,17 @@ Deep technical comparison between our **Agentic Platform** and the Framework Tea
 | Add page comment | ❌ | `add_confluence_comment` ✏️ |
 | Get page labels | ❌ | `get_page_labels` |
 
-**Analysis:** Anchor has the unique `confluence_get_attachment` (can fetch base64 images from pages). DVA has broader coverage with 10 tools including CQL, space management, comments, and labels. Both use Confluence REST API.
+**Analysis:** Anchor has the unique `confluence_get_attachment` (can fetch base64 images from pages). KEEL has broader coverage with 10 tools including CQL, space management, comments, and labels. Both use Confluence REST API.
 
 ### 4d. Unique to Each
 
-| Anchor Only | DVA Only |
+| Anchor Only | KEEL Only |
 |-------------|----------|
 | **Figma** (7 tools): design context, node images, design tokens, component hierarchy, comments, screen specs | **Glean** (6 tools): enterprise search, docs, datasources, agents, chat |
 | **Prompt workflows** (4 built-in): analyze-jira-story, implementation-plan, gather-full-context, analyze-development-status | **Memory** (16 tools): short-term, long-term, reasoning traces via Neo4j |
 | | **Knowledge Graph** (8 tools): semantic search, entity details, Cypher queries, source management via Neo4j + LightRAG |
 | | **Gateway** (dynamic): aggregates all tools behind single endpoint |
-| | **CLI management** (`dva mcp`): health, sync, lifecycle |
+| | **CLI management** (`keel mcp`): health, sync, lifecycle |
 
 ---
 
@@ -184,9 +184,9 @@ Anchor implements MCP **prompts** — pre-defined multi-step recipes that live i
 
 The AI client calls one prompt and gets a complete, orchestrated result. The server does the orchestration.
 
-### DVA: Client-Side Agent Skills
+### KEEL: Client-Side Agent Skills
 
-DVA implements **Agent Skills** (agentskills.io standard) — portable markdown files that teach the AI client how to orchestrate tools itself:
+KEEL implements **Agent Skills** (agentskills.io standard) — portable markdown files that teach the AI client how to orchestrate tools itself:
 
 ```
 .skills/pr-reviewer/SKILL.md:
@@ -200,7 +200,7 @@ DVA implements **Agent Skills** (agentskills.io standard) — portable markdown 
 
 The AI client reads the skill and decides how to chain tool calls. The server just provides atomic tools.
 
-| Aspect | Anchor (Prompts) | DVA (Skills) |
+| Aspect | Anchor (Prompts) | KEEL (Skills) |
 |--------|-----------------|--------------|
 | **Orchestration** | Server-side (deterministic) | Client-side (AI decides) |
 | **Portability** | Locked to this MCP server | Works with any MCP-compatible tools |
@@ -242,7 +242,7 @@ anchor-mcp/
 
 **~1 repo, ~1 package, ~1 Dockerfile.**
 
-### DVA (actual)
+### KEEL (actual)
 
 ```
 mcp-servers/                           ← 4,391 lines Python
@@ -283,7 +283,7 @@ mcp-servers/                           ← 4,391 lines Python
 const jiraClient = new JiraService(process.env.JIRA_BASE_URL, process.env.JIRA_API_TOKEN);
 ```
 
-**DVA:** Creates a fresh client per tool call using context managers:
+**KEEL:** Creates a fresh client per tool call using context managers:
 ```python
 # Actual code from server.py
 def _get_client() -> BitbucketClient:
@@ -296,13 +296,13 @@ def get_pr_overview(...) -> str:
         overview = client.get_pr(proj, rp, pid)
 ```
 
-DVA's pattern is more defensive (no stale connections) but creates more HTTP client instances. Anchor's is more efficient for high-throughput but risks stale state.
+KEEL's pattern is more defensive (no stale connections) but creates more HTTP client instances. Anchor's is more efficient for high-throughput but risks stale state.
 
 ### 7b. Input Flexibility
 
 **Anchor:** Tools accept specific parameters (issue key, PR URL components).
 
-**DVA:** Tools accept **either** a full URL or component parts, with URL parsing built in:
+**KEEL:** Tools accept **either** a full URL or component parts, with URL parsing built in:
 ```python
 @mcp.tool()
 def get_pr_overview(
@@ -320,18 +320,18 @@ This means the AI can paste a URL directly from a Jira ticket or chat message an
 
 **Anchor:** Explicitly **read-only** — a design choice for security. From their docs: *"read-only tools ensuring security without modification risks."*
 
-**DVA:** Includes **write operations** marked with ✏️ above:
+**KEEL:** Includes **write operations** marked with ✏️ above:
 - PR: approve, unapprove, needs_work, decline, merge, add comments (inline + general)
 - Jira: add comment, transition issue, assign issue
 - Confluence: add page comment
 
-This is a conscious trade-off. DVA enables automated workflows (e.g., a PR reviewer agent that can approve and add comments). Anchor requires a human to perform those actions.
+This is a conscious trade-off. KEEL enables automated workflows (e.g., a PR reviewer agent that can approve and add comments). Anchor requires a human to perform those actions.
 
 ### 7d. Error Handling
 
 **Anchor:** From their docs — *"Intelligent limitations handling for Sketch links and rate limits."* Tools gracefully handle missing integrations: *"if credentials are not set, those specific tools will simply return an error when called but won't prevent the server from running."*
 
-**DVA:** Each service is independent, so a misconfigured Jira MCP doesn't affect Bitbucket MCP. The `_get_client()` pattern throws a clear `ValueError` if not configured:
+**KEEL:** Each service is independent, so a misconfigured Jira MCP doesn't affect Bitbucket MCP. The `_get_client()` pattern throws a clear `ValueError` if not configured:
 ```python
 if not config.is_configured:
     raise ValueError("Bitbucket Server is not configured. Set BITBUCKET_SERVER_URL and ...")
@@ -341,7 +341,7 @@ if not config.is_configured:
 
 **Anchor:** Built-in — it IS the aggregation. One server, all tools.
 
-**DVA:** Two options:
+**KEEL:** Two options:
 1. **Direct connections** — AI client connects to each service individually (default)
 2. **Gateway** — Dynamic tool discovery + namespacing. Connects to upstreams at startup, registers `bitbucket_get_pr_overview`, `jira_get_issue`, etc. Supports `gateway_refresh` for live re-discovery.
 
@@ -361,18 +361,18 @@ if not config.is_configured:
 2. **Agent Memory** (16 tools) — persistent memory with entity resolution, reasoning traces
 3. **Knowledge Graph** (8 tools) — Neo4j + LightRAG, semantic search, business context
 4. **Write operations** — approve PRs, transition Jira issues, add comments
-5. **CLI management** (`dva mcp`) — health checks, IDE config sync, Docker lifecycle
+5. **CLI management** (`keel mcp`) — health checks, IDE config sync, Docker lifecycle
 6. **Code onboarding** — auto-detect tech stack, install matching skills
 7. **Skills registry** — 62 portable agent skills (agentskills.io standard)
-8. **Agent scaffolding** — `dva project create --use-case pr-reviewer`
-9. **Data source management** — `dva data` for registering document/Confluence/Git sources
+8. **Agent scaffolding** — `keel project create --use-case pr-reviewer`
+9. **Data source management** — `keel data` for registering document/Confluence/Git sources
 10. **Independent scaling** — services can be deployed/scaled independently
 
 ---
 
 ## 9. Strengths & Trade-offs Summary
 
-| Dimension | Anchor Wins | DVA Wins |
+| Dimension | Anchor Wins | KEEL Wins |
 |-----------|-------------|----------|
 | **Setup simplicity** | ✅ One container, one port | |
 | **Operational simplicity** | ✅ One process to monitor | |

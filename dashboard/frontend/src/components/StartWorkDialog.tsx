@@ -409,7 +409,7 @@ export function StartWorkDialog({ issueKey, onClose }: { issueKey: string; onClo
               </div>
 
               {/* Local sync stream */}
-              <StreamConsole url={syncUrl} title="dva domain sync (tech-lead)" />
+              <StreamConsole url={syncUrl} title="keel domain sync (tech-lead)" />
               {openResult && (
                 <div
                   className={`text-xs px-3 py-2 rounded-lg ${

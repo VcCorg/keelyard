@@ -6,12 +6,12 @@
 
 - Neo4j container running on port 7474 (HTTP) and 7687 (Bolt)
 - Created `setup-kg-validation.sh` script for automated setup
-- Network configured as `dva-network`
+- Network configured as `keel-network`
 
 ### ✅ CLI Configuration
 
 - Agentic CLI configured for Neo4j
-- KG linker command `dva kg link` implemented and working
+- KG linker command `keel kg link` implemented and working
 - Vertex AI configured (needs reauthentication)
 
 ### ✅ Test Data Created
@@ -19,7 +19,7 @@
 - 2 Code entities with persona=developer
 - 2 Document nodes with persona=business_analyst
 - All tagged with domain=cwow-facility
-- Using correct `_source = 'dva_kg'` property
+- Using correct `_source = 'keel_kg'` property
 
 ## Validation Results
 

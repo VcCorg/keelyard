@@ -1,8 +1,8 @@
 """Skill security scanning via NVIDIA SkillSpector (canonical, CLI-owned).
 
 Wraps the ``skillspector`` CLI to scan Agent Skills for vulnerabilities and
-malicious patterns. This lives in the CLI so every entry point — ``dva skill
-scan``, the ``dva skill install`` gate, and the dashboard (which delegates
+malicious patterns. This lives in the CLI so every entry point — ``keel skill
+scan``, the ``keel skill install`` gate, and the dashboard (which delegates
 here) — shares one implementation and one verdict.
 
 The scanner is optional: every entry point degrades gracefully when

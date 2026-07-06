@@ -9,7 +9,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 
-DEPLOYMENTS_DIR = Path.home() / ".dva" / "deployments"
+DEPLOYMENTS_DIR = Path.home() / ".keel" / "deployments"
 
 
 class DeploymentConfig(BaseModel):

@@ -15,9 +15,9 @@ from typing import Optional
 
 IS_WINDOWS = os.name == "nt"
 
-# Where dva CLI lives
-VENV_DIR = Path.home() / "dva-agentic-project" / ".venv"
-WORKSPACE_DIR = Path.home() / "dva-agentic-project"
+# Where keel CLI lives
+VENV_DIR = Path.home() / "keel-agentic-project" / ".venv"
+WORKSPACE_DIR = Path.home() / "keel-agentic-project"
 
 MAX_SESSIONS = 4
 
@@ -55,7 +55,7 @@ def _build_env() -> dict[str, str]:
 
     extra_paths = []
 
-    # Project venv FIRST — has the correct Python + dva
+    # Project venv FIRST — has the correct Python + keel
     venv_bin = _venv_bin_dir()
     if venv_bin.exists():
         extra_paths.append(str(venv_bin))
@@ -109,13 +109,13 @@ def _create_session_unix(cols: int, rows: int, title: str) -> TerminalSession:
 
     # Build a minimal rc file that skips conda init (zsh-compatible prompt escapes)
     rc_content = (
-        '# DVA Dashboard Terminal\n'
+        '# KEEL Dashboard Terminal\n'
         'autoload -Uz colors && colors\n'
-        'export PS1="%F{cyan}dva%f %F{yellow}%~%f $ "\n'
+        'export PS1="%F{cyan}keel%f %F{yellow}%~%f $ "\n'
         '# Source user aliases if present, but skip conda\n'
         'if [ -f ~/.aliases ]; then source ~/.aliases; fi\n'
     )
-    rc_path = Path.home() / ".dva" / "terminal_rc"
+    rc_path = Path.home() / ".keel" / "terminal_rc"
     rc_path.parent.mkdir(parents=True, exist_ok=True)
     rc_path.write_text(rc_content)
 

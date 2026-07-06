@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "dva-kg": {
+    "keel-kg": {
       "url": "http://localhost:8125",
       "transport": "http",
       "disabled": false,

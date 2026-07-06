@@ -3,7 +3,7 @@
 
 set -e
 
-echo "🧪 Testing DVA KG MCP Server for Windsurf Integration"
+echo "🧪 Testing KEEL KG MCP Server for Windsurf Integration"
 echo "=================================================="
 echo ""
 

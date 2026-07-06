@@ -1,4 +1,4 @@
-"""Tests for Phase 3.5: dva domain gen-skills — role-based persona skill generation."""
+"""Tests for Phase 3.5: keel domain gen-skills — role-based persona skill generation."""
 
 import pytest
 from pathlib import Path
@@ -25,7 +25,7 @@ from agentic_cli.skill_generator import (
 @pytest.fixture(autouse=True)
 def temp_db(tmp_path, monkeypatch):
     """Redirect tracker.db to a temp directory for each test."""
-    db_dir = tmp_path / ".dva-agentic"
+    db_dir = tmp_path / ".keel-agentic"
     db_dir.mkdir()
     monkeypatch.setattr(tracker, "DB_DIR", db_dir)
     monkeypatch.setattr(tracker, "DB_PATH", db_dir / "tracker.db")

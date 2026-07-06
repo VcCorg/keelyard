@@ -1,7 +1,7 @@
 .PHONY: help build start stop restart status logs health test clean
 
 help:
-	@echo "DVA Knowledge Graph MCP Server - Management Commands"
+	@echo "KEEL Knowledge Graph MCP Server - Management Commands"
 	@echo ""
 	@echo "Usage: make [target]"
 	@echo ""
@@ -90,5 +90,5 @@ clean:
 	fi
 
 network:
-	@docker network inspect dva-network >/dev/null 2>&1 || \
-		(echo "Creating dva-network..." && docker network create dva-network)
+	@docker network inspect keel-network >/dev/null 2>&1 || \
+		(echo "Creating keel-network..." && docker network create keel-network)

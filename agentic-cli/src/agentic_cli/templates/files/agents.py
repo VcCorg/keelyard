@@ -142,7 +142,7 @@ class {agent_class}(BaseAgent):
 
 # --- Evaluation entrypoint --------------------------------------------------
 # Module-level callable so this agent is evaluation-ready by default:
-#   dva eval run agent <module.path>:answer <eval-config>
+#   keel eval run agent <module.path>:answer <eval-config>
 _eval_agent = None
 
 

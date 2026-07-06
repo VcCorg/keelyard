@@ -5,7 +5,7 @@ adjust roles per user directly. This store holds ``{subject: [roles]}`` explicit
 assignments that **take precedence** over provider-derived roles, so the People
 page is the authoritative place to control who has which role.
 
-Stored at ``~/.dva/role-assignments.json`` (the CLI owns it); the dashboard is a
+Stored at ``~/.keel/role-assignments.json`` (the CLI owns it); the dashboard is a
 lens that reads it for every request and writes it for admins only.
 """
 from __future__ import annotations
@@ -16,7 +16,7 @@ from typing import Dict, List, Optional
 
 from agentic_cli.auth.models import ROLE_ORDER
 
-ASSIGNMENTS_PATH = Path.home() / ".dva" / "role-assignments.json"
+ASSIGNMENTS_PATH = Path.home() / ".keel" / "role-assignments.json"
 
 # Valid assignable roles = the auth role model (viewer < developer < ... < admin).
 VALID_ROLES = list(ROLE_ORDER)

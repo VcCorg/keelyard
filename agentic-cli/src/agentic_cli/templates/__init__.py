@@ -1,5 +1,5 @@
 """
-Embedded project templates for DVA Agentic CLI.
+Embedded project templates for KEEL Agentic CLI.
 
 This module provides a modular template system with:
 - Framework-specific templates (ADK, LangGraph)

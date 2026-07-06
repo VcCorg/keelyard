@@ -15,10 +15,10 @@
 ### View Job Logs
 ```bash
 # View last 50 lines
-tail -50 ~/.dva-agentic/logs/job_<job-id>.log
+tail -50 ~/.keel-agentic/logs/job_<job-id>.log
 
 # Follow in real-time
-tail -f ~/.dva-agentic/logs/job_<job-id>.log
+tail -f ~/.keel-agentic/logs/job_<job-id>.log
 ```
 
 ---
@@ -27,31 +27,31 @@ tail -f ~/.dva-agentic/logs/job_<job-id>.log
 
 ### 1. Count Total Nodes
 ```bash
-docker exec dva-neo4j cypher-shell -u neo4j -p password \
+docker exec keel-neo4j cypher-shell -u neo4j -p password \
   "MATCH (n) RETURN count(n) as total_nodes"
 ```
 
 ### 2. Count by Label
 ```bash
-docker exec dva-neo4j cypher-shell -u neo4j -p password \
+docker exec keel-neo4j cypher-shell -u neo4j -p password \
   "MATCH (n) RETURN labels(n)[0] as label, count(n) as count ORDER BY count DESC LIMIT 20"
 ```
 
 ### 3. View Sample Nodes
 ```bash
-docker exec dva-neo4j cypher-shell -u neo4j -p password \
+docker exec keel-neo4j cypher-shell -u neo4j -p password \
   "MATCH (n) RETURN n LIMIT 10"
 ```
 
 ### 4. Count Relationships
 ```bash
-docker exec dva-neo4j cypher-shell -u neo4j -p password \
+docker exec keel-neo4j cypher-shell -u neo4j -p password \
   "MATCH ()-[r]->() RETURN type(r) as relationship, count(r) as count ORDER BY count DESC"
 ```
 
 ### 5. Search for Specific Content
 ```bash
-docker exec dva-neo4j cypher-shell -u neo4j -p password \
+docker exec keel-neo4j cypher-shell -u neo4j -p password \
   "MATCH (n) WHERE n.name CONTAINS 'patient' RETURN n LIMIT 10"
 ```
 
@@ -125,7 +125,7 @@ ls -lh ./dickens  # Default storage directory
 cat > /tmp/monitor_neo4j.sh << 'EOF'
 #!/bin/bash
 while true; do
-  count=$(docker exec dva-neo4j cypher-shell -u neo4j -p password \
+  count=$(docker exec keel-neo4j cypher-shell -u neo4j -p password \
     "MATCH (n) RETURN count(n)" 2>/dev/null | tail -1)
   echo "$(date '+%H:%M:%S') - Nodes: $count"
   sleep 5
@@ -139,10 +139,10 @@ chmod +x /tmp/monitor_neo4j.sh
 ### Watch Job Logs
 ```bash
 # Follow specific job
-tail -f ~/.dva-agentic/logs/job_<job-id>.log
+tail -f ~/.keel-agentic/logs/job_<job-id>.log
 
 # Follow all ingestion logs
-tail -f ~/.dva-agentic/logs/async_ingestion.log
+tail -f ~/.keel-agentic/logs/async_ingestion.log
 ```
 
 ### Check Worker Process
@@ -169,14 +169,14 @@ ps aux | grep <worker-pid>
 
 # 3. Verify data in target system
 # For Neo4j:
-docker exec dva-neo4j cypher-shell -u neo4j -p password \
+docker exec keel-neo4j cypher-shell -u neo4j -p password \
   "MATCH (n) RETURN count(n)"
 
 # For LightRAG:
 `agent kg query "test query" --mode naive
 
 # 4. Check job logs for any errors
-tail -100 ~/.dva-agentic/logs/job_<job-id>.log | grep -i error
+tail -100 ~/.keel-agentic/logs/job_<job-id>.log | grep -i error
 ```
 
 ### For Running Jobs
@@ -186,11 +186,11 @@ tail -100 ~/.dva-agentic/logs/job_<job-id>.log | grep -i error
 `agent kg async status <job-id>
 
 # 2. Follow logs
-tail -f ~/.dva-agentic/logs/job_<job-id>.log
+tail -f ~/.keel-agentic/logs/job_<job-id>.log
 
 # 3. Monitor progress (in separate terminal)
 # For Neo4j:
-watch -n 5 'docker exec dva-neo4j cypher-shell -u neo4j -p password "MATCH (n) RETURN count(n)" 2>/dev/null'
+watch -n 5 'docker exec keel-neo4j cypher-shell -u neo4j -p password "MATCH (n) RETURN count(n)" 2>/dev/null'
 
 # 4. Check worker is running
 ps aux | grep <worker-pid>
@@ -207,12 +207,12 @@ ps aux | grep <worker-pid>
 ps aux | grep <worker-pid>
 
 # 2. Check logs for errors
-tail -100 ~/.dva-agentic/logs/job_<job-id>.log
+tail -100 ~/.keel-agentic/logs/job_<job-id>.log
 
 # 3. Check target system health
 # Neo4j:
 docker ps | grep neo4j
-docker logs dva-neo4j --tail 50
+docker logs keel-neo4j --tail 50
 
 # LightRAG:
 curl http://localhost:8001/health
@@ -225,14 +225,14 @@ curl http://localhost:8001/health
 `agent kg async status <job-id>
 
 # 2. Check for errors in logs
-grep -i error ~/.dva-agentic/logs/job_<job-id>.log
+grep -i error ~/.keel-agentic/logs/job_<job-id>.log
 
 # 3. Verify source path exists
 ls -la <source-path>
 
 # 4. Check target system connectivity
 # Neo4j:
-docker exec dva-neo4j cypher-shell -u neo4j -p password "RETURN 1"
+docker exec keel-neo4j cypher-shell -u neo4j -p password "RETURN 1"
 
 # LightRAG:
 curl http://localhost:8001/health
@@ -246,7 +246,7 @@ curl http://localhost:8001/health
 `agent kg query "your query" --mode naive
 
 # Or increase timeout in config:
-# Edit ~/.dva-agentic/kg-config.json
+# Edit ~/.keel-agentic/kg-config.json
 # Set "lightrag_timeout": 120
 ```
 
@@ -270,10 +270,10 @@ curl http://localhost:8001/health
 `agent kg query "patient care" --mode naive
 
 # 4. Check running Neo4j job
-tail -20 ~/.dva-agentic/logs/job_011ae616-1ddc-48bc-ba0e-2dcca4265270.log
+tail -20 ~/.keel-agentic/logs/job_011ae616-1ddc-48bc-ba0e-2dcca4265270.log
 
 # 5. Count Neo4j nodes
-docker exec dva-neo4j cypher-shell -u neo4j -p password \
+docker exec keel-neo4j cypher-shell -u neo4j -p password \
   "MATCH (n) RETURN count(n)"
 
 # Output: 6759 nodes
@@ -317,10 +317,10 @@ docker exec dva-neo4j cypher-shell -u neo4j -p password \
 `agent kg async status <job-id>
 
 # Logs
-tail -f ~/.dva-agentic/logs/job_<job-id>.log
+tail -f ~/.keel-agentic/logs/job_<job-id>.log
 
 # Neo4j
-docker exec dva-neo4j cypher-shell -u neo4j -p password "MATCH (n) RETURN count(n)"
+docker exec keel-neo4j cypher-shell -u neo4j -p password "MATCH (n) RETURN count(n)"
 
 # LightRAG
 curl http://localhost:8001/health

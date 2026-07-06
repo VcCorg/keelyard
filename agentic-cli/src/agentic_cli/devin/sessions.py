@@ -1,7 +1,7 @@
 """Devin Sessions orchestration + local tracking.
 
 Triggers and follows remote Devin sessions via the v1 Sessions API. A local
-store (``~/.dva/devin/sessions.json``) records every session the CLI starts so
+store (``~/.keel/devin/sessions.json``) records every session the CLI starts so
 ``sessions list`` works offline and re-runs can be made idempotent on a prompt
 hash + tags.
 """
@@ -19,7 +19,7 @@ from agentic_cli.devin.client import get_client
 from agentic_cli.devin.config import DEVIN_API_BASE, DEFAULT_MAX_ACU
 
 # Global session store (cross-domain; survives between commands).
-STORE_DIR = Path.home() / ".dva" / "devin"
+STORE_DIR = Path.home() / ".keel" / "devin"
 STORE_FILE = STORE_DIR / "sessions.json"
 
 # Terminal session states (confirm exact set against docs.devin.ai per plan).

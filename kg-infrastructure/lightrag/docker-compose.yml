@@ -1,7 +1,7 @@
 services:
   lightrag:
     image: python:3.11-slim
-    container_name: dva-lightrag
+    container_name: keel-lightrag
     working_dir: /app
     ports:
       - "8001:8001"  # API port
@@ -67,12 +67,12 @@ services:
     restart: unless-stopped
     
     networks:
-      - dva-network
+      - keel-network
 
   # Optional: Milvus vector database for production use
   milvus:
     image: milvusdb/milvus:v2.3.3
-    container_name: dva-milvus
+    container_name: keel-milvus
     profiles:
       - production
     ports:
@@ -84,7 +84,7 @@ services:
     volumes:
       - milvus_data:/var/lib/milvus
     networks:
-      - dva-network
+      - keel-network
 
 volumes:
   lightrag_data:
@@ -93,6 +93,6 @@ volumes:
     driver: local
 
 networks:
-  dva-network:
+  keel-network:
     external: true
-    name: dva-network
+    name: keel-network

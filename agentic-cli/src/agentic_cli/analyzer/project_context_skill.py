@@ -1,7 +1,7 @@
 """Project Context Skill generator — creates a single root skill for the project.
 
 This replaces the dependency-based skill matching with a unified project context skill
-that provides access to graphify (code structure), dva-kg-mcp (requirements), and
+that provides access to graphify (code structure), keel-kg-mcp (requirements), and
 anchor mcp (jira, bitbucket, confluence) with glean fallback.
 """
 
@@ -21,7 +21,7 @@ def generate_project_context_skill(
 
     This creates a single root skill that provides unified access to:
     - graphify: Code structure and architecture queries
-    - dva-kg-mcp: Requirements and release-specific context
+    - keel-kg-mcp: Requirements and release-specific context
     - anchor mcp: Jira, Bitbucket, Confluence for project artifacts
     - glean: Fallback for general knowledge
 
@@ -47,7 +47,7 @@ def generate_project_context_skill(
                 "fallback": False,
             },
             {
-                "name": "dva-kg-mcp",
+                "name": "keel-kg-mcp",
                 "purpose": "requirements",
                 "description": "Access domain requirements, release specifications, and business context",
                 "fallback": False,
@@ -74,7 +74,7 @@ def generate_project_context_skill(
                 "fallback": True,
             },
         ],
-        "fallback_chain": ["dva-kg-mcp", "anchor", "glean"],
+        "fallback_chain": ["keel-kg-mcp", "anchor", "glean"],
     }
 
     # Build auto_detect rules (minimal - only for project identification)
@@ -98,7 +98,7 @@ def generate_project_context_skill(
 
     skill_config = {
         "name": f"{project_name}-context",
-        "description": f"Project context skill for {project_name}. Provides unified access to code structure (graphify), requirements (dva-kg-mcp), and project artifacts (anchor mcp) with glean fallback.",
+        "description": f"Project context skill for {project_name}. Provides unified access to code structure (graphify), requirements (keel-kg-mcp), and project artifacts (anchor mcp) with glean fallback.",
         "tags": tags,
         "mcp": mcp_config,
         "auto_detect": auto_detect,
@@ -139,7 +139,7 @@ def generate_project_context_skill_content(
     content = f"""---
 description: >-
   Root context skill for {project_name}. Provides unified access to code structure
-  (graphify), domain requirements (dva-kg-mcp), and project artifacts (anchor mcp)
+  (graphify), domain requirements (keel-kg-mcp), and project artifacts (anchor mcp)
   with glean fallback. Use this skill for all code development tasks requiring
   project-specific context.
 tags:
@@ -154,7 +154,7 @@ mcp:
       purpose: code-structure
       description: Query codebase structure and architecture
       fallback: false
-    - name: dva-kg-mcp
+    - name: keel-kg-mcp
       purpose: requirements
       description: Access domain requirements and release context
       fallback: false
@@ -174,7 +174,7 @@ mcp:
       description: Fallback for general knowledge
       fallback: true
   fallback_chain:
-    - dva-kg-mcp
+    - keel-kg-mcp
     - anchor
     - glean
 ---
@@ -203,7 +203,7 @@ Use for codebase architecture questions:
 - "Show me the dependencies between modules X and Y"
 - "Which files use class Z?"
 
-### 2. DVA KG MCP (Requirements & Release Context)
+### 2. KEEL KG MCP (Requirements & Release Context)
 Use for domain-specific requirements:
 - "What are the requirements for feature X?"
 - "What is in release R29?"

@@ -2,13 +2,13 @@
 
 ## Executive Summary
 
-| System | Primary Purpose | Core Strength | Critical Limitation for DVA |
+| System | Primary Purpose | Core Strength | Critical Limitation for KEEL |
 |--------|----------------|---------------|---------------------------|
 | **Neo4j** | Graph storage and traversal | Mature graph ecosystem, Cypher query language | No built-in vector search, requires external embedding service |
 | **LightRAG** | Graph-enhanced RAG | Combines graph + vector search in one library | Unstable library, requires patching, limited scalability |
 | **Weaviate** | Vector database with graph capabilities | Native vector search + object relationships, stable | Graph features less mature than Neo4j |
 
-**Key Insight:** No single system provides everything DVA needs. Each requires trade-offs between stability, capabilities, and complexity.
+**Key Insight:** No single system provides everything KEEL needs. Each requires trade-offs between stability, capabilities, and complexity.
 
 ---
 
@@ -292,9 +292,9 @@ collection.data.insert(
 
 ---
 
-## Part 3: Why Each Alone Is Insufficient for DVA
+## Part 3: Why Each Alone Is Insufficient for KEEL
 
-### DVA Requirements
+### KEEL Requirements
 
 1. **Code Entity Storage**: Functions, classes, modules with metadata
 2. **Relationships**: Implements, references, calls, inherits
@@ -309,7 +309,7 @@ collection.data.insert(
 
 **Missing Critical Capability: Vector Search**
 ```
-DVA Need: "Find functions related to medication dosage"
+KEEL Need: "Find functions related to medication dosage"
 Neo4j Approach:
   1. Manually generate embeddings with Vertex AI
   2. Store embeddings as node properties
@@ -336,7 +336,7 @@ Current LightRAG Issues:
 - Memory leaks in vector operations
 - Breaking changes in v1.4.16
 
-Impact on DVA:
+Impact on KEEL:
 - Production deployment risk
 - Constant patching required
 - Data loss potential
@@ -357,7 +357,7 @@ Impact on DVA:
 
 **Missing Critical Capability: Graph Traversal**
 ```
-DVA Need: "Find all functions that call Patient.calculate_dosage()"
+KEEL Need: "Find all functions that call Patient.calculate_dosage()"
 Weaviate Approach:
   1. Store references between objects
   2. Use GraphQL to traverse: 
@@ -396,7 +396,7 @@ Weaviate Approach:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    DVA KG Stack                          │
+│                    KEEL KG Stack                          │
 │                                                          │
 │  ┌──────────────┐         ┌──────────────┐             │
 │  │    Neo4j     │         │   LightRAG   │             │
@@ -426,7 +426,7 @@ Issues:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    DVA KG Stack (Future)                │
+│                    KEEL KG Stack (Future)                │
 │                                                          │
 │  ┌──────────────┐         ┌──────────────┐             │
 │  │    Neo4j     │         │   Weaviate   │             │
@@ -573,10 +573,10 @@ Benefits:
 - You have small datasets (<10K entities)
 - You're building a proof-of-concept
 
-### Recommended for DVA
+### Recommended for KEEL
 
 **Primary System: Neo4j**
-- Graph operations are core to DVA use case
+- Graph operations are core to KEEL use case
 - Mature and stable
 - Excellent for code entity relationships
 - Powerful Cypher queries
@@ -732,7 +732,7 @@ client.insert("calculate_dosage function code...")
 
 ### Key Takeaways
 
-1. **No single system meets all DVA requirements**
+1. **No single system meets all KEEL requirements**
    - Neo4j: Excellent graph, poor vectors
    - Weaviate: Excellent vectors, limited graph
    - LightRAG: Good hybrid, but unstable

@@ -17,13 +17,13 @@ A domain meta-repo is a git repository that orchestrates all resources for a dom
 First, ensure your domain is registered:
 
 ```bash
-dva domain create cwow-facility --product CWOW
+keel domain create cwow-facility --product CWOW
 ```
 
 ### Step 2: Create the Meta-Repo
 
 ```bash
-dva domain init-meta cwow-facility
+keel domain init-meta cwow-facility
 ```
 
 This creates a new directory: `domain-cwow-facility-meta/`
@@ -31,7 +31,7 @@ This creates a new directory: `domain-cwow-facility-meta/`
 **With domain-context-repo as submodule:**
 
 ```bash
-dva domain init-meta cwow-facility \
+keel domain init-meta cwow-facility \
   --context-repo https://github.com/company/facility-domain-context.git
 ```
 
@@ -49,7 +49,7 @@ make init
 ### Detect and Link Meta-Repo
 
 ```bash
-dva code onboard --path ./my-repo --domain cwow-facility --link-meta-repo
+keel code onboard --path ./my-repo --domain cwow-facility --link-meta-repo
 ```
 
 This will:
@@ -60,7 +60,7 @@ This will:
 ### Full Onboarding with Domain Features
 
 ```bash
-dva code onboard --path ./my-repo --domain cwow-facility \
+keel code onboard --path ./my-repo --domain cwow-facility \
   --link-meta-repo \
   --use-domain-skills \
   --kg
@@ -225,7 +225,7 @@ make update
 
 **Problem**: Config files not found in `.platform/config/`
 
-**Solution**: Ensure meta-repo was created with `dva domain init-meta`
+**Solution**: Ensure meta-repo was created with `keel domain init-meta`
 
 ---
 

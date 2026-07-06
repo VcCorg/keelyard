@@ -256,7 +256,7 @@ def test_parallel_job_execution():
 def main():
     """Run all validation tests."""
     print("="*60)
-    print("DVA KG Concurrent Ingestion Validation")
+    print("KEEL KG Concurrent Ingestion Validation")
     print("="*60)
     
     results = {}

@@ -5,7 +5,7 @@ Goal: users configure Jira / Confluence / Bitbucket / AI tokens **once** in a
 
 Precedence (lowest → highest):
 
-    1. ~/.dva/.env            global, machine-wide (loaded from any directory)
+    1. ~/.keel/.env            global, machine-wide (loaded from any directory)
     2. ./.env                 project-local (walking up from the cwd)
     3. real exported env vars (never overridden)
 
@@ -41,7 +41,7 @@ class EnvVar:
 
 
 # Integration credentials come in URL + token pairs. Marked required so
-# `dva doctor` flags them, but the CLI still runs without them.
+# `keel doctor` flags them, but the CLI still runs without them.
 RECOGNIZED_VARS: List[EnvVar] = [
     # --- Jira -------------------------------------------------------------
     EnvVar("JIRA_SERVER_URL", "Jira", required=True,
@@ -98,7 +98,7 @@ RECOGNIZED_VARS: List[EnvVar] = [
     # --- Optional tooling -------------------------------------------------
     EnvVar("DEVIN_API_KEY", "Optional", required=False, secret=True,
            description="Devin API key for cloud sessions/knowledge"),
-    EnvVar("DVA_SKILLS_REGISTRY", "Optional", required=False,
+    EnvVar("KEEL_SKILLS_REGISTRY", "Optional", required=False,
            description="Path/URL to the skills registry"),
 ]
 
@@ -109,7 +109,7 @@ RECOGNIZED_NAMES = {v.name for v in RECOGNIZED_VARS}
 # Paths
 # ---------------------------------------------------------------------------
 
-GLOBAL_ENV_PATH = Path.home() / ".dva" / ".env"
+GLOBAL_ENV_PATH = Path.home() / ".keel" / ".env"
 
 
 def _find_project_env(start: Optional[Path] = None) -> Optional[Path]:
@@ -152,7 +152,7 @@ _APPLIED: Dict[str, Path] = {}
 
 @dataclass
 class LoadResult:
-    """Summary of what `load_env` did (useful for `dva init env` / doctor)."""
+    """Summary of what `load_env` did (useful for `keel init env` / doctor)."""
 
     files: List[Path] = field(default_factory=list)
     applied: Dict[str, Path] = field(default_factory=dict)   # var -> source file
@@ -227,7 +227,7 @@ def mask(value: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Writing (used by `dva init` and the dashboard setup panel)
+# Writing (used by `keel init` and the dashboard setup panel)
 # ---------------------------------------------------------------------------
 
 def render_example() -> str:

@@ -1,4 +1,4 @@
-"""Tests for Phase 6: DVA Agentic Dashboard API."""
+"""Tests for Phase 6: KEEL Agentic Dashboard API."""
 
 import json
 import pytest
@@ -19,7 +19,7 @@ client = TestClient(app)
 
 @pytest.fixture(autouse=True)
 def temp_db(tmp_path, monkeypatch):
-    db_dir = tmp_path / ".dva-agentic"
+    db_dir = tmp_path / ".keel-agentic"
     db_dir.mkdir()
     monkeypatch.setattr(tracker, "DB_DIR", db_dir)
     monkeypatch.setattr(tracker, "DB_PATH", db_dir / "tracker.db")
@@ -236,4 +236,4 @@ class TestFrontend:
     def test_serves_index(self):
         resp = client.get("/")
         assert resp.status_code == 200
-        assert "DVA Agentic Dashboard" in resp.text
+        assert "KEEL Agentic Dashboard" in resp.text

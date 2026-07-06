@@ -9,7 +9,7 @@ development into a governed, context-rich, AI-ready experience — from one comm
 2. [Architecture One-Pager](#part-2--architecture-one-pager) — diagrams as a leave-behind
 
 > Every claim below maps to shipped capability:
-> `dva product create` / `dva domain create` / `dva domain init-meta` / `dva code onboard`,
+> `keel product create` / `keel domain create` / `keel domain init-meta` / `keel code onboard`,
 > the meta-repo `.platform/config/governance.yaml` model, auto-generated persona skills,
 > KG + MCP business-context wiring, and Devin snapshots for consistent agent sessions.
 
@@ -49,7 +49,7 @@ development into a governed, context-rich, AI-ready experience — from one comm
 - _Presenter note: Emphasize "executable governance" — this is the differentiator._
 
 ### Slide 5 — One command
-**`dva domain init-meta <domain>`**
+**`keel domain init-meta <domain>`**
 - Scaffolds `.platform/config/` (domain, repos, **governance**, skills, personas).
 - Links domain repos + domain-context + product standards as submodules.
 - Generates **persona skills** (dev / QA / scrum-master / BA / tech-lead) into `.agents/`.
@@ -99,7 +99,7 @@ development into a governed, context-rich, AI-ready experience — from one comm
 ### Slide 11 — Proof: measured, not vibes
 **We quantify the lift with the built-in evaluation framework**
 - Same domain question set, two agents: **baseline** (no domain context) vs **governed** (domain skills + KG + snapshot).
-- `dva eval` scores both on accuracy, relevance, helpfulness, clarity (LLM-judged 1–5) + latency.
+- `keel eval` scores both on accuracy, relevance, helpfulness, clarity (LLM-judged 1–5) + latency.
 - Output: per-metric **delta**, a **skill-effectiveness score (0–10)**, and an HTML comparison report.
 - _Presenter note: This is the credibility slide — show the comparison table / HTML report live if a run is ready. Numbers below are **illustrative** until a run is recorded._
 
@@ -113,7 +113,7 @@ development into a governed, context-rich, AI-ready experience — from one comm
 
 ### Slide 12 — Call to action / roadmap
 **Pilot one domain, measure, expand**
-- Pick a high-pain domain → `init-meta` → onboard its repos → run `dva eval` to capture the baseline-vs-governed lift.
+- Pick a high-pain domain → `init-meta` → onboard its repos → run `keel eval` to capture the baseline-vs-governed lift.
 - Near-term: per-domain Devin snapshot builds once DRS access is provisioned (manual snapshot-id today).
 - Ask: a pilot domain + an exec sponsor.
 - _Presenter note: End on a concrete, low-risk next step._
@@ -216,7 +216,7 @@ gates (outer loop) — one mechanism, no parallel bureaucracy.
 
 ```mermaid
 flowchart TD
-    DevReq["New work in the domain"] --> Onboard["dva code onboard --domain <slug> --link-meta-repo"]
+    DevReq["New work in the domain"] --> Onboard["keel code onboard --domain <slug> --link-meta-repo"]
     Onboard --> Ctx["Pulls meta-repo: governance + personas + context"]
     Ctx --> KG["KG + MCP: Bitbucket / Jira / Confluence"]
     KG --> Snap["Devin snapshot: same governed env every session"]
@@ -227,16 +227,16 @@ flowchart TD
 
 ```bash
 # 1. Establish the product (org floor: methodology, personas, exceptions)
-dva product create CWOW
+keel product create CWOW
 
 # 2. Register a domain under it
-dva domain create cwow-facility --product CWOW
+keel domain create cwow-facility --product CWOW
 
 # 3. Stand up the governed meta-repo (config + personas + KG/MCP + snapshot blueprint)
-dva domain init-meta cwow-facility
+keel domain init-meta cwow-facility
 
 # 4. Onboard a repo with domain context + skills + KG
-dva code onboard --path ./facility-api --domain cwow-facility \
+keel code onboard --path ./facility-api --domain cwow-facility \
   --link-meta-repo --use-domain-skills --kg
 
 # Artifacts to show on screen:
@@ -247,7 +247,7 @@ dva code onboard --path ./facility-api --domain cwow-facility \
 
 ---
 
-## G. Measuring the impact (the `dva eval` framework)
+## G. Measuring the impact (the `keel eval` framework)
 
 The platform ships an evaluation framework that produces **defensible numbers** by
 A/B-comparing an agent **with** vs **without** the governed domain context. This is
@@ -257,12 +257,12 @@ how the "before/after" claims get real values instead of estimates.
 flowchart LR
     DS["Domain Q&A dataset<br/>(CSV / generated golden set)"] --> B["baseline agent<br/>(no domain context)"]
     DS --> G["governed agent<br/>(domain skills + KG + snapshot)"]
-    B --> EV["dva eval run agent"]
+    B --> EV["keel eval run agent"]
     G --> EV
-    EV --> CMP["dva eval compare<br/>delta + effectiveness + HTML report"]
+    EV --> CMP["keel eval compare<br/>delta + effectiveness + HTML report"]
 ```
 
-**What it scores** (`dva eval metrics list`): accuracy, f1, bleu, latency_ms,
+**What it scores** (`keel eval metrics list`): accuracy, f1, bleu, latency_ms,
 token_usage, cost_usd (quantitative); helpfulness, clarity, relevance, safety
 (LLM-judged 1–5); contains_hallucination, is_complete (boolean). Each metric has a
 threshold + weight, rolled up into a **skill-effectiveness score (0–10)**.
@@ -275,18 +275,18 @@ threshold + weight, rolled up into a **skill-effectiveness score (0–10)**.
 
 ```bash
 # 1. Build a domain question set (register a CSV, or generate a golden set)
-dva eval dataset register cwow-facility-qa ./demo/onboarding-eval/facility-qa.csv
+keel eval dataset register cwow-facility-qa ./demo/onboarding-eval/facility-qa.csv
 #   columns: user_input, reference (optional), reference_contexts (optional)
 
 # 1b. Register the custom governance metric (prompt-based LLM judge, 1-5)
-dva eval metric register governance_adherence \
+keel eval metric register governance_adherence \
   -f ./demo/onboarding-eval/governance-adherence.md \
   --description "Governance + cross-repo correctness for the facility domain"
 
 # 2. Define the eval config (dataset + metrics + judge). Beyond standard LLM
 #    quality metrics, include governance_adherence to score governance and
 #    cross-repo correctness — exactly where onboarding should move the needle.
-dva eval create facility-eval cwow-facility-qa \
+keel eval create facility-eval cwow-facility-qa \
   --metrics relevance,helpfulness,accuracy,clarity,governance_adherence,latency_ms \
   --judge anthropic
 
@@ -298,11 +298,11 @@ dva eval create facility-eval cwow-facility-qa \
 #      module.path:answer     -> the module-level entrypoint every scaffolded
 #                                agent now ships with (evaluation-ready by default)
 #      mock:<type>            -> built-in mock (simple|qa|helpful) for smoke tests
-dva eval run agent my_agents.facility.baseline:answer  --config facility-eval
-dva eval run agent my_agents.facility.governed:answer  --config facility-eval
+keel eval run agent my_agents.facility.baseline:answer  --config facility-eval
+keel eval run agent my_agents.facility.governed:answer  --config facility-eval
 
 # 4. Compare → delta table + HTML report (the demo artifact)
-dva eval compare facility-eval --output facility-impact.html
+keel eval compare facility-eval --output facility-impact.html
 ```
 
 > **Why this just works:** the agent scaffold templates emit a module-level
@@ -313,11 +313,11 @@ dva eval compare facility-eval --output facility-impact.html
 
 **Two sources of numbers for the deck:**
 
-- **Agent-quality lift** — from `dva eval compare` (relevance/helpfulness/accuracy delta, effectiveness 0–10).
+- **Agent-quality lift** — from `keel eval compare` (relevance/helpfulness/accuracy delta, effectiveness 0–10).
 - **Operational metrics** — time-to-onboard (wall-clock of `init-meta` + `code onboard`), # repos governed, % repos meeting the governance floor.
 
-> **Honesty note for presenters:** `dva eval run skill` uses *mock* agents (illustrative
-> only). For credible headline numbers use `dva eval run agent` with a **real** agent
+> **Honesty note for presenters:** `keel eval run skill` uses *mock* agents (illustrative
+> only). For credible headline numbers use `keel eval run agent` with a **real** agent
 > spec for the governed vs baseline comparison, then screenshot the HTML report.
 
 ---

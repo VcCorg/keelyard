@@ -8,7 +8,7 @@ export function Chat() {
   const [activeSession, setActiveSession] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [agents, setAgents] = useState<AgentInfo[]>([]);
-  const [selectedAgent, setSelectedAgent] = useState("dva-assistant");
+  const [selectedAgent, setSelectedAgent] = useState("keel-assistant");
 
   const loadSessions = useCallback(async () => {
     try {
@@ -70,7 +70,7 @@ export function Chat() {
               onChange={(e) => setSelectedAgent(e.target.value)}
               className="w-full appearance-none bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs font-medium pr-7 focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
-              <option value="dva-assistant">dva-assistant (default)</option>
+              <option value="keel-assistant">keel-assistant (default)</option>
               {agents.map((a) => (
                 <option key={a.name} value={a.name}>
                   {a.name} (running)
@@ -149,7 +149,7 @@ export function Chat() {
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <MessageSquare className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-              <h2 className="text-lg font-semibold text-gray-500">DVA Agent Chat</h2>
+              <h2 className="text-lg font-semibold text-gray-500">KEEL Agent Chat</h2>
               <p className="text-sm text-gray-400 mt-1 max-w-sm">
                 Create a new chat session to interact with your agents.
                 The agent has access to MCP tools (Bitbucket, Jira, KG, etc.)

@@ -24,7 +24,7 @@ cp .env.example .env
 # Edit .env with your tokens
 
 # Create Docker network (first time only)
-docker network create dva-network
+docker network create keel-network
 
 # Start all services
 docker compose up -d
@@ -95,5 +95,5 @@ docker compose ps
 ## Related Repos
 
 - [agentic-cli](https://bitbucket.example.com/users/your-user/repos/agentic-cli) — CLI tool that uses these MCP servers for agent workflows
-- [dva-agent-skills](https://bitbucket.example.com/users/your-user/repos/dva-agent-skills) — Skills registry with MCP-backed skills (jira, bitbucket, pr-reviewer)
-- [dva-agent-kg-infra](https://bitbucket.example.com/users/your-user/repos/dva-agent-kg-infra) — Knowledge Graph MCP server + Neo4j + LightRAG
+- [keel-agent-skills](https://bitbucket.example.com/users/your-user/repos/keel-agent-skills) — Skills registry with MCP-backed skills (jira, bitbucket, pr-reviewer)
+- [keel-agent-kg-infra](https://bitbucket.example.com/users/your-user/repos/keel-agent-kg-infra) — Knowledge Graph MCP server + Neo4j + LightRAG

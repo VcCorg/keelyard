@@ -89,14 +89,14 @@ def validate_product_meta(meta_path: Path) -> ValidationReport:
     # ── Structure ────────────────────────────────────────────────────────────
     if not meta_path.exists():
         report.add("meta-repo exists", FAIL, f"Not found: {meta_path}",
-                   fix="Run: dva product init-meta <name>")
+                   fix="Run: keel product init-meta <name>")
         return report
 
     if config_dir.is_dir():
         report.add(".platform/config", OK, str(config_dir))
     else:
         report.add(".platform/config", FAIL, "missing",
-                   fix="Re-run: dva product init-meta <name>")
+                   fix="Re-run: keel product init-meta <name>")
         return report
 
     required = ["product.yaml", "governance.yaml", "crosswalk.yaml", "personas.yaml"]
@@ -104,7 +104,7 @@ def validate_product_meta(meta_path: Path) -> ValidationReport:
         exists = (config_dir / fname).is_file()
         report.add(f"config/{fname}", OK if exists else FAIL,
                    "present" if exists else "missing",
-                   fix="" if exists else "Re-run: dva product init-meta <name>")
+                   fix="" if exists else "Re-run: keel product init-meta <name>")
 
     report.add("exceptions/ ledger", OK if (meta_path / "exceptions").is_dir() else WARN,
                "present" if (meta_path / "exceptions").is_dir() else "missing")

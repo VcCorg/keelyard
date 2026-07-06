@@ -296,7 +296,7 @@ export function Eval() {
             Run Agent
           </Button>
         </div>
-        <StreamConsole url={streamUrl} title="dva eval" onDone={onStreamDone} />
+        <StreamConsole url={streamUrl} title="keel eval" onDone={onStreamDone} />
       </div>
 
       {configsError && (
@@ -387,7 +387,7 @@ export function Eval() {
               </div>
             ))}
             {configs && configs.length === 0 && (
-              <p className="text-sm text-gray-400">No eval configs. Create one with <code className="font-mono">dva eval create</code>.</p>
+              <p className="text-sm text-gray-400">No eval configs. Create one with <code className="font-mono">keel eval create</code>.</p>
             )}
           </div>
         </Tabs.Content>

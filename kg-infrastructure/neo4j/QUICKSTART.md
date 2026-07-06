@@ -106,10 +106,10 @@ make restart
 
 ## Next Steps
 
-1. **Ingest data**: `dva kg ingest document.pdf`
-2. **Query**: `dva kg query "Find all entities"`
-3. **Search**: `dva kg search "AI" --semantic`
-4. **Visualize**: `dva kg visualize --output graph.html`
+1. **Ingest data**: `keel kg ingest document.pdf`
+2. **Query**: `keel kg query "Find all entities"`
+3. **Search**: `keel kg search "AI" --semantic`
+4. **Visualize**: `keel kg visualize --output graph.html`
 
 ## Full Documentation
 

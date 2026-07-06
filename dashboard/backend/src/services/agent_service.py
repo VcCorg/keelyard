@@ -2,7 +2,7 @@
 
 Hybrid approach:
 - Reads: Import directly from agentic_cli modules (fast, typed)
-- Mutations: Subprocess to `dva agent start/stop` (safe, consistent with CLI)
+- Mutations: Subprocess to `keel agent start/stop` (safe, consistent with CLI)
 """
 
 import json
@@ -16,11 +16,11 @@ from typing import Any, Optional
 from pydantic import BaseModel
 
 
-AGENT_STATE_DIR = Path.home() / ".dva" / "agents"
+AGENT_STATE_DIR = Path.home() / ".keel" / "agents"
 AGENT_STATE_FILE = AGENT_STATE_DIR / "running.json"
 
 # Project tracker DB
-DVA_CONFIG_DIR = Path.home() / ".agent-cli-agentic"
+KEEL_CONFIG_DIR = Path.home() / ".agent-cli-agentic"
 
 
 class AgentInfo(BaseModel):
@@ -222,7 +222,7 @@ def _find_answer_module(path: str) -> Optional[str]:
 def get_agent_eval_spec(path: str) -> Optional[dict]:
     """Derive the evaluation agent spec (``module:answer``) for a project.
 
-    The returned spec is directly consumable by ``dva eval run agent`` and by
+    The returned spec is directly consumable by ``keel eval run agent`` and by
     the eval framework's ``resolve_agent()``. The project's ``src`` directory
     must be on PYTHONPATH when the eval runs (the eval API handles this).
     """
@@ -327,7 +327,7 @@ def discover_agent_projects(workspace: Optional[Path] = None) -> list[AgentProje
                 # Check if already found via tracker
                 if any(p.path == str(child) for p in projects):
                     continue
-                # Try to detect use case from pyproject.toml or dva-agent.json
+                # Try to detect use case from pyproject.toml or keel-agent.json
                 use_case = _detect_use_case(child)
                 projects.append(AgentProject(
                     name=child.name,
@@ -341,7 +341,7 @@ def discover_agent_projects(workspace: Optional[Path] = None) -> list[AgentProje
 
 def _detect_use_case(project_path: Path) -> Optional[str]:
     """Try to detect the use case of an agent project."""
-    agent_json = project_path / "dva-agent.json"
+    agent_json = project_path / "keel-agent.json"
     if agent_json.exists():
         try:
             data = json.loads(agent_json.read_text())

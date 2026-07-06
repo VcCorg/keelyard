@@ -245,7 +245,7 @@ def _extract_mcp_names(config_path: Path, key: str, servers: set[str]) -> None:
 
 # --- Skill Proposals (agent-generated) ---
 
-PROPOSALS_DIR = Path.home() / ".dva" / "proposals"
+PROPOSALS_DIR = Path.home() / ".keel" / "proposals"
 
 
 class SkillProposal:

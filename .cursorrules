@@ -1,10 +1,10 @@
-Read `.skills/dva-agentic-platform/SKILL.md` for full project context.
+Read `.skills/keel-agentic-platform/SKILL.md` for full project context.
 
 This is a multi-repo workspace (NOT a single repo) with 4 repos:
-- dva-agentic-cli/ — Python CLI (`dva` command), 9 command groups
-- dva-skills/ — Skills registry, 62 skills for project onboarding
-- dva-mcp-servers/ — 8 Docker MCP servers (Bitbucket, Jira, Glean, Confluence, Memory, KG, Gateway, Proxy)
-- dva-kg-infrastructure/ — Neo4j + LightRAG knowledge graph infra
+- keel-agentic-cli/ — Python CLI (`keel` command), 9 command groups
+- keel-skills/ — Skills registry, 62 skills for project onboarding
+- keel-mcp-servers/ — 8 Docker MCP servers (Bitbucket, Jira, Glean, Confluence, Memory, KG, Gateway, Proxy)
+- keel-kg-infrastructure/ — Neo4j + LightRAG knowledge graph infra
 
 Tech: Python 3.10+, Typer, Rich, Pydantic, FastMCP, httpx, Docker, Neo4j
 MCP endpoints: 8126 (Bitbucket), 8127 (Glean), 8128 (Jira), 8129 (Confluence), 8130 (Memory), 8131 (KG)

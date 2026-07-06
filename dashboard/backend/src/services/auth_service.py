@@ -42,7 +42,7 @@ def me(request: Request) -> MeResponse:
     return MeResponse(
         subject=p.subject, display_name=p.display_name, roles=p.roles,
         permissions=sorted(p.permissions), groups=p.groups, provider=p.provider,
-        authenticated=p.authenticated, mode=os.environ.get("DVA_AUTH_MODE", "dev"),
+        authenticated=p.authenticated, mode=os.environ.get("KEEL_AUTH_MODE", "dev"),
     )
 
 

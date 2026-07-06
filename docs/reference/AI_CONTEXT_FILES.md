@@ -5,10 +5,10 @@ This documents the context file strategy for the Agentic Platform workspace, exp
 ## Architecture: Single Source of Truth + Tool-Specific Pointers
 
 ```
-.skills/dva-agentic-platform/SKILL.md   ← SINGLE SOURCE OF TRUTH (comprehensive)
+.skills/keel-agentic-platform/SKILL.md   ← SINGLE SOURCE OF TRUTH (comprehensive)
 ├── CLAUDE.md                            ← Pointer for Claude Code
 ├── .cursorrules                         ← Pointer for Cursor
-├── .opencode/agent/dva-platform.md      ← Pointer for OpenCode (agent format)
+├── .opencode/agent/keel-platform.md      ← Pointer for OpenCode (agent format)
 ├── .opencode/mcp.json                   ← MCP connections (OpenCode format)
 ├── .windsurf/mcp_config.json            ← MCP connections (Windsurf format)
 └── .windsurf/workflows/*.md             ← Windsurf slash-command workflows
@@ -29,7 +29,7 @@ This documents the context file strategy for the Agentic Platform workspace, exp
 
 ## File Details
 
-### `.skills/dva-agentic-platform/SKILL.md` — The Source of Truth
+### `.skills/keel-agentic-platform/SKILL.md` — The Source of Truth
 
 - **Format:** agentskills.io standard (YAML frontmatter + markdown)
 - **Size:** ~280 lines
@@ -53,12 +53,12 @@ This documents the context file strategy for the Agentic Platform workspace, exp
 - **When to update:** Only if the tech stack summary changes
 - **Optional:** Remove if you don't use Cursor
 
-### `.opencode/agent/dva-platform.md` — OpenCode Agent
+### `.opencode/agent/keel-platform.md` — OpenCode Agent
 
 - **Format:** YAML frontmatter + markdown (OpenCode agent format)
 - **Size:** ~60 lines
 - **Contains:** Agent metadata + "read the SKILL.md" pointer + common task recipes
-- **Invoked via:** `@dva-platform` in OpenCode TUI
+- **Invoked via:** `@keel-platform` in OpenCode TUI
 - **When to update:** Only if common task recipes change
 - **Required:** Yes, if you use OpenCode — it doesn't auto-discover `.skills/`
 
@@ -105,6 +105,6 @@ This documents the context file strategy for the Agentic Platform workspace, exp
 If a new tool arrives that doesn't read `.skills/`:
 
 1. Find what file it reads for context (check its docs)
-2. Create a minimal pointer file that says "read `.skills/dva-agentic-platform/SKILL.md`"
+2. Create a minimal pointer file that says "read `.skills/keel-agentic-platform/SKILL.md`"
 3. If it has its own MCP config format, create that too
 4. Document it in this file

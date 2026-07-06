@@ -43,9 +43,9 @@ export PATH="$HOME/.local/bin:$PATH"
 mkdir agentic-project && cd agentic-project
 
 git clone https://bitbucket.example.com/scm/~your-user/agentic-cli.git
-git clone https://bitbucket.example.com/scm/~your-user/dva-agent-skills.git skills
-git clone https://bitbucket.example.com/scm/~your-user/dva-agent-mcp-servers.git mcp-servers
-git clone https://bitbucket.example.com/scm/~your-user/dva-agent-kg-infra.git kg-infrastructure
+git clone https://bitbucket.example.com/scm/~your-user/keel-agent-skills.git skills
+git clone https://bitbucket.example.com/scm/~your-user/keel-agent-mcp-servers.git mcp-servers
+git clone https://bitbucket.example.com/scm/~your-user/keel-agent-kg-infra.git kg-infrastructure
 ```
 
 ### 2. Workspace Layout
@@ -82,7 +82,7 @@ mcp-servers ──refs──→ kg-infrastructure (kg-mcp in compose)
 
 ## Installing the CLI Globally
 
-The `dva` command is installed as a global tool via **uv tool**, similar to how `opencode` or `pipx`-installed tools work. It runs from any directory, independent of conda/venv environments.
+The `keel` command is installed as a global tool via **uv tool**, similar to how `opencode` or `pipx`-installed tools work. It runs from any directory, independent of conda/venv environments.
 
 ### First-Time Install
 
@@ -90,12 +90,12 @@ The `dva` command is installed as a global tool via **uv tool**, similar to how 
 uv tool install ./agentic-cli
 ```
 
-This builds a wheel from source and installs it to `~/.local/bin/dva` in an isolated Python environment.
+This builds a wheel from source and installs it to `~/.local/bin/keel` in an isolated Python environment.
 
 ### Verify
 
 ```bash
-which agent          # → ~/.local/bin/dva
+which agent          # → ~/.local/bin/keel
 `agent --version      # → agentic-cli version 0.1.0
 ```
 
@@ -151,11 +151,11 @@ MCP (Model Context Protocol) servers provide tool access to AI agents (Windsurf,
 
 | Service | Port | Container | Endpoint |
 |---------|------|-----------|----------|
-| Bitbucket MCP | 8126 | dva-bitbucket-mcp | `http://localhost:8126/sse` |
-| Glean MCP | 8127 | dva-glean-mcp | `http://localhost:8127/sse` |
-| Jira MCP | 8128 | dva-jira-mcp | `http://localhost:8128/sse` |
-| MCP Gateway | 9090 | dva-mcp-gateway | `http://localhost:9090/sse` |
-| MCP Proxy | 9091 | dva-mcp-proxy | `http://localhost:9091/servers/*/sse` |
+| Bitbucket MCP | 8126 | keel-bitbucket-mcp | `http://localhost:8126/sse` |
+| Glean MCP | 8127 | keel-glean-mcp | `http://localhost:8127/sse` |
+| Jira MCP | 8128 | keel-jira-mcp | `http://localhost:8128/sse` |
+| MCP Gateway | 9090 | keel-mcp-gateway | `http://localhost:9090/sse` |
+| MCP Proxy | 9091 | keel-mcp-proxy | `http://localhost:9091/servers/*/sse` |
 | KG MCP | 8125 | (in kg-infra) | `http://localhost:8125` |
 
 ### Setup
@@ -164,7 +164,7 @@ MCP (Model Context Protocol) servers provide tool access to AI agents (Windsurf,
 cd mcp-servers
 
 # Create Docker network (one-time)
-docker network create dva-network
+docker network create keel-network
 
 # Create .env from template
 cp .env.example .env
@@ -189,7 +189,7 @@ GLEAN_DOMAIN=https://example-production-be.glean.com
 
 # ── KG MCP (used by kg-infrastructure) ─────────────────
 KG_PROVIDER=neo4j
-NEO4J_URI=bolt://dva-neo4j:7687
+NEO4J_URI=bolt://keel-neo4j:7687
 NEO4J_USER=neo4j
 NEO4J_PASSWORD=changeme
 ```
@@ -199,14 +199,14 @@ NEO4J_PASSWORD=changeme
 **Bitbucket Personal Access Token:**
 1. Go to https://bitbucket.example.com → click your avatar → **Manage account**
 2. Navigate to **Personal access tokens** → **Create a token**
-3. Name: `dva-mcp` (or any label)
+3. Name: `keel-mcp` (or any label)
 4. Permissions: **Repository Read** (minimum), **Repository Write** for PR actions
 5. Copy the token and paste it as `BITBUCKET_PERSONAL_ACCESS_TOKEN` in `.env`
 
 **Jira Personal Access Token:**
 1. Go to https://jira.example.com → click your avatar → **Profile**
 2. Navigate to **Personal Access Tokens** → **Create token**
-3. Name: `dva-mcp` (or any label)
+3. Name: `keel-mcp` (or any label)
 4. Copy the token and paste it as `JIRA_PERSONAL_ACCESS_TOKEN` in `.env`
 
 **Glean API Token:**
@@ -406,7 +406,7 @@ make test
 ### Vertex AI Authentication
 
 ```bash
-# Configure Vertex AI (saves to ~/.dva-agentic/config.json)
+# Configure Vertex AI (saves to ~/.keel-agentic/config.json)
 `agent init vertex-ai --project-id YOUR_PROJECT_ID
 
 # Or authenticate manually
@@ -421,8 +421,8 @@ gcloud auth application-default login
 
 | Task | Command |
 |------|---------|
-| **CLI version** | `dva --version` |
-| **CLI help** | `dva --help` |
+| **CLI version** | `keel --version` |
+| **CLI help** | `keel --help` |
 | **Reinstall CLI globally** | `uv tool install --force ./agentic-cli` |
 | **List uv tools** | `uv tool list` |
 | **Start MCP servers** | `cd mcp-servers && docker compose up -d` |
@@ -430,14 +430,14 @@ gcloud auth application-default login
 | **MCP server logs** | `cd mcp-servers && docker compose logs -f` |
 | **Start Neo4j** | `cd kg-infrastructure/neo4j && docker compose up -d` |
 | **Start LightRAG** | `cd kg-infrastructure/lightrag && ./setup.sh` |
-| **Check KG status** | `dva kg check` |
-| **KG stats** | `dva kg stats` |
+| **Check KG status** | `keel kg check` |
+| **KG stats** | `keel kg stats` |
 | **Run tests** | `cd agentic-cli && make test` |
 | **Lint code** | `cd agentic-cli && make lint` |
 | **Format code** | `cd agentic-cli && make format` |
-| **Onboard a project** | `dva code onboard --path /path/to/project` |
-| **List data sources** | `dva data list` |
-| **List MCP servers** | `dva mcp list` |
+| **Onboard a project** | `keel code onboard --path /path/to/project` |
+| **List data sources** | `keel data list` |
+| **List MCP servers** | `keel mcp list` |
 
 ### Full Environment Startup
 
@@ -482,7 +482,7 @@ git push origin develop
 
 ## Troubleshooting
 
-### `dva` command not found
+### `keel` command not found
 
 ```bash
 # Check if ~/.local/bin is on PATH
@@ -496,7 +496,7 @@ source ~/.zshrc
 uv tool install --force ./agentic-cli
 ```
 
-### `dva` shows old version after code changes
+### `keel` shows old version after code changes
 
 The global install is a snapshot, not editable. Reinstall:
 
@@ -514,10 +514,10 @@ uv tool install --editable ./agentic-cli
 
 ```bash
 # Create the shared network if missing
-docker network create dva-network
+docker network create keel-network
 
 # Verify
-docker network ls | grep dva
+docker network ls | grep keel
 ```
 
 ### MCP server won't start
@@ -541,21 +541,21 @@ docker compose -f mcp-servers/docker-compose.yml up -d bitbucket-mcp
 docker ps | grep neo4j
 
 # Check logs
-docker logs dva-neo4j
+docker logs keel-neo4j
 
 # Test connection
 `agent kg check
 ```
 
-### Import errors when running `dva` commands
+### Import errors when running `keel` commands
 
-If optional commands fail (e.g., `dva kg`), install the optional dependency group:
+If optional commands fail (e.g., `keel kg`), install the optional dependency group:
 
 ```bash
 uv tool install --force ./agentic-cli --with "agentic-cli[kg]"
 ```
 
-### Conflicting `dva` installs
+### Conflicting `keel` installs
 
 If you previously installed via `pip install -e .`, remove it:
 
@@ -566,8 +566,8 @@ pip uninstall agentic-cli -y
 Then verify only the uv tool version remains:
 
 ```bash
-which -a dva
-# Should show only: ~/.local/bin/dva
+which -a keel
+# Should show only: ~/.local/bin/keel
 ```
 
 ---
@@ -576,9 +576,9 @@ which -a dva
 
 | File | Purpose |
 |------|---------|
-| `~/.dva-agentic/config.json` | CLI config (Vertex AI, data sources) |
-| `~/.dva-agentic/kg-config.json` | Knowledge graph provider config |
-| `~/.dva-agentic/mcp/registry.json` | MCP server registry |
+| `~/.keel-agentic/config.json` | CLI config (Vertex AI, data sources) |
+| `~/.keel-agentic/kg-config.json` | Knowledge graph provider config |
+| `~/.keel-agentic/mcp/registry.json` | MCP server registry |
 | `mcp-servers/.env` | MCP Docker environment (tokens, URLs) |
 | `.windsurf/mcp_config.json` | Windsurf MCP server connections |
 

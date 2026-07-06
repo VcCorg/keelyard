@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Ingest test data into Weaviate for DVA KG infrastructure validation.
+Ingest test data into Weaviate for KEEL KG infrastructure validation.
 
 This script creates sample code entities and documents to test the
 Weaviate infrastructure.

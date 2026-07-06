@@ -12,7 +12,7 @@
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                        TRACK A: Domain Registration                     │
 │                                                                         │
-│  dva domain create Facility --product CWOW                             │
+│  keel domain create Facility --product CWOW                             │
 │    --jira CWOW --bb CGF --confluence MTT                              │
 │    --ingest-business-context                                          │
 │    --context-pages "Business Rules,SLA,Integration Specs"             │
@@ -42,7 +42,7 @@
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                    TRACK B: Code Onboarding                             │
 │                                                                         │
-│  dva code onboard https://github.com/company/facility-service         │
+│  keel code onboard https://github.com/company/facility-service         │
 │    --domain cwow-facility                                              │
 │                                                                         │
 │  ↓                                                                       │
@@ -91,7 +91,7 @@
 │                                                                         │
 │  ↓                                                                       │
 │  Output:                                                                │
-│  ├─ .dva/codebase-understanding.md (includes business context)        │
+│  ├─ .keel/codebase-understanding.md (includes business context)        │
 │  ├─ 8-15 auto-generated skills (aware of business rules)              │
 │  └─ Methodology pack recommendation                                    │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -310,7 +310,7 @@ Track C enriches with pattern recommendations
 
 ### Step 1: Register Domain with Business Context (Track A)
 ```bash
-dva domain create Facility --product CWOW \
+keel domain create Facility --product CWOW \
   --jira CWOW --bb CGF --confluence MTT \
   --ingest-business-context \
   --context-pages "Business Rules,SLA,Integration Specs,Security Policies"
@@ -324,7 +324,7 @@ dva domain create Facility --product CWOW \
 
 ### Step 2: Onboard Repository (Track B)
 ```bash
-dva code onboard https://github.com/company/facility-service \
+keel code onboard https://github.com/company/facility-service \
   --domain cwow-facility
 ```
 

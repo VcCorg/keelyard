@@ -1,6 +1,6 @@
-# DVA Platform — Hybrid Distribution Plan (v2)
+# KEEL Platform — Hybrid Distribution Plan (v2)
 
-> **Goal**: Make all DVA CLI functionality accessible to any team member using any AI IDE,
+> **Goal**: Make all KEEL CLI functionality accessible to any team member using any AI IDE,
 > without requiring CLI installation, with skills flowing from local development through
 > the **Example AI Artifact Marketplace** for enterprise-wide reuse.
 
@@ -10,9 +10,9 @@
   system backed by GitLab Package Registry. Two consumers: web app + example-ai IDE extension
 - **Skill Lifecycle**: Local → Validated → Published (via MR to agent-skills repo) → Consumed
 - **Code Onboarding Revised**: Now resolves skills from marketplace.json first, local-fallback
-- **New CLI commands**: `dva skill marketplace list/pull/push/sync/diff/info`
+- **New CLI commands**: `keel skill marketplace list/pull/push/sync/diff/info`
 - **New workflow**: `/publish-skills` for Windsurf users
-- **Publishing model**: Git-based CI (not REST API). `dva skill marketplace push` creates a
+- **Publishing model**: Git-based CI (not REST API). `keel skill marketplace push` creates a
   merge request to `ai/model-context/agent-skills`. CI auto-versions + packages on merge
 
 ---
@@ -45,7 +45,7 @@
 │           Tech stack knowledge, coding patterns, PR review            │
 │           Works in ALL IDEs, zero dependencies                        │
 │                                                                      │
-│  Layer 2: META-SKILLS (.skills/dva-*/*.md) ← Universal, runbook      │
+│  Layer 2: META-SKILLS (.skills/keel-*/*.md) ← Universal, runbook      │
 │           Teach AI HOW to perform onboarding tasks                    │
 │           Cross-IDE, no CLI needed, AI-interpreted                    │
 │                                                                      │
@@ -53,11 +53,11 @@
 │           Multi-step orchestration with /slash commands                │
 │           Calls MCP tools directly, deterministic steps               │
 │                                                                      │
-│  Layer 4: DVA MCP SERVER (dva-mcp:8132)    ← Cross-IDE, live         │
+│  Layer 4: KEEL MCP SERVER (keel-mcp:8132)    ← Cross-IDE, live         │
 │           Wraps CLI logic as MCP tools                                │
 │           Deterministic, parameterized, full power                    │
 │                                                                      │
-│  Layer 5: CLI (dva)                        ← Power users, CI/CD      │
+│  Layer 5: CLI (keel)                        ← Power users, CI/CD      │
 │           Full Python CLI, scripting, automation                      │
 │                                                                      │
 └──────────────────────────────────────────────────────────────────────┘
@@ -109,7 +109,7 @@ name: java-spring-boot
 description: >-
   Spring Boot 3.x conventions, annotations, DI, REST patterns.
 version: 1.2.0
-author: dva-platform-team
+author: keel-platform-team
 tags: [java, spring, spring-boot, web, framework]
 marketplace:
   artifact_type: skill
@@ -248,12 +248,12 @@ without MCP, in any IDE.
 
 | Meta-Skill | Replaces CLI Command | What It Teaches |
 | ---------- | -------------------- | --------------- |
-| `dva-onboard-repo` | `dva code onboard` | Detect tech stack, pull skills from marketplace, install |
-| `dva-domain-setup` | `dva domain create` + `init-context` | Register domain, scaffold context repo |
-| `dva-pr-review` | `dva agent run` (PR reviewer) | Review a PR using Bitbucket MCP tools |
-| `dva-kg-query` | `dva kg query` | Query knowledge graph for business context |
-| `dva-skill-manage` | `dva code skills add/remove` | Add/remove/update skills locally + push to marketplace |
-| `dva-publish-skill` | `dva skill publish` | Package and publish a skill to the marketplace |
+| `keel-onboard-repo` | `keel code onboard` | Detect tech stack, pull skills from marketplace, install |
+| `keel-domain-setup` | `keel domain create` + `init-context` | Register domain, scaffold context repo |
+| `keel-pr-review` | `keel agent run` (PR reviewer) | Review a PR using Bitbucket MCP tools |
+| `keel-kg-query` | `keel kg query` | Query knowledge graph for business context |
+| `keel-skill-manage` | `keel code skills add/remove` | Add/remove/update skills locally + push to marketplace |
+| `keel-publish-skill` | `keel skill publish` | Package and publish a skill to the marketplace |
 
 ---
 
@@ -261,49 +261,49 @@ without MCP, in any IDE.
 
 | Workflow | Slash Command | Replaces |
 | -------- | ------------- | -------- |
-| `onboard-repo.md` | `/onboard-repo` | `dva code onboard` (now marketplace-aware) |
+| `onboard-repo.md` | `/onboard-repo` | `keel code onboard` (now marketplace-aware) |
 | `onboard-domain.md` | `/onboard-domain` | `scripts/onboard_domain.py` |
-| `pr-review.md` | `/pr-review` | `dva agent run` (PR reviewer) |
-| `kg-ingest.md` | `/kg-ingest` | `dva kg ingest submit` |
-| `skill-manage.md` | `/skill-manage` | `dva code skills add/remove/list` |
-| `domain-skills.md` | `/domain-skills` | `dva domain validate-skills/fork-skill` |
+| `pr-review.md` | `/pr-review` | `keel agent run` (PR reviewer) |
+| `kg-ingest.md` | `/kg-ingest` | `keel kg ingest submit` |
+| `skill-manage.md` | `/skill-manage` | `keel code skills add/remove/list` |
+| `domain-skills.md` | `/domain-skills` | `keel domain validate-skills/fork-skill` |
 | `publish-skills.md` | `/publish-skills` | **NEW** — push validated skills to marketplace |
 
 ---
 
-## Layer 4: DVA MCP Server — NEW
+## Layer 4: KEEL MCP Server — NEW
 
 ```text
 ┌──────────────────────────────────────────────────────┐
-│                  dva-mcp (:8132)                      │
+│                  keel-mcp (:8132)                      │
 │                                                       │
 │  Onboard Tools:                                       │
-│  ├── dva_onboard_repo(path, domain?, source?)         │
-│  ├── dva_detect_stack(path)                           │
-│  ├── dva_list_skills(path?)                           │
-│  ├── dva_add_skill(path, skill_name, source?)         │
-│  ├── dva_remove_skill(path, skill_name)               │
+│  ├── keel_onboard_repo(path, domain?, source?)         │
+│  ├── keel_detect_stack(path)                           │
+│  ├── keel_list_skills(path?)                           │
+│  ├── keel_add_skill(path, skill_name, source?)         │
+│  ├── keel_remove_skill(path, skill_name)               │
 │                                                       │
 │  Marketplace Tools:               ← NEW               │
-│  ├── dva_marketplace_list(type?, category?)           │
+│  ├── keel_marketplace_list(type?, category?)           │
 │  │     Fetches marketplace.json, filters artifacts    │
-│  ├── dva_marketplace_pull(skill_name, version?)       │
+│  ├── keel_marketplace_pull(skill_name, version?)       │
 │  │     Downloads .skill ZIP from GitLab Pkg Registry  │
-│  ├── dva_marketplace_push(path)                       │
+│  ├── keel_marketplace_push(path)                       │
 │  │     Commits skill to agent-skills repo → CI publishes│
-│  ├── dva_marketplace_versions(skill_name)             │
+│  ├── keel_marketplace_versions(skill_name)             │
 │                                                       │
 │  Domain Tools:                                        │
-│  ├── dva_create_domain(name, product, ...)            │
-│  ├── dva_domain_init_context(slug, ...)               │
-│  ├── dva_domain_fetch_repos(slug)                     │
-│  ├── dva_domain_list_skills(slug)                     │
-│  ├── dva_domain_validate_skill(slug, skill)           │
-│  ├── dva_domain_fork_skill(slug, skill)               │
+│  ├── keel_create_domain(name, product, ...)            │
+│  ├── keel_domain_init_context(slug, ...)               │
+│  ├── keel_domain_fetch_repos(slug)                     │
+│  ├── keel_domain_list_skills(slug)                     │
+│  ├── keel_domain_validate_skill(slug, skill)           │
+│  ├── keel_domain_fork_skill(slug, skill)               │
 │                                                       │
 │  KG Tools:                                            │
-│  ├── dva_kg_ingest(domain, source?)                   │
-│  └── dva_kg_query(query, domain?)                     │
+│  ├── keel_kg_ingest(domain, source?)                   │
+│  └── keel_kg_query(query, domain?)                     │
 └──────────────────────────────────────────────────────┘
 ```
 
@@ -315,26 +315,26 @@ New CLI commands for marketplace integration:
 
 ```bash
 # List skills available on marketplace (fetches marketplace.json)
-dva skill marketplace list
-dva skill marketplace list --type skills --category frameworks
+keel skill marketplace list
+keel skill marketplace list --type skills --category frameworks
 
 # Pull a skill from marketplace (downloads .skill ZIP from GitLab Pkg Registry)
-dva skill marketplace pull <name> --path ./my-repo
-dva skill marketplace pull <name> --version 1.2.0
+keel skill marketplace pull <name> --path ./my-repo
+keel skill marketplace pull <name> --version 1.2.0
 
 # Push a skill to marketplace (commits to agent-skills repo → CI auto-publishes)
-dva skill marketplace push <name> \
+keel skill marketplace push <name> \
   --repo git@gitlab.example.com:ai/model-context/agent-skills.git
 
 # Sync local skills with marketplace
-dva skill marketplace sync --direction push   # push all validated skills
-dva skill marketplace sync --direction pull   # update local from marketplace
+keel skill marketplace sync --direction push   # push all validated skills
+keel skill marketplace sync --direction pull   # update local from marketplace
 
 # Check what's changed in marketplace since last sync
-dva skill marketplace diff --since 7d
+keel skill marketplace diff --since 7d
 
 # Show marketplace.json manifest details for a skill
-dva skill marketplace info <name>
+keel skill marketplace info <name>
 ```
 
 ### Publishing Flow (How It Actually Works)
@@ -342,7 +342,7 @@ dva skill marketplace info <name>
 Publishing is **not a direct API call**. It follows the git-based CI pipeline:
 
 ```text
-dva skill marketplace push <name>
+keel skill marketplace push <name>
   │
   ▼
 1. Validate SKILL.md structure + VERSION file
@@ -354,19 +354,19 @@ dva skill marketplace push <name>
    GitLab Package Registry, regenerates marketplace.json
 ```
 
-This means `dva skill marketplace push` creates a **merge request**, not an instant
+This means `keel skill marketplace push` creates a **merge request**, not an instant
 publish. The actual publishing happens when the MR is merged and CI runs.
 
 ---
 
 ## Revised Code Onboarding Workflow
 
-This is the core question: **how does `dva code onboard` change with the marketplace?**
+This is the core question: **how does `keel code onboard` change with the marketplace?**
 
 ### Before (Local-Only)
 
 ```text
-dva code onboard --path ./my-repo
+keel code onboard --path ./my-repo
        │
        ▼
   1. Scan project files (pom.xml, package.json, etc.)
@@ -380,7 +380,7 @@ dva code onboard --path ./my-repo
 ### After (Marketplace-First)
 
 ```text
-dva code onboard --path ./my-repo [--domain <slug>] [--source marketplace|local|auto]
+keel code onboard --path ./my-repo [--domain <slug>] [--source marketplace|local|auto]
        │
        ▼
   ┌─────────────────────────────────────────────────────────────┐
@@ -482,7 +482,7 @@ dva code onboard --path ./my-repo [--domain <slug>] [--source marketplace|local|
   │   │                                                  │       │
   │   │ Lockfile: .skills/skills.lock.json               │       │
   │   │                                                  │       │
-  │   │ Run `dva skill update` to check for newer        │       │
+  │   │ Run `keel skill update` to check for newer        │       │
   │   │ versions from marketplace.                       │       │
   │   └─────────────────────────────────────────────────┘       │
   └─────────────────────────────────────────────────────────────┘
@@ -494,11 +494,11 @@ dva code onboard --path ./my-repo [--domain <slug>] [--source marketplace|local|
 | ------ | ----------- | ------------------------ |
 | **Skill source** | Local `skills/` directory only | Marketplace → Domain → Local (cascade) |
 | **Versioning** | None (copy at point-in-time) | Semantic versions, lockfile tracks installed |
-| **Updates** | Manual `dva code skills update` | `dva skill update` checks marketplace for newer |
+| **Updates** | Manual `keel code skills update` | `keel skill update` checks marketplace for newer |
 | **Provenance** | Unknown — just a file | `.source.json` tracks where each skill came from |
 | **Offline** | Always works | Falls back to local registry gracefully |
-| **Publishing** | N/A | `dva skill publish` pushes to marketplace |
-| **Discovery** | Browse registry.json | `dva skill search` queries marketplace API |
+| **Publishing** | N/A | `keel skill publish` pushes to marketplace |
+| **Discovery** | Browse registry.json | `keel skill search` queries marketplace API |
 | **Team sharing** | Git submodule or copy | Marketplace — zero-config consumption |
 
 ---
@@ -511,18 +511,18 @@ This is the push-side workflow: how skills flow **from** your team **to** the ma
 Developer creates/improves a skill
        │
        ▼
-  1. dva skill generate                    ← AI-assisted authoring
+  1. keel skill generate                    ← AI-assisted authoring
      OR edit .skills/<name>/SKILL.md       ← manual authoring
        │
        ▼
-  2. dva skill validate <name>             ← lint, structure check
+  2. keel skill validate <name>             ← lint, structure check
        │
        ▼
-  3. dva domain validate-skills <slug>     ← test against real tasks
+  3. keel domain validate-skills <slug>     ← test against real tasks
      --skill <name> --feedback works
        │
        ▼
-  4. dva skill marketplace push <name>     ← create MR to agent-skills repo
+  4. keel skill marketplace push <name>     ← create MR to agent-skills repo
        │
        ▼
   5. MR reviewed + merged                  ← team approval gate
@@ -537,7 +537,7 @@ Developer creates/improves a skill
      f. Commit marketplace.json back to master
        │
        ▼
-  7. Other teams' next `dva code onboard`
+  7. Other teams' next `keel code onboard`
      fetches updated marketplace.json
      and picks up the new skill automatically
 ```
@@ -549,7 +549,7 @@ team just needs to get skills *into* that repo. Two paths:
 
 **Path A: Manual MR** — Engineer pushes directly to `ai/model-context/agent-skills`
 
-**Path B: CLI-assisted MR** — `dva skill marketplace push` automates the MR creation
+**Path B: CLI-assisted MR** — `keel skill marketplace push` automates the MR creation
 
 ```yaml
 # .gitlab-ci.yml in agent-skills repo (already exists)
@@ -572,7 +572,7 @@ validate-skills:
     - |
       for skill_dir in .skills/*/; do
         name=$(basename $skill_dir)
-        dva skill validate $name --path .
+        keel skill validate $name --path .
       done
   rules:
     - changes:
@@ -583,7 +583,7 @@ validate-skills:
 
 ## Distribution Matrix (Revised)
 
-| Capability | Marketplace (L0) | Skills (L1) | Meta-Skills (L2) | Workflows (L3) | DVA MCP (L4) | CLI (L5) |
+| Capability | Marketplace (L0) | Skills (L1) | Meta-Skills (L2) | Workflows (L3) | KEEL MCP (L4) | CLI (L5) |
 | ---------- | :--------------: | :---------: | :--------------: | :------------: | :----------: | :------: |
 | **Onboard repo** | Source of truth | Fallback | Full flow | Full flow | Deterministic | Full |
 | **Domain setup** | Publish target | -- | Full flow | Full flow | Deterministic | Full |
@@ -621,27 +621,27 @@ validate-skills:
 
 ### Phase 2: CLI Marketplace Commands (Week 1-2)
 
-**Effort**: Medium — New `dva skill` subcommands
+**Effort**: Medium — New `keel skill` subcommands
 **Impact**: Power users can publish/pull immediately
 
-1. `dva skill marketplace list` — fetch marketplace.json, display available skills
-2. `dva skill marketplace pull <name>` — download .skill ZIP, extract to `.skills/`
-3. `dva skill marketplace push <name>` — create MR to agent-skills repo via GitLab API
-4. `dva skill marketplace sync` — bulk push/pull based on skills.lock.json
-5. `dva skill marketplace diff` — compare local lockfile against current marketplace.json
-6. `dva skill marketplace info <name>` — show manifest details for a skill
-7. Update `dva skill install` to check marketplace.json before GitHub
+1. `keel skill marketplace list` — fetch marketplace.json, display available skills
+2. `keel skill marketplace pull <name>` — download .skill ZIP, extract to `.skills/`
+3. `keel skill marketplace push <name>` — create MR to agent-skills repo via GitLab API
+4. `keel skill marketplace sync` — bulk push/pull based on skills.lock.json
+5. `keel skill marketplace diff` — compare local lockfile against current marketplace.json
+6. `keel skill marketplace info <name>` — show manifest details for a skill
+7. Update `keel skill install` to check marketplace.json before GitHub
 
 ### Phase 3: Onboard Integration (Week 2)
 
-**Effort**: Medium — Modify `dva code onboard` resolution logic
+**Effort**: Medium — Modify `keel code onboard` resolution logic
 **Impact**: All onboarding now marketplace-aware
 
-1. Add `--source marketplace|local|auto` flag to `dva code onboard`
+1. Add `--source marketplace|local|auto` flag to `keel code onboard`
 2. Implement cascading resolution: marketplace → domain → local
 3. Generate `.skills/.source.json` provenance files
 4. Generate `.skills/skills.lock.json` lockfile
-5. Add `dva skill update` to check lockfile against marketplace
+5. Add `keel skill update` to check lockfile against marketplace
 6. Graceful offline fallback to local registry
 
 ### Phase 4: Meta-Skills + Workflows (Week 2-3)
@@ -654,13 +654,13 @@ validate-skills:
 3. Meta-skills reference marketplace API for skill resolution
 4. Workflows include marketplace search/pull steps
 
-### Phase 5: DVA MCP Server (Week 3-4)
+### Phase 5: KEEL MCP Server (Week 3-4)
 
 **Effort**: Medium — MCP tools wrapping marketplace + CLI logic
 **Impact**: Deterministic cross-IDE marketplace access
 
-1. Create `mcp-servers/dva/` with MCP server
-2. Include `dva_marketplace_search`, `dva_marketplace_pull`, `dva_marketplace_publish`
+1. Create `mcp-servers/keel/` with MCP server
+2. Include `keel_marketplace_search`, `keel_marketplace_pull`, `keel_marketplace_publish`
 3. Include all onboard/domain/KG tools from original plan
 4. Add to Docker Compose + gateway
 
@@ -684,7 +684,7 @@ validate-skills:
 1. Clone repo → open in any IDE
 2. IDE reads .skills/ → AI has full project context (skills pre-installed)
 3. If .skills/ is empty:
-   a. AI reads dva-onboard-repo meta-skill
+   a. AI reads keel-onboard-repo meta-skill
    b. Detects tech stack
    c. Pulls matching skills from marketplace (HTTP, no CLI)
    d. Writes .skills/<name>/SKILL.md
@@ -703,17 +703,17 @@ validate-skills:
 ### Persona C: Platform Engineer (CLI + CI)
 
 ```text
-1. dva skill generate → AI-assisted skill authoring
-2. dva skill validate → lint and structure check
-3. dva skill publish → push to marketplace
+1. keel skill generate → AI-assisted skill authoring
+2. keel skill validate → lint and structure check
+3. keel skill publish → push to marketplace
 4. CI pipeline auto-publishes on merge to main
-5. dva skill sync --direction push → bulk publish
+5. keel skill sync --direction push → bulk publish
 ```
 
 ### Persona D: Cursor/Claude Code/Codex User
 
 ```text
-1. AI reads .skills/dva-onboard-repo/SKILL.md
+1. AI reads .skills/keel-onboard-repo/SKILL.md
 2. Follows instructions to detect stack
 3. Pulls skills via marketplace HTTP API (no CLI needed)
 4. If offline, falls back to local .skills/ or bundled skills
@@ -739,8 +739,8 @@ myAgentPG/
 │   ├── registry.json                  ← MODIFIED: add marketplace_id per skill
 │   └── skills/
 │       ├── java-spring-boot/SKILL.md  ← EXISTING (now also on marketplace)
-│       ├── dva-onboard-repo/SKILL.md  ← NEW meta-skill (marketplace-aware)
-│       ├── dva-publish-skill/SKILL.md ← NEW meta-skill
+│       ├── keel-onboard-repo/SKILL.md  ← NEW meta-skill (marketplace-aware)
+│       ├── keel-publish-skill/SKILL.md ← NEW meta-skill
 │       └── ...
 │
 ├── .windsurf/workflows/
@@ -749,7 +749,7 @@ myAgentPG/
 │   └── ...
 │
 ├── mcp-servers/
-│   └── dva/                           ← NEW MCP server (with marketplace tools)
+│   └── keel/                           ← NEW MCP server (with marketplace tools)
 │
 ├── ide-configs/                       ← NEW: shareable IDE configs
 │
@@ -802,7 +802,7 @@ myAgentPG/
 | **Publish turnaround** | < 1 minute per skill | CLI timing |
 | **Team adoption** | 80%+ developers | `.skills/` presence in repos |
 | **Cross-domain reuse** | 5+ skills shared across 3+ domains | Marketplace download stats |
-| **Stale skill rate** | < 10% | `dva skill diff` across repos |
+| **Stale skill rate** | < 10% | `keel skill diff` across repos |
 | **Offline resilience** | 100% onboard success | Test with marketplace down |
 
 ---
@@ -829,9 +829,9 @@ myAgentPG/
    or is there a read-only token?
 4. **Skill packaging format** — What's inside a `.skill` ZIP? Just `SKILL.md` + `VERSION`,
    or additional resources (scripts/, reference/)?
-5. **example-ai extension integration** — Can our DVA MCP server register as a source in
+5. **example-ai extension integration** — Can our KEEL MCP server register as a source in
    the extension's marketplace panel?
-6. **ACP Agent Registry** — Should we register DVA agents (PR reviewer, etc.) in the
+6. **ACP Agent Registry** — Should we register KEEL agents (PR reviewer, etc.) in the
    ACP registry at `cdn.agentclientprotocol.com`?
 
 ---
@@ -842,9 +842,9 @@ myAgentPG/
 2. **Fetch actual marketplace.json** — from `ai/model-context/agent-skills` repo to model the schema
 3. **Get whitelisted as publisher** — request access in `whitelisted-publishers` file
 4. **Phase 1**: Build marketplace.json client library (~3 days)
-5. **Phase 2**: Add `dva skill marketplace` CLI subcommands (~3 days)
-6. **Phase 3**: Integrate marketplace into `dva code onboard` (~3 days)
+5. **Phase 2**: Add `keel skill marketplace` CLI subcommands (~3 days)
+6. **Phase 3**: Integrate marketplace into `keel code onboard` (~3 days)
 7. **Phase 4**: Create marketplace-aware meta-skills + workflows (~2 days)
-8. **Phase 5**: Build DVA MCP server with marketplace tools (~1 week)
+8. **Phase 5**: Build KEEL MCP server with marketplace tools (~1 week)
 9. **Phase 6**: CI/CD pipeline + team rollout (~3 days)
 10. **Bulk publish**: Push all 60+ existing skills as MRs to agent-skills repo

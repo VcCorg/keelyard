@@ -57,7 +57,7 @@ make build
 
 ```bash
 make network
-docker network inspect dva-network
+docker network inspect keel-network
 ```
 
 **Expected**: ✅ Network exists and is bridge type
@@ -125,7 +125,7 @@ curl -s http://localhost:8125/status | python3 -m json.tool
   "provider": {
     "provider": "neo4j",
     "config": {
-      "neo4j_uri": "bolt://dva-neo4j:7687",
+      "neo4j_uri": "bolt://keel-neo4j:7687",
       "lightrag_url": null
     }
   },
@@ -152,7 +152,7 @@ curl -s -X POST http://localhost:8125/mcp/initialize \
     "prompts": {}
   },
   "serverInfo": {
-    "name": "dva-kg-mcp",
+    "name": "keel-kg-mcp",
     "version": "0.1.0",
     "provider": "neo4j"
   }
@@ -284,7 +284,7 @@ make stop
    ```json
    {
      "mcpServers": {
-       "dva-kg": {
+       "keel-kg": {
          "url": "http://localhost:8125/mcp",
          "transport": "http"
        }
@@ -296,7 +296,7 @@ make stop
    - Start MCP server
    - Open Claude Desktop
    - Ask: "List available MCP tools"
-   - Expected: Should see dva-kg tools
+   - Expected: Should see keel-kg tools
 
 3. **Query Test**:
    - Ask: "Query my knowledge graph for all nodes, limit 5"

@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "project": "dva-agentic-cli",
+  "project": "keel-agentic-cli",
   "analysis": {
     "languages": [
       "python"

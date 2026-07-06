@@ -1,4 +1,4 @@
-# DVA Evaluation Framework - Comprehensive Plan
+# KEEL Evaluation Framework - Comprehensive Plan
 
 **Document Version**: 1.0  
 **Date**: May 2, 2026  
@@ -22,9 +22,9 @@
 
 ## Executive Summary
 
-The DVA evaluation framework needs to support comprehensive evaluation of:
-- **Agent-Generated Skills**: Skills created via `dva skill generate` using AI
-- **User-Generated Skills**: Skills installed via `dva skill install` from repositories
+The KEEL evaluation framework needs to support comprehensive evaluation of:
+- **Agent-Generated Skills**: Skills created via `keel skill generate` using AI
+- **User-Generated Skills**: Skills installed via `keel skill install` from repositories
 - **Agent Performance**: Evaluation of agents using skills
 - **Skill Impact**: Measurement of how skills improve agent performance
 
@@ -61,7 +61,7 @@ The framework must adhere to the **OpenSkill evaluation format** recommended by 
 #### 2. **CLI Commands** (`agentic-cli/src/agentic_cli/commands/eval.py`)
 
 ```
-dva eval
+keel eval
 ├── dataset
 │   ├── create    ✅
 │   ├── list      ✅
@@ -183,7 +183,7 @@ license: MIT
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    DVA Evaluation Framework                  │
+│                    KEEL Evaluation Framework                  │
 ├─────────────────────────────────────────────────────────────┤
 │                                                               │
 │  ┌──────────────────────────────────────────────────────┐   │
@@ -312,7 +312,7 @@ class SkillEvaluationHistory:
 #### 1.1 OpenSkill Compliance Module
 - [ ] Create `openskill_compliance.py`
   - Define OpenSkill format validators
-  - Map DVA metrics to OpenSkill standards
+  - Map KEEL metrics to OpenSkill standards
   - Create compliance checkers
 - [ ] Document OpenSkill mapping
   - Create `docs/OPENSKILL_MAPPING.md`
@@ -369,7 +369,7 @@ class SkillEvaluationHistory:
   - Aggregate results
 - [ ] Add to `commands/eval.py`
   ```
-  dva eval run all-skills
+  keel eval run all-skills
     --dataset <dataset-id>
     --agent <agent-name>
     --parallel <workers>
@@ -414,7 +414,7 @@ class SkillEvaluationHistory:
 #### 3.2 Agent Evaluation Commands
 - [ ] Add `eval run agent` command
   ```
-  dva eval run agent
+  keel eval run agent
     --agent <agent-name>
     --dataset <dataset-id>
     --skills <skill1,skill2,...>
@@ -463,7 +463,7 @@ class SkillEvaluationHistory:
 #### 4.2 Comparison Commands
 - [ ] Add `eval compare skills` command
   ```
-  dva eval compare skills
+  keel eval compare skills
     --skills <skill1,skill2,skill3>
     --dataset <dataset-id>
     --agent <agent-name>
@@ -471,7 +471,7 @@ class SkillEvaluationHistory:
   ```
 - [ ] Add `eval compare agents` command
   ```
-  dva eval compare agents
+  keel eval compare agents
     --agents <agent1,agent2,agent3>
     --dataset <dataset-id>
     --skill <skill-name>
@@ -520,7 +520,7 @@ class SkillEvaluationHistory:
 #### 5.2 Certification Commands
 - [ ] Add `eval certify skill` command
   ```
-  dva eval certify skill
+  keel eval certify skill
     --skill <skill-name>
     --level <CERTIFIED|CONDITIONAL|NEEDS_IMPROVEMENT>
     --reason <reason>
@@ -675,7 +675,7 @@ class SkillEvaluationHistory:
 ### **Workflow 1: Evaluate Agent-Generated Skill**
 
 ```
-1. User runs: dva skill generate
+1. User runs: keel skill generate
    ↓
 2. AI generates skill → .skills/<skill-name>/SKILL.md
    ↓
@@ -683,7 +683,7 @@ class SkillEvaluationHistory:
    ↓
 4. Register in skill registry
    ↓
-5. User runs: dva eval run skill --skill <name> --dataset <id>
+5. User runs: keel eval run skill --skill <name> --dataset <id>
    ↓
 6. Evaluation pipeline:
    - Load skill
@@ -700,15 +700,15 @@ class SkillEvaluationHistory:
 ### **Workflow 2: Evaluate User-Generated Skill**
 
 ```
-1. User runs: dva skill install <source>
+1. User runs: keel skill install <source>
    ↓
 2. Skill cloned to .skills/<skill-name>/
    ↓
-3. Manual validation (user can run: dva eval validate skill <path>)
+3. Manual validation (user can run: keel eval validate skill <path>)
    ↓
 4. Register in skill registry
    ↓
-5. User runs: dva eval run skill --skill <name> --dataset <id>
+5. User runs: keel eval run skill --skill <name> --dataset <id>
    ↓
 6. Same evaluation pipeline as agent-generated
    ↓
@@ -718,7 +718,7 @@ class SkillEvaluationHistory:
 ### **Workflow 3: Evaluate All Skills**
 
 ```
-1. User runs: dva eval run all-skills --dataset <id> --agent <name>
+1. User runs: keel eval run all-skills --dataset <id> --agent <name>
    ↓
 2. Skill discovery:
    - Scan .skills/ directory
@@ -741,7 +741,7 @@ class SkillEvaluationHistory:
 ### **Workflow 4: Compare Skills**
 
 ```
-1. User runs: dva eval compare skills --skills <s1,s2,s3> --dataset <id>
+1. User runs: keel eval compare skills --skills <s1,s2,s3> --dataset <id>
    ↓
 2. For each skill:
    - Run evaluation
@@ -764,7 +764,7 @@ class SkillEvaluationHistory:
 
 ### **OpenSkill Format Compliance Matrix**
 
-| OpenSkill Requirement | DVA Implementation | Status |
+| OpenSkill Requirement | KEEL Implementation | Status |
 |----------------------|-------------------|--------|
 | **Metadata** | | |
 | Skill name | `SKILL.md` frontmatter | ✅ |

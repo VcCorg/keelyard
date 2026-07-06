@@ -2,7 +2,7 @@
 
 ## Overview
 
-The DVA KG CLI now supports **asynchronous, parallel ingestion** of documents into both Neo4j and LightRAG knowledge graphs. This allows you to:
+The KEEL KG CLI now supports **asynchronous, parallel ingestion** of documents into both Neo4j and LightRAG knowledge graphs. This allows you to:
 
 - ✅ Ingest large datasets without blocking the CLI
 - ✅ Process multiple repositories in parallel
@@ -35,7 +35,7 @@ User submits job → JobQueue creates job → ThreadPoolExecutor runs ingestion
 
 ### Job Storage
 
-Jobs are persisted to: `~/.dva-agentic/jobs/<job_id>.json`
+Jobs are persisted to: `~/.keel-agentic/jobs/<job_id>.json`
 
 This allows:
 - Job status survives CLI restarts
@@ -67,7 +67,7 @@ This allows:
 
 **Options:**
 - `--path` - Direct path to file or directory
-- `--source` - Data source name (configured via `dva data create`)
+- `--source` - Data source name (configured via `keel data create`)
 - `--provider` - Target: `neo4j`, `lightrag`, or `both` (default: lightrag)
 - `--format` - Force format (auto-detected if not specified)
 - `--extract-entities` - Extract entities with LLM (Neo4j only, default: true)
@@ -398,10 +398,10 @@ Submit each directory as separate job for better tracking.
 htop
 
 # Check Neo4j memory
-docker stats dva-neo4j
+docker stats keel-neo4j
 
 # Check LightRAG
-docker stats dva-lightrag
+docker stats keel-lightrag
 ```
 
 ### 5. Clean Up Regularly
@@ -465,7 +465,7 @@ cd lightrag-infrastructure && make restart
 ### AsyncIngestionManager
 
 ```python
-from dva_agentic_cli.kg.async_ingest import get_manager
+from agentic_cli.kg.async_ingest import get_manager
 
 manager = get_manager(max_workers=4)
 

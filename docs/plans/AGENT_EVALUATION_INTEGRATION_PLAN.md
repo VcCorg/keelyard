@@ -3,7 +3,7 @@
 **Status**: Design — ready for review
 **Date**: 2026-06-02
 **Reference**: `testpattern.txt` (Ragas-based evaluation feature from `test-agentic-cli`)
-**Target**: `dva eval` command group in this agentic CLI
+**Target**: `keel eval` command group in this agentic CLI
 
 ---
 
@@ -68,36 +68,36 @@ Ragas framework adapter and real agent response collection.
 
 ## 4. Proposed Command Surface
 
-Extend `dva eval` with config, agent-run, compare, report, and dataset generation:
+Extend `keel eval` with config, agent-run, compare, report, and dataset generation:
 
 ```bash
 # --- Dataset (extend existing) ---
-dva eval dataset generate <name> --source <storage|confluence|github|local>:<loc> \
+keel eval dataset generate <name> --source <storage|confluence|github|local>:<loc> \
     --num-questions 20 [--adversarial-ratio 0.2] [--persona-list personas.yaml] [--golden]
-dva eval dataset register <name> <path.csv> [--golden]      # CSV (Ragas schema)
-dva eval dataset list [--golden-only]
-dva eval dataset status <name>                              # background gen progress
+keel eval dataset register <name> <path.csv> [--golden]      # CSV (Ragas schema)
+keel eval dataset list [--golden-only]
+keel eval dataset status <name>                              # background gen progress
 
 # --- Evaluation config (new) ---
-dva eval create <name> <dataset> --metrics "Faithfulness,AnswerCorrectness" \
+keel eval create <name> <dataset> --metrics "Faithfulness,AnswerCorrectness" \
     [--framework ragas] [--llm gemini-2.5-flash] [--embedding-model gemini-embedding-001]
-dva eval describe <name>
-dva eval delete <name> [--force]
+keel eval describe <name>
+keel eval delete <name> [--force]
 
 # --- Run against a real agent (new) ---
-dva eval run agent <agent_name> <eval_name> [--batch-size 10] [--force-response-collection]
+keel eval run agent <agent_name> <eval_name> [--batch-size 10] [--force-response-collection]
 
 # --- Compare + report (new) ---
-dva eval compare <eval_name> --agents a-v1,a-v2 [--metrics ...] [--compare-versions]
-dva eval report <eval_name> [--output report.html]
+keel eval compare <eval_name> --agents a-v1,a-v2 [--metrics ...] [--compare-versions]
+keel eval report <eval_name> [--output report.html]
 
 # --- Metrics (extend) ---
-dva eval metrics list
-dva eval metric register <name> --prompt prompt.md [--schema schema.json]
-dva eval metric unregister <name>
+keel eval metrics list
+keel eval metric register <name> --prompt prompt.md [--schema schema.json]
+keel eval metric unregister <name>
 ```
 
-> Note: existing `dva eval run skill ...` stays as-is; we add `dva eval run agent ...`.
+> Note: existing `keel eval run skill ...` stays as-is; we add `keel eval run agent ...`.
 
 ---
 
@@ -154,7 +154,7 @@ class RagasFramework(EvalFramework):
         # map metric names -> ragas metric objects; run with 3 retries/backoff
 ```
 
-This lets `dva eval create --framework builtin` work today with zero new deps, and
+This lets `keel eval create --framework builtin` work today with zero new deps, and
 `--framework ragas` unlock the full RAG metric suite when the `eval` extra is installed.
 
 ---
@@ -180,7 +180,7 @@ clear error: *"Ragas not installed — run `pip install 'agentic-cli[eval]'`"*.
 ## 8. A2A Agent Runner (response collection)
 
 The reference collects responses by starting the agent as a subprocess and streaming
-over HTTP (A2A). We already start agents via `dva agent start/run` (subprocess). Plan:
+over HTTP (A2A). We already start agents via `keel agent start/run` (subprocess). Plan:
 
 1. `a2a_client.py` starts the agent project (reuse `commands/agent.py` start logic).
 2. Sends each `user_input` via HTTP streaming, collects `response` + `retrieved_contexts`.
@@ -210,7 +210,7 @@ Recommended start: **P1** (highest leverage, zero new deps, unblocks real-agent 
   to build Q&A grounded in domain requirements.
 - **Eval configs as governance artifacts**: store `eval/*.yaml` under the domain
   meta-repo `.platform/config/` so evaluations are versioned with the domain.
-- **Onboarding hook**: `dva code onboard --domain <d>` could optionally scaffold a
+- **Onboarding hook**: `keel code onboard --domain <d>` could optionally scaffold a
   baseline eval config for the repo's agent.
 
 ---
@@ -229,10 +229,10 @@ Recommended start: **P1** (highest leverage, zero new deps, unblocks real-agent 
 
 ## 12. Success Criteria
 
-- **P1**: `dva eval create` + `dva eval run agent` produce versioned results using builtin metrics, no new deps.
+- **P1**: `keel eval create` + `keel eval run agent` produce versioned results using builtin metrics, no new deps.
 - **P2**: `--framework ragas` computes Faithfulness/ContextPrecision on a sample dataset.
-- **P3**: `dva eval compare` ranks 2 agents; `dva eval report` opens an HTML report.
-- **P4**: `dva eval dataset generate --source local:./docs` yields a valid CSV with personas/adversarial mix.
+- **P3**: `keel eval compare` ranks 2 agents; `keel eval report` opens an HTML report.
+- **P4**: `keel eval dataset generate --source local:./docs` yields a valid CSV with personas/adversarial mix.
 
 ---
 

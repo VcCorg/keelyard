@@ -1,8 +1,8 @@
-# DVA Knowledge Graph Reset & Data Management Guide
+# KEEL Knowledge Graph Reset & Data Management Guide
 
 ## Overview
 
-This guide covers how to reset/clear ingested data in the DVA Knowledge Graph system for both Neo4j and LightRAG providers.
+This guide covers how to reset/clear ingested data in the KEEL Knowledge Graph system for both Neo4j and LightRAG providers.
 
 ---
 
@@ -16,7 +16,7 @@ This guide covers how to reset/clear ingested data in the DVA Knowledge Graph sy
 ```
 
 **What it does:**
-- Deletes `~/.dva-agentic/kg-config.json`
+- Deletes `~/.keel-agentic/kg-config.json`
 - Resets KG configuration to defaults
 - **Does NOT delete ingested data**
 
@@ -31,7 +31,7 @@ This guide covers how to reset/clear ingested data in the DVA Knowledge Graph sy
 
 **Implementation exists** but **not exposed as CLI command**.
 
-**Current code:** `src/dva_agentic_cli/kg/lightrag_client.py` (line 276-293)
+**Current code:** `src/agentic_cli/kg/lightrag_client.py` (line 276-293)
 
 ```python
 def clear(self) -> Dict[str, Any]:
@@ -72,25 +72,25 @@ def clear(self) -> Dict[str, Any]:
 
 #### Method A: Add CLI Command (Recommended - Needs Implementation)
 
-I can add a new command: `dva kg clear --provider lightrag`
+I can add a new command: `keel kg clear --provider lightrag`
 
 #### Method B: Manual Docker Reset (Current Workaround)
 
 ```bash
 # Stop and remove LightRAG container
-docker stop dva-lightrag
-docker rm dva-lightrag
+docker stop keel-lightrag
+docker rm keel-lightrag
 
 # Remove LightRAG data volume
-docker volume rm dva-lightrag-data
+docker volume rm keel-lightrag-data
 # OR if using bind mount:
 rm -rf /path/to/lightrag/data/*
 
 # Restart LightRAG
 docker run -d \
-  --name dva-lightrag \
+  --name keel-lightrag \
   -p 8001:8001 \
-  -v dva-lightrag-data:/data/lightrag \
+  -v keel-lightrag-data:/data/lightrag \
   lightrag:latest
 ```
 
@@ -104,8 +104,8 @@ curl -X DELETE http://localhost:8001/clear
 #### Method D: Python Script (Current Workaround)
 
 ```python
-from dva_agentic_cli.kg.lightrag_client import LightRAGClient
-from dva_agentic_cli.kg.config import KGConfig
+from agentic_cli.kg.lightrag_client import LightRAGClient
+from agentic_cli.kg.config import KGConfig
 
 config = KGConfig.load()
 client = LightRAGClient(base_url=config.lightrag_url)
@@ -165,7 +165,7 @@ neo4j start
 
 ## Recommended: Add Clear Command
 
-I can implement a new `dva kg clear` command that handles both providers:
+I can implement a new `keel kg clear` command that handles both providers:
 
 ### Proposed Implementation
 
@@ -192,7 +192,7 @@ I can implement a new `dva kg clear` command that handles both providers:
 - ✅ Selective clearing (by persona, by source, etc.)
 
 **Implementation location:**
-- Add to `src/dva_agentic_cli/commands/kg.py`
+- Add to `src/agentic_cli/commands/kg.py`
 - Use existing `LightRAGClient.clear()` method
 - Add Neo4j clear using Cypher: `MATCH (n) DETACH DELETE n`
 
@@ -211,8 +211,8 @@ I can implement a new `dva kg clear` command that handles both providers:
 **Recommended:**
 ```bash
 # Quick reset
-docker exec dva-lightrag rm -rf /data/lightrag/*
-docker restart dva-lightrag
+docker exec keel-lightrag rm -rf /data/lightrag/*
+docker restart keel-lightrag
 ```
 
 ### For Neo4j
@@ -263,8 +263,8 @@ docker cp neo4j:/backups/neo4j.dump ./neo4j-backup-$(date +%Y%m%d).dump
 **LightRAG:**
 ```bash
 # Backup data directory
-docker exec dva-lightrag tar czf /tmp/lightrag-backup.tar.gz /data/lightrag
-docker cp dva-lightrag:/tmp/lightrag-backup.tar.gz ./lightrag-backup-$(date +%Y%m%d).tar.gz
+docker exec keel-lightrag tar czf /tmp/lightrag-backup.tar.gz /data/lightrag
+docker cp keel-lightrag:/tmp/lightrag-backup.tar.gz ./lightrag-backup-$(date +%Y%m%d).tar.gz
 ```
 
 ### 3. Selective Re-ingestion
@@ -376,18 +376,18 @@ Options:
 
 ### High Priority (Implement Now)
 
-1. ✅ **`dva kg clear`** - Essential for development/testing
+1. ✅ **`keel kg clear`** - Essential for development/testing
    - Clear all data for provider
    - Confirmation prompt
    - Stats before/after
 
 ### Medium Priority (Nice to Have)
 
-2. **`dva kg backup`** - Safety feature
+2. **`keel kg backup`** - Safety feature
    - Backup before clearing
    - Scheduled backups
 
-3. **`dva kg restore`** - Recovery feature
+3. **`keel kg restore`** - Recovery feature
    - Restore from backup
    - Validation
 
@@ -411,31 +411,31 @@ Options:
 
 | Command | Purpose | Data Impact |
 |---------|---------|-------------|
-| `dva kg config --reset` | Reset configuration | None |
-| `dva kg config --show` | Show configuration | None |
-| `dva kg init` | Initialize provider | None |
-| `dva kg ingest` | Ingest data | Adds data |
-| `dva kg async submit` | Async ingest | Adds data |
-| `dva kg query` | Query data | None |
-| `dva kg search` | Search data | None |
-| `dva kg stats` | Show statistics | None |
+| `keel kg config --reset` | Reset configuration | None |
+| `keel kg config --show` | Show configuration | None |
+| `keel kg init` | Initialize provider | None |
+| `keel kg ingest` | Ingest data | Adds data |
+| `keel kg async submit` | Async ingest | Adds data |
+| `keel kg query` | Query data | None |
+| `keel kg search` | Search data | None |
+| `keel kg stats` | Show statistics | None |
 
 ### Missing Commands (Need Implementation)
 
 | Command | Purpose | Priority |
 |---------|---------|----------|
-| `dva kg clear` | Clear ingested data | 🔴 High |
-| `dva kg backup` | Backup data | 🟡 Medium |
-| `dva kg restore` | Restore data | 🟡 Medium |
-| `dva kg deduplicate` | Remove duplicates | 🟢 Low |
-| `dva kg validate` | Validate data integrity | 🟢 Low |
+| `keel kg clear` | Clear ingested data | 🔴 High |
+| `keel kg backup` | Backup data | 🟡 Medium |
+| `keel kg restore` | Restore data | 🟡 Medium |
+| `keel kg deduplicate` | Remove duplicates | 🟢 Low |
+| `keel kg validate` | Validate data integrity | 🟢 Low |
 
 ---
 
 ## Summary
 
 **Current State:**
-- ✅ Configuration reset available: `dva kg config --reset`
+- ✅ Configuration reset available: `keel kg config --reset`
 - ⚠️ LightRAG clear method exists but not exposed as CLI command
 - ❌ Neo4j clear not implemented
 - ❌ No backup/restore commands
@@ -445,6 +445,6 @@ Options:
 - **Neo4j:** Cypher query or Docker reset
 
 **Recommendation:**
-Implement `dva kg clear` command to properly expose data clearing functionality with safety features (confirmation, backup, stats).
+Implement `keel kg clear` command to properly expose data clearing functionality with safety features (confirmation, backup, stats).
 
-**Would you like me to implement the `dva kg clear` command now?**
+**Would you like me to implement the `keel kg clear` command now?**

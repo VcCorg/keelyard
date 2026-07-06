@@ -13,15 +13,15 @@ Instead of building a standalone business context system, Track A now leverages 
 ### Before (Generic Approach)
 ```bash
 # Separate business context extraction
-dva domain create Facility --product CWOW --jira CWOW --bb CGF --confluence MTT
+keel domain create Facility --product CWOW --jira CWOW --bb CGF --confluence MTT
 # Then separately:
-dva business-context extract --confluence-space MTT --output context.json
+keel business-context extract --confluence-space MTT --output context.json
 ```
 
 ### After (Domain-Driven Approach)
 ```bash
 # Business context extracted automatically during domain registration
-dva domain create Facility --product CWOW \
+keel domain create Facility --product CWOW \
   --jira CWOW \
   --bb CGF \
   --confluence MTT \
@@ -119,7 +119,7 @@ CodebaseAnalyzer:
 ### Register Domain with Business Context
 ```bash
 # Extract all documentation pages
-dva domain create Facility --product CWOW \
+keel domain create Facility --product CWOW \
   --jira CWOW \
   --bb CGF \
   --confluence MTT \
@@ -127,7 +127,7 @@ dva domain create Facility --product CWOW \
   --ingest-business-context
 
 # Extract specific pages
-dva domain create Facility --product CWOW \
+keel domain create Facility --product CWOW \
   --jira CWOW \
   --bb CGF \
   --confluence MTT \
@@ -136,7 +136,7 @@ dva domain create Facility --product CWOW \
   --context-pages "Business Rules,SLA,Integration Specs,Security Policies"
 
 # Extract without auto-categorization
-dva domain create Facility --product CWOW \
+keel domain create Facility --product CWOW \
   --jira CWOW \
   --bb CGF \
   --confluence MTT \
@@ -148,16 +148,16 @@ dva domain create Facility --product CWOW \
 ### Query Business Context
 ```bash
 # NEW COMMANDS
-dva domain show-context cwow-facility
-dva domain search-rules --domain cwow-facility --category SLA
-dva domain search-rules --category Integration
-dva domain search-rules --keyword "authentication"
+keel domain show-context cwow-facility
+keel domain search-rules --domain cwow-facility --category SLA
+keel domain search-rules --category Integration
+keel domain search-rules --keyword "authentication"
 ```
 
 ### Use During Code Onboarding
 ```bash
 # Code onboarding automatically includes business context
-dva code onboard https://github.com/company/facility-service \
+keel code onboard https://github.com/company/facility-service \
   --domain cwow-facility
 
 # Output includes:

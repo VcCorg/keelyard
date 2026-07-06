@@ -341,19 +341,19 @@ graphify_insights = format_graphify_insights(graphify_data)
 
 ```bash
 # Basic code onboarding with KG
-dva code onboard --path ./facility-service --kg
+keel code onboard --path ./facility-service --kg
 
 # With Graphify analysis
-dva code onboard --path ./facility-service --kg --graphify
+keel code onboard --path ./facility-service --kg --graphify
 
 # With full entity extraction
-dva code onboard --path ./facility-service --kg --extract-entities
+keel code onboard --path ./facility-service --kg --extract-entities
 
 # With both Graphify and entity extraction
-dva code onboard --path ./facility-service --kg --graphify --extract-entities
+keel code onboard --path ./facility-service --kg --graphify --extract-entities
 
 # With domain specification
-dva code onboard --path ./facility-service --kg --domain cwow-facility
+keel code onboard --path ./facility-service --kg --domain cwow-facility
 ```
 
 ### Output

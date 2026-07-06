@@ -1,4 +1,4 @@
-"""Tests for Phase 4: dva project create --domain auto-wiring."""
+"""Tests for Phase 4: keel project create --domain auto-wiring."""
 
 import json
 import pytest
@@ -22,7 +22,7 @@ runner = CliRunner()
 @pytest.fixture(autouse=True)
 def temp_db(tmp_path, monkeypatch):
     """Redirect tracker.db to a temp directory for each test."""
-    db_dir = tmp_path / ".dva-agentic"
+    db_dir = tmp_path / ".keel-agentic"
     db_dir.mkdir()
     monkeypatch.setattr(tracker, "DB_DIR", db_dir)
     monkeypatch.setattr(tracker, "DB_PATH", db_dir / "tracker.db")

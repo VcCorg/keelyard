@@ -2,7 +2,7 @@
 
 ## Overview
 
-Successfully created a complete Docker-based MCP (Model Context Protocol) server infrastructure for DVA Knowledge Graph operations. The server exposes KG functionality (query, search, stats) to IDEs and AI assistants via standardized MCP protocol.
+Successfully created a complete Docker-based MCP (Model Context Protocol) server infrastructure for KEEL Knowledge Graph operations. The server exposes KG functionality (query, search, stats) to IDEs and AI assistants via standardized MCP protocol.
 
 ## What Was Built
 
@@ -17,7 +17,7 @@ Successfully created a complete Docker-based MCP (Model Context Protocol) server
 #### Features:
 - Health checks (10s interval, 5 retries)
 - Volume mounts for config and credentials
-- Docker network integration (`dva-network`)
+- Docker network integration (`keel-network`)
 - Environment-based configuration
 - Automatic restart policy
 
@@ -58,7 +58,7 @@ Successfully created a complete Docker-based MCP (Model Context Protocol) server
 ### 3. KG Module Integration
 
 #### Runtime Volume Mount (Not Copied!):
-**Key Design Decision**: KG modules are **volume-mounted at runtime** from `../agentic-cli/src/dva_agentic_cli/kg/`
+**Key Design Decision**: KG modules are **volume-mounted at runtime** from `../agentic-cli/src/agentic_cli/kg/`
 
 **Benefits**:
 - ✅ Code changes in CLI reflected immediately after container restart
@@ -79,7 +79,7 @@ Successfully created a complete Docker-based MCP (Model Context Protocol) server
 **Volume Configuration**:
 ```yaml
 volumes:
-  - ../agentic-cli/src/dva_agentic_cli/kg:/app/src/kg:ro
+  - ../agentic-cli/src/agentic_cli/kg:/app/src/kg:ro
 ```
 
 #### Adapter Layer:
@@ -126,7 +126,7 @@ make network        # Create Docker network
 - **MCP Server**: Port, log level, transport
 
 #### Docker Volumes:
-- `~/.dva-agentic` - Agentic CLI config (read-only)
+- `~/.keel-agentic` - Agentic CLI config (read-only)
 - `~/.config/gcloud` - Google Cloud credentials (read-only)
 
 ### 6. Documentation
@@ -208,7 +208,7 @@ kg-mcp-infrastructure/
 - **Data**: pydantic 2.0+, PyPDF2
 
 ### Network
-- **Name**: `dva-network`
+- **Name**: `keel-network`
 - **Driver**: bridge
 - **External**: true (shared with Neo4j/LightRAG)
 
@@ -280,7 +280,7 @@ curl -X POST http://localhost:8125/mcp/tools/call \
    ```json
    {
      "mcpServers": {
-       "dva-kg": {
+       "keel-kg": {
          "url": "http://localhost:8125/mcp",
          "transport": "http"
        }
@@ -310,7 +310,7 @@ make logs-follow
 make status
 
 # Container details
-docker ps | grep dva-kg-mcp
+docker ps | grep keel-kg-mcp
 ```
 
 ## What Works

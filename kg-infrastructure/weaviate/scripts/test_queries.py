@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test queries for Weaviate DVA KG infrastructure validation.
+Test queries for Weaviate KEEL KG infrastructure validation.
 
 This script runs test queries to validate vector search and graph
 relationship functionality in Weaviate.

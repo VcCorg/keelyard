@@ -12,7 +12,7 @@ Host Machine                          Docker Container
 
 agentic-cli/                      /app/
 ├── src/                              ├── src/
-│   └── dva_agentic_cli/              │   ├── mcp_server.py (copied)
+│   └── agentic_cli/              │   ├── mcp_server.py (copied)
 │       └── kg/                       │   └── kg/ (volume mounted ↓)
 │           ├── query.py    ────────────────→ query.py
 │           ├── search.py   ────────────────→ search.py
@@ -52,7 +52,7 @@ services:
   kg-mcp-server:
     volumes:
       # Runtime mount - KG modules from CLI
-      - ../agentic-cli/src/dva_agentic_cli/kg:/app/src/kg:ro
+      - ../agentic-cli/src/agentic_cli/kg:/app/src/kg:ro
 ```
 
 ### Dockerfile
@@ -80,7 +80,7 @@ RUN mkdir -p /app/src/kg
 
 ```bash
 # 1. Edit the code
-cd agentic-cli/src/dva_agentic_cli/kg
+cd agentic-cli/src/agentic_cli/kg
 nano query.py
 # Make changes to execute_query()
 
@@ -120,7 +120,7 @@ make test
 
 ```bash
 # 1. Create new module in CLI
-cd agentic-cli/src/dva_agentic_cli/kg
+cd agentic-cli/src/agentic_cli/kg
 nano new_feature.py
 # Create new functionality
 
@@ -145,7 +145,7 @@ make restart
 
 ### Mounted at Runtime:
 - 📁 `kg/` directory - All KG modules
-- 📁 `~/.dva-agentic/` - DVA config
+- 📁 `~/.keel-agentic/` - KEEL config
 - 📁 `~/.config/gcloud/` - Google credentials
 
 ## Troubleshooting
@@ -157,10 +157,10 @@ make restart
 **Solution**:
 ```bash
 # Check if CLI exists at expected location
-ls ../agentic-cli/src/dva_agentic_cli/kg
+ls ../agentic-cli/src/agentic_cli/kg
 
 # Check container mount
-docker exec dva-kg-mcp ls -la /app/src/kg
+docker exec keel-kg-mcp ls -la /app/src/kg
 
 # Verify docker-compose.yml path
 cat docker-compose.yml | grep "kg:"
@@ -179,7 +179,7 @@ make restart
 docker-compose up -d --force-recreate
 
 # Check if files are mounted
-docker exec dva-kg-mcp cat /app/src/kg/query.py
+docker exec keel-kg-mcp cat /app/src/kg/query.py
 ```
 
 ### Issue: "Permission denied"
@@ -189,7 +189,7 @@ docker exec dva-kg-mcp cat /app/src/kg/query.py
 **Solution**:
 ```bash
 # Check host permissions
-ls -la ../agentic-cli/src/dva_agentic_cli/kg
+ls -la ../agentic-cli/src/agentic_cli/kg
 
 # Mount is read-only (:ro) which is correct
 # If issues persist, remove :ro flag temporarily
@@ -206,7 +206,7 @@ make restart && make test
 ```bash
 # Commit changes to CLI repo
 cd ../agentic-cli
-git add src/dva_agentic_cli/kg/query.py
+git add src/agentic_cli/kg/query.py
 git commit -m "Fix query logic"
 
 # MCP server automatically uses new version
@@ -223,7 +223,7 @@ If KG module changes break MCP server compatibility:
 ### 4. **Keep Paths Relative**
 Docker compose uses relative path:
 ```yaml
-- ../agentic-cli/src/dva_agentic_cli/kg:/app/src/kg:ro
+- ../agentic-cli/src/agentic_cli/kg:/app/src/kg:ro
 ```
 
 This works if directory structure is:

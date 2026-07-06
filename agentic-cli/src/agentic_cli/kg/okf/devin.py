@@ -363,7 +363,7 @@ def push_bundle(
         if rep.errors:
             raise ValueError(
                 f"Bundle failed validation ({len(rep.errors)} errors); refusing to push. "
-                f"Run `dva kg okf validate {root}` and fix violations first."
+                f"Run `keel kg okf validate {root}` and fix violations first."
             )
 
     entries = build_knowledge_entries(bundle, types)

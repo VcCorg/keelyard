@@ -78,7 +78,7 @@ def main():
     analysis = analyze_project(project_path)
 
     # Load registry
-    registry_path = Path(args.registry_path) if args.registry_path else Path.home() / ".dva" / "skills-registry"
+    registry_path = Path(args.registry_path) if args.registry_path else Path.home() / ".keel" / "skills-registry"
     registry_data = {{"skills": []}}
     if (registry_path / "registry.json").exists():
         registry_data = load_registry(registry_path)

@@ -57,7 +57,7 @@ function NavItemLink({ item }: { item: NavItem }) {
     return (
       <button
         onClick={openPanel}
-        title="Initialize / configure the dva CLI"
+        title="Initialize / configure the keel CLI"
         className={cn(
           "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
           ready
@@ -236,7 +236,7 @@ export function Layout() {
               )}
               title={
                 auth.provider === "dev"
-                  ? "Local dev identity — set DVA_AUTH_MODE=forward-auth behind an SSO proxy"
+                  ? "Local dev identity — set KEEL_AUTH_MODE=forward-auth behind an SSO proxy"
                   : `Enterprise SSO via ${auth.provider}`
               }
             >

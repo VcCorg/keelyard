@@ -1,6 +1,6 @@
 # MCP Server Management
 
-This guide covers the `dva mcp` commands for managing Model Context Protocol (MCP) servers across your development environment.
+This guide covers the `keel mcp` commands for managing Model Context Protocol (MCP) servers across your development environment.
 
 ## Overview
 
@@ -38,14 +38,14 @@ The MCP management system provides:
 
 ### Global Registry
 
-Global MCP servers are stored in `~/.dva-agentic/mcp/registry.json`:
+Global MCP servers are stored in `~/.keel-agentic/mcp/registry.json`:
 
 ```json
 {
   "version": "1.0",
   "servers": {
     "kg": {
-      "name": "DVA Knowledge Graph",
+      "name": "KEEL Knowledge Graph",
       "type": "docker",
       "enabled": true,
       "docker": {
@@ -95,7 +95,7 @@ Project-specific settings in `.mcp/mcp.json`:
 
 ## Commands
 
-### `dva mcp init`
+### `keel mcp init`
 
 Initialize MCP configuration in the current workspace.
 
@@ -105,7 +105,7 @@ Initialize MCP configuration in the current workspace.
 `agent mcp init --force            # Overwrite existing config
 ```
 
-### `dva mcp add`
+### `keel mcp add`
 
 Add a new MCP server to the global registry.
 
@@ -155,7 +155,7 @@ Add a new MCP server to the global registry.
 | `--description, -d` | Server description |
 | `--project` | Add to project config instead of global |
 
-### `dva mcp remove`
+### `keel mcp remove`
 
 Remove an MCP server configuration.
 
@@ -165,7 +165,7 @@ Remove an MCP server configuration.
 `agent mcp remove local --project # Remove from project config
 ```
 
-### `dva mcp list`
+### `keel mcp list`
 
 List all configured MCP servers.
 
@@ -175,7 +175,7 @@ List all configured MCP servers.
 `agent mcp list --json    # Output as JSON
 ```
 
-### `dva mcp show`
+### `keel mcp show`
 
 Show detailed information about a server.
 
@@ -183,7 +183,7 @@ Show detailed information about a server.
 `agent mcp show kg
 ```
 
-### `dva mcp start`
+### `keel mcp start`
 
 Start Docker-based MCP server(s).
 
@@ -192,7 +192,7 @@ Start Docker-based MCP server(s).
 `agent mcp start kg     # Start specific server
 ```
 
-### `dva mcp stop`
+### `keel mcp stop`
 
 Stop Docker-based MCP server(s).
 
@@ -201,7 +201,7 @@ Stop Docker-based MCP server(s).
 `agent mcp stop kg      # Stop specific server
 ```
 
-### `dva mcp health`
+### `keel mcp health`
 
 Check health of MCP server(s).
 
@@ -211,7 +211,7 @@ Check health of MCP server(s).
 `agent mcp health --json    # Output as JSON
 ```
 
-### `dva mcp sync`
+### `keel mcp sync`
 
 Sync MCP configuration to IDE-specific format.
 
@@ -232,7 +232,7 @@ Sync MCP configuration to IDE-specific format.
 | VS Code | `.vscode/settings.json` | `~/.vscode/settings.json` |
 | Cursor | `.cursor/mcp.json` | `~/.cursor/mcp.json` |
 
-### `dva mcp import`
+### `keel mcp import`
 
 Import MCP servers from an existing IDE configuration.
 
@@ -241,7 +241,7 @@ Import MCP servers from an existing IDE configuration.
 `agent mcp import --from ~/Library/Application\ Support/Claude/claude_desktop_config.json --ide claude
 ```
 
-### `dva mcp logs`
+### `keel mcp logs`
 
 Show logs from a Docker-based MCP server.
 
@@ -294,7 +294,7 @@ Docker Compose services that expose MCP endpoints.
 
 **Benefits:**
 - Isolated environment
-- Easy start/stop with `dva mcp start/stop`
+- Easy start/stop with `keel mcp start/stop`
 - Health monitoring
 - Log access
 
@@ -328,9 +328,9 @@ When syncing to IDE configs, `${VAR}` references are resolved from the current e
 ## Project vs Global Configuration
 
 ### Global Registry
-- Stored in `~/.dva-agentic/mcp/registry.json`
+- Stored in `~/.keel-agentic/mcp/registry.json`
 - Available across all workspaces
-- Managed with `dva mcp add/remove` (default)
+- Managed with `keel mcp add/remove` (default)
 
 ### Project Configuration
 - Stored in `.mcp/mcp.json` in workspace
@@ -353,7 +353,7 @@ Set `"inherit_global": false` to ignore global servers entirely.
 
 ## Integration with kg-mcp-infrastructure
 
-The `dva mcp` commands integrate seamlessly with your existing `kg-mcp-infrastructure`:
+The `keel mcp` commands integrate seamlessly with your existing `kg-mcp-infrastructure`:
 
 ```bash
 # Add KG MCP server
@@ -363,7 +363,7 @@ The `dva mcp` commands integrate seamlessly with your existing `kg-mcp-infrastru
   --service kg-mcp-server \
   --port 8125 \
   --tools "kg_query,kg_search,kg_stats,kg_ingest" \
-  --description "DVA Knowledge Graph MCP"
+  --description "KEEL Knowledge Graph MCP"
 
 # Start the server
 `agent mcp start kg
@@ -453,7 +453,7 @@ curl http://localhost:8125/health
 
 ### IDE Not Connecting
 
-1. Verify server is running: `dva mcp health`
+1. Verify server is running: `keel mcp health`
 2. Check synced config: `cat .windsurf/mcp_config.json`
 3. Restart IDE after sync
 4. Check IDE logs for MCP errors
@@ -473,8 +473,8 @@ export GLEAN_API_TOKEN="your-token"
 1. **Use global registry** for servers shared across projects
 2. **Use project config** for project-specific overrides
 3. **Use environment variables** for sensitive values
-4. **Run `dva mcp health`** before starting work
-5. **Sync after changes** with `dva mcp sync --ide <your-ide>`
+4. **Run `keel mcp health`** before starting work
+5. **Sync after changes** with `keel mcp sync --ide <your-ide>`
 6. **Version control** `.mcp/mcp.json` with your project
 7. **Don't version control** IDE-specific generated files (`.windsurf/`, `.claude/`)
 
@@ -482,7 +482,7 @@ export GLEAN_API_TOKEN="your-token"
 
 | File | Purpose |
 |------|---------|
-| `~/.dva-agentic/mcp/registry.json` | Global server registry |
+| `~/.keel-agentic/mcp/registry.json` | Global server registry |
 | `.mcp/mcp.json` | Project MCP configuration |
 | `.windsurf/mcp_config.json` | Generated Windsurf config |
 | `.claude/settings.json` | Generated Claude config |

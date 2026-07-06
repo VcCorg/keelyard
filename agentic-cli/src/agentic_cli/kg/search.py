@@ -86,7 +86,7 @@ def exact_search(
     """
     query = f"""
     MATCH (n)
-    WHERE n._source = 'dva_kg' AND (n.name CONTAINS $text OR n.content CONTAINS $text)
+    WHERE n._source = 'keel_kg' AND (n.name CONTAINS $text OR n.content CONTAINS $text)
     RETURN n
     LIMIT $limit
     """

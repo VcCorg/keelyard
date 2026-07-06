@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""OKF FREQ traceability viewer (prototype / seed for `dva kg okf trace`).
+"""OKF FREQ traceability viewer (prototype / seed for `keel kg okf trace`).
 
 Walks the typed cross-links of an OKF bundle and prints, per FREQ, the
 dev->code and QA->test traceability that engineers consult before implementation:
@@ -16,7 +16,7 @@ Usage:
 Default BUNDLE_DIR: skills/domains/cwow-facility/knowledge
 
 Transient state (Jira status/assignee/sprint) is NOT stored in the bundle. The
-concept stores only the `jira:` anchor; with --hydrate the real `dva kg okf trace`
+concept stores only the `jira:` anchor; with --hydrate the real `keel kg okf trace`
 resolves live values via Jira MCP. This prototype shows the hydration point.
 """
 from __future__ import annotations
@@ -67,7 +67,7 @@ def title_of(concepts, rel):
 def hydrate_jira_status(jira_anchor: str, enabled: bool) -> str:
     """Resolve transient Jira state live. Not stored in the bundle.
 
-    In `dva kg okf trace --hydrate` this calls Jira MCP:
+    In `keel kg okf trace --hydrate` this calls Jira MCP:
         mcp0_jira_get_issue(issueIdOrKey=<key from anchor>) -> fields.status.name
     This prototype only marks the hydration point.
     """
