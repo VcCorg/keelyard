@@ -109,6 +109,53 @@ def revoke_role(
     console.print(f"[green]✓[/green] Cleared role assignment for {subject}.")
 
 
+@admin_app.command("reset", help="Reset platform data by scope (destructive).")
+def reset(
+    scope: Annotated[List[str], typer.Option("--scope", "-s",
+        help="Scope(s): activity | catalog | sessions | settings | all")] = None,
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Skip the confirmation prompt")] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would be reset, change nothing")] = False,
+) -> None:
+    """Return the platform to a clean state for the chosen scopes.
+
+    Individual deletes exist per item; this is the app-level reset. Destructive —
+    requires confirmation (or --yes). Use --dry-run to preview counts.
+    """
+    from agentic_cli.admin import SCOPES, SCOPE_LABELS, normalize_scopes, reset_platform, reset_preview
+
+    scopes = normalize_scopes(scope or [])
+    if not scopes:
+        console.print(f"[yellow]No valid scope. Choose from:[/yellow] {', '.join(SCOPES)}, all")
+        raise typer.Exit(1)
+
+    prev = reset_preview()
+    table = Table(show_header=True, header_style="bold magenta", title="Platform reset — scope preview")
+    table.add_column("Scope", style="cyan")
+    table.add_column("What", style="dim")
+    table.add_column("Items", justify="right")
+    for s in scopes:
+        table.add_row(s, SCOPE_LABELS[s], str(prev[s]["items"]))
+    console.print(table)
+
+    if dry_run:
+        console.print("[dim]Dry-run — nothing changed.[/dim]")
+        return
+
+    if not yes:
+        from rich.prompt import Confirm
+
+        if not Confirm.ask(f"[red]Reset {', '.join(scopes)}? This cannot be undone.[/red]"):
+            console.print("Aborted.")
+            raise typer.Exit(1)
+
+    summary = reset_platform(scopes)
+    # Audit AFTER the reset so the record survives an activity clear.
+    _audit("reset", {"scopes": scopes})
+    console.print(f"[bold green]✓[/bold green] Reset complete: {', '.join(scopes)}")
+    for s, detail in summary.items():
+        console.print(f"  [cyan]{s}[/cyan]: {detail}")
+
+
 def _audit(action: str, details: dict) -> None:
     try:
         from agentic_cli.tracker import record_action

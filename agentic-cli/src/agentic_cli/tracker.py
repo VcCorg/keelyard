@@ -1358,3 +1358,44 @@ def get_full_context() -> dict:
         "activity_summary": get_activity_summary(),
         "recent_activity": get_activity(limit=20),
     }
+
+
+# ---------------------------------------------------------------------------
+# Platform reset (admin)
+# ---------------------------------------------------------------------------
+
+# Logical groups of tables an admin can clear. Children are listed before
+# parents so deletes are safe regardless of foreign-key state.
+RESET_TABLE_GROUPS: dict[str, list[str]] = {
+    "activity": ["activity_log"],
+    "catalog": [
+        "domain_docs", "domain_repos", "domains",
+        "projects", "products", "repos", "workspaces",
+    ],
+}
+
+
+def table_counts(tables: list[str]) -> dict[str, int]:
+    """Return current row counts for the given tables (0 if missing)."""
+    out: dict[str, int] = {}
+    with _get_conn() as conn:
+        for t in tables:
+            try:
+                out[t] = conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
+            except Exception:  # noqa: BLE001 - table may not exist
+                out[t] = 0
+    return out
+
+
+def clear_tables(tables: list[str]) -> dict[str, int]:
+    """Delete all rows from the given tables. Returns rows deleted per table."""
+    deleted: dict[str, int] = {}
+    with _get_conn() as conn:
+        for t in tables:
+            try:
+                before = conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
+                conn.execute(f"DELETE FROM {t}")
+                deleted[t] = before
+            except Exception:  # noqa: BLE001
+                deleted[t] = 0
+    return deleted

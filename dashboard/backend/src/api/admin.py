@@ -9,10 +9,15 @@ from agentic_cli.auth import PERM_ADMIN
 from src.services.admin_service import (
     AdminSettingsModel,
     AdminSettingsUpdate,
+    ResetPreviewModel,
+    ResetRequest,
+    ResetResult,
     RoleAssignmentsModel,
     RoleAssignmentUpdate,
     get_role_assignments,
     get_settings,
+    reset_platform,
+    reset_preview,
     set_role_assignment,
     update_settings,
 )
@@ -61,6 +66,30 @@ async def api_set_role(
     """Assign roles to a user (empty roles removes the assignment). Requires ``admin:*``."""
     try:
         return set_role_assignment(update, actor=actor_of(request))
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/reset/preview", response_model=ResetPreviewModel)
+async def api_reset_preview(_principal=Depends(require(PERM_ADMIN))):
+    """What each reset scope currently holds (admin-only)."""
+    try:
+        return reset_preview()
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/reset", response_model=ResetResult)
+async def api_reset(
+    req: ResetRequest,
+    request: Request,
+    _principal=Depends(require(PERM_ADMIN)),
+):
+    """Reset platform data by scope. Destructive — requires confirm='RESET'. ``admin:*``."""
+    try:
+        return reset_platform(req, actor=actor_of(request))
     except HTTPException:
         raise
     except Exception as e:  # noqa: BLE001
