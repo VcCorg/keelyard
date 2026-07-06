@@ -1,10 +1,13 @@
-import { useMemo, useState } from "react";
-import { ShieldCheck, Save, RotateCcw, Loader2, Palette, ListChecks, Lock } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ShieldCheck, Save, RotateCcw, Loader2, Palette, ListChecks, Lock, AlertTriangle, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useUser, type UserRole } from "@/context/UserContext";
 import { useAdminSettings } from "@/context/AdminSettingsContext";
 import { buildNavCatalog, UI_ROLES, type NavCatalogNode } from "@/lib/nav";
+import { api, type ResetScope } from "@/lib/api";
+
+const RESET_CONFIRM = "RESET";
 
 const KIND_BADGE: Record<NavCatalogNode["kind"], string> = {
   group: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
@@ -82,6 +85,52 @@ export function Admin() {
     }
     return [...m.entries()];
   }, [catalog]);
+
+  // ── Platform reset (danger zone) ────────────────────────────────────────
+  const [resetScopes, setResetScopes] = useState<ResetScope[]>([]);
+  const [chosen, setChosen] = useState<Set<string>>(new Set());
+  const [confirmText, setConfirmText] = useState("");
+  const [resetting, setResetting] = useState(false);
+  const [resetMsg, setResetMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!canEdit) return;
+    let alive = true;
+    api
+      .getResetPreview()
+      .then((p) => alive && setResetScopes(p.scopes))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [canEdit]);
+
+  const toggleScope = (s: string) =>
+    setChosen((prev) => {
+      const next = new Set(prev);
+      if (next.has(s)) next.delete(s);
+      else next.add(s);
+      return next;
+    });
+
+  const doReset = async () => {
+    const scopes = [...chosen];
+    if (!scopes.length || confirmText !== RESET_CONFIRM) return;
+    setResetting(true);
+    setResetMsg(null);
+    try {
+      const res = await api.resetPlatform({ scopes, confirm: confirmText });
+      setResetMsg(`Reset: ${res.reset.join(", ")}`);
+      setChosen(new Set());
+      setConfirmText("");
+      const p = await api.getResetPreview();
+      setResetScopes(p.scopes);
+    } catch (e) {
+      setResetMsg((e as Error)?.message || "Reset failed");
+    } finally {
+      setResetting(false);
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 p-1">
@@ -219,6 +268,53 @@ export function Admin() {
           ))}
         </div>
       </section>
+
+      {/* ── Danger zone: platform reset ──────────────────────────────────── */}
+      {canEdit && (
+        <section className="rounded-xl border border-red-200 dark:border-red-900/40 bg-red-50/40 dark:bg-red-900/10 p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-red-500" />
+            <h2 className="text-lg font-semibold text-red-700 dark:text-red-300">Reset platform data</h2>
+            <span className="text-xs text-red-500/80">destructive · cannot be undone</span>
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Return the platform to a clean state. Select what to clear, then type{" "}
+            <code className="font-mono">{RESET_CONFIRM}</code> to confirm.
+          </p>
+
+          <div className="space-y-1.5">
+            {resetScopes.map((s) => (
+              <label
+                key={s.scope}
+                className="flex items-center gap-3 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 cursor-pointer"
+              >
+                <input type="checkbox" checked={chosen.has(s.scope)} onChange={() => toggleScope(s.scope)} />
+                <span className="text-sm text-gray-800 dark:text-gray-200 flex-1">{s.label}</span>
+                <span className="text-xs text-gray-400">{s.items} item{s.items === 1 ? "" : "s"}</span>
+              </label>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder={`Type ${RESET_CONFIRM} to confirm`}
+              className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-2.5 py-2 text-sm w-56"
+            />
+            <Button
+              size="sm"
+              className="bg-red-600 hover:bg-red-700 text-white"
+              disabled={resetting || chosen.size === 0 || confirmText !== RESET_CONFIRM}
+              onClick={doReset}
+            >
+              {resetting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Trash2 className="h-4 w-4 mr-1.5" />}
+              Reset selected data
+            </Button>
+            {resetMsg && <span className="text-xs text-gray-500">{resetMsg}</span>}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

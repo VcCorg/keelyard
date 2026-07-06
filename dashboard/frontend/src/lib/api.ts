@@ -425,6 +425,21 @@ export interface RoleAssignmentUpdate {
   roles: string[];
 }
 
+export interface ResetScope {
+  scope: string;
+  label: string;
+  items: number;
+}
+
+export interface ResetPreview {
+  scopes: ResetScope[];
+}
+
+export interface ResetResult {
+  reset: string[];
+  summary: Record<string, unknown>;
+}
+
 export interface AuthMe {
   subject: string;
   display_name: string;
@@ -1702,6 +1717,14 @@ class APIClient {
 
   async getRoleAssignments(): Promise<RoleAssignments> {
     return this.request("/admin/roles");
+  }
+
+  async getResetPreview(): Promise<ResetPreview> {
+    return this.request("/admin/reset/preview");
+  }
+
+  async resetPlatform(body: { scopes: string[]; confirm: string }): Promise<ResetResult> {
+    return this.request("/admin/reset", { method: "POST", body: JSON.stringify(body) });
   }
 
   async setRoleAssignment(body: RoleAssignmentUpdate): Promise<RoleAssignments> {

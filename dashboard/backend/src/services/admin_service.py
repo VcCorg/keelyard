@@ -6,7 +6,7 @@ Reads are open (every user needs branding + their nav); writes are admin-only
 """
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException
 from pydantic import BaseModel
@@ -97,6 +97,61 @@ def set_role_assignment(update: RoleAssignmentUpdate, actor: str | None = None) 
     except Exception:  # noqa: BLE001 - never break on audit
         pass
     return get_role_assignments()
+
+
+# ── Platform reset ───────────────────────────────────────────────────────────
+
+CONFIRM_PHRASE = "RESET"
+
+
+class ResetScope(BaseModel):
+    scope: str
+    label: str
+    items: int
+
+
+class ResetPreviewModel(BaseModel):
+    scopes: List[ResetScope] = []
+
+
+class ResetRequest(BaseModel):
+    scopes: List[str] = []
+    confirm: str = ""            # must equal CONFIRM_PHRASE
+
+
+class ResetResult(BaseModel):
+    reset: List[str] = []
+    summary: Dict[str, Any] = {}
+
+
+def reset_preview() -> ResetPreviewModel:
+    from agentic_cli.admin import SCOPES, reset_preview as cli_preview
+
+    prev = cli_preview()
+    return ResetPreviewModel(scopes=[
+        ResetScope(scope=s, label=prev[s]["label"], items=int(prev[s]["items"])) for s in SCOPES
+    ])
+
+
+def reset_platform(req: ResetRequest, actor: str | None = None) -> ResetResult:
+    from agentic_cli.admin import normalize_scopes, reset_platform as cli_reset
+
+    if req.confirm != CONFIRM_PHRASE:
+        raise HTTPException(status_code=400,
+                            detail=f"Confirmation required: type '{CONFIRM_PHRASE}' to reset.")
+    scopes = normalize_scopes(req.scopes)
+    if not scopes:
+        raise HTTPException(status_code=400, detail="No valid reset scope selected.")
+
+    summary = cli_reset(scopes)
+    try:
+        from agentic_cli.tracker import record_action
+
+        record_action("admin", "reset", entity_type="platform", entity_id="app",
+                      source="dashboard", actor=actor, details={"scopes": scopes})
+    except Exception:  # noqa: BLE001 - never break on audit
+        pass
+    return ResetResult(reset=scopes, summary=summary)
 
 
 def update_settings(update: AdminSettingsUpdate, actor: str | None = None) -> AdminSettingsModel:
