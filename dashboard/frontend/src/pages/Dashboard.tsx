@@ -34,7 +34,7 @@ export function Dashboard() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Dashboard</h1>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Agentic Platform overview and quick access</p>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Keel — agentic product development platform overview and quick access</p>
       </div>
 
       {/* Stat cards */}

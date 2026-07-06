@@ -21,6 +21,8 @@ dependencies = [
 # CLI name is configurable via AGENT_CLI_NAME env var (default: dva)
 # Example: AGENT_CLI_NAME=raj pip install . && raj --help
 dva = "agentic_cli.main:app"
+# Keel is the platform name; `keel` is a first-class alias of `dva`.
+keel = "agentic_cli.main:app"
 
 [project.optional-dependencies]
 dev = [

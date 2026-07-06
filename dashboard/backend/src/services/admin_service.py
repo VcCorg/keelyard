@@ -13,8 +13,8 @@ from pydantic import BaseModel
 
 
 class BrandingModel(BaseModel):
-    app_title: str = "Agent Playground"
-    app_name: str = "Agentic Platform"
+    app_title: str = "Keel"
+    app_name: str = "Agentic Product Development Platform"
 
 
 class AdminSettingsModel(BaseModel):
