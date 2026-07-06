@@ -137,7 +137,7 @@ def get_all_products_kg_summary() -> list[ProductKGSummary]:
         if client:
             try:
                 rows = client.execute_cypher(
-                    "MATCH (n) WHERE n._source = 'dva_kg' AND n.domain IS NOT NULL "
+                    "MATCH (n) WHERE n._source = 'keel_kg' AND n.domain IS NOT NULL "
                     "RETURN DISTINCT n.domain AS domain LIMIT 100"
                 )
                 print(f"DEBUG: Got {len(rows)} domains from Neo4j")
@@ -184,7 +184,7 @@ def _get_domain_stats(domain: str, client) -> DomainKGStats:
         # Use global stats like CLI - count all nodes regardless of persona/labels
         rows = client.execute_cypher("""
             MATCH (n)
-            WHERE n._source = 'dva_kg'
+            WHERE n._source = 'keel_kg'
             RETURN count(n) as total_count
         """)
         if rows:
@@ -195,7 +195,7 @@ def _get_domain_stats(domain: str, client) -> DomainKGStats:
 
         edge_rows = client.execute_cypher("""
             MATCH (a)-[r]->(b)
-            WHERE a._source = 'dva_kg'
+            WHERE a._source = 'keel_kg'
             RETURN count(r) as total_edges
         """)
         if edge_rows:
@@ -204,7 +204,7 @@ def _get_domain_stats(domain: str, client) -> DomainKGStats:
         # Try to get document count specifically
         doc_rows = client.execute_cypher("""
             MATCH (n:Document)
-            WHERE n._source = 'dva_kg'
+            WHERE n._source = 'keel_kg'
             RETURN count(n) as doc_count
         """)
         if doc_rows:
@@ -229,7 +229,7 @@ def get_domain_links(domain: str, limit: int = 200) -> list[KGLinkRow]:
     try:
         rows = client.execute_cypher("""
             MATCH (c)-[r]->(d:Document)
-            WHERE c._source = 'dva_kg' AND c.domain = $domain
+            WHERE c._source = 'keel_kg' AND c.domain = $domain
               AND type(r) IN ['IMPLEMENTS','REFERENCES','TESTED_BY','CONFIGURES']
             RETURN
                 c.id AS code_id,
@@ -273,7 +273,7 @@ def get_domain_gaps(domain: str) -> list[KGGapRow]:
     try:
         rows = client.execute_cypher("""
             MATCH (d:Document)
-            WHERE d._source = 'dva_kg' AND d.domain = $domain
+            WHERE d._source = 'keel_kg' AND d.domain = $domain
               AND NOT (d)<-[:IMPLEMENTS|REFERENCES|TESTED_BY|CONFIGURES]-()
             RETURN d.id AS id, d.name AS name, d.content AS content,
                    d.jira_id AS jira_id

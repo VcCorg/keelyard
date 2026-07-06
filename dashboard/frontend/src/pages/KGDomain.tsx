@@ -128,7 +128,7 @@ export function KGDomain() {
                   {links.length === 0 && (
                     <tr>
                       <td colSpan={5} className="px-4 py-10 text-center text-gray-400 text-sm">
-                        No linked edges yet. Run <code className="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">dva kg link --domain {domain}</code> to generate links.
+                        No linked edges yet. Run <code className="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">keel kg link --domain {domain}</code> to generate links.
                       </td>
                     </tr>
                   )}

@@ -14,11 +14,11 @@
 
 ## 1. Motivation
 
-Today an agent must be a **framework project**: `dva project create` → `dva agent add --type <T>`
+Today an agent must be a **framework project**: `keel project create` → `keel agent add --type <T>`
 scaffolds Python (`src/agents/*.py`, tools, `main.py`) and runs as a daemon. This is powerful but
 heavy — minutes of setup + code for what is often just *a prompt + a few MCP tools + a domain scope*.
 
-We already have the seed of a lighter pattern: `dva agent register --target opencode` emits a
+We already have the seed of a lighter pattern: `keel agent register --target opencode` emits a
 **Markdown agent file** with YAML frontmatter. This RFC generalizes that into a first-class,
 **tool-agnostic declarative agent** defined by a single `AGENTS.md`-style file — no build step —
 that can be discovered, run, and exported to Devin, Windsurf, and OpenCode.
@@ -34,7 +34,7 @@ this defines a *second, coexisting runtime*.
 |---|---|---|
 | Definition | Python project (`src/agents/*.py`) | Single `.md` + frontmatter |
 | Discovery | `discover_agents()` via AST scan | `discover_markdown_agents()` (new) |
-| Run | `dva agent start` (daemon, PID-tracked) | `dva agent run <name>` (MCP-tool loop) or IDE-native |
+| Run | `keel agent start` (daemon, PID-tracked) | `keel agent run <name>` (MCP-tool loop) or IDE-native |
 | Best for | Custom logic, stateful loops, ETL | Prompt-driven review / triage / Q&A |
 | Portability | Repo-bound | Drop-in for Devin / Windsurf / OpenCode |
 
@@ -55,7 +55,7 @@ Canonical source of truth lives in the repo/meta-repo under `.agents/`:
 **Discovery order (first match wins for a given name):**
 1. Project/worktree `.agents/*.md`
 2. Domain meta-repo `.agents/*.md`
-3. Imported/global registry (`~/.dva/agents-imported/…`, reusing the `agent import` mechanism)
+3. Imported/global registry (`~/.keel/agents-imported/…`, reusing the `agent import` mechanism)
 
 `.agents/` is chosen (not root `AGENTS.md`) because root `AGENTS.md` is the *repo-wide* instructions
 file that Devin/Cursor/Windsurf already read; per-agent definitions need their own namespace.
@@ -113,7 +113,7 @@ IDE capabilities**. The loader normalizes both into a single internal `ResolvedT
 
 ## 5. Runtime model (`markdown` runtime)
 
-`dva agent run <name>` (proposed) executes a minimal loop:
+`keel agent run <name>` (proposed) executes a minimal loop:
 1. **Resolve** the `.md` (discovery §3) and parse frontmatter + body.
 2. **Assemble context**: inject domain/product context from the KG MCP (`get_project_context`,
    `query_domain_context`) when `domain`/`persona` set.
@@ -128,7 +128,7 @@ For `triggers: [poll:300]` / `on-pr`, the same daemon wrapper that framework age
 
 ## 6. Registration / export (cross-tool)
 
-One source `.agents/<name>.md` → rendered into each target on `dva agent register --target <t>`:
+One source `.agents/<name>.md` → rendered into each target on `keel agent register --target <t>`:
 
 | Target | Output location | Transform |
 |---|---|---|
@@ -145,10 +145,10 @@ This finishes the `agent register --target windsurf` TODO at `agent.py:1015`.
 ## 7. Tracker & API surface (proposed, for later phases)
 
 CLI:
-- `dva agent new <name> [--domain --persona --tools --model --from-template <t>]` → writes `.agents/<name>.md`
-- `dva agent run <name>` → markdown runtime loop
-- `dva agent register --target devin|windsurf|opencode|generic` → export (§6)
-- `dva agent list` → already lists project agents; extend to include markdown agents + runtime column
+- `keel agent new <name> [--domain --persona --tools --model --from-template <t>]` → writes `.agents/<name>.md`
+- `keel agent run <name>` → markdown runtime loop
+- `keel agent register --target devin|windsurf|opencode|generic` → export (§6)
+- `keel agent list` → already lists project agents; extend to include markdown agents + runtime column
 
 Dashboard API (new, fills the current gap — `api/agents.py` has no create):
 - `POST /api/agents/declarative` → body `{name, description, domain, persona, tools, model, prompt}` → writes `.md`, returns `AgentInfo`
@@ -209,7 +209,7 @@ Never approve/decline without explicit user confirmation.
 1. **Location**: `.agents/*.md` per-agent vs. multiple agents in one `AGENTS.md` (H2-delimited)? (Leaning per-file.)
 2. **Named-tools registry**: where is the canonical `tool-name → MCP server` mapping? (Likely the existing KG/MCP config — needs a lookup helper.)
 3. **Daemon vs. IDE-native**: for `triggers: manual`, do we run in-process (dashboard) or hand off to the IDE (Devin/Windsurf)? Both? 
-4. **Promotion**: `dva agent promote <name>` to scaffold a framework project seeded from the markdown — in scope later?
+4. **Promotion**: `keel agent promote <name>` to scaffold a framework project seeded from the markdown — in scope later?
 5. **Secrets**: MCP servers needing creds — reuse existing MCP auth, or per-agent env?
 
 ---
@@ -217,7 +217,7 @@ Never approve/decline without explicit user confirmation.
 ## 11. Phased implementation (proposed)
 
 - **P1 (spec + loader)**: finalize this schema; implement parser + `discover_markdown_agents()` + validator (no UI).
-- **P2 (run + register)**: `dva agent run` markdown loop; generalize `agent register` to devin/windsurf/generic (§6).
+- **P2 (run + register)**: `keel agent run` markdown loop; generalize `agent register` to devin/windsurf/generic (§6).
 - **P3 (API)**: `POST/GET /api/agents/declarative` + register endpoint.
 - **P4 (UI)**: "New Agent" (declarative) create page + list runtime column.
 - **P5**: templates gallery + `promote` bridge.

@@ -5,7 +5,7 @@ Design principle (mirrors domain_service.py):
 - Reads (job list/status, ingestable domains) import the CLI's
   `agentic_cli.kg.async_ingest` manager and `agentic_cli.tracker` directly.
 - The long-running ingest itself is executed by shelling out to the real
-  `dva kg ingest submit ...` CLI and streaming its stdout, so all the
+  `keel kg ingest submit ...` CLI and streaming its stdout, so all the
   Confluence/git/Neo4j/LightRAG logic lives in exactly one place.
 """
 
@@ -61,10 +61,10 @@ def _manager():
 
 
 def resolve_cli_command() -> list[str]:
-    """Resolve how to invoke the dva CLI for subprocess streaming."""
-    dva = shutil.which("dva")
-    if dva:
-        return [dva]
+    """Resolve how to invoke the keel CLI for subprocess streaming."""
+    keel = shutil.which("keel")
+    if keel:
+        return [keel]
     return [sys.executable, "-m", "agentic_cli.main"]
 
 
@@ -148,7 +148,7 @@ def list_ingestable_domains() -> list[IngestableDomain]:
 # ── Long-running ingest (subprocess + streaming) ────────────────────────────
 
 async def stream_kg_command(args: list[str]) -> AsyncGenerator[str, None]:
-    """Run `dva kg <args>` and yield stdout/stderr lines as they arrive."""
+    """Run `keel kg <args>` and yield stdout/stderr lines as they arrive."""
     cmd = resolve_cli_command() + ["kg"] + args
     yield f"$ {' '.join(cmd)}"
 

@@ -44,16 +44,16 @@ export function CLIRunner() {
           CLI Console
         </h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Run whitelisted <code className="font-mono">dva</code> commands and stream their output
+          Run whitelisted <code className="font-mono">keel</code> commands and stream their output
         </p>
       </div>
 
       <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 space-y-4">
         <div className="flex gap-2 items-end">
           <div className="flex-1">
-            <label className="text-xs text-gray-500 block mb-1">Command (the leading "dva" is optional)</label>
+            <label className="text-xs text-gray-500 block mb-1">Command (the leading "keel" is optional)</label>
             <div className="flex items-center gap-2">
-              <span className="font-mono text-sm text-gray-400">dva</span>
+              <span className="font-mono text-sm text-gray-400">keel</span>
               <Input
                 value={command}
                 onChange={(e) => setCommand(e.target.value)}
@@ -124,7 +124,7 @@ export function CLIRunner() {
 
       <StreamConsole
         url={streamUrl}
-        title="dva"
+        title="keel"
         onDone={() => {
           setRunning(false);
           setHistoryKey((k) => k + 1);

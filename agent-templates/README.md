@@ -191,9 +191,9 @@ LOG_LEVEL=INFO
 
 ## Support
 
-- **Documentation**: [Agentic CLI Documentation](https://docs.dva.com)
-- **Issues**: [GitHub Issues](https://github.com/dva/agent-templates/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/dva/agent-templates/discussions)
+- **Documentation**: [Agentic CLI Documentation](https://docs.keel.com)
+- **Issues**: [GitHub Issues](https://github.com/keel/agent-templates/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/keel/agent-templates/discussions)
 
 ## License
 

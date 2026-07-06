@@ -64,7 +64,7 @@ CLI
 ```
 
 **Output:**
-- `.dva/codebase-understanding.md` - Structured understanding document
+- `.keel/codebase-understanding.md` - Structured understanding document
 - 8-15 auto-generated domain-specific skills
 - Methodology pack recommendation
 - Approval checkpoints for major decisions

@@ -36,12 +36,12 @@ Both providers are configured via environment variables:
 # docker-compose.yml
 environment:
   # Neo4j Configuration
-  - NEO4J_URI=bolt://dva-neo4j:7687
+  - NEO4J_URI=bolt://keel-neo4j:7687
   - NEO4J_USER=neo4j
   - NEO4J_PASSWORD=password
   
   # LightRAG Configuration
-  - LIGHTRAG_URL=http://dva-lightrag:8001
+  - LIGHTRAG_URL=http://keel-lightrag:8001
 ```
 
 ### Provider Detection
@@ -202,11 +202,11 @@ curl http://localhost:8125/status
     "providers": {
       "neo4j": {
         "available": true,
-        "uri": "bolt://dva-neo4j:7687"
+        "uri": "bolt://keel-neo4j:7687"
       },
       "lightrag": {
         "available": true,
-        "url": "http://dva-lightrag:8001"
+        "url": "http://keel-lightrag:8001"
       }
     }
   },
@@ -254,10 +254,10 @@ The query will fail gracefully with an appropriate error message.
 ```yaml
 # docker-compose.yml
 environment:
-  - NEO4J_URI=bolt://dva-neo4j:7687
+  - NEO4J_URI=bolt://keel-neo4j:7687
   - NEO4J_USER=neo4j
   - NEO4J_PASSWORD=password
-  - LIGHTRAG_URL=http://dva-lightrag:8001
+  - LIGHTRAG_URL=http://keel-lightrag:8001
 ```
 
 **Result**: Both providers available
@@ -265,7 +265,7 @@ environment:
 ### Neo4j Only
 ```yaml
 environment:
-  - NEO4J_URI=bolt://dva-neo4j:7687
+  - NEO4J_URI=bolt://keel-neo4j:7687
   - NEO4J_USER=neo4j
   - NEO4J_PASSWORD=password
   # LIGHTRAG_URL not set
@@ -277,7 +277,7 @@ environment:
 ```yaml
 environment:
   # NEO4J_URI not set
-  - LIGHTRAG_URL=http://dva-lightrag:8001
+  - LIGHTRAG_URL=http://keel-lightrag:8001
 ```
 
 **Result**: Only LightRAG available
@@ -294,8 +294,8 @@ environment:
 ```yaml
 environment:
   # Configure both (or just one)
-  - NEO4J_URI=bolt://dva-neo4j:7687
-  - LIGHTRAG_URL=http://dva-lightrag:8001
+  - NEO4J_URI=bolt://keel-neo4j:7687
+  - LIGHTRAG_URL=http://keel-lightrag:8001
 ```
 
 **No breaking changes**: Existing deployments will continue to work. The `KG_PROVIDER` environment variable is ignored.
@@ -358,7 +358,7 @@ curl http://localhost:8125/health
 ### Test Error Handling
 ```bash
 # Stop Neo4j
-docker stop dva-neo4j
+docker stop keel-neo4j
 
 # Try to query Neo4j (should fail gracefully)
 curl -X POST http://localhost:8125/mcp/tools/call \

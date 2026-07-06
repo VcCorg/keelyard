@@ -18,7 +18,7 @@
 services:
   bitbucket-mcp:
     build: ./bitbucket
-    container_name: dva-bitbucket-mcp
+    container_name: keel-bitbucket-mcp
     ports:
       - "8126:8126"
     environment:
@@ -34,11 +34,11 @@ services:
       start_period: 10s
     restart: unless-stopped
     networks:
-      - dva-network
+      - keel-network
 
   glean-mcp:
     build: ./glean
-    container_name: dva-glean-mcp
+    container_name: keel-glean-mcp
     ports:
       - "8127:8127"
     environment:
@@ -54,11 +54,11 @@ services:
       start_period: 10s
     restart: unless-stopped
     networks:
-      - dva-network
+      - keel-network
 
   confluence-mcp:
     build: ./confluence
-    container_name: dva-confluence-mcp
+    container_name: keel-confluence-mcp
     ports:
       - "8129:8129"
     environment:
@@ -75,11 +75,11 @@ services:
       start_period: 10s
     restart: unless-stopped
     networks:
-      - dva-network
+      - keel-network
 
   jira-mcp:
     build: ./jira
-    container_name: dva-jira-mcp
+    container_name: keel-jira-mcp
     ports:
       - "8128:8128"
     environment:
@@ -96,15 +96,15 @@ services:
       start_period: 10s
     restart: unless-stopped
     networks:
-      - dva-network
+      - keel-network
 
   memory-mcp:
     build: ./memory
-    container_name: dva-memory-mcp
+    container_name: keel-memory-mcp
     ports:
       - "8130:8130"
     environment:
-      - NEO4J_URI=${NEO4J_URI:-bolt://dva-neo4j:7687}
+      - NEO4J_URI=${NEO4J_URI:-bolt://keel-neo4j:7687}
       - NEO4J_USER=${NEO4J_USER:-neo4j}
       - NEO4J_PASSWORD=${NEO4J_PASSWORD:-password}
     healthcheck:
@@ -115,25 +115,25 @@ services:
       start_period: 15s
     restart: unless-stopped
     networks:
-      - dva-network
+      - keel-network
 
   kg-mcp:
     build: ./kg
-    container_name: dva-kg-mcp-new
+    container_name: keel-kg-mcp-new
     ports:
       - "8131:8131"
     environment:
       - MCP_TRANSPORT=sse
       - MCP_PORT=8131
-      - KG_NEO4J_URI=${NEO4J_URI:-bolt://dva-neo4j:7687}
+      - KG_NEO4J_URI=${NEO4J_URI:-bolt://keel-neo4j:7687}
       - KG_NEO4J_USER=${NEO4J_USER:-neo4j}
       - KG_NEO4J_PASSWORD=${NEO4J_PASSWORD:-password}
-      - KG_LIGHTRAG_URL=${KG_LIGHTRAG_URL:-http://dva-lightrag:8001}
+      - KG_LIGHTRAG_URL=${KG_LIGHTRAG_URL:-http://keel-lightrag:8001}
       - KG_DEFAULT_PROVIDER=${KG_DEFAULT_PROVIDER:-lightrag}
-      - KG_SOURCE_REGISTRY_PATH=/root/.dva-agentic/config.json
+      - KG_SOURCE_REGISTRY_PATH=/root/.keel-agentic/config.json
       - CONFLUENCE_PERSONAL_ACCESS_TOKEN=${CONFLUENCE_PERSONAL_ACCESS_TOKEN:-}
     volumes:
-      - ${HOME}/.dva-agentic:/root/.dva-agentic:ro
+      - ${HOME}/.keel-agentic:/root/.keel-agentic:ro
     healthcheck:
       test: ["CMD-SHELL", "curl --max-time 2 -s http://localhost:8131/sse > /dev/null 2>&1; test $$? -eq 28"]
       interval: 10s
@@ -142,11 +142,11 @@ services:
       start_period: 10s
     restart: unless-stopped
     networks:
-      - dva-network
+      - keel-network
 
   agentic-mcp:
     build: ./agentic
-    container_name: dva-agentic-mcp
+    container_name: keel-agentic-mcp
     ports:
       - "8132:8132"
     environment:
@@ -167,11 +167,11 @@ services:
       start_period: 10s
     restart: unless-stopped
     networks:
-      - dva-network
+      - keel-network
 
   mcp-gateway:
     build: ./gateway
-    container_name: dva-mcp-gateway
+    container_name: keel-mcp-gateway
     ports:
       - "9090:9090"
     environment:
@@ -207,13 +207,13 @@ services:
       start_period: 15s
     restart: unless-stopped
     networks:
-      - dva-network
+      - keel-network
 
   mcp-proxy:
     build:
       context: .
       dockerfile: proxy/Dockerfile
-    container_name: dva-mcp-proxy
+    container_name: keel-mcp-proxy
     ports:
       - "9091:9091"
     environment:
@@ -229,9 +229,9 @@ services:
       start_period: 15s
     restart: unless-stopped
     networks:
-      - dva-network
+      - keel-network
 
 networks:
-  dva-network:
+  keel-network:
     external: true
-    name: dva-network
+    name: keel-network

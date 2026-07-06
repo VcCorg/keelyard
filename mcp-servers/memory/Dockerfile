@@ -5,7 +5,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf 
 RUN pip install --no-cache-dir --trusted-host pypi.org --trusted-host files.pythonhosted.org "neo4j-agent-memory[mcp]"
 
 # Neo4j connection (read by CLI via env vars)
-ENV NEO4J_URI=bolt://dva-neo4j:7687
+ENV NEO4J_URI=bolt://keel-neo4j:7687
 ENV NEO4J_USER=neo4j
 ENV NEO4J_PASSWORD=password
 

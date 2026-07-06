@@ -84,7 +84,7 @@ def get_default_llm_provider(
 ) -> Union[VertexAIProvider, AnthropicProvider, OpenAIProvider]:
     """Get the default configured LLM provider.
 
-    Uses configuration from ~/.dva-agentic/config.json to determine
+    Uses configuration from ~/.keel-agentic/config.json to determine
     which provider to use.
 
     Args:

@@ -1,7 +1,7 @@
 """LLM instructions for the two enrichment passes.
 
 Adapted from the GCP OKF agent's prompts/enrichment_instruction.md and
-web_ingestion_instruction.md, rewritten for DVA OKF concept types and a
+web_ingestion_instruction.md, rewritten for KEEL OKF concept types and a
 JSON-in/JSON-out (single-shot) protocol so they work with a plain Vertex AI
 GenerativeModel rather than an ADK tool-loop.
 """

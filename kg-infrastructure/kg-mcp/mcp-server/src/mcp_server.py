@@ -1,5 +1,5 @@
 """
-DVA Knowledge Graph MCP Server
+KEEL Knowledge Graph MCP Server
 
 This server exposes KG operations (query, search, ingest, etc.) via the Model Context Protocol (MCP).
 It supports both Neo4j and LightRAG backends and can be used by IDEs and AI assistants.
@@ -106,18 +106,18 @@ kg_server = KGMCPServer()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup/shutdown."""
-    logger.info("Starting DVA KG MCP Server...")
+    logger.info("Starting KEEL KG MCP Server...")
     logger.info(f"Neo4j: {'Available' if kg_server.neo4j_available else 'Not configured'}")
     logger.info(f"PostgreSQL: {'Available' if kg_server.postgres_available else 'Not configured'}")
     logger.info(f"LightRAG: {'Available' if kg_server.lightrag_available else 'Not configured'}")
     yield
-    logger.info("Shutting down DVA KG MCP Server...")
+    logger.info("Shutting down KEEL KG MCP Server...")
 
 
 # Create FastAPI app
 app = FastAPI(
-    title="DVA Knowledge Graph MCP Server",
-    description="MCP server for DVA Knowledge Graph operations",
+    title="KEEL Knowledge Graph MCP Server",
+    description="MCP server for KEEL Knowledge Graph operations",
     version="0.1.0",
     lifespan=lifespan
 )
@@ -188,7 +188,7 @@ async def mcp_initialize(request: Request):
                 "prompts": {}
             },
             "serverInfo": {
-                "name": "dva-kg-mcp",
+                "name": "keel-kg-mcp",
                 "version": "0.1.0",
                 "providers": {
                     "neo4j": kg_server.neo4j_available,
@@ -300,7 +300,7 @@ async def mcp_list_tools():
                     "properties": {
                         "source": {
                             "type": "string",
-                            "description": "Data source name (configured via 'dva data create')"
+                            "description": "Data source name (configured via 'keel data create')"
                         },
                         "provider": {
                             "type": "string",
@@ -459,7 +459,7 @@ async def handle_kg_query(args: Dict[str, Any]) -> Dict[str, Any]:
     
     Translates MCP request to KG query operation.
     """
-    from dva_agentic_cli.kg.config import KGConfig
+    from agentic_cli.kg.config import KGConfig
     
     # Get provider from args (defaults to neo4j)
     provider = args.get("provider", "neo4j")
@@ -472,7 +472,7 @@ async def handle_kg_query(args: Dict[str, Any]) -> Dict[str, Any]:
     
     if provider == "lightrag":
         # Use LightRAG client directly
-        from dva_agentic_cli.kg.lightrag_client import LightRAGClient
+        from agentic_cli.kg.lightrag_client import LightRAGClient
         
         client = LightRAGClient(
             base_url=kg_server.config["lightrag"]["url"],
@@ -501,7 +501,7 @@ async def handle_kg_query(args: Dict[str, Any]) -> Dict[str, Any]:
         }
     else:
         # Use Neo4j execute_query
-        from dva_agentic_cli.kg.query import execute_query
+        from agentic_cli.kg.query import execute_query
         
         # Load config
         config = KGConfig.load()
@@ -535,8 +535,8 @@ async def handle_kg_search(args: Dict[str, Any]) -> Dict[str, Any]:
     
     Translates MCP request to KG search operation.
     """
-    from dva_agentic_cli.kg.search import search_graph
-    from dva_agentic_cli.kg.config import KGConfig
+    from agentic_cli.kg.search import search_graph
+    from agentic_cli.kg.config import KGConfig
     
     # Get provider from args (defaults to neo4j)
     provider = args.get("provider", "neo4j")
@@ -580,8 +580,8 @@ async def handle_kg_stats(args: Dict[str, Any]) -> Dict[str, Any]:
     
     Returns knowledge graph statistics.
     """
-    from dva_agentic_cli.kg.stats import get_graph_stats
-    from dva_agentic_cli.kg.config import KGConfig
+    from agentic_cli.kg.stats import get_graph_stats
+    from agentic_cli.kg.config import KGConfig
     
     # Get provider from args (defaults to neo4j)
     provider = args.get("provider", "neo4j")
@@ -615,7 +615,7 @@ async def handle_kg_ingest(args: Dict[str, Any]) -> Dict[str, Any]:
     """
     return {
         "status": "not_implemented",
-        "message": "Ingestion via MCP is not yet implemented. Use 'dva kg ingest' CLI command.",
+        "message": "Ingestion via MCP is not yet implemented. Use 'keel kg ingest' CLI command.",
         "source": args.get("source")
     }
 

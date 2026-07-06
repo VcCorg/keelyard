@@ -1,13 +1,13 @@
 ---
-name: dva-kg-context
+name: keel-kg-context
 description: >-
-  Search and query the DVA Knowledge Graph for business context, domain rules,
-  SLAs, integrations, and security policies via DVA Central MCP. Use this skill
+  Search and query the KEEL Knowledge Graph for business context, domain rules,
+  SLAs, integrations, and security policies via KEEL Central MCP. Use this skill
   when you need to understand business requirements while writing or reviewing code.
 mcp_server: agentic
 ---
 
-# DVA Knowledge Graph & Context
+# KEEL Knowledge Graph & Context
 
 You have access to the Agentic Platform MCP server which integrates the Knowledge Graph.
 Use these tools to search business context, query domain knowledge, and ingest
@@ -102,5 +102,5 @@ Both are queried automatically; results are merged and ranked.
 
 If the Agentic MCP server is not running:
 1. Check `.skills/domain-context/SKILL.md` for embedded domain context
-2. Use the CLI: `dva kg query "your question" --domain <slug>`
+2. Use the CLI: `keel kg query "your question" --domain <slug>`
 3. Query LightRAG directly if running: `curl http://localhost:9621/query`

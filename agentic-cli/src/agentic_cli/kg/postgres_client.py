@@ -310,7 +310,7 @@ class PostgresClient:
             # Count nodes
             cur.execute(f"""
                 SELECT * FROM cypher(%s, $$
-                    MATCH (n) WHERE n._source = 'dva_kg'
+                    MATCH (n) WHERE n._source = 'keel_kg'
                     RETURN count(n) as count
                 $$) as (count agtype)
             """, (self.graph_name,))
@@ -322,7 +322,7 @@ class PostgresClient:
             # Count relationships
             cur.execute(f"""
                 SELECT * FROM cypher(%s, $$
-                    MATCH (a)-[r]->(b) WHERE a._source = 'dva_kg'
+                    MATCH (a)-[r]->(b) WHERE a._source = 'keel_kg'
                     RETURN count(r) as count
                 $$) as (count agtype)
             """, (self.graph_name,))
@@ -334,7 +334,7 @@ class PostgresClient:
             # Get node types
             cur.execute(f"""
                 SELECT * FROM cypher(%s, $$
-                    MATCH (n) WHERE n._source = 'dva_kg'
+                    MATCH (n) WHERE n._source = 'keel_kg'
                     RETURN DISTINCT labels(n) as labels
                 $$) as (labels agtype)
             """, (self.graph_name,))
@@ -348,7 +348,7 @@ class PostgresClient:
             # Get relationship types
             cur.execute(f"""
                 SELECT * FROM cypher(%s, $$
-                    MATCH (a)-[r]->(b) WHERE a._source = 'dva_kg'
+                    MATCH (a)-[r]->(b) WHERE a._source = 'keel_kg'
                     RETURN DISTINCT type(r) as type
                 $$) as (type agtype)
             """, (self.graph_name,))
@@ -367,27 +367,27 @@ class PostgresClient:
         
         with self._conn.cursor() as cur:
             # Count code entities
-            cur.execute("SELECT COUNT(*) FROM code_entities WHERE _source = 'dva_kg'")
+            cur.execute("SELECT COUNT(*) FROM code_entities WHERE _source = 'keel_kg'")
             result = cur.fetchone()
             stats["code_entities"] = result[0] if result else 0
             
             # Count document entities
-            cur.execute("SELECT COUNT(*) FROM document_entities WHERE _source = 'dva_kg'")
+            cur.execute("SELECT COUNT(*) FROM document_entities WHERE _source = 'keel_kg'")
             result = cur.fetchone()
             stats["document_entities"] = result[0] if result else 0
             
             # Count relationships
-            cur.execute("SELECT COUNT(*) FROM entity_relationships WHERE _source = 'dva_kg'")
+            cur.execute("SELECT COUNT(*) FROM entity_relationships WHERE _source = 'keel_kg'")
             result = cur.fetchone()
             stats["relationships"] = result[0] if result else 0
             
             # Get entity types
-            cur.execute("SELECT DISTINCT entity_type FROM code_entities WHERE _source = 'dva_kg'")
+            cur.execute("SELECT DISTINCT entity_type FROM code_entities WHERE _source = 'keel_kg'")
             entity_types = [row[0] for row in cur.fetchall()]
             stats["entity_types"] = entity_types
             
             # Get document types
-            cur.execute("SELECT DISTINCT doc_type FROM document_entities WHERE _source = 'dva_kg'")
+            cur.execute("SELECT DISTINCT doc_type FROM document_entities WHERE _source = 'keel_kg'")
             doc_types = [row[0] for row in cur.fetchall()]
             stats["document_types"] = doc_types
         
@@ -401,15 +401,15 @@ class PostgresClient:
         """
         with self._conn.cursor() as cur:
             # Clear relationships first (due to foreign key constraints)
-            cur.execute("DELETE FROM entity_relationships WHERE _source = 'dva_kg'")
+            cur.execute("DELETE FROM entity_relationships WHERE _source = 'keel_kg'")
             deleted_relationships = cur.rowcount
             
             # Clear code entities
-            cur.execute("DELETE FROM code_entities WHERE _source = 'dva_kg'")
+            cur.execute("DELETE FROM code_entities WHERE _source = 'keel_kg'")
             deleted_code_entities = cur.rowcount
             
             # Clear document entities
-            cur.execute("DELETE FROM document_entities WHERE _source = 'dva_kg'")
+            cur.execute("DELETE FROM document_entities WHERE _source = 'keel_kg'")
             deleted_document_entities = cur.rowcount
         
         logger.info(
@@ -592,7 +592,7 @@ class PostgresClient:
                     content TEXT,
                     entity_type TEXT,
                     embedding vector({dimension}),
-                    _source TEXT DEFAULT 'dva_kg',
+                    _source TEXT DEFAULT 'keel_kg',
                     created_at TIMESTAMP DEFAULT NOW()
                 )
             """)

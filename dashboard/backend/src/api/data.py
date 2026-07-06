@@ -39,7 +39,7 @@ async def list_sources():
 
 @router.post("/sources", response_model=svc.CommandResult)
 async def create_source(req: CreateDataSourceRequest):
-    """Create a data source (delegates validation to `dva data create`)."""
+    """Create a data source (delegates validation to `keel data create`)."""
     result = svc.create_data_source(**req.model_dump())
     if not result.success:
         raise HTTPException(status_code=400, detail=result.output or "Create failed")

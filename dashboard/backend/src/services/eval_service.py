@@ -2,7 +2,7 @@
 
 Reads import the CLI's module-level managers directly (single source of truth
 for the ~/.agentic-cli/* stores). Long-running steps (run agent, compare,
-create config, generate report) shell out to the real `dva eval ...` CLI and
+create config, generate report) shell out to the real `keel eval ...` CLI and
 stream output, so all evaluation logic lives in exactly one place.
 """
 
@@ -70,9 +70,9 @@ def _eval_mod():
 
 
 def resolve_cli_command() -> list[str]:
-    dva = shutil.which("dva")
-    if dva:
-        return [dva]
+    keel = shutil.which("keel")
+    if keel:
+        return [keel]
     return [sys.executable, "-m", "agentic_cli.main"]
 
 
@@ -183,7 +183,7 @@ def create_eval_config(
     description: str = "",
     force: bool = False,
 ) -> CommandResult:
-    """Create an eval config by shelling out to `dva eval create` (reuses validation)."""
+    """Create an eval config by shelling out to `keel eval create` (reuses validation)."""
     args = ["create", name, dataset, "--metrics", ",".join(metrics), "--framework", framework, "--judge", judge]
     if llm_model:
         args += ["--llm", llm_model]
@@ -206,7 +206,7 @@ def report_exists(eval_name: str) -> bool:
 
 
 async def stream_eval_command(args: list[str]) -> AsyncGenerator[str, None]:
-    """Run `dva eval <args>` and yield stdout/stderr lines as they arrive."""
+    """Run `keel eval <args>` and yield stdout/stderr lines as they arrive."""
     cmd = resolve_cli_command() + ["eval"] + args
     yield f"$ {' '.join(cmd)}"
 

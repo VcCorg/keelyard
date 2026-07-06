@@ -30,7 +30,7 @@ class RegistryManager:
         Args:
             config_path: Path to registry configuration file
         """
-        self.config_path = config_path or Path.home() / ".dva" / "registries.json"
+        self.config_path = config_path or Path.home() / ".keel" / "registries.json"
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
         
         self._registries: Dict[str, BaseRegistry] = {}
@@ -59,26 +59,26 @@ class RegistryManager:
 
         Registry URLs are sourced from environment variables so the tool ships
         without any vendor-specific defaults. Configure them with:
-            DVA_AGENT_TEMPLATES_REGISTRY_URL
-            DVA_AGENT_TOOLS_REGISTRY_URL
+            KEEL_AGENT_TEMPLATES_REGISTRY_URL
+            KEEL_AGENT_TOOLS_REGISTRY_URL
         A registry is enabled only once its URL is set (or via
         '{CLI_NAME} code config --registry <url>').
         """
-        templates_url = os.environ.get("DVA_AGENT_TEMPLATES_REGISTRY_URL", "")
-        tools_url = os.environ.get("DVA_AGENT_TOOLS_REGISTRY_URL", "")
+        templates_url = os.environ.get("KEEL_AGENT_TEMPLATES_REGISTRY_URL", "")
+        tools_url = os.environ.get("KEEL_AGENT_TOOLS_REGISTRY_URL", "")
         return {
             "registries": {
                 "agent-templates": {
                     "type": "agent-templates",
                     "url": templates_url,
-                    "path": str(Path.home() / ".dva" / "registries" / "dva-agent-templates"),
+                    "path": str(Path.home() / ".keel" / "registries" / "keel-agent-templates"),
                     "enabled": bool(templates_url),
                     "default": True
                 },
                 "agent-tools": {
                     "type": "agent-tools", 
                     "url": tools_url,
-                    "path": str(Path.home() / ".dva" / "registries" / "dva-agent-tools"),
+                    "path": str(Path.home() / ".keel" / "registries" / "keel-agent-tools"),
                     "enabled": bool(tools_url),
                     "default": True
                 }

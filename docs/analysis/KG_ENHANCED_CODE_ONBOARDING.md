@@ -2,7 +2,7 @@
 
 ## Overview
 
-Integrate DVA's Knowledge Graph (Neo4j + LightRAG) into code onboarding to build **semantic codebase graphs** instead of just analyzing code text. This enables richer understanding, better skill generation, and knowledge reuse across projects.
+Integrate KEEL's Knowledge Graph (Neo4j + LightRAG) into code onboarding to build **semantic codebase graphs** instead of just analyzing code text. This enables richer understanding, better skill generation, and knowledge reuse across projects.
 
 ## Architecture Integration
 
@@ -622,7 +622,7 @@ agent kg list-projects
 
 # Export project understanding with graph
 agent code onboard https://github.com/myteam/backend --export-understanding
-# Creates: .dva/codebase-understanding.md + .dva/codebase-graph.json
+# Creates: .keel/codebase-understanding.md + .keel/codebase-graph.json
 ```
 
 ## Implementation Timeline

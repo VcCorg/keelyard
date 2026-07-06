@@ -177,9 +177,9 @@ export function PersonaSkillsPanel({
           )}
         </div>
         <p className="text-xs text-gray-400 mt-2">
-          Runs <code>dva domain regen-personas {slug}</code> via the CLI.
+          Runs <code>keel domain regen-personas {slug}</code> via the CLI.
         </p>
-        <StreamConsole url={streamUrl} title="dva domain regen-personas" onDone={refresh} />
+        <StreamConsole url={streamUrl} title="keel domain regen-personas" onDone={refresh} />
       </div>
 
       {/* Product-level catalog — admin only */}
@@ -348,11 +348,11 @@ function ProductPersonaPanel({
               </Button>
             </div>
             <p className="text-xs text-gray-400 mt-2">
-              Runs <code>dva domain regen-personas</code> for every domain under {product}.
+              Runs <code>keel domain regen-personas</code> for every domain under {product}.
             </p>
             <StreamConsole
               url={streamUrl}
-              title="dva product regen-personas"
+              title="keel product regen-personas"
               onDone={onChanged}
             />
           </div>

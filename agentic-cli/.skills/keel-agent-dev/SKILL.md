@@ -1,5 +1,5 @@
 ---
-name: dva-agent-dev
+name: keel-agent-dev
 description: >-
   Use this skill to quickly understand the agentic-cli agent development system.
   Read this before starting any work on agent commands, PR reviewer templates,
@@ -7,38 +7,38 @@ description: >-
   This provides full project context so you don't need to explore the codebase from scratch.
 ---
 
-# DVA Agent Development Context
+# KEEL Agent Development Context
 
 You are working on `agentic-cli`, a Python CLI tool (Typer + Rich) for scaffolding and managing AI agents. Read `docs/AGENT_DEVELOPMENT.md` for the full reference. Below is the essential context to get productive immediately.
 
 ## Project Location
 
 - **CLI source**: `/Users/your-user/agentic-project/agentic-cli/`
-- **Package**: `src/dva_agentic_cli/`
-- **Entry point**: `src/dva_agentic_cli/main.py` → registers all Typer sub-apps
-- **Installed as**: `dva` (editable install via `uv pip install -e '.'`)
+- **Package**: `src/agentic_cli/`
+- **Entry point**: `src/agentic_cli/main.py` → registers all Typer sub-apps
+- **Installed as**: `keel` (editable install via `uv pip install -e '.'`)
 
 ## Command Groups
 
 | Group | File | Purpose |
 |-------|------|---------|
-| `dva code` | `commands/code.py` | Onboard repos with AI code assist skills (onboard, skills, validate, config) |
-| `dva agent` | `commands/agent.py` | Run, start/stop daemon, status, logs, list, register agents |
-| `dva skill` | `commands/skill.py` | Create, list, install, show Agent Skills (agentskills.io) |
-| `dva project` | `commands/project.py` | Scaffold new projects from templates |
-| `dva init` | `commands/init.py` | Configure Vertex AI, auth |
-| `dva kg` | `commands/kg.py` | Knowledge graph operations |
-| `dva data` | `commands/data.py` | Data source management |
-| `dva mcp` | `commands/mcp.py` | MCP server management |
+| `keel code` | `commands/code.py` | Onboard repos with AI code assist skills (onboard, skills, validate, config) |
+| `keel agent` | `commands/agent.py` | Run, start/stop daemon, status, logs, list, register agents |
+| `keel skill` | `commands/skill.py` | Create, list, install, show Agent Skills (agentskills.io) |
+| `keel project` | `commands/project.py` | Scaffold new projects from templates |
+| `keel init` | `commands/init.py` | Configure Vertex AI, auth |
+| `keel kg` | `commands/kg.py` | Knowledge graph operations |
+| `keel data` | `commands/data.py` | Data source management |
+| `keel mcp` | `commands/mcp.py` | MCP server management |
 
-## Code Onboarding System (dva code)
+## Code Onboarding System (keel code)
 
 Auto-detect tech stack and install matching context skills for any repo.
 
 - **Registry**: `skills/` — separate repo with `registry.json` + `skills/<name>/SKILL.md`
-- **Analyzer**: `src/dva_agentic_cli/analyzer/detector.py` — detects language, framework, deps, structure
-- **Matcher**: `src/dva_agentic_cli/analyzer/matcher.py` — matches analysis → registry skills + MCP detection
-- **Commands**: `src/dva_agentic_cli/commands/code.py`
+- **Analyzer**: `src/agentic_cli/analyzer/detector.py` — detects language, framework, deps, structure
+- **Matcher**: `src/agentic_cli/analyzer/matcher.py` — matches analysis → registry skills + MCP detection
+- **Commands**: `src/agentic_cli/commands/code.py`
 
 ### Key commands
 
@@ -67,7 +67,7 @@ Auto-detect tech stack and install matching context skills for any repo.
 
 ## Template System
 
-Templates live in `src/dva_agentic_cli/templates/`:
+Templates live in `src/agentic_cli/templates/`:
 
 - **`enums.py`** — `UseCase` (PR_REVIEWER, RAG, CHATBOT, etc.), `Framework` (ADK, LANGGRAPH), `Tool` enums
 - **`config.py`** — `TemplateConfig` dataclass passed to all generators
@@ -115,7 +115,7 @@ Templates live in `src/dva_agentic_cli/templates/`:
 - Open standard by Anthropic for portable agent capabilities
 - Structure: `.skills/<name>/SKILL.md` + optional `scripts/`, `reference/`, `assets/`
 - Cross-platform: works in Claude Code, OpenCode, VS Code Copilot
-- `dva skill install <org/repo/path>` uses git sparse checkout
+- `keel skill install <org/repo/path>` uses git sparse checkout
 
 ## MCP Servers (Docker)
 
@@ -135,12 +135,12 @@ Start: `docker compose -f mcp-docker-compose.yml up -d bitbucket-mcp jira-mcp`
 When resuming work on agent features, read these files in order:
 
 1. `docs/AGENT_DEVELOPMENT.md` — Full reference
-2. `src/dva_agentic_cli/commands/agent.py` — Agent CLI commands
-3. `src/dva_agentic_cli/commands/skill.py` — Skill CLI commands
-4. `src/dva_agentic_cli/templates/generator.py` — Template orchestration
-5. `src/dva_agentic_cli/templates/files/pr_reviewer.py` — PR reviewer templates
-6. `src/dva_agentic_cli/templates/files/opencode_agent.py` — OpenCode integration
-7. `src/dva_agentic_cli/templates/files/skill.py` — Skill template
+2. `src/agentic_cli/commands/agent.py` — Agent CLI commands
+3. `src/agentic_cli/commands/skill.py` — Skill CLI commands
+4. `src/agentic_cli/templates/generator.py` — Template orchestration
+5. `src/agentic_cli/templates/files/pr_reviewer.py` — PR reviewer templates
+6. `src/agentic_cli/templates/files/opencode_agent.py` — OpenCode integration
+7. `src/agentic_cli/templates/files/skill.py` — Skill template
 
 ## Testing
 

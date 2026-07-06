@@ -24,7 +24,7 @@ router = APIRouter(prefix="/api/chat", tags=["chat"])
 
 
 class CreateSessionRequest(BaseModel):
-    agent_name: str = "dva-assistant"
+    agent_name: str = "keel-assistant"
     mcp_servers: Optional[dict[str, str]] = None
 
 

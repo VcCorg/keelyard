@@ -8,7 +8,7 @@ Enhanced Agentic CLI knowledge graph commands to support both Neo4j and LightRAG
 
 ### 1. Updated Commands for Dual Provider Support
 
-#### ✅ `dva kg query` - Now Supports Both Providers
+#### ✅ `keel kg query` - Now Supports Both Providers
 
 **Neo4j:**
 - Natural language queries (converted to Cypher)
@@ -29,7 +29,7 @@ Enhanced Agentic CLI knowledge graph commands to support both Neo4j and LightRAG
 `agent kg query "What are the main topics?" --mode hybrid
 ```
 
-#### ✅ `dva kg search` - Now Supports Both Providers
+#### ✅ `keel kg search` - Now Supports Both Providers
 
 **Neo4j:**
 - Semantic search (vector embeddings)
@@ -49,7 +49,7 @@ Enhanced Agentic CLI knowledge graph commands to support both Neo4j and LightRAG
 `agent kg search "machine learning"
 ```
 
-#### ⚠️ `dva kg visualize` - Neo4j Only (with Clear Messaging)
+#### ⚠️ `keel kg visualize` - Neo4j Only (with Clear Messaging)
 
 **Behavior:**
 - Checks provider before execution
@@ -106,7 +106,7 @@ All commands now:
 
 ## Files Modified
 
-### 1. `src/dva_agentic_cli/commands/kg.py`
+### 1. `src/agentic_cli/commands/kg.py`
 
 **`query` command:**
 - Added provider detection

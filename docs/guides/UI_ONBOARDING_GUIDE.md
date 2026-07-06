@@ -6,7 +6,7 @@
 both the **inner loop** (engineering discipline — spec-first, TDD, review) and the
 **outer loop** (governance — gates, environments, issue tracking) automatically.
 
-> The dashboard is a thin proxy. Every button runs the real `dva` CLI underneath,
+> The dashboard is a thin proxy. Every button runs the real `keel` CLI underneath,
 > so the UI and CLI always do the same thing. CLI equivalents are shown for each step.
 
 ---
@@ -46,7 +46,7 @@ This is the new top tier. Do it once per product.
 
 1. **Register a product**
    - Enter a product name (e.g. `ABC`) and an optional description → **Create**.
-   - *CLI:* `dva product create ABC --description "..."`
+   - *CLI:* `keel product create ABC --description "..."`
 
 2. **Select the product**
    - Click the product chip. The governance and exceptions panels appear below.
@@ -59,7 +59,7 @@ This is the new top tier. Do it once per product.
      - `exceptions/` — the governance waiver ledger
      - `inner-loop/` — submodule pinned to the org-wide methodology
    - Watch the CLI output stream in the console.
-   - *CLI:* `dva product init-meta ABC`
+   - *CLI:* `keel product init-meta ABC`
 
 4. **Review governance**
    - The **Governance (product tier)** panel shows the gates, the promotion path
@@ -78,7 +78,7 @@ This is the new top tier. Do it once per product.
    links) or **select an existing one**.
    - A Bitbucket project key *or* URL is required.
    - The slug is auto-generated as `<product>-<domain>` (e.g. `abc-a1`).
-   - *CLI:* `dva domain create A1 --product ABC --jira ABC --bb ABCX --confluence ABCSPACE`
+   - *CLI:* `keel domain create A1 --product ABC --jira ABC --bb ABCX --confluence ABCSPACE`
 
 2. Selecting/creating a domain advances you to **Repos**.
 
@@ -88,7 +88,7 @@ This is the new top tier. Do it once per product.
 
 1. The page previews repositories in the domain's Bitbucket project.
 2. Select the repos that belong to this domain and link them.
-   - *CLI:* `dva domain link-repo abc-a1 abc-a1-service`
+   - *CLI:* `keel domain link-repo abc-a1 abc-a1-service`
 3. Use **fetch-repos** (streamed) to bulk-pull from Bitbucket if needed.
 
 ---
@@ -97,7 +97,7 @@ This is the new top tier. Do it once per product.
 
 1. The page previews Confluence pages from the domain's space/URL.
 2. Select the pages that hold domain requirements and track them.
-   - *CLI:* `dva domain add-docs abc-a1 --all`
+   - *CLI:* `keel domain add-docs abc-a1 --all`
 3. These docs feed the Knowledge Graph that powers domain context.
 
 ---
@@ -105,7 +105,7 @@ This is the new top tier. Do it once per product.
 ## Step 5 — Skills
 
 1. Click to generate domain skills from the tracked context.
-   - *CLI:* `dva domain gen-skills abc-a1`
+   - *CLI:* `keel domain gen-skills abc-a1`
 
 ---
 
@@ -115,7 +115,7 @@ This produces the per-domain repos and **links the product tier**.
 
 1. **Init context repo** — creates `abc-a1-domain-context` (KG business context +
    baseline methodology skills).
-   - *CLI:* `dva domain init-context abc-a1`
+   - *CLI:* `keel domain init-context abc-a1`
 
 2. **Link product meta-repo** checkbox — leave it **on** (it auto-detects the
    `product-abc-meta` you scaffolded in Step 1). This is what threads the shared
@@ -124,10 +124,10 @@ This produces the per-domain repos and **links the product tier**.
 
 3. **Init meta repo** — creates `domain-abc-a1-meta`, referencing the product meta
    as a submodule.
-   - *CLI:* `dva domain init-meta abc-a1 --product-meta <path-or-url>`
+   - *CLI:* `keel domain init-meta abc-a1 --product-meta <path-or-url>`
 
 4. Finally, onboard each working repo so it picks up the chain:
-   - *CLI:* `dva code onboard --path ./abc-a1-service --domain abc-a1 --link-meta-repo --use-domain-skills`
+   - *CLI:* `keel code onboard --path ./abc-a1-service --domain abc-a1 --link-meta-repo --use-domain-skills`
 
 ---
 
@@ -143,9 +143,9 @@ needs to relax an inner-loop rule (e.g. skip TDD for a time-boxed spike), record
    - **Owner** — your email
    - **Expires** — a date (strongly recommended; waivers should not be permanent)
 2. Click **File waiver**. It appears in the ledger with an **active/expired** status.
-   - *CLI:* `dva product exceptions add ABC --rule tdd --reason "spike" --scope domain:abc-a1 --owner you@example.com --expires 2026-07-27`
+   - *CLI:* `keel product exceptions add ABC --rule tdd --reason "spike" --scope domain:abc-a1 --owner you@example.com --expires 2026-07-27`
 3. Review existing waivers any time in the same panel.
-   - *CLI:* `dva product exceptions list ABC`
+   - *CLI:* `keel product exceptions list ABC`
 
 > Waivers are auditable: each is recorded in `product-abc-meta/exceptions/EX-*.yaml`,
 > committed to git. Combined with pinned submodules, any commit can answer
@@ -191,4 +191,4 @@ git submodule status     # shows the exact pinned methodology/governance version
 
 - Design & architecture: [`docs/plans/METHODOLOGY_GOVERNANCE_INTEGRATION.md`](../plans/METHODOLOGY_GOVERNANCE_INTEGRATION.md)
 - Domain context approach: [`docs/plans/DOMAIN_CONTEXT_GIT_REFERENCE_APPROACH.md`](../plans/DOMAIN_CONTEXT_GIT_REFERENCE_APPROACH.md)
-- CLI command reference: `dva product --help`, `dva domain --help`, `dva code --help`
+- CLI command reference: `keel product --help`, `keel domain --help`, `keel code --help`

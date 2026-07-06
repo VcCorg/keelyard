@@ -19,29 +19,29 @@ facility-domain task set.
 
 ```bash
 # 1. Register the dataset (creates a versioned copy)
-dva eval dataset register cwow-facility-qa ./facility-qa.csv
+keel eval dataset register cwow-facility-qa ./facility-qa.csv
 
 # 2. Register the custom governance metric (prompt-based LLM judge, 1-5)
-dva eval metric register governance_adherence -f ./governance-adherence.md \
+keel eval metric register governance_adherence -f ./governance-adherence.md \
   --description "Governance + cross-repo correctness for the facility domain"
 
 # 3. Define one eval config used by BOTH arms (same dataset, metrics, judge)
-dva eval create facility-eval cwow-facility-qa \
+keel eval create facility-eval cwow-facility-qa \
   --metrics relevance,helpfulness,accuracy,clarity,governance_adherence,latency_ms \
   --judge anthropic
 
 # 4. Run both agents. Every scaffolded agent ships a module-level `answer`
 #    entrypoint, so no glue code is needed:
-dva eval run agent my_agents.facility.baseline:answer  facility-eval
-dva eval run agent my_agents.facility.governed:answer  facility-eval
+keel eval run agent my_agents.facility.baseline:answer  facility-eval
+keel eval run agent my_agents.facility.governed:answer  facility-eval
 
 # 5. Compare -> delta table + HTML report (the demo artifact)
-dva eval compare facility-eval --output facility-impact.html
+keel eval compare facility-eval --output facility-impact.html
 ```
 
 ## How the agent specs resolve
 
-`dva eval run agent <spec> <eval>` accepts:
+`keel eval run agent <spec> <eval>` accepts:
 
 - `module.path:answer` — the module-level entrypoint every scaffolded agent now
   ships with (evaluation-ready by default).

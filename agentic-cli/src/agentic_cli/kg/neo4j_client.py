@@ -173,7 +173,7 @@ class Neo4jClient:
             "document_title": title,
             "domain": domain,
             "product": product,
-            "_source": "dva_kg",
+            "_source": "keel_kg",
         }
         
         if space_key:
@@ -222,8 +222,8 @@ class Neo4jClient:
             where_clause = f"WHERE n.domain = '{domain}'"
             where_clause_rel = f"WHERE a.domain = '{domain}' OR b.domain = '{domain}'"
         else:
-            where_clause = "WHERE n._source = 'dva_kg'"
-            where_clause_rel = "WHERE a._source = 'dva_kg'"
+            where_clause = "WHERE n._source = 'keel_kg'"
+            where_clause_rel = "WHERE a._source = 'keel_kg'"
         
         queries = {
             "nodes": f"MATCH (n) {where_clause} RETURN count(n) as count",
@@ -266,7 +266,7 @@ class Neo4jClient:
                 """
             else:
                 top_entities_query = """
-                MATCH (n) WHERE n._source = 'dva_kg'
+                MATCH (n) WHERE n._source = 'keel_kg'
                 OPTIONAL MATCH (n)-[r]-()
                 WITH n, count(r) as connections
                 ORDER BY connections DESC
@@ -328,7 +328,7 @@ class Neo4jClient:
             RETURN count(r) as count
             """,
             "document_nodes": """
-            MATCH (d:Document) WHERE d._source = 'dva_kg'
+            MATCH (d:Document) WHERE d._source = 'keel_kg'
             RETURN count(d) as count
             """,
             "release_document_links": """
@@ -342,7 +342,7 @@ class Neo4jClient:
             LIMIT 10
             """,
             "document_nodes_sample": """
-            MATCH (d:Document) WHERE d._source = 'dva_kg'
+            MATCH (d:Document) WHERE d._source = 'keel_kg'
             RETURN d.name as name, d.id as id, d.domain as domain, d.metadata as metadata
             LIMIT 10
             """,

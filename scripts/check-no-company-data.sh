@@ -22,7 +22,7 @@ _CO="da"; _CO="${_CO}vita"       # company name
 _US="vch"; _US="${_US}inta"      # internal username
 
 # HARD patterns — always block (company data + real secret formats).
-# NOTE: 'dva' alone is the CLI/product name and is intentionally NOT blocked.
+# NOTE: 'keel' alone is the CLI/product name and is intentionally NOT blocked.
 HARD_PATTERNS=(
   "\\b${_CO}\\b"                                  # company name (any case)
   "\\b${_US}\\b"                                  # internal username

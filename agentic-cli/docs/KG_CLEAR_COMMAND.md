@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `dva kg clear` command provides a safe and comprehensive way to delete all data from your knowledge graph, supporting both Neo4j and LightRAG providers.
+The `keel kg clear` command provides a safe and comprehensive way to delete all data from your knowledge graph, supporting both Neo4j and LightRAG providers.
 
 ---
 
@@ -296,8 +296,8 @@ docker exec neo4j neo4j-admin database dump neo4j --to-path=/backups
 docker cp neo4j:/backups/neo4j.dump ./backup-$(date +%Y%m%d).dump
 
 # For LightRAG
-docker exec dva-lightrag tar czf /tmp/lightrag-backup.tar.gz /data/lightrag
-docker cp dva-lightrag:/tmp/lightrag-backup.tar.gz ./backup-$(date +%Y%m%d).tar.gz
+docker exec keel-lightrag tar czf /tmp/lightrag-backup.tar.gz /data/lightrag
+docker cp keel-lightrag:/tmp/lightrag-backup.tar.gz ./backup-$(date +%Y%m%d).tar.gz
 
 # Then clear
 `agent kg clear
@@ -350,7 +350,7 @@ alias clear-kg='agent kg clear --yes'  # Don't do this!
 ```bash
 # For LightRAG
 docker ps | grep lightrag
-docker start dva-lightrag
+docker start keel-lightrag
 
 # For Neo4j
 docker ps | grep neo4j
@@ -380,7 +380,7 @@ docker start neo4j
 **Solution:**
 ```bash
 # For LightRAG: Restart container
-docker restart dva-lightrag
+docker restart keel-lightrag
 
 # For Neo4j: Run Cypher directly
 # Open http://localhost:7474 and run:
@@ -429,14 +429,14 @@ CALL apoc.periodic.iterate(
 
 | Method | Speed | Safety | Preserves Config |
 |--------|-------|--------|------------------|
-| `dva kg clear` | Fast | ✅ Safe | ✅ Yes |
+| `keel kg clear` | Fast | ✅ Safe | ✅ Yes |
 | Docker reset | Slow | ⚠️ Risky | ❌ No |
 
 **Docker reset:**
 ```bash
-docker stop dva-lightrag
-docker rm dva-lightrag
-docker volume rm dva-lightrag-data
+docker stop keel-lightrag
+docker rm keel-lightrag
+docker volume rm keel-lightrag-data
 # Loses all configuration
 ```
 
@@ -444,7 +444,7 @@ docker volume rm dva-lightrag-data
 
 | Method | Ease | Safety | Multi-Provider |
 |--------|------|--------|----------------|
-| `dva kg clear` | ✅ Easy | ✅ Safe | ✅ Yes |
+| `keel kg clear` | ✅ Easy | ✅ Safe | ✅ Yes |
 | Manual Cypher | ⚠️ Complex | ⚠️ Risky | ❌ No |
 
 **Manual Cypher:**
@@ -458,7 +458,7 @@ MATCH (n) DETACH DELETE n
 
 | Method | Ease | Safety | Consistency |
 |--------|------|--------|-------------|
-| `dva kg clear` | ✅ Easy | ✅ Safe | ✅ Yes |
+| `keel kg clear` | ✅ Easy | ✅ Safe | ✅ Yes |
 | Direct API | ⚠️ Complex | ⚠️ Risky | ⚠️ Varies |
 
 **Direct API:**
@@ -479,7 +479,7 @@ import subprocess
 
 def clear_kg(provider="lightrag", confirm=True):
     """Clear knowledge graph data."""
-    cmd = ["dva", "kg", "clear", "--provider", provider]
+    cmd = ["keel", "kg", "clear", "--provider", provider]
     
     if not confirm:
         cmd.append("--yes")
@@ -526,15 +526,15 @@ echo "Done!"
 .PHONY: clear-kg reingest test-kg
 
 clear-kg:
-	dva kg clear --provider lightrag --yes
+	keel kg clear --provider lightrag --yes
 
 reingest: clear-kg
-	dva kg async submit --source my-data --provider lightrag
+	keel kg async submit --source my-data --provider lightrag
 
 test-kg: clear-kg
-	dva kg ingest --path test-data.pdf
+	keel kg ingest --path test-data.pdf
 	pytest tests/test_kg.py
-	dva kg clear --yes
+	keel kg clear --yes
 ```
 
 ---
@@ -624,7 +624,7 @@ Once cleared, data cannot be recovered unless you have backups.
 
 ## Summary
 
-The `dva kg clear` command provides:
+The `keel kg clear` command provides:
 
 ✅ **Safe deletion** with confirmation prompts  
 ✅ **Multi-provider support** (Neo4j, LightRAG, both)  

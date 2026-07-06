@@ -1,6 +1,6 @@
 """Storage and retrieval of agent evaluation run results.
 
-`dva eval run agent` writes a JSON result file per run into the evaluations
+`keel eval run agent` writes a JSON result file per run into the evaluations
 directory. This module provides a typed view over those files so that the
 `compare` and `report` commands can load and analyze prior runs.
 """

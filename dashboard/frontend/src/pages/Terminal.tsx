@@ -61,7 +61,7 @@ export function Terminal() {
 
         <div className="flex-1" />
         <div className="text-[10px] text-slate-500 px-3 py-2 font-mono">
-          dva-agentic-project
+          keel-agentic-project
         </div>
       </div>
 
@@ -74,7 +74,7 @@ export function Terminal() {
               <TerminalSquare className="h-12 w-12 mx-auto mb-3 opacity-30" />
               <p className="text-sm font-medium">Inline Terminal</p>
               <p className="text-xs text-slate-600 mt-1 max-w-xs">
-                Run <code className="text-blue-400">dva</code> commands
+                Run <code className="text-blue-400">keel</code> commands
                 directly from the dashboard.
               </p>
               {tabs.length > 0 && (

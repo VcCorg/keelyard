@@ -41,7 +41,7 @@ class WorkspaceManager:
         
         Args:
             base_dir: Base directory for all workspaces. 
-                     Defaults to ~/.dva-agentic/lightrag-workspaces
+                     Defaults to ~/.keel-agentic/lightrag-workspaces
         """
         if base_dir is None:
             base_dir = os.path.expanduser("~/.agent-cli-agentic/lightrag-workspaces")

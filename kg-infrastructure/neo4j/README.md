@@ -146,7 +146,7 @@ make clean
 
 ### Networks
 
-- `dva-network`: Bridge network for service communication
+- `keel-network`: Bridge network for service communication
 
 ## Health Checks
 
@@ -202,7 +202,7 @@ lsof -i :7687
 make health
 
 # Check if container is running
-docker ps | grep dva-neo4j
+docker ps | grep keel-neo4j
 
 # Check firewall settings
 # Ensure ports 7474 and 7687 are not blocked
@@ -292,11 +292,11 @@ make backup
 
 ```bash
 # Using neo4j-admin
-docker exec dva-neo4j neo4j-admin database dump neo4j \
+docker exec keel-neo4j neo4j-admin database dump neo4j \
   --to-path=/var/lib/neo4j/import
 
 # Copy from container
-docker cp dva-neo4j:/var/lib/neo4j/import/neo4j.dump ./backup.dump
+docker cp keel-neo4j:/var/lib/neo4j/import/neo4j.dump ./backup.dump
 ```
 
 ### Restore
@@ -306,8 +306,8 @@ docker cp dva-neo4j:/var/lib/neo4j/import/neo4j.dump ./backup.dump
 make restore
 
 # Manual restore
-docker cp backup.dump dva-neo4j:/var/lib/neo4j/import/restore.dump
-docker exec dva-neo4j neo4j-admin database load neo4j \
+docker cp backup.dump keel-neo4j:/var/lib/neo4j/import/restore.dump
+docker exec keel-neo4j neo4j-admin database load neo4j \
   --from-path=/var/lib/neo4j/import \
   --overwrite-destination=true
 make restart
@@ -337,10 +337,10 @@ RETURN query, elapsedTimeMillis;
 
 ```bash
 # Container stats
-docker stats dva-neo4j
+docker stats keel-neo4j
 
 # Detailed metrics
-docker exec dva-neo4j neo4j-admin server memory-recommendation
+docker exec keel-neo4j neo4j-admin server memory-recommendation
 ```
 
 ## Upgrading

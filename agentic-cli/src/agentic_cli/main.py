@@ -31,14 +31,14 @@ from agentic_cli.commands.auth import auth_app
 from agentic_cli.commands.admin import admin_app
 from agentic_cli.commands.glean import glean_app
 
-# Load .env files (global ~/.dva/.env then project ./.env) before any command
+# Load .env files (global ~/.keel/.env then project ./.env) before any command
 # runs, so integration tokens don't have to be exported every session. Real
 # exported env vars always take precedence.
 load_env()
 
 app = typer.Typer(
     name=CLI_NAME,
-    help="DVA Agentic CLI - Command-line interface for agentic workflows using ADK agent platform",
+    help="KEEL Agentic CLI - Command-line interface for agentic workflows using ADK agent platform",
     add_completion=False,
     rich_markup_mode=None,  # Disable rich markup to avoid help rendering issues
 )
@@ -90,7 +90,7 @@ def main(
     ] = False,
 ) -> None:
     """
-    DVA Agentic CLI - Command-line interface for agentic workflows.
+    KEEL Agentic CLI - Command-line interface for agentic workflows.
     
     Use --help with any command to see available options.
     """
@@ -103,7 +103,7 @@ def dashboard(
     host: Annotated[str, typer.Option("--host", help="Host to bind to")] = "127.0.0.1",
 ) -> None:
     """
-    Launch the DVA Agentic Dashboard (web UI) for validating agents.
+    Launch the KEEL Agentic Dashboard (web UI) for validating agents.
 
     Opens a browser to http://localhost:8500 with:
       - Overview (products, domains, repos, MCP health)
@@ -119,7 +119,7 @@ def dashboard(
         raise typer.Exit(1)
 
     console.print(
-        f"[bold cyan]DVA Agentic Dashboard[/bold cyan] starting at "
+        f"[bold cyan]KEEL Agentic Dashboard[/bold cyan] starting at "
         f"[link=http://{host}:{port}]http://{host}:{port}[/link]"
     )
     uvicorn.run("agentic_cli.dashboard.api:app", host=host, port=port, log_level="info")
@@ -177,7 +177,7 @@ def hello(
     This is a placeholder command that will be replaced with actual ADK agent commands.
     """
     console.print(f"[bold green]Hello[/bold green] [cyan]{name}[/cyan]! 👋")
-    console.print("[dim]DVA Agentic CLI is ready for your commands.[/dim]")
+    console.print("[dim]KEEL Agentic CLI is ready for your commands.[/dim]")
 
 
 if __name__ == "__main__":

@@ -705,11 +705,11 @@ def _generate_skills_manifest_md(domain: str, skills: list[dict]) -> str:
     lines.extend([
         "",
         "## Domain-Customized Skills\n",
-        "_None yet. Use `dva domain fork-skill` to customize a skill._\n",
+        "_None yet. Use `keel domain fork-skill` to customize a skill._\n",
         "## Validation Checklist\n",
         "For each skill, validate against real development tasks:\n",
         "```bash",
-        f'dva domain validate-skills {domain} --skill <name> --feedback works',
+        f'keel domain validate-skills {domain} --skill <name> --feedback works',
         "```\n",
         "| Skill | Tested On | Feedback | Status |",
         "|-------|-----------|----------|--------|",

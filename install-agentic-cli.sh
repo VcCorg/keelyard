@@ -1,9 +1,9 @@
 #!/bin/bash
 #
-# Agentic CLI Installation Script with DVA Alias
+# Agentic CLI Installation Script with KEEL Alias
 #
 # This script installs the agentic-cli package with all required dependencies
-# and creates 'dva' / 'keel' aliases (keel is the platform name, same CLI).
+# and creates 'keel' / 'keel' aliases (keel is the platform name, same CLI).
 # The Vertex AI SDK and other core dependencies are installed by default.
 #
 # Usage:
@@ -19,9 +19,9 @@
 #   ./install-agentic-cli.sh --global --with neo4j       # Add specific package
 #
 # After installation, use:
-#   dva --version
-#   dva --help
-#   dva <command>
+#   keel --version
+#   keel --help
+#   keel <command>
 #
 
 set -euo pipefail
@@ -180,7 +180,7 @@ done
 
 # ─────────────────────────────────────────────────────────────────────────────
 
-log_header "🚀 Agentic CLI Installation with DVA Alias"
+log_header "🚀 Agentic CLI Installation with KEEL Alias"
 
 # Check if uv is installed
 log_info "Checking dependencies..."
@@ -329,7 +329,7 @@ fi
 
 # ─────────────────────────────────────────────────────────────────────────────
 
-log_header "Setting up 'dva' / 'keel' aliases"
+log_header "Setting up 'keel' / 'keel' aliases"
 
 # Detect shell
 SHELL_NAME=$(basename "$SHELL")
@@ -361,14 +361,13 @@ case "$SHELL_NAME" in
         ;;
 esac
 
-# Create alias function based on shell. `keel` is the platform name and is an
-# alias of `dva` (same CLI), so it works wherever `dva` resolves.
+# Create alias function based on shell. `keel` is the platform command.
 case "$SHELL_NAME" in
     bash|zsh)
-        ALIAS_COMMAND=$'alias dva=\'dva\'\nalias keel=\'dva\''
+        ALIAS_COMMAND="alias keel='keel'"
         ;;
     fish)
-        ALIAS_COMMAND=$'alias dva \'dva\'\nalias keel \'dva\''
+        ALIAS_COMMAND="alias keel 'keel'"
         ;;
     *)
         ALIAS_COMMAND=""
@@ -381,7 +380,7 @@ if [ -n "$ALIAS_COMMAND" ]; then
     for config_file in "${SHELL_CONFIG_FILES[@]}"; do
         if [ -f "$config_file" ]; then
             # Check if alias already exists
-            if ! grep -q "alias dva=" "$config_file" 2>/dev/null; then
+            if ! grep -q "alias keel=" "$config_file" 2>/dev/null; then
                 log_info "Adding alias to $config_file"
                 echo "" >> "$config_file"
                 echo "# Agentic CLI alias (installed by install-agentic-cli.sh)" >> "$config_file"
@@ -405,18 +404,18 @@ log_header "Environment Validation"
 # ── .env setup ──────────────────────────────────────────────────────────────
 # Configure integration tokens (Jira/Confluence/Bitbucket/AI) ONCE in a .env
 # file so users don't have to export them into the shell every session.
-GLOBAL_ENV_DIR="$HOME/.dva"
+GLOBAL_ENV_DIR="$HOME/.keel"
 GLOBAL_ENV_FILE="$GLOBAL_ENV_DIR/.env"
 ENV_EXAMPLE="$ROOT_DIR/.env.example"
 
-# Resolve the dva binary for the chosen install type (may not be on PATH yet).
-DVA_BIN=""
-if [ "$INSTALL_TYPE" = "project" ] && [ -x "$PROJECT_VENV/bin/dva" ]; then
-    DVA_BIN="$PROJECT_VENV/bin/dva"
-elif [ "$INSTALL_TYPE" = "local" ] && [ -x "$ROOT_DIR/agentic-cli/.venv/bin/dva" ]; then
-    DVA_BIN="$ROOT_DIR/agentic-cli/.venv/bin/dva"
-elif command -v dva &> /dev/null; then
-    DVA_BIN="$(command -v dva)"
+# Resolve the keel binary for the chosen install type (may not be on PATH yet).
+KEEL_BIN=""
+if [ "$INSTALL_TYPE" = "project" ] && [ -x "$PROJECT_VENV/bin/keel" ]; then
+    KEEL_BIN="$PROJECT_VENV/bin/keel"
+elif [ "$INSTALL_TYPE" = "local" ] && [ -x "$ROOT_DIR/agentic-cli/.venv/bin/keel" ]; then
+    KEEL_BIN="$ROOT_DIR/agentic-cli/.venv/bin/keel"
+elif command -v keel &> /dev/null; then
+    KEEL_BIN="$(command -v keel)"
 fi
 
 if [ ! -f "$GLOBAL_ENV_FILE" ]; then
@@ -436,25 +435,25 @@ fi
 
 # Validate the environment. Non-blocking by default; with --require-integrations
 # a missing Jira/Bitbucket/Confluence token fails the install.
-if [ -n "$DVA_BIN" ]; then
+if [ -n "$KEEL_BIN" ]; then
     DOCTOR_ARGS=""
     if [ -n "$REQUIRE_INTEGRATIONS" ]; then
         DOCTOR_ARGS="--require-integrations"
     fi
-    log_info "Validating environment with 'dva doctor ${DOCTOR_ARGS}'..."
-    if "$DVA_BIN" doctor $DOCTOR_ARGS; then
+    log_info "Validating environment with 'keel doctor ${DOCTOR_ARGS}'..."
+    if "$KEEL_BIN" doctor $DOCTOR_ARGS; then
         log_ok "Environment validation passed"
     elif [ -n "$REQUIRE_INTEGRATIONS" ]; then
         log_error "Required integration tokens are missing."
         log_error "Configure them, then re-run the installer:"
-        log_error "  dva init jira|confluence|bitbucket --url <url> --token <pat>"
+        log_error "  keel init jira|confluence|bitbucket --url <url> --token <pat>"
         log_error "  (or edit $GLOBAL_ENV_FILE)"
         exit 1
     else
-        log_warn "Some checks failed — edit $GLOBAL_ENV_FILE (or run: dva init jira|confluence|bitbucket), then re-run: dva doctor"
+        log_warn "Some checks failed — edit $GLOBAL_ENV_FILE (or run: keel init jira|confluence|bitbucket), then re-run: keel doctor"
     fi
 else
-    log_info "Run 'dva doctor' after activating your environment to check tokens."
+    log_info "Run 'keel doctor' after activating your environment to check tokens."
 fi
 
 # Validate environment and dependencies
@@ -476,20 +475,20 @@ fi
 log_header "Verification"
 
 # Test the installation
-if command -v dva &> /dev/null; then
-    DVA_VERSION=$(dva --version 2>/dev/null || echo "unknown")
-    log_ok "dva command available: $DVA_VERSION"
+if command -v keel &> /dev/null; then
+    KEEL_VERSION=$(keel --version 2>/dev/null || echo "unknown")
+    log_ok "keel command available: $KEEL_VERSION"
 
     # Test for console formatting errors
     log_info "Testing console output..."
-    if dva --version > /dev/null 2>&1; then
+    if keel --version > /dev/null 2>&1; then
         log_ok "Console output working correctly"
     else
-        log_warn "Console formatting issues detected (this is a known DVA CLI issue)"
+        log_warn "Console formatting issues detected (this is a known KEEL CLI issue)"
         log_info "The tool should still function despite formatting errors"
     fi
 else
-    log_error "dva command not found in PATH"
+    log_error "keel command not found in PATH"
     if [ "$INSTALL_TYPE" = "project" ]; then
         log_info "For project installation, activate the venv:"
         echo "  source $PROJECT_VENV/bin/activate"
@@ -531,8 +530,8 @@ else
 fi
 
 echo "  2. Test the installation:"
-echo "     dva --version"
-echo "     dva --help"
+echo "     keel --version"
+echo "     keel --help"
 echo ""
 
 if [ -n "$ADDITIONAL_DEPS" ]; then
@@ -541,19 +540,19 @@ if [ -n "$ADDITIONAL_DEPS" ]; then
 fi
 
 if [ $ALIAS_ADDED -eq 1 ]; then
-    echo "  3. Use the 'dva' alias:"
-    echo "     dva --version"
-    echo "     dva --help"
-    echo "     dva <command>"
+    echo "  3. Use the 'keel' alias:"
+    echo "     keel --version"
+    echo "     keel --help"
+    echo "     keel <command>"
     echo ""
     echo "  Note: You may need to restart your shell or run:"
     echo "     source ~/.bashrc   # or ~/.zshrc for zsh"
 else
-    echo "  3. Set up the 'dva' alias manually:"
+    echo "  3. Set up the 'keel' alias manually:"
     if [ -n "$ALIAS_COMMAND" ]; then
         echo "     echo '$ALIAS_COMMAND' >> ~/.${SHELL_NAME}rc"
     else
-        echo "     alias dva='agent'"
+        echo "     alias keel='agent'"
     fi
 fi
 

@@ -70,6 +70,6 @@ Sample CWOW (Clinical Workflow) datasets in `data/`:
 
 ## Related Repos
 
-- [agentic-cli](https://bitbucket.example.com/users/your-user/repos/agentic-cli) — CLI with `dva kg` commands for KG operations
-- [dva-agent-mcp-servers](https://bitbucket.example.com/users/your-user/repos/dva-agent-mcp-servers) — MCP docker-compose references kg-mcp for unified stack
-- [dva-agent-skills](https://bitbucket.example.com/users/your-user/repos/dva-agent-skills) — Skills registry with database-spanner and other data skills
+- [agentic-cli](https://bitbucket.example.com/users/your-user/repos/agentic-cli) — CLI with `keel kg` commands for KG operations
+- [keel-agent-mcp-servers](https://bitbucket.example.com/users/your-user/repos/keel-agent-mcp-servers) — MCP docker-compose references kg-mcp for unified stack
+- [keel-agent-skills](https://bitbucket.example.com/users/your-user/repos/keel-agent-skills) — Skills registry with database-spanner and other data skills

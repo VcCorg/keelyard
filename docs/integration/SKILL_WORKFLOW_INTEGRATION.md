@@ -1,8 +1,8 @@
-# Skill Workflow Integration with DVA CLI Project Framework
+# Skill Workflow Integration with KEEL CLI Project Framework
 
 ## Overview
 
-DVA Projects are the **execution containers** for agents. Skill workflows must integrate seamlessly with:
+KEEL Projects are the **execution containers** for agents. Skill workflows must integrate seamlessly with:
 - Project creation (`agent project create`)
 - Project structure (src/, tests/, .skills/)
 - Agent execution (`agent run`)
@@ -11,7 +11,7 @@ DVA Projects are the **execution containers** for agents. Skill workflows must i
 
 ---
 
-## Current DVA Project Architecture
+## Current KEEL Project Architecture
 
 ### Directory Structure
 ```
@@ -77,11 +77,11 @@ agent project create my-backend \
    ├─ implementation-planning-skill
    ├─ test-driven-development-skill
    └─ code-review-skill
-6. [NEW] Create .dva/methodology.yaml with workflow config
-7. [NEW] Store approval gates in .dva/approvals/config.yaml
+6. [NEW] Create .keel/methodology.yaml with workflow config
+7. [NEW] Store approval gates in .keel/approvals/config.yaml
 ```
 
-**New File: `.dva/methodology.yaml`**
+**New File: `.keel/methodology.yaml`**
 ```yaml
 ---
 methodology_pack: backend-development
@@ -145,16 +145,16 @@ agent code onboard <repo-url> --output-dir ./my-backend-project
 Step 1: Analyze Codebase
   ├─ Detect: Python, FastAPI, PostgreSQL, pytest
   ├─ Patterns: API versioning, DI, middleware, ORM
-  └─ Store: analysis.json in .dva/onboarding/
+  └─ Store: analysis.json in .keel/onboarding/
 
 Step 2: Ask Clarifying Questions
   ├─ Domain: "Real-time order management"
   ├─ Scale: "10K req/min, sub-100ms latency"
   ├─ Testing: "TDD-focused, 80% minimum coverage"
-  └─ Store: questionnaire.json in .dva/onboarding/
+  └─ Store: questionnaire.json in .keel/onboarding/
 
 Step 3: Generate Understanding Document
-  └─ Create: .dva/codebase-understanding.md with:
+  └─ Create: .keel/codebase-understanding.md with:
      ├─ Architecture overview
      ├─ Key files and purposes
      ├─ Development workflow
@@ -172,7 +172,7 @@ Step 4: Generate Project-Specific Skills
      
 Step 5: Apply Recommended Methodology Pack
   └─ Suggest: "Backend Development" methodology pack
-     ├─ Create: .dva/methodology.yaml
+     ├─ Create: .keel/methodology.yaml
      ├─ Add: Methodology skills to .skills/
      ├─ Ask: "Apply this methodology? (Y/n)"
      └─ Done: Project fully configured
@@ -202,7 +202,7 @@ my-backend-project/
 │       ├── implementation-planning-skill/
 │       ├── test-driven-development-skill/
 │       └── code-review-skill/
-├── .dva/
+├── .keel/
 │   ├── codebase-understanding.md  # Generated understanding doc
 │   ├── methodology.yaml            # Methodology workflow config
 │   ├── onboarding/
@@ -241,12 +241,12 @@ Skill Execution (design-brainstorm-skill):
      Rationale: [explanation]
      Alternatives: [3 options]
   
-  3. Store design in .dva/approvals/design-<uuid>.json
+  3. Store design in .keel/approvals/design-<uuid>.json
   
   4. [CHECKPOINT] Wait for user approval
      ├─ User must approve design before proceeding
      ├─ Timeout: 2 hours with escalation reminder
-     └─ Store approval in: .dva/approvals/<uuid>/approval.json
+     └─ Store approval in: .keel/approvals/<uuid>/approval.json
 ```
 
 **CLI Output During Design Phase:**
@@ -281,7 +281,7 @@ $ agent run --path ./my-backend --task "Add user authentication"
       └─ OAuth 2.0 (deferred for future)
 
 ✋ APPROVAL REQUIRED
-   The design has been saved to: .dva/approvals/design-<uuid>/
+   The design has been saved to: .keel/approvals/design-<uuid>/
    
    Human Action Required:
    └─ Review design and run: agent approve --id <uuid>
@@ -304,7 +304,7 @@ Skill Execution (implementation-planning-skill):
      ├─ Test cases needed
      └─ Verification step (what to check)
   
-  4. Store plan in .dva/approvals/plan-<uuid>.json
+  4. Store plan in .keel/approvals/plan-<uuid>.json
   
   5. [CHECKPOINT] Wait for user approval
      ├─ User reviews task breakdown
@@ -383,7 +383,7 @@ Task 5 (2min): Create token blacklist service
     └─ pytest tests/unit/services/test_blacklist.py
 
 ✋ APPROVAL REQUIRED
-   The plan has been saved to: .dva/approvals/plan-<uuid>/
+   The plan has been saved to: .keel/approvals/plan-<uuid>/
    
    Review the tasks and run:
    └─ agent approve --id <uuid> --proceed-to-execution
@@ -565,7 +565,7 @@ name: fastapi-endpoint-development-skill
 # Project context automatically injected when skill runs in this project
 project_context:
   project_root: /path/to/my-backend-project
-  understanding_doc: .dva/codebase-understanding.md
+  understanding_doc: .keel/codebase-understanding.md
   methodology: backend-development
   tech_stack: [FastAPI, SQLAlchemy, PostgreSQL, pytest]
   conventions:
@@ -592,7 +592,7 @@ project_context:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    DVA CLI Commands                         │
+│                    KEEL CLI Commands                         │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │  agent project create                                       │
@@ -608,7 +608,7 @@ project_context:
 │    └─ Apply methodology pack                                │
 │                                                             │
 │  agent run --path <project> --task "..."                   │
-│    └─> Load .dva/methodology.yaml                           │
+│    └─> Load .keel/methodology.yaml                           │
 │        ├─ Design Phase (design-brainstorm-skill)            │
 │        ├─ [CHECKPOINT] User approves design                 │
 │        ├─ Planning Phase (implementation-planning-skill)    │
@@ -623,7 +623,7 @@ project_context:
 └─────────────────────────────────────────────────────────────┘
            ↓
 ┌─────────────────────────────────────────────────────────────┐
-│           DVA Project Framework (.skills/, .dva/)           │
+│           KEEL Project Framework (.skills/, .keel/)           │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │  .skills/                                                   │
@@ -632,7 +632,7 @@ project_context:
 │  ├─ methodology/   (from methodology pack)                  │
 │  └─ user-created/  (manual)                                 │
 │                                                             │
-│  .dva/                                                      │
+│  .keel/                                                      │
 │  ├─ codebase-understanding.md                               │
 │  ├─ methodology.yaml                                        │
 │  └─ approvals/                                              │
@@ -695,7 +695,7 @@ project_context:
 
 **Approval State Flow:**
 ```
-.dva/approvals/design-<uuid>/
+.keel/approvals/design-<uuid>/
 ├── proposal.json          # Agent's design proposal
 │   └─ Questions asked + user answers
 │   └─ Design sections (Summary, Rationale, Alternatives)
@@ -780,7 +780,7 @@ $ agent approvals history --project ./my-backend
 
 ### Backend CLI Changes
 - [ ] Update `project create` to offer methodology packs
-- [ ] Update `agent run` to load `.dva/methodology.yaml`
+- [ ] Update `agent run` to load `.keel/methodology.yaml`
 - [ ] Implement skill workflow orchestrator
 - [ ] Add approval gate enforcement
 - [ ] Create `approvals` command group
@@ -801,11 +801,11 @@ $ agent approvals history --project ./my-backend
 - [ ] Skill execution progress component
 
 ### Project Structure Changes
-- [ ] Add `.dva/methodology.yaml` template
-- [ ] Add `.dva/approvals/` directory structure
+- [ ] Add `.keel/methodology.yaml` template
+- [ ] Add `.keel/approvals/` directory structure
 - [ ] Create approval state machine logic
 - [ ] Integrate with skill execution engine
 
 ---
 
-This architecture ensures that **skill workflows execute naturally within the DVA project framework**, with full approval gating, evidence capture, and audit trails integrated at every step.
+This architecture ensures that **skill workflows execute naturally within the KEEL project framework**, with full approval gating, evidence capture, and audit trails integrated at every step.

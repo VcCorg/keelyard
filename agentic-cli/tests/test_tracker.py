@@ -30,7 +30,7 @@ from agentic_cli.tracker import (
 @pytest.fixture(autouse=True)
 def use_temp_db(tmp_path, monkeypatch):
     """Redirect the tracker database to a temp directory for each test."""
-    temp_db_dir = tmp_path / ".dva-agentic"
+    temp_db_dir = tmp_path / ".keel-agentic"
     temp_db_path = temp_db_dir / "tracker.db"
     monkeypatch.setattr("agentic_cli.tracker.DB_DIR", temp_db_dir)
     monkeypatch.setattr("agentic_cli.tracker.DB_PATH", temp_db_path)

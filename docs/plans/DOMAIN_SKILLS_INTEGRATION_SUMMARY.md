@@ -27,7 +27,7 @@ Create a **standardized, evolving skills framework** for domain-specific develop
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │ 1. CREATE DOMAIN-CONTEXT REPO                                   │
-│    dva domain init-context cwow-facility --bootstrap-skills     │
+│    keel domain init-context cwow-facility --bootstrap-skills     │
 │                                                                  │
 │    ✓ Scaffolds .domain/, .skills/, README.md                   │
 │    ✓ Injects superpowers skills as git submodule               │
@@ -36,9 +36,9 @@ Create a **standardized, evolving skills framework** for domain-specific develop
                             ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │ 2. VALIDATE & CUSTOMIZE SKILLS                                  │
-│    dva domain validate-skills cwow-facility \                   │
+│    keel domain validate-skills cwow-facility \                   │
 │      --skill pr-reviewer --task "Review PR #123" --feedback ok  │
-│    dva domain fork-skill cwow-facility --skill pr-reviewer      │
+│    keel domain fork-skill cwow-facility --skill pr-reviewer      │
 │                                                                  │
 │    ✓ Test skills against real development tasks                │
 │    ✓ Fork skills that need domain customization                │
@@ -48,7 +48,7 @@ Create a **standardized, evolving skills framework** for domain-specific develop
                             ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │ 3. ONBOARD REPOS WITH DOMAIN SKILLS                             │
-│    dva code onboard --path ./cwow-facility-service \            │
+│    keel code onboard --path ./cwow-facility-service \            │
 │      --domain cwow-facility --use-domain-skills                 │
 │                                                                  │
 │    ✓ Analyzes project tech stack                               │
@@ -60,7 +60,7 @@ Create a **standardized, evolving skills framework** for domain-specific develop
                             ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │ 4. CONTRIBUTE VALIDATED SKILLS BACK                              │
-│    dva domain contribute-skill cwow-facility \                  │
+│    keel domain contribute-skill cwow-facility \                  │
 │      --skill pr-reviewer-domain --upstream-skill pr-reviewer    │
 │                                                                  │
 │    ✓ Generates git patch vs. upstream                          │
@@ -158,7 +158,7 @@ Tracks changes over time:
 ### Bootstrap Phase
 ```bash
 # Create domain-context repo with superpowers skills
-dva domain init-context cwow-facility \
+keel domain init-context cwow-facility \
   --git-remote https://github.com/company/cwow-facility-domain-context.git \
   --bootstrap-skills superpowers
 ```
@@ -166,20 +166,20 @@ dva domain init-context cwow-facility \
 ### Validation Phase
 ```bash
 # Validate a skill against a real task
-dva domain validate-skills cwow-facility \
+keel domain validate-skills cwow-facility \
   --skill pr-reviewer \
   --task "Review PR #123 in cwow-facility-service" \
   --feedback "works" \
   --notes "Correctly identified 3 issues"
 
 # List validation status
-dva domain validate-skills cwow-facility --list
+keel domain validate-skills cwow-facility --list
 
 # Generate validation report
-dva domain validate-skills cwow-facility --report
+keel domain validate-skills cwow-facility --report
 
 # Fork a skill for domain customization
-dva domain fork-skill cwow-facility \
+keel domain fork-skill cwow-facility \
   --skill pr-reviewer \
   --reason "Add domain-specific code review rules"
 ```
@@ -187,7 +187,7 @@ dva domain fork-skill cwow-facility \
 ### Onboarding Phase
 ```bash
 # Onboard repo with domain-validated skills
-dva code onboard --path ./cwow-facility-service \
+keel code onboard --path ./cwow-facility-service \
   --domain cwow-facility \
   --use-domain-skills
 ```
@@ -195,7 +195,7 @@ dva code onboard --path ./cwow-facility-service \
 ### Contribution Phase
 ```bash
 # Contribute validated skill back to superpowers
-dva domain contribute-skill cwow-facility \
+keel domain contribute-skill cwow-facility \
   --skill pr-reviewer-domain \
   --upstream-skill pr-reviewer \
   --message "Add facility-domain code review rules"

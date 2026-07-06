@@ -37,9 +37,9 @@ BOLD='\033[1m'
 DIM='\033[2m'
 NC='\033[0m' # No Color
 
-# Determine CLI command (prefer dva alias if available)
-if command -v dva &>/dev/null; then
-    CLI="dva"
+# Determine CLI command (prefer keel alias if available)
+if command -v keel &>/dev/null; then
+    CLI="keel"
 else
     CLI="${AGENT_CLI_NAME:-agent-cli}"
 fi

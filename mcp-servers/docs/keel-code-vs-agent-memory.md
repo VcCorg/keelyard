@@ -1,4 +1,4 @@
-# DVA Code Commands vs. Neo4j Agent Memory
+# KEEL Code Commands vs. Neo4j Agent Memory
 
 A comparison of our two AI-assist systems and how they complement each other.
 
@@ -6,7 +6,7 @@ A comparison of our two AI-assist systems and how they complement each other.
 
 ## What Each System Does
 
-### DVA Code Commands (`dva code` + `dva skill`)
+### KEEL Code Commands (`keel code` + `keel skill`)
 
 **Purpose**: Project onboarding and static skill provisioning for AI code assistants.
 
@@ -27,20 +27,20 @@ The `agentic-cli` provides a **one-time setup** workflow:
 
 | Command | What It Does |
 |---------|-------------|
-| `dva code init <workspace>` | Set default workspace folder for cloning repos |
-| `dva code onboard --path/--repo` | Clone + analyze + auto-install matching skills |
-| `dva code list` | List all onboarded projects with tech stack summary |
-| `dva code skills list` | Show skills installed in a project |
-| `dva code skills available` | Show all 26 skills in the registry |
-| `dva code skills add <name>` | Install a skill from registry |
-| `dva code skills remove <name>` | Remove a skill |
-| `dva code skills update` | Update all installed skills from latest registry |
-| `dva code validate` | Validate onboarding, show readiness report |
-| `dva code config --registry` | Set skills registry path/URL |
-| `dva skill create <name>` | Create a new Agent Skill (agentskills.io format) |
-| `dva skill install <source>` | Install skill from GitHub |
-| `dva skill list` | List installed Agent Skills |
-| `dva skill show <name>` | Show skill details and file tree |
+| `keel code init <workspace>` | Set default workspace folder for cloning repos |
+| `keel code onboard --path/--repo` | Clone + analyze + auto-install matching skills |
+| `keel code list` | List all onboarded projects with tech stack summary |
+| `keel code skills list` | Show skills installed in a project |
+| `keel code skills available` | Show all 26 skills in the registry |
+| `keel code skills add <name>` | Install a skill from registry |
+| `keel code skills remove <name>` | Remove a skill |
+| `keel code skills update` | Update all installed skills from latest registry |
+| `keel code validate` | Validate onboarding, show readiness report |
+| `keel code config --registry` | Set skills registry path/URL |
+| `keel skill create <name>` | Create a new Agent Skill (agentskills.io format) |
+| `keel skill install <source>` | Install skill from GitHub |
+| `keel skill list` | List installed Agent Skills |
+| `keel skill show <name>` | Show skill details and file tree |
 
 **Skills Registry** (`skills/registry.json` — 26 skills):
 
@@ -86,14 +86,14 @@ AI Assistant (Windsurf/Cascade/Claude)
 
 ## Side-by-Side Comparison
 
-| Aspect | DVA Code Commands | Neo4j Agent Memory |
+| Aspect | KEEL Code Commands | Neo4j Agent Memory |
 |--------|------------------|-------------------|
-| **When it runs** | One-time setup (`dva code onboard`) | Continuous (every conversation) |
+| **When it runs** | One-time setup (`keel code onboard`) | Continuous (every conversation) |
 | **What it produces** | Static `.skills/SKILL.md` files | Dynamic graph nodes and relationships |
 | **Storage** | Files in repo (git-tracked) | Neo4j graph database (persistent, queryable) |
 | **Scope** | Per-project | Cross-project, cross-session |
 | **Knowledge source** | Curated registry (26 human-written skills) | Agent experience (auto-extracted from conversations) |
-| **Update model** | Manual (`dva code skills update`) | Automatic (learns as you work) |
+| **Update model** | Manual (`keel code skills update`) | Automatic (learns as you work) |
 | **Search** | None (files read by AI at prompt time) | Semantic vector + graph hybrid search |
 | **Personalization** | None (same skills for everyone) | Per-user preferences, learned patterns |
 | **Decision learning** | None | Reasoning traces record how tasks were solved |
@@ -115,7 +115,7 @@ AI Assistant (Windsurf/Cascade/Claude)
 └─────────────┬───────────────────────────┬───────────────────┘
               │                           │
      Layer 1: STATIC                Layer 2: DYNAMIC
-     (DVA Code Commands)            (Neo4j Agent Memory)
+     (KEEL Code Commands)            (Neo4j Agent Memory)
               │                           │
               ▼                           ▼
 ┌─────────────────────────┐  ┌────────────────────────────────┐
@@ -159,7 +159,7 @@ AI Assistant (Windsurf/Cascade/Claude)
 
 ### 1. Memory-Aware Onboarding
 
-`dva code onboard` could store project metadata in the knowledge graph:
+`keel code onboard` could store project metadata in the knowledge graph:
 
 ```python
 # After analyzing a project, store entities in agent memory
@@ -243,7 +243,7 @@ related = await memory.long_term.get_related_entities(
 
 ## Summary
 
-| | DVA Code Commands | Neo4j Agent Memory | Combined |
+| | KEEL Code Commands | Neo4j Agent Memory | Combined |
 |---|---|---|---|
 | **Metaphor** | Textbook | Notebook + Experience | Expert with a textbook who takes notes |
 | **Knowledge** | Curated best practices | Learned experience | Both |
@@ -251,7 +251,7 @@ related = await memory.long_term.get_related_entities(
 | **Update cycle** | Manual registry updates | Automatic every conversation | Best of both |
 | **Value over time** | Constant | Compounds | Accelerating |
 
-**DVA Code Commands** give every developer the same starting point — curated, version-controlled, team-approved skills.
+**KEEL Code Commands** give every developer the same starting point — curated, version-controlled, team-approved skills.
 
 **Neo4j Agent Memory** makes every AI interaction build on the last — personal, contextual, ever-growing knowledge.
 

@@ -1,6 +1,6 @@
 """Neo4j client for KG MCP Server.
 
-Direct Neo4j driver client that scopes all queries to _source='dva_kg' nodes,
+Direct Neo4j driver client that scopes all queries to _source='keel_kg' nodes,
 ensuring no interference with neo4j-agent-memory data.
 """
 
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class Neo4jKGClient:
-    """Client for querying dva_kg-scoped data in Neo4j."""
+    """Client for querying keel_kg-scoped data in Neo4j."""
 
     def __init__(self, config: KGConfig):
         self._config = config
@@ -54,9 +54,9 @@ class Neo4jKGClient:
     def search_text(
         self, text: str, *, persona: str | None = None, limit: int = 10
     ) -> list[dict[str, Any]]:
-        """Search nodes by text content, scoped to dva_kg source."""
+        """Search nodes by text content, scoped to keel_kg source."""
         where_parts = [
-            "n._source = 'dva_kg'",
+            "n._source = 'keel_kg'",
             "(n.name CONTAINS $text OR n.content CONTAINS $text)",
         ]
         if persona:
@@ -81,7 +81,7 @@ class Neo4jKGClient:
         """Get a specific entity and its relationships."""
         node_query = """
         MATCH (n)
-        WHERE n._source = 'dva_kg' AND n.name = $name
+        WHERE n._source = 'keel_kg' AND n.name = $name
         RETURN n.name AS name, n.id AS id, labels(n) AS labels,
                n.content AS content, n.persona AS persona
         LIMIT 1
@@ -94,7 +94,7 @@ class Neo4jKGClient:
 
         rel_query = """
         MATCH (n)-[r]-(m)
-        WHERE n._source = 'dva_kg' AND n.name = $name
+        WHERE n._source = 'keel_kg' AND n.name = $name
         RETURN type(r) AS relationship, m.name AS related_entity,
                labels(m) AS related_labels, r.type AS rel_detail
         LIMIT 50
@@ -106,12 +106,12 @@ class Neo4jKGClient:
     # ── Stats ───────────────────────────────────────────────────────────
 
     def get_stats(self) -> dict[str, Any]:
-        """Get KG statistics scoped to dva_kg source."""
+        """Get KG statistics scoped to keel_kg source."""
         queries = {
-            "nodes": "MATCH (n) WHERE n._source = 'dva_kg' RETURN count(n) AS count",
-            "relationships": "MATCH (a)-[r]->(b) WHERE a._source = 'dva_kg' RETURN count(r) AS count",
-            "node_types": "MATCH (n) WHERE n._source = 'dva_kg' RETURN DISTINCT labels(n) AS labels",
-            "relationship_types": "MATCH (a)-[r]->(b) WHERE a._source = 'dva_kg' RETURN DISTINCT type(r) AS type",
+            "nodes": "MATCH (n) WHERE n._source = 'keel_kg' RETURN count(n) AS count",
+            "relationships": "MATCH (a)-[r]->(b) WHERE a._source = 'keel_kg' RETURN count(r) AS count",
+            "node_types": "MATCH (n) WHERE n._source = 'keel_kg' RETURN DISTINCT labels(n) AS labels",
+            "relationship_types": "MATCH (a)-[r]->(b) WHERE a._source = 'keel_kg' RETURN DISTINCT type(r) AS type",
         }
 
         stats = {}
@@ -126,7 +126,7 @@ class Neo4jKGClient:
 
         # Top entities
         top_q = """
-        MATCH (n) WHERE n._source = 'dva_kg'
+        MATCH (n) WHERE n._source = 'keel_kg'
         OPTIONAL MATCH (n)-[r]-()
         WITH n, count(r) AS connections
         ORDER BY connections DESC

@@ -9,22 +9,22 @@
 │ 1. PROJECT CREATION                                         │
 │    agent project create my-backend --use-case rag          │
 │    └─> Apply methodology pack? (YES)                        │
-│        └─> Adds: .skills/methodology/ + .dva/methodology.yaml
+│        └─> Adds: .skills/methodology/ + .keel/methodology.yaml
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
 │ 2. CODE ONBOARDING (Optional but Recommended)               │
 │    agent code onboard https://github.com/myteam/backend    │
 │    └─> Generates:                                           │
-│        ├─ .dva/codebase-understanding.md                    │
+│        ├─ .keel/codebase-understanding.md                    │
 │        ├─ .skills/generated/ (8-15 auto-generated skills)   │
-│        └─ .dva/methodology.yaml (methodology config)        │
+│        └─ .keel/methodology.yaml (methodology config)        │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
 │ 3. AGENT EXECUTION WITH WORKFLOW                            │
 │    agent run --path ./my-backend --task "Add user auth"    │
-│    └─> Loads .dva/methodology.yaml                          │
+│    └─> Loads .keel/methodology.yaml                          │
 │        └─> Executes 4-Phase Workflow:                       │
 │            1. Design → [User approves]                      │
 │            2. Plan → [User approves]                        │
@@ -55,7 +55,7 @@ PHASE 1: DESIGN
 ├──────────────────────────────────┤
 │ 1. Ask clarifying questions      │
 │ 2. Propose design (5 sections)   │
-│ 3. Store in .dva/approvals/      │
+│ 3. Store in .keel/approvals/      │
 │ 4. [WAIT] User must approve ⏸️  │
 └──────────────────────────────────┘
         ↓ (approved)
@@ -123,7 +123,7 @@ my-backend/
         ├─ test-driven-development-skill
         └─ code-review-skill
 
-└── .dva/
+└── .keel/
     ├── codebase-understanding.md      ← What this project is about
     ├── methodology.yaml               ← How to develop for it
     │
@@ -156,7 +156,7 @@ User gets notification: "Design ready for review"
    ├─ agent reject <id> --reason  OR  
    └─ Check Agent Playground > Approvals
 
-Stored in: .dva/approvals/design-<uuid>/
+Stored in: .keel/approvals/design-<uuid>/
 ├─ proposal.json (what agent designed)
 └─ approval.json (user's decision + feedback)
 ```
@@ -170,7 +170,7 @@ User gets notification: "Plan ready for review"
 └─ Waiting for user to:
    └─ agent approve <id>  OR  check dashboard
 
-Stored in: .dva/approvals/plan-<uuid>/
+Stored in: .keel/approvals/plan-<uuid>/
 ├─ tasks.json (detailed task breakdown)
 └─ approval.json (user's decision)
 ```
@@ -199,7 +199,7 @@ User gets notification: "Code ready for review"
 └─ Waiting for user to:
    └─ agent approve <id>  OR  check dashboard
 
-Stored in: .dva/approvals/review-<uuid>/
+Stored in: .keel/approvals/review-<uuid>/
 ├─ diff.json (code changes + quality report)
 └─ approval.json (code review approval)
 ```
@@ -241,9 +241,9 @@ agent run --path ./my-backend --task "..."
 ```
 Skill receives:
 ├─ Project root: /path/to/my-backend
-├─ Methodology config: .dva/methodology.yaml
+├─ Methodology config: .keel/methodology.yaml
 │  └─ Contains: tech_stack, conventions, file_patterns
-├─ Understanding doc: .dva/codebase-understanding.md
+├─ Understanding doc: .keel/codebase-understanding.md
 │  └─ Contains: architecture, key files, patterns
 └─ Examples: .skills/generated/ reference implementations
    └─ "Follow the pattern from fastapi-endpoint-development-skill"
@@ -270,11 +270,11 @@ Superpowers Methodology
       ↓
 Design → Plan → Execute → Review
       ↓
-DVA Project Framework
+KEEL Project Framework
       ↓
 .skills/ (domain, generated, methodology)
-.dva/methodology.yaml (workflow config)
-.dva/approvals/ (checkpoints)
+.keel/methodology.yaml (workflow config)
+.keel/approvals/ (checkpoints)
       ↓
 CLI Commands
       ↓
@@ -309,7 +309,7 @@ Skills = Enforce development methodology
 Workflow = 4 phases with approval gates
 Quality = Consistent (enforced by methodology)
 Governance = Design, plan, code review required
-Auditability = Full evidence trail in .dva/approvals/
+Auditability = Full evidence trail in .keel/approvals/
 ```
 
 ---
@@ -361,7 +361,7 @@ Auditability = Full evidence trail in .dva/approvals/
 3. **Choose** implementation track (recommend: Code Onboarding first)
 4. **Create** detailed PRD with acceptance criteria
 5. **Build** with TDD methodology (following Superpowers!)
-6. **Test** with real DVA projects and collect feedback
+6. **Test** with real KEEL projects and collect feedback
 
 Files:
 - `SUPERPOWERS_REFERENCE_ANALYSIS.md`

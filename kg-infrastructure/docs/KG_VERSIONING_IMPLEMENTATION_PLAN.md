@@ -16,7 +16,7 @@ This provides the best balance of:
 
 ### 1. Configuration Changes
 
-#### File: `src/dva_agentic_cli/kg/config.py`
+#### File: `src/agentic_cli/kg/config.py`
 
 ```python
 class KGConfig(BaseModel):
@@ -48,7 +48,7 @@ class KGConfig(BaseModel):
 
 ### 2. Workspace Metadata Management
 
-#### File: `src/dva_agentic_cli/kg/workspace.py` (NEW)
+#### File: `src/agentic_cli/kg/workspace.py` (NEW)
 
 ```python
 """Workspace management for knowledge graph."""
@@ -262,7 +262,7 @@ class WorkspaceManager:
 
 ### 3. CLI Commands
 
-#### File: `src/dva_agentic_cli/commands/kg_workspace.py` (NEW)
+#### File: `src/agentic_cli/commands/kg_workspace.py` (NEW)
 
 ```python
 """Workspace management commands for agent kg."""
@@ -272,8 +272,8 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 
-from dva_agentic_cli.kg.config import KGConfig
-from dva_agentic_cli.kg.workspace import WorkspaceManager
+from agentic_cli.kg.config import KGConfig
+from agentic_cli.kg.workspace import WorkspaceManager
 
 workspace_app = typer.Typer(
     help="Workspace management commands",
@@ -446,11 +446,11 @@ def delete(
 
 ### 4. Update Main KG Commands
 
-#### File: `src/dva_agentic_cli/commands/kg.py`
+#### File: `src/agentic_cli/commands/kg.py`
 
 ```python
 # Add workspace subcommand
-from dva_agentic_cli.commands.kg_workspace import workspace_app
+from agentic_cli.commands.kg_workspace import workspace_app
 kg_app.add_typer(workspace_app, name="workspace", help="Workspace management")
 
 # Update ingest command to use workspace
@@ -481,7 +481,7 @@ def ingest(
 
 ### 5. Update LightRAG Client
 
-#### File: `src/dva_agentic_cli/kg/lightrag_client.py`
+#### File: `src/agentic_cli/kg/lightrag_client.py`
 
 ```python
 class LightRAGClient:

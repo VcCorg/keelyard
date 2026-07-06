@@ -2,10 +2,10 @@
 
 Three tiers, three personas:
 
-- ``dva workspace open <domain> <repo> --persona dev``  → developer worktree (repo tier)
-- ``dva domain sync <domain>``                          → tech-lead domain workspace (domain tier)
-- ``dva workspace status --product <P>``                → solutions-architect view (product tier)
-- ``dva workspace list``                                → all tracked workspaces
+- ``keel workspace open <domain> <repo> --persona dev``  → developer worktree (repo tier)
+- ``keel domain sync <domain>``                          → tech-lead domain workspace (domain tier)
+- ``keel workspace status --product <P>``                → solutions-architect view (product tier)
+- ``keel workspace list``                                → all tracked workspaces
 """
 
 import json

@@ -1,4 +1,4 @@
-"""Tests for Phase 3: MCP-based doc management — dva domain add-docs/docs/sync-docs commands."""
+"""Tests for Phase 3: MCP-based doc management — keel domain add-docs/docs/sync-docs commands."""
 
 import pytest
 from unittest.mock import patch, MagicMock
@@ -16,7 +16,7 @@ MCP_PATCH = "agentic_cli.mcp_tool_client"
 @pytest.fixture(autouse=True)
 def temp_db(tmp_path, monkeypatch):
     """Redirect tracker.db to a temp directory for each test."""
-    db_dir = tmp_path / ".dva-agentic"
+    db_dir = tmp_path / ".keel-agentic"
     db_dir.mkdir()
     monkeypatch.setattr(tracker, "DB_DIR", db_dir)
     monkeypatch.setattr(tracker, "DB_PATH", db_dir / "tracker.db")
@@ -193,7 +193,7 @@ class TestAddDocsCLI:
 
 
 # ---------------------------------------------------------------------------
-# dva domain docs CLI tests
+# keel domain docs CLI tests
 # ---------------------------------------------------------------------------
 
 class TestDocsCLI:
@@ -219,7 +219,7 @@ class TestDocsCLI:
 
 
 # ---------------------------------------------------------------------------
-# dva domain sync-docs CLI tests
+# keel domain sync-docs CLI tests
 # ---------------------------------------------------------------------------
 
 class TestSyncDocsCLI:
@@ -263,7 +263,7 @@ class TestSyncDocsCLI:
         }
 
         with patch(f"{MCP_PATCH}.confluence_get_space", side_effect=mock_get_space), \
-             patch(f"{MCP_PATCH}.confluence_create_space", return_value={"key": "DVACWOWFACILITY", "name": "DVA Managed"}), \
+             patch(f"{MCP_PATCH}.confluence_create_space", return_value={"key": "DVACWOWFACILITY", "name": "KEEL Managed"}), \
              patch(f"{MCP_PATCH}.confluence_get_page", return_value=mock_source_page), \
              patch(f"{MCP_PATCH}.confluence_create_page", return_value=mock_created_page):
             result = runner.invoke(domain_app, ["sync-docs", "cwow-facility"])

@@ -302,10 +302,10 @@ status: active                 # active | expired | revoked
 ## Managing entries
 
 ```bash
-dva product exceptions add {product.upper()} --rule tdd \\
+keel product exceptions add {product.upper()} --rule tdd \\
     --reason "spike" --scope domain:{product.lower()}-a1 \\
     --owner you@example.com --expires 2026-07-27
-dva product exceptions list {product.upper()}
+keel product exceptions list {product.upper()}
 ```
 """,
         encoding="utf-8",
@@ -376,7 +376,7 @@ make validate   # validate repo state
 | `docs/` | governance documentation |
 
 Domain meta-repos reference this product meta-repo via
-`dva domain init-meta <slug> --product-meta <url>`.
+`keel domain init-meta <slug> --product-meta <url>`.
 """,
         encoding="utf-8",
     )

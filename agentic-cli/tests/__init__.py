@@ -1,1 +1,1 @@
-"""Tests for dva-agentic-cli."""
+"""Tests for keel-agentic-cli."""

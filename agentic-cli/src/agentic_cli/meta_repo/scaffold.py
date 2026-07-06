@@ -154,7 +154,7 @@ def scaffold_domain_meta_repo(
 
         # Write the Devin DRS snapshot blueprint (.devin/environment.yaml +
         # setup.sh). Generated here so it is captured in the initial commit;
-        # the snapshot itself is built later via `dva domain build-snapshot`.
+        # the snapshot itself is built later via `keel domain build-snapshot`.
         if write_blueprint:
             from agentic_cli.devin.blueprint import (
                 load_workspace_mcp_servers,
@@ -352,7 +352,7 @@ This guide explains how to onboard a new repository into the {domain} domain.
 ## Prerequisites
 
 - Git installed
-- `dva` CLI installed
+- `keel` CLI installed
 - Access to domain repositories
 
 ## Onboarding Steps
@@ -367,7 +367,7 @@ cd <local-path>
 ### 2. Run Code Onboard
 
 ```bash
-dva code onboard --path . --domain {domain} --link-meta-repo --use-domain-skills
+keel code onboard --path . --domain {domain} --link-meta-repo --use-domain-skills
 ```
 
 This will:
@@ -607,7 +607,7 @@ domain_cfg = load_config(config_dir, "domain.yaml")
 repos_cfg = load_config(config_dir, "repos.yaml")
 ```
 
-These configs are consumed by the `dva code onboard --use-meta-config` workflow.
+These configs are consumed by the `keel code onboard --use-meta-config` workflow.
 """,
         encoding="utf-8",
     )
@@ -674,7 +674,7 @@ how they integrate with the submodule workflow and governance.
 - **Skills** live in `.agents/skills/` — each skill has a `SKILL.md` plus optional
   references and scripts.
 - Domain-validated skills are sourced from the `repos/domain-context` submodule
-  and prioritized during `dva code onboard --use-domain-skills`.
+  and prioritized during `keel code onboard --use-domain-skills`.
 
 ## Skill Priority Order
 

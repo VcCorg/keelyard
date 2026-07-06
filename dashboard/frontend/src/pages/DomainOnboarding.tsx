@@ -193,7 +193,7 @@ export function DomainOnboarding() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Domain Onboarding</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Drive the <code className="text-xs">dva domain</code> workflow from the UI.
+          Drive the <code className="text-xs">keel domain</code> workflow from the UI.
           The dashboard is a thin proxy — all logic runs in the CLI core.
         </p>
       </div>
@@ -1053,7 +1053,7 @@ function DocsStep({
         </div>
         <p className="text-xs text-gray-400 mb-3">
           Preview pages to select individually, or "Track all" to run{" "}
-          <code>dva domain add-docs {domain.name} --all</code> (includes cross-space scan).
+          <code>keel domain add-docs {domain.name} --all</code> (includes cross-space scan).
         </p>
         {err && <p className="text-xs text-red-600 mb-2">{err}</p>}
 
@@ -1207,7 +1207,7 @@ function ScaffoldStep({ slug, product }: { slug: string; product: string }) {
       </label>
 
       <p className="text-xs text-gray-400 mt-2">
-        Runs <code>dva domain init-context / init-meta {slug}</code> via the CLI.
+        Runs <code>keel domain init-context / init-meta {slug}</code> via the CLI.
         When linked, the domain meta references the product meta as a submodule
         so it inherits shared governance, the crosswalk, and the exceptions ledger.
       </p>

@@ -29,7 +29,7 @@ This overloads the domain creation command and makes it hard to:
 
 ### 1. Domain Creation (Simple & Fast)
 ```bash
-dva domain create Facility --product CWOW \
+keel domain create Facility --product CWOW \
   --jira CWOW \
   --bb CGF \
   --confluence CWOV
@@ -49,10 +49,10 @@ dva domain create Facility --product CWOW \
 ### 2. Knowledge Onboarding (Separate Activity)
 ```bash
 # Onboard domain knowledge from Confluence
-dva kg onboard --domain cwow-facility --confluence-space CWOV
+keel kg onboard --domain cwow-facility --confluence-space CWOV
 
 # Or with options
-dva kg onboard --domain cwow-facility \
+keel kg onboard --domain cwow-facility \
   --confluence-space CWOV \
   --release-aware \
   --domain-keywords "Facility,Facility Domain,Facility Service" \
@@ -80,7 +80,7 @@ dva kg onboard --domain cwow-facility \
 ```
 User Command
     ↓
-dva domain create Facility --product CWOW --jira CWOW --bb CGF --confluence CWOV
+keel domain create Facility --product CWOW --jira CWOW --bb CGF --confluence CWOV
     ↓
 Validate inputs
     ↓
@@ -95,7 +95,7 @@ Output: Domain registered successfully
 ```
 User Command
     ↓
-dva kg onboard --domain cwow-facility --confluence-space CWOV
+keel kg onboard --domain cwow-facility --confluence-space CWOV
     ↓
 Phase 1: Release Discovery
 ├─ Discover all releases
@@ -145,8 +145,8 @@ def create(
     Register a new domain under a product.
     
     Examples:
-        dva domain create Facility --product CWOW --jira CWOW --bb CGF --confluence CWOV
-        dva domain create Patient --product CWOW --jira CWOW --bb CGP --confluence CWOV
+        keel domain create Facility --product CWOW --jira CWOW --bb CGF --confluence CWOV
+        keel domain create Patient --product CWOW --jira CWOW --bb CGP --confluence CWOV
     """
     # Validate product exists
     prod = get_product(product.upper())
@@ -192,7 +192,7 @@ def create(
     
     # Hint for next step
     console.print(f"\n[dim]Next: Onboard domain knowledge:[/dim]")
-    console.print(f"  dva kg onboard --domain {name} --confluence-space {confluence_space}")
+    console.print(f"  keel kg onboard --domain {name} --confluence-space {confluence_space}")
     
     record_activity(
         command="domain", subcommand="create",
@@ -206,7 +206,7 @@ def create(
 
 ## Knowledge Onboarding Command (New)
 
-### New Command: `dva kg onboard`
+### New Command: `keel kg onboard`
 ```python
 # In commands/kg.py (NEW)
 
@@ -237,29 +237,29 @@ def onboard(
     
     Examples:
         # Basic: Onboard from Confluence space
-        dva kg onboard --domain cwow-facility --confluence-space CWOV
+        keel kg onboard --domain cwow-facility --confluence-space CWOV
         
         # Release-aware: Scan all releases, keep latest
-        dva kg onboard --domain cwow-facility --confluence-space CWOV \
+        keel kg onboard --domain cwow-facility --confluence-space CWOV \
           --release-aware \
           --domain-keywords "Facility,Facility Domain,Facility Service"
         
         # Async: Run in background
-        dva kg onboard --domain cwow-facility --confluence-space CWOV --async
+        keel kg onboard --domain cwow-facility --confluence-space CWOV --async
     """
     
     # Validate domain exists
     domain_obj = get_domain(domain)
     if not domain_obj:
         console.print(f"[red]✗ Domain '{domain}' not found.[/red]")
-        console.print(f"[dim]Register it first: dva domain create <DOMAIN> --product <PRODUCT>[/dim]")
+        console.print(f"[dim]Register it first: keel domain create <DOMAIN> --product <PRODUCT>[/dim]")
         raise typer.Exit(1)
     
     # Get Confluence space from domain or option
     space = confluence_space or domain_obj.get("confluence_space")
     if not space:
         console.print(f"[red]✗ No Confluence space configured for domain '{domain}'.[/red]")
-        console.print(f"[dim]Update domain: dva domain update {domain} --confluence <SPACE_KEY>[/dim]")
+        console.print(f"[dim]Update domain: keel domain update {domain} --confluence <SPACE_KEY>[/dim]")
         raise typer.Exit(1)
     
     if async_mode:
@@ -273,7 +273,7 @@ def onboard(
             version_strategy=version_strategy,
         )
         console.print(f"[green]✓ Job started: {job_id}[/green]")
-        console.print(f"[dim]Check status: dva kg status {job_id}[/dim]")
+        console.print(f"[dim]Check status: keel kg status {job_id}[/dim]")
     else:
         # Run synchronously
         console.print(f"[cyan]Onboarding knowledge for {domain}...[/cyan]")
@@ -346,15 +346,15 @@ def onboard(
 
 ### Step 1: Create Domain (Fast)
 ```bash
-$ dva domain create Facility --product CWOW --jira CWOW --bb CGF --confluence CWOV
+$ keel domain create Facility --product CWOW --jira CWOW --bb CGF --confluence CWOV
 ✓ Domain registered: cwow-facility
 Next: Onboard domain knowledge:
-  dva kg onboard --domain cwow-facility --confluence-space CWOV
+  keel kg onboard --domain cwow-facility --confluence-space CWOV
 ```
 
 ### Step 2: Onboard Knowledge (Separate)
 ```bash
-$ dva kg onboard --domain cwow-facility --confluence-space CWOV --release-aware
+$ keel kg onboard --domain cwow-facility --confluence-space CWOV --release-aware
 ✓ Knowledge onboarding complete
   Releases scanned: 5
   Documents found: 20
@@ -365,7 +365,7 @@ $ dva kg onboard --domain cwow-facility --confluence-space CWOV --release-aware
 
 ### Step 3: Use in Code Onboarding
 ```bash
-$ dva code onboard https://github.com/company/facility-service --domain cwow-facility
+$ keel code onboard https://github.com/company/facility-service --domain cwow-facility
 ✓ Code onboarding complete
   Understanding includes business context from KG
   Generated skills reference business rules
@@ -503,7 +503,7 @@ agentic-cli/src/agentic_cli/
 The redesigned Track A:
 
 1. **Keeps domain creation simple** - Just register metadata
-2. **Moves knowledge onboarding to separate command** - `dva kg onboard`
+2. **Moves knowledge onboarding to separate command** - `keel kg onboard`
 3. **Supports async execution** - Can run in background
 4. **Enables future enhancements** - Refresh, schedule, version KG
 5. **Maintains clean separation** - Each command has single responsibility

@@ -1,13 +1,13 @@
 ---
-name: dva-manage-domains
+name: keel-manage-domains
 description: >-
-  Manage DVA products, domains, repos, and Confluence docs via DVA Central MCP.
+  Manage KEEL products, domains, repos, and Confluence docs via KEEL Central MCP.
   Use this skill to create domains, link repositories, track docs, and wire
   domain context into projects.
 mcp_server: agentic
 ---
 
-# DVA Domain Management
+# KEEL Domain Management
 
 You have access to the Agentic Platform MCP server. Use these tools to manage the
 organizational hierarchy: Products → Domains → Repos → Docs.
@@ -80,7 +80,7 @@ When a domain is linked to repos and docs, the Agentic MCP automatically:
 
 If the Agentic MCP server is not available, use the CLI:
 ```bash
-dva product create CWOW
-dva domain create Facility --product CWOW --jira CWOW --bb CGF --confluence MTT
-dva domain link-repo cwow-facility cwow-facility-service
+keel product create CWOW
+keel domain create Facility --product CWOW --jira CWOW --bb CGF --confluence MTT
+keel domain link-repo cwow-facility cwow-facility-service
 ```

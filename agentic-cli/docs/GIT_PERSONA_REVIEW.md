@@ -10,7 +10,7 @@
 
 ### 1. Parser Level (Primary Assignment)
 
-**File:** `src/dva_agentic_cli/kg/parsers.py`
+**File:** `src/agentic_cli/kg/parsers.py`
 
 The `parse_git_repository()` function **always** sets `persona="developer"` in the metadata for ALL documents:
 
@@ -64,7 +64,7 @@ doc = {
 
 ### 2. Ingest Level (Secondary Assignment - Neo4j Only)
 
-**File:** `src/dva_agentic_cli/kg/ingest.py`
+**File:** `src/agentic_cli/kg/ingest.py`
 
 For Neo4j ingestion, the `ingest_data()` function also auto-detects persona:
 
@@ -100,23 +100,23 @@ if persona == "developer" and format == "git":
 
 ### Path 1: Sync Neo4j Ingestion
 
-**Command:** `dva kg ingest --source <git-source> --provider neo4j`
+**Command:** `keel kg ingest --source <git-source> --provider neo4j`
 
 **Flow:**
-1. **Command:** `src/dva_agentic_cli/commands/kg.py` (line 493-516)
+1. **Command:** `src/agentic_cli/commands/kg.py` (line 493-516)
    - Resolves data source
    - Detects `format="git"` (line 472-473)
    - Calls `ingest_data()` with `persona=None` (line 501)
 
-2. **Ingest:** `src/dva_agentic_cli/kg/ingest.py` (line 84-112)
+2. **Ingest:** `src/agentic_cli/kg/ingest.py` (line 84-112)
    - Auto-detects `persona="developer"` from format (line 86-87)
    - Calls `parse_git_repository()` (line 107-112)
 
-3. **Parser:** `src/dva_agentic_cli/kg/parsers.py` (line 421-432)
+3. **Parser:** `src/agentic_cli/kg/parsers.py` (line 421-432)
    - Sets `persona="developer"` in metadata
    - Returns documents with persona metadata
 
-4. **Entity Extraction:** `src/dva_agentic_cli/kg/ingest.py` (line 161-164)
+4. **Entity Extraction:** `src/agentic_cli/kg/ingest.py` (line 161-164)
    - Adds `Code::` namespace to entities
    - Stores persona in Neo4j node properties
 
@@ -126,19 +126,19 @@ if persona == "developer" and format == "git":
 
 ### Path 2: Sync LightRAG Ingestion
 
-**Command:** `dva kg ingest --source <git-source> --provider lightrag`
+**Command:** `keel kg ingest --source <git-source> --provider lightrag`
 
 **Flow:**
-1. **Command:** `src/dva_agentic_cli/commands/kg.py` (line 518-570)
+1. **Command:** `src/agentic_cli/commands/kg.py` (line 518-570)
    - Resolves data source
    - Detects `format="git"` (line 529)
    - Calls `parse_git_repository()` directly (line 530-545)
 
-2. **Parser:** `src/dva_agentic_cli/kg/parsers.py` (line 421-432)
+2. **Parser:** `src/agentic_cli/kg/parsers.py` (line 421-432)
    - Sets `persona="developer"` in metadata
    - Returns documents with persona metadata
 
-3. **Insert:** `src/dva_agentic_cli/commands/kg.py` (line 549-565)
+3. **Insert:** `src/agentic_cli/commands/kg.py` (line 549-565)
    - Inserts documents into LightRAG
    - Metadata (including persona) passed to LightRAG
 
@@ -148,23 +148,23 @@ if persona == "developer" and format == "git":
 
 ### Path 3: Async Neo4j Ingestion
 
-**Command:** `dva kg async submit --source <git-source> --provider neo4j`
+**Command:** `keel kg async submit --source <git-source> --provider neo4j`
 
 **Flow:**
-1. **Submit:** `src/dva_agentic_cli/commands/kg_async.py` (line 93-126)
+1. **Submit:** `src/agentic_cli/commands/kg_async.py` (line 93-126)
    - Resolves data source
    - Detects `format="git"` (line 101-102)
    - Submits job with format and metadata
 
-2. **Worker:** `src/dva_agentic_cli/kg/async_worker.py` (line 60-90)
+2. **Worker:** `src/agentic_cli/kg/async_worker.py` (line 60-90)
    - Loads job
    - Calls `ingest_data()` with job parameters
 
-3. **Ingest:** `src/dva_agentic_cli/kg/ingest.py` (line 84-112)
+3. **Ingest:** `src/agentic_cli/kg/ingest.py` (line 84-112)
    - Auto-detects `persona="developer"` from format
    - Calls `parse_git_repository()`
 
-4. **Parser:** `src/dva_agentic_cli/kg/parsers.py` (line 421-432)
+4. **Parser:** `src/agentic_cli/kg/parsers.py` (line 421-432)
    - Sets `persona="developer"` in metadata
    - Returns documents with persona metadata
 
@@ -174,24 +174,24 @@ if persona == "developer" and format == "git":
 
 ### Path 4: Async LightRAG Ingestion
 
-**Command:** `dva kg async submit --source <git-source> --provider lightrag`
+**Command:** `keel kg async submit --source <git-source> --provider lightrag`
 
 **Flow:**
-1. **Submit:** `src/dva_agentic_cli/commands/kg_async.py` (line 93-126)
+1. **Submit:** `src/agentic_cli/commands/kg_async.py` (line 93-126)
    - Resolves data source
    - Detects `format="git"` (line 101-102)
    - Submits job with format and metadata
 
-2. **Worker:** `src/dva_agentic_cli/kg/async_worker.py` (line 115-148)
+2. **Worker:** `src/agentic_cli/kg/async_worker.py` (line 115-148)
    - Loads job
    - Detects `format="git"` (line 120)
    - Calls `parse_git_repository()` directly (line 125-136)
 
-3. **Parser:** `src/dva_agentic_cli/kg/parsers.py` (line 421-432)
+3. **Parser:** `src/agentic_cli/kg/parsers.py` (line 421-432)
    - Sets `persona="developer"` in metadata
    - Returns documents with persona metadata
 
-4. **Insert:** `src/dva_agentic_cli/kg/async_worker.py` (line 158-178)
+4. **Insert:** `src/agentic_cli/kg/async_worker.py` (line 158-178)
    - Inserts documents into LightRAG
    - Metadata (including persona) passed to LightRAG
 
@@ -303,32 +303,32 @@ enhanced_text = f"From the code/developer perspective: {search_text}"
 
 ### Primary Persona Assignment
 
-1. **`src/dva_agentic_cli/kg/parsers.py`** (line 423)
+1. **`src/agentic_cli/kg/parsers.py`** (line 423)
    - `"persona": "developer"` hardcoded in `git_metadata`
    - Applied to ALL documents from Git repos
 
 ### Secondary Persona Assignment (Neo4j only)
 
-2. **`src/dva_agentic_cli/kg/ingest.py`** (line 86-87)
+2. **`src/agentic_cli/kg/ingest.py`** (line 86-87)
    - Auto-detects `persona="developer"` for `format="git"`
    - Used for entity namespacing
 
 ### Format Detection
 
-3. **`src/dva_agentic_cli/commands/kg.py`** (line 472-473)
+3. **`src/agentic_cli/commands/kg.py`** (line 472-473)
    - Sync ingestion: Sets `resolved_format="git"` for Git sources
 
-4. **`src/dva_agentic_cli/commands/kg_async.py`** (line 101-102)
+4. **`src/agentic_cli/commands/kg_async.py`** (line 101-102)
    - Async ingestion: Sets `format="git"` for Git sources
 
 ### Entity Namespacing (Neo4j only)
 
-5. **`src/dva_agentic_cli/kg/ingest.py`** (line 161-164)
+5. **`src/agentic_cli/kg/ingest.py`** (line 161-164)
    - Adds `Code::` prefix to entities when `persona="developer"` and `format="git"`
 
 ### Query Enhancement (LightRAG)
 
-6. **`src/dva_agentic_cli/commands/kg.py`** (line 726-729, 849-852)
+6. **`src/agentic_cli/commands/kg.py`** (line 726-729, 849-852)
    - Query: Enhances with "From the code/developer perspective:"
    - Search: Enhances with "From the code/developer perspective:"
 

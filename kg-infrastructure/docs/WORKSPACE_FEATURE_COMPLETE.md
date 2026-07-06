@@ -2,7 +2,7 @@
 
 ## Summary
 
-Successfully implemented comprehensive workspace management for DVA Knowledge Graph with **LightRAG provider only**. Neo4j ingestion remains completely unaffected by workspace logic.
+Successfully implemented comprehensive workspace management for KEEL Knowledge Graph with **LightRAG provider only**. Neo4j ingestion remains completely unaffected by workspace logic.
 
 ---
 
@@ -17,13 +17,13 @@ Successfully implemented comprehensive workspace management for DVA Knowledge Gr
   - Atomic file operations
 
 ### 2. CLI Commands ✅
-- `dva kg workspace create` - Create new workspace
-- `dva kg workspace list` - List all workspaces
-- `dva kg workspace switch` - Switch active workspace
-- `dva kg workspace current` - Show current workspace
-- `dva kg workspace delete` - Delete workspace
-- `dva kg workspace info` - Show workspace details
-- `dva kg workspace update` - Update workspace metadata
+- `keel kg workspace create` - Create new workspace
+- `keel kg workspace list` - List all workspaces
+- `keel kg workspace switch` - Switch active workspace
+- `keel kg workspace current` - Show current workspace
+- `keel kg workspace delete` - Delete workspace
+- `keel kg workspace info` - Show workspace details
+- `keel kg workspace update` - Update workspace metadata
 
 ### 3. Configuration Updates ✅
 - Added `workspace` field to KGConfig
@@ -32,7 +32,7 @@ Successfully implemented comprehensive workspace management for DVA Knowledge Gr
 - Added `supports_workspaces()` method
 
 ### 4. Ingestion Integration ✅
-- Added `--workspace` parameter to `dva kg ingest`
+- Added `--workspace` parameter to `keel kg ingest`
 - Provider validation (LightRAG only)
 - Workspace existence validation
 - Shows active workspace during operations
@@ -56,8 +56,8 @@ Successfully implemented comprehensive workspace management for DVA Knowledge Gr
 ## Files Created/Modified
 
 ### New Files
-1. `src/dva_agentic_cli/kg/workspace.py` (450 lines)
-2. `src/dva_agentic_cli/commands/kg_workspace.py` (400 lines)
+1. `src/agentic_cli/kg/workspace.py` (450 lines)
+2. `src/agentic_cli/commands/kg_workspace.py` (400 lines)
 3. `tests/test_workspace.py` (400 lines, 26 tests)
 4. `docs/WORKSPACE_IMPLEMENTATION_SUMMARY.md`
 5. `docs/WORKSPACE_QUICKSTART.md`
@@ -65,8 +65,8 @@ Successfully implemented comprehensive workspace management for DVA Knowledge Gr
 7. `docs/KG_VERSIONING_IMPLEMENTATION_PLAN.md`
 
 ### Modified Files
-1. `src/dva_agentic_cli/kg/config.py` - Added workspace fields and methods
-2. `src/dva_agentic_cli/commands/kg.py` - Added workspace parameter to ingest
+1. `src/agentic_cli/kg/config.py` - Added workspace fields and methods
+2. `src/agentic_cli/commands/kg.py` - Added workspace parameter to ingest
 
 ---
 
@@ -293,7 +293,7 @@ No migration needed! Neo4j operations are unaffected.
 3. **Workspace merge** - Combine multiple workspaces
 4. **Workspace export/import** - Share between systems
 5. **Auto-update stats** - Track stats during ingestion
-6. **Tag filtering** - `dva kg workspace list --tags evaluation`
+6. **Tag filtering** - `keel kg workspace list --tags evaluation`
 7. **Workspace search** - Find workspaces by content
 
 ### Not Planned

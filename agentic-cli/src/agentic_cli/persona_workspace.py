@@ -54,7 +54,7 @@ def _now_iso() -> str:
 def get_workspace_base() -> Path:
     """Resolve the code workspace base.
 
-    Order: ``code_workspace`` in the global CLI config, else ``~/dva-code-workspace``.
+    Order: ``code_workspace`` in the global CLI config, else ``~/keel-code-workspace``.
     """
     if AGENT_CONFIG_FILE.exists():
         try:
@@ -64,7 +64,7 @@ def get_workspace_base() -> Path:
                 return Path(ws).expanduser().resolve()
         except (json.JSONDecodeError, OSError):
             pass
-    return (Path.home() / "dva-code-workspace").resolve()
+    return (Path.home() / "keel-code-workspace").resolve()
 
 
 def get_store_base() -> Path:
@@ -225,7 +225,7 @@ def add_worktree(
     store = store_repo_path(repo_slug)
     if not (store / ".git").exists():
         raise RuntimeError(
-            f"No store clone for '{repo_slug}'. Run 'dva domain sync' first."
+            f"No store clone for '{repo_slug}'. Run 'keel domain sync' first."
         )
     if dest.exists() and any(dest.iterdir()):
         # Already materialized — treat as idempotent.
@@ -540,7 +540,7 @@ you do **not** clone code.
 
 ## How to Work
 
-1. Use the registry (`dva workspace status --product {ctx['product']}`) for the
+1. Use the registry (`keel workspace status --product {ctx['product']}`) for the
    product → domain → repo map and graph availability.
 2. For a domain's structure, read its tech-lead manifest
    (`<domain-meta>/{GRAPH_DIR_NAME}/{GRAPH_REFS_FILENAME}`) and the referenced
@@ -556,5 +556,5 @@ persona catalog). Solution decisions that change gates belong here.
 ## Drilling Down
 
 To inspect a specific repo's code, open a dev workspace on demand:
-`dva workspace open <domain> <repo> --persona dev` (creates a worktree).
+`keel workspace open <domain> <repo> --persona dev` (creates a worktree).
 """

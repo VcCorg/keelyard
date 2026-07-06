@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""OKF bundle conformance validator (prototype / seed for `dva kg okf validate`).
+"""OKF bundle conformance validator (prototype / seed for `keel kg okf validate`).
 
 Validates an OKF knowledge bundle against its okf.schema.yaml:
   - required frontmatter fields present

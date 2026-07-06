@@ -68,7 +68,7 @@ EOF
 fi
 
 # Create network if needed
-docker network inspect dva-network >/dev/null 2>&1 || docker network create dva-network
+docker network inspect keel-network >/dev/null 2>&1 || docker network create keel-network
 
 # Start Neo4j
 echo "Starting Neo4j..."
@@ -103,13 +103,13 @@ cd ../..
 # Configure CLI for Neo4j
 echo ""
 echo "Configuring agentic-cli for Neo4j..."
-dva kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
+keel kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password password
 echo -e "${GREEN}✓ CLI configured for Neo4j${NC}"
 
 # Check if we have any data
 echo ""
 echo "Checking for existing KG data..."
-dva kg stats 2>/dev/null || echo "No data yet (expected for first run)"
+keel kg stats 2>/dev/null || echo "No data yet (expected for first run)"
 
 # Check if Vertex AI is configured
 echo ""
@@ -119,7 +119,7 @@ if python -c "from agentic_cli.kg.config import KGConfig; print('✓' if KGConfi
     VERTEX_CONFIGURED=true
 else
     echo -e "${YELLOW}⚠ Vertex AI is not configured${NC}"
-    echo "  To configure: dva init vertex-ai"
+    echo "  To configure: keel init vertex-ai"
     VERTEX_CONFIGURED=false
 fi
 
@@ -137,7 +137,7 @@ if python -c "import sys; sys.path.append('mcp-servers/agentic/src'); from pathl
     DOMAIN_EXISTS=true
 else
     echo -e "${YELLOW}⚠ cwow-facility domain not found${NC}"
-    echo "  To create: dva domain create --domain Facility --product CWOW"
+    echo "  To create: keel domain create --domain Facility --product CWOW"
     DOMAIN_EXISTS=false
 fi
 
@@ -158,14 +158,14 @@ if [ "$REPOS_COUNT" -gt 0 ]; then
     REPOS_EXIST=true
 else
     echo -e "${YELLOW}⚠ No repos onboarded yet${NC}"
-    echo "  To onboard: dva code onboard --path <repo-path> --kg --extract-entities"
+    echo "  To onboard: keel code onboard --path <repo-path> --kg --extract-entities"
     REPOS_EXIST=false
 fi
 
 # Step 3: Check if we have business docs
 echo ""
 echo -e "${BLUE}Step 3: Checking business documents${NC}"
-DOCS_COUNT=$(dva domain docs cwow-facility 2>/dev/null | grep -c "│ " || true)
+DOCS_COUNT=$(keel domain docs cwow-facility 2>/dev/null | grep -c "│ " || true)
 if [ -z "$DOCS_COUNT" ] || [ "$DOCS_COUNT" -eq 0 ]; then
     DOCS_COUNT=0
 fi
@@ -174,7 +174,7 @@ if [ "$DOCS_COUNT" -gt 0 ]; then
     DOCS_EXIST=true
 else
     echo -e "${YELLOW}⚠ No business docs found${NC}"
-    echo "  To add docs: dva domain add-docs cwow-facility"
+    echo "  To add docs: keel domain add-docs cwow-facility"
     DOCS_EXIST=false
 fi
 
@@ -191,13 +191,13 @@ if [ "$VERTEX_CONFIGURED" = true ] && [ "$DOMAIN_EXISTS" = true ] && [ "$REPOS_E
     
     # Run dry-run
     echo -e "${BLUE}Running KG linker dry-run for cwow-facility...${NC}"
-    dva kg link --domain cwow-facility --dry-run --threshold 0.75
+    keel kg link --domain cwow-facility --dry-run --threshold 0.75
     
     echo ""
     echo -e "${GREEN}✓ Dry-run completed successfully!${NC}"
     echo ""
     echo "To run the actual linking:"
-    echo "  dva kg link --domain cwow-facility"
+    echo "  keel kg link --domain cwow-facility"
     echo ""
     echo "To test MCP tools (after linking):"
     echo "  1. Start MCP server: cd mcp-servers/agentic && docker-compose up -d"
@@ -208,10 +208,10 @@ else
     echo -e "${YELLOW}⚠ Setup incomplete. Please complete the following:${NC}"
     echo ""
     
-    [ "$VERTEX_CONFIGURED" = false ] && echo "  1. Configure Vertex AI: dva init vertex-ai"
-    [ "$DOMAIN_EXISTS" = false ] && echo "  2. Create domain: dva domain create --domain Facility --product CWOW"
-    [ "$REPOS_EXIST" = false ] && echo "  3. Onboard repos: dva code onboard --path <repo-path> --kg --extract-entities"
-    [ "$DOCS_EXIST" = false ] && echo "  4. Add business docs: dva domain add-docs cwow-facility"
+    [ "$VERTEX_CONFIGURED" = false ] && echo "  1. Configure Vertex AI: keel init vertex-ai"
+    [ "$DOMAIN_EXISTS" = false ] && echo "  2. Create domain: keel domain create --domain Facility --product CWOW"
+    [ "$REPOS_EXIST" = false ] && echo "  3. Onboard repos: keel code onboard --path <repo-path> --kg --extract-entities"
+    [ "$DOCS_EXIST" = false ] && echo "  4. Add business docs: keel domain add-docs cwow-facility"
     
     echo ""
     echo "After completing these steps, run this script again to validate."
@@ -225,7 +225,7 @@ echo ""
 echo "Neo4j:"
 echo "  - Browser: http://localhost:7474"
 echo "  - Bolt: bolt://localhost:7687"
-echo "  - Status: $(docker ps --filter "name=dva-neo4j" --format "table {{.Status}}" | tail -n 1)"
+echo "  - Status: $(docker ps --filter "name=keel-neo4j" --format "table {{.Status}}" | tail -n 1)"
 echo ""
 echo "Useful commands:"
 echo "  - View Neo4j logs: cd kg-infrastructure/neo4j && docker-compose logs -f neo4j"

@@ -1,4 +1,4 @@
-# Graph Database and Embedding Alternatives for DVA KG Infrastructure
+# Graph Database and Embedding Alternatives for KEEL KG Infrastructure
 
 ## Current Architecture
 
@@ -37,7 +37,7 @@
 - Less tooling for graph visualization
 - Learning curve for AQL
 
-**DVA Use Case Fit:** ⭐⭐⭐⭐
+**KEEL Use Case Fit:** ⭐⭐⭐⭐
 - Can store code entities as documents and graph relationships
 - Reduces infrastructure complexity (single DB)
 - Good for hybrid document-graph queries
@@ -66,7 +66,7 @@
 - Less mature tooling
 - Limited persistence options
 
-**DVA Use Case Fit:** ⭐⭐⭐⭐⭐
+**KEEL Use Case Fit:** ⭐⭐⭐⭐⭐
 - Near-zero migration effort (Cypher-compatible)
 - Faster queries for in-memory datasets
 - Can keep existing MCP server code
@@ -96,7 +96,7 @@
 - Higher cost for cloud version
 - Less flexible for ad-hoc queries
 
-**DVA Use Case Fit:** ⭐⭐⭐
+**KEEL Use Case Fit:** ⭐⭐⭐
 - Overkill for current use case
 - Excellent if scaling to millions of nodes
 - Complex analytics capabilities not needed yet
@@ -126,7 +126,7 @@
 - Slower for small datasets
 - Higher operational complexity
 
-**DVA Use Case Fit:** ⭐⭐
+**KEEL Use Case Fit:** ⭐⭐
 - Too complex for current needs
 - Good if scaling to petabytes
 - Operational overhead not justified
@@ -155,7 +155,7 @@
 - Limited tooling
 - Newer technology (less battle-tested)
 
-**DVA Use Case Fit:** ⭐⭐⭐
+**KEEL Use Case Fit:** ⭐⭐⭐
 - Good performance characteristics
 - Growing ecosystem
 - Less proven than Neo4j
@@ -185,7 +185,7 @@
 - Cold start issues
 - Not open-source
 
-**DVA Use Case Fit:** ⭐⭐⭐⭐
+**KEEL Use Case Fit:** ⭐⭐⭐⭐
 - Good if already using AWS
 - Reduces operational burden
 - Migration effort moderate
@@ -215,7 +215,7 @@
 - Learning curve for GraphQL
 - Less flexible for complex graph queries
 
-**DVA Use Case Fit:** ⭐⭐⭐⭐⭐
+**KEEL Use Case Fit:** ⭐⭐⭐⭐⭐
 - **Single database for both graph and embeddings**
 - Eliminates need for separate LightRAG
 - Modern architecture
@@ -249,7 +249,7 @@
 - Learning curve for schema design
 - No native graph features
 
-**DVA Use Case Fit:** ⭐⭐⭐⭐
+**KEEL Use Case Fit:** ⭐⭐⭐⭐
 - Excellent vector search performance
 - Proven at scale
 - Would pair well with Neo4j or Memgraph
@@ -280,7 +280,7 @@
 - Limited customization
 - No self-hosting option
 
-**DVA Use Case Fit:** ⭐⭐⭐⭐⭐
+**KEEL Use Case Fit:** ⭐⭐⭐⭐⭐
 - Fastest to implement
 - No operational overhead
 - Excellent performance
@@ -312,7 +312,7 @@
 - Less proven at very large scale
 - Requires separate graph DB
 
-**DVA Use Case Fit:** ⭐⭐⭐⭐⭐
+**KEEL Use Case Fit:** ⭐⭐⭐⭐⭐
 - Easy deployment
 - Good performance
 - Open-source
@@ -344,7 +344,7 @@
 - Requires separate graph DB
 - Less mature
 
-**DVA Use Case Fit:** ⭐⭐⭐
+**KEEL Use Case Fit:** ⭐⭐⭐
 - Good for development
 - Not for production at scale
 - Easy to get started
@@ -374,7 +374,7 @@
 - Requires separate graph DB
 - Scaling challenges
 
-**DVA Use Case Fit:** ⭐⭐⭐⭐
+**KEEL Use Case Fit:** ⭐⭐⭐⭐
 - Good if already using PostgreSQL
 - Reduces infrastructure complexity
 - SQL familiarity
@@ -406,7 +406,7 @@
 - Requires separate graph DB
 - Overkill for vector-only use case
 
-**DVA Use Case Fit:** ⭐⭐⭐
+**KEEL Use Case Fit:** ⭐⭐⭐
 - Good if need full-text + vector
 - Heavy infrastructure
 - Complex setup
@@ -437,7 +437,7 @@
 - Requires separate graph DB
 - Limited features
 
-**DVA Use Case Fit:** ⭐⭐⭐⭐
+**KEEL Use Case Fit:** ⭐⭐⭐⭐
 - Modern architecture
 - Easy deployment
 - Good for development
@@ -462,7 +462,7 @@
 - Good documentation
 - Active development
 
-**For DVA:**
+**For KEEL:**
 - Store code entities as objects with embeddings
 - Native graph relationships between entities
 - Semantic search built-in
@@ -487,7 +487,7 @@
 - Mature technologies
 - Good for incremental migration
 
-**For DVA:**
+**For KEEL:**
 - Minimal disruption
 - Add pgvector to existing PostgreSQL
 - Update linker to use pgvector
@@ -510,7 +510,7 @@
 - Proven at scale
 - Good performance
 
-**For DVA:**
+**For KEEL:**
 - Replace unstable LightRAG with Milvus
 - Keep Neo4j unchanged
 - Update linker to use Milvus client
@@ -533,7 +533,7 @@
 - Flexible query language
 - Built-in search
 
-**For DVA:**
+**For KEEL:**
 - Store code entities as documents
 - Graph relationships natively
 - Add vector search via search engine
@@ -550,7 +550,7 @@
 
 ### Graph Database Comparison
 
-| Database | Maturity | Performance | Ecosystem | Complexity | DVA Fit | Migration Effort |
+| Database | Maturity | Performance | Ecosystem | Complexity | KEEL Fit | Migration Effort |
 |----------|----------|-------------|-----------|------------|---------|------------------|
 | Neo4j | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐⭐⭐ | N/A |
 | Memgraph | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐ (Low) |
@@ -563,7 +563,7 @@
 
 ### Vector Database Comparison
 
-| Database | Maturity | Performance | Ease of Use | Cost | DVA Fit | Migration Effort |
+| Database | Maturity | Performance | Ease of Use | Cost | KEEL Fit | Migration Effort |
 |----------|----------|-------------|------------|------|---------|------------------|
 | LightRAG | ⭐⭐ | ⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐ | N/A |
 | Milvus | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ (Medium) |
@@ -576,7 +576,7 @@
 
 ---
 
-## Part 5: Recommendations for DVA Use Case
+## Part 5: Recommendations for KEEL Use Case
 
 ### Current Situation Analysis
 
@@ -895,7 +895,7 @@
 - Not designed for code repositories
 - SaaS model (no local control)
 
-**DVA Use Case Fit:** ⭐⭐
+**KEEL Use Case Fit:** ⭐⭐
 - Wrong use case (enterprise workplace search vs code-document linking)
 - Cannot self-host (violates local requirement)
 - Overkill and expensive for current needs
@@ -939,7 +939,7 @@
 - Less pre-built integrations
 - Newer technology
 
-**DVA Use Case Fit:** ⭐⭐⭐⭐⭐
+**KEEL Use Case Fit:** ⭐⭐⭐⭐⭐
 - Perfect fit for local deployment
 - Designed for custom applications
 - Single database for graph + embeddings
@@ -968,11 +968,11 @@
 | **Scalability** | Self-managed | Auto-scaled |
 | **Security** | Self-managed | Enterprise-grade |
 | **Analytics** | Basic | Advanced (Looker Studio) |
-| **DVA Fit** | ⭐⭐⭐⭐⭐ | ⭐⭐ |
+| **KEEL Fit** | ⭐⭐⭐⭐⭐ | ⭐⭐ |
 
 ---
 
-### Key Differences for DVA Use Case
+### Key Differences for KEEL Use Case
 
 **1. Deployment Model**
 - **Weaviate:** Can run locally on your infrastructure (Docker)
@@ -1000,9 +1000,9 @@
 
 ---
 
-### Recommendation: Weaviate for DVA
+### Recommendation: Weaviate for KEEL
 
-**Why Weaviate is better for DVA:**
+**Why Weaviate is better for KEEL:**
 
 1. **Local Deployment:** Can self-host via Docker, meets local storage requirement
 2. **Cost-Effective:** Infrastructure costs only vs expensive enterprise subscription
@@ -1044,7 +1044,7 @@ Weaviate (Vector + Graph Storage)
     ↓
 GraphQL API
     ↓
-DVA Applications
+KEEL Applications
 ```
 
 This gives you Glean-like capabilities with local deployment and full control.

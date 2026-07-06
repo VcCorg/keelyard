@@ -215,7 +215,7 @@ async def search_source(source: str, query: str, limit: int = 5,
                         user_token: Optional[str] = None) -> str:
     """Gather context text for Ideate.
 
-    For Glean, prefer the org-configured Glean REST API (``dva init glean``);
+    For Glean, prefer the org-configured Glean REST API (``keel init glean``);
     fall back to a Glean/Confluence MCP server when Glean isn't configured for a
     live query. ``user_token`` (the signed-in user's forwarded access token)
     enables per-user SSO. Degrades with a clear RuntimeError when nothing is

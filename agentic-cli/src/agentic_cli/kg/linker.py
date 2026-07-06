@@ -186,7 +186,7 @@ class KGLinker:
 
         if not self.config.is_vertex_ai_configured():
             raise ValueError(
-                "Vertex AI is not configured. Run `dva init vertex-ai` first.\n"
+                "Vertex AI is not configured. Run `keel init vertex-ai` first.\n"
                 f"Config: project_id={self.config.google_project_id}"
             )
 
@@ -213,7 +213,7 @@ class KGLinker:
         """Pull all Code::* nodes tagged with this domain from Neo4j."""
         query = """
         MATCH (n)
-        WHERE n._source = 'dva_kg'
+        WHERE n._source = 'keel_kg'
           AND n.persona = 'developer'
           AND n.domain = $domain
         RETURN n.id AS id,
@@ -245,7 +245,7 @@ class KGLinker:
         """Pull all Document nodes tagged with this domain from Neo4j."""
         query = """
         MATCH (n:Document)
-        WHERE n._source = 'dva_kg'
+        WHERE n._source = 'keel_kg'
           AND n.domain = $domain
         RETURN n.id AS id,
                n.name AS name,
@@ -488,7 +488,7 @@ class KGLinker:
             ON CREATE SET
                 r.confidence   = $confidence,
                 r.evidence     = $evidence,
-                r.linked_by    = 'dva-kg-link',
+                r.linked_by    = 'keel-kg-link',
                 r.domain       = $domain,
                 r.created_at   = $now,
                 r.updated_at   = $now
@@ -549,14 +549,14 @@ class KGLinker:
             if not code_entities:
                 result.errors.append(
                     f"No code entities found for domain '{self.domain}'. "
-                    "Run `dva code onboard --kg --extract-entities` first."
+                    "Run `keel code onboard --kg --extract-entities` first."
                 )
                 return result
 
             if not business_docs:
                 result.errors.append(
                     f"No business docs found for domain '{self.domain}'. "
-                    "Run `dva kg ingest submit --domain {self.domain} --format confluence` first."
+                    "Run `keel kg ingest submit --domain {self.domain} --format confluence` first."
                 )
                 return result
 

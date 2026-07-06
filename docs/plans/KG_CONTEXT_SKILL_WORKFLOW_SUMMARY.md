@@ -13,7 +13,7 @@
 │                   (Initial - One Time)                          │
 └─────────────────────────────────────────────────────────────────┘
 
-dva code onboard --path ./facility-service --kg --extract-entities
+keel code onboard --path ./facility-service --kg --extract-entities
     ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │ Step 1: Analyze Code                                            │
@@ -310,7 +310,7 @@ kg_context:
 
 ```
 1. Code Onboarding
-   dva code onboard --path ./facility-service --kg
+   keel code onboard --path ./facility-service --kg
    └─ Query KG for cwow-facility domain only
    └─ Embed in SKILL.md files
 

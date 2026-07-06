@@ -1,14 +1,14 @@
 ---
-description: Onboard a repository with AI coding skills — auto-detect tech stack and install matching SKILL.md files without requiring dva CLI
+description: Onboard a repository with AI coding skills — auto-detect tech stack and install matching SKILL.md files without requiring keel CLI
 ---
 
 # Repository Onboarding Workflow
 
-Onboard any repository with AI-aware coding skills. Uses the **DVA Central MCP**
+Onboard any repository with AI-aware coding skills. Uses the **KEEL Central MCP**
 when available for centralized tracking and cascading skill resolution.
 Falls back to direct file-system operations when MCP is not running.
 
-**Related skill**: Read `skills/skills/dva-onboard/SKILL.md` for the full MCP tool reference.
+**Related skill**: Read `skills/skills/keel-onboard/SKILL.md` for the full MCP tool reference.
 
 ## Prerequisites
 
@@ -61,7 +61,7 @@ and writes `onboard.json`.
 If you want to generate a code structure graph for enhanced analysis:
 
 ```bash
-dva code onboard --path <project-path> --graphify
+keel code onboard --path <project-path> --graphify
 ```
 
 This runs `graphify update` to create a detailed code graph showing:
@@ -84,7 +84,7 @@ repo_register(
 ```
 
 This records the onboarding in the central tracker (`tracker.db`) so it's visible
-to the team via `repo_list` or `dva history repos`.
+to the team via `repo_list` or `keel history repos`.
 
 ### Step A5: Domain Context (Optional — 2 MCP calls)
 
@@ -163,7 +163,7 @@ Scan the project root for build/config files:
 graphify update <project-path>
 ```
 
-This creates a detailed code graph showing function relationships, communities, and architectural insights. Use the `--graphify` flag with `dva code onboard` to enable this step automatically.
+This creates a detailed code graph showing function relationships, communities, and architectural insights. Use the `--graphify` flag with `keel code onboard` to enable this step automatically.
 
 Scan the project root for build/config files:
 
@@ -196,7 +196,7 @@ Scan file extensions (up to 500 files, skip `node_modules/`, `.venv/`, `target/`
 
 ### Step B4: Match Skills from Registry
 
-Load `skills/registry.json` (local) or `.skills/dva/registry.json` (submodule).
+Load `skills/registry.json` (local) or `.skills/keel/registry.json` (submodule).
 
 For each skill:
 - **MCP skills** (`"mcp"` field): match if server is in `.windsurf/mcp_config.json`
@@ -237,7 +237,7 @@ Path A additionally provides: central tracking, marketplace resolution, domain/K
 
 ## Related Skills
 
-- `dva-onboard` — MCP tool reference for onboarding
-- `dva-skill-management` — Skill resolution and management
-- `dva-kg-context` — KG search and domain context
-- `dva-manage-domains` — Domain and product management
+- `keel-onboard` — MCP tool reference for onboarding
+- `keel-skill-management` — Skill resolution and management
+- `keel-kg-context` — KG search and domain context
+- `keel-manage-domains` — Domain and product management

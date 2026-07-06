@@ -1,7 +1,7 @@
 .PHONY: help install install-dev test test-cov lint format clean run snapshot-deps install-snapshot-deps
 
 help:
-	@echo "DVA Agentic CLI - Available commands:"
+	@echo "KEEL Agentic CLI - Available commands:"
 	@echo "  make install      - Install the package using uv"
 	@echo "  make install-dev  - Install package with dev dependencies"
 	@echo "  make test         - Run tests"
@@ -44,7 +44,7 @@ clean:
 	find . -type f -name "*.pyc" -delete
 
 run:
-	dva $(ARGS)
+	keel $(ARGS)
 
 # Devin snapshot build dependencies (devin CLI, git, make, pyyaml, DEVIN_API_KEY)
 snapshot-deps:
@@ -57,10 +57,10 @@ install-snapshot-deps:
 integration: install
 	@echo "Running integration tests..."
 	@echo "\n=== Testing version command ==="
-	dva --version
+	keel --version
 	@echo "\n=== Testing help command ==="
-	dva --help
+	keel --help
 	@echo "\n=== Testing hello command ==="
-	dva hello
-	dva hello "DVA Team"
+	keel hello
+	keel hello "KEEL Team"
 	@echo "\n=== All integration tests passed! ==="

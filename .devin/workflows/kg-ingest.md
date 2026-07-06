@@ -7,7 +7,7 @@ description: Ingest Confluence docs and project files into the Knowledge Graph u
 Ingest Confluence documentation and project files into the Knowledge Graph
 so AI assistants can search business context, domain rules, and requirements.
 
-**Related skill**: Read `skills/skills/dva-kg-context/SKILL.md` for the full MCP tool reference.
+**Related skill**: Read `skills/skills/keel-kg-context/SKILL.md` for the full MCP tool reference.
 
 ## Prerequisites
 
@@ -90,14 +90,14 @@ If Agentic MCP is not available:
 
 ```bash
 # Ingest tracked domain docs
-dva kg ingest submit --domain cwow-facility
+keel kg ingest submit --domain cwow-facility
 
 # Ingest specific Confluence pages
-dva kg ingest submit --domain cwow-facility \
+keel kg ingest submit --domain cwow-facility \
   --path https://confluence.example.com/spaces/CWOV/pages/847844475/Release+29
 
 # Query KG
-dva kg query "facility transfer rules" --domain cwow-facility
+keel kg query "facility transfer rules" --domain cwow-facility
 ```
 
 ## Related Workflows

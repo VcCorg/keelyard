@@ -1,7 +1,7 @@
 """Read/write OKF concept documents during enrichment.
 
 Adapted from the GCP agent's bundle_tools, but built on our `Concept` model so
-the output is byte-compatible with `dva kg okf validate`. Includes the GCP
+the output is byte-compatible with `keel kg okf validate`. Includes the GCP
 **augmentation guard**: the enrichment (Confluence) pass may add to a document
 but must never shrink an existing `# Schema`/`# Acceptance Criteria`/`# Citations`
 section that the structural pass populated from authoritative metadata.

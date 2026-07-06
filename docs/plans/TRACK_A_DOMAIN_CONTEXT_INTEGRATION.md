@@ -12,7 +12,7 @@ Enhance Track A to leverage the existing `domain register` command infrastructur
 
 ### Current Domain Registration
 ```bash
-dva domain create Facility --product CWOW \
+keel domain create Facility --product CWOW \
   --jira CWOW \
   --bb CGF \
   --confluence MTT \
@@ -21,7 +21,7 @@ dva domain create Facility --product CWOW \
 
 ### Enhanced with Business Context
 ```bash
-dva domain create Facility --product CWOW \
+keel domain create Facility --product CWOW \
   --jira CWOW \
   --bb CGF \
   --confluence MTT \
@@ -96,14 +96,14 @@ def create(
     
     Examples:
         # Basic domain registration
-        dva domain create Facility --product CWOW --jira CWOW --bb CGF --confluence MTT
+        keel domain create Facility --product CWOW --jira CWOW --bb CGF --confluence MTT
         
         # With business context extraction
-        dva domain create Facility --product CWOW --jira CWOW --bb CGF --confluence MTT \
+        keel domain create Facility --product CWOW --jira CWOW --bb CGF --confluence MTT \
           --ingest-business-context --context-pages "Business Rules,SLA,Integration Specs"
         
         # Auto-extract all documentation pages
-        dva domain create Facility --product CWOW --jira CWOW --bb CGF --confluence MTT \
+        keel domain create Facility --product CWOW --jira CWOW --bb CGF --confluence MTT \
           --ingest-business-context
     """
 ```
@@ -691,7 +691,7 @@ CREATE TABLE domain_business_rules (
 
 ### Basic Domain Registration
 ```bash
-dva domain create Facility --product CWOW \
+keel domain create Facility --product CWOW \
   --jira CWOW \
   --bb CGF \
   --confluence MTT \
@@ -701,7 +701,7 @@ dva domain create Facility --product CWOW \
 ### With Business Context Extraction
 ```bash
 # Extract all documentation
-dva domain create Facility --product CWOW \
+keel domain create Facility --product CWOW \
   --jira CWOW \
   --bb CGF \
   --confluence MTT \
@@ -709,7 +709,7 @@ dva domain create Facility --product CWOW \
   --ingest-business-context
 
 # Extract specific pages
-dva domain create Facility --product CWOW \
+keel domain create Facility --product CWOW \
   --jira CWOW \
   --bb CGF \
   --confluence MTT \
@@ -718,7 +718,7 @@ dva domain create Facility --product CWOW \
   --context-pages "Business Rules,SLA,Integration Specs,Security Policies"
 
 # Extract without auto-categorization
-dva domain create Facility --product CWOW \
+keel domain create Facility --product CWOW \
   --jira CWOW \
   --bb CGF \
   --confluence MTT \
@@ -730,9 +730,9 @@ dva domain create Facility --product CWOW \
 ### Query Business Context
 ```bash
 # NEW COMMANDS
-dva domain show-context cwow-facility
-dva domain search-rules --domain cwow-facility --category SLA
-dva domain search-rules --category Integration
+keel domain show-context cwow-facility
+keel domain search-rules --domain cwow-facility --category SLA
+keel domain search-rules --category Integration
 ```
 
 ---

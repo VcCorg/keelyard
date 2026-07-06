@@ -22,7 +22,7 @@ The documents are being extracted and sent to LightRAG, but they fail during pro
 
 ```bash
 # View document processing status
-docker exec dva-lightrag cat /data/lightrag/kv_store_doc_status.json | python3 -m json.tool
+docker exec keel-lightrag cat /data/lightrag/kv_store_doc_status.json | python3 -m json.tool
 ```
 
 **What to look for:**
@@ -35,7 +35,7 @@ docker exec dva-lightrag cat /data/lightrag/kv_store_doc_status.json | python3 -
 
 ```bash
 # View stored documents
-docker exec dva-lightrag cat /data/lightrag/kv_store_full_docs.json | python3 -m json.tool | head -100
+docker exec keel-lightrag cat /data/lightrag/kv_store_full_docs.json | python3 -m json.tool | head -100
 ```
 
 **What to look for:**
@@ -47,7 +47,7 @@ docker exec dva-lightrag cat /data/lightrag/kv_store_full_docs.json | python3 -m
 
 ```bash
 # List all LightRAG data files
-docker exec dva-lightrag ls -lh /data/lightrag/
+docker exec keel-lightrag ls -lh /data/lightrag/
 
 # Expected files:
 # - kv_store_doc_status.json (document processing status)
@@ -64,7 +64,7 @@ cd lightrag-infrastructure
 make logs
 
 # Or check recent logs
-docker logs dva-lightrag --tail 50
+docker logs keel-lightrag --tail 50
 ```
 
 **What to look for:**
@@ -144,7 +144,7 @@ Error code: 401 - You didn't provide an API key
 5. **Validate Processing**
    ```bash
    # Check status
-   docker exec dva-lightrag cat /data/lightrag/kv_store_doc_status.json | python3 -m json.tool | grep "status"
+   docker exec keel-lightrag cat /data/lightrag/kv_store_doc_status.json | python3 -m json.tool | grep "status"
    
    # Should show: "status": "completed"
    ```
@@ -199,8 +199,8 @@ Update the server to support Vertex AI (requires code changes):
 - [ ] `status`: "completed" in doc_status.json
 - [ ] `graph_chunk_entity_relation.graphml` file exists
 - [ ] `vdb_entities.json`, `vdb_relationships.json`, `vdb_chunks.json` files exist
-- [ ] `dva kg query` returns results
-- [ ] `dva kg search` returns results
+- [ ] `keel kg query` returns results
+- [ ] `keel kg search` returns results
 
 ## Quick Validation Commands
 
@@ -209,16 +209,16 @@ Update the server to support Vertex AI (requires code changes):
 `agent kg stats
 
 # 2. Check document status
-docker exec dva-lightrag cat /data/lightrag/kv_store_doc_status.json | python3 -m json.tool | grep -A 3 "status"
+docker exec keel-lightrag cat /data/lightrag/kv_store_doc_status.json | python3 -m json.tool | grep -A 3 "status"
 
 # 3. Check file sizes
-docker exec dva-lightrag ls -lh /data/lightrag/
+docker exec keel-lightrag ls -lh /data/lightrag/
 
 # 4. Try a query (will fail if processing failed)
 `agent kg query "What is this about?"
 
 # 5. Check logs for errors
-docker logs dva-lightrag --tail 30 | grep -i error
+docker logs keel-lightrag --tail 30 | grep -i error
 ```
 
 ## Understanding the Data Flow

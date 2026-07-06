@@ -7,9 +7,9 @@ import { api, type SetupItem } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 /**
- * Items configured through an in-panel form (streams `dva init ...`). The
+ * Items configured through an in-panel form (streams `keel init ...`). The
  * PAT-based integrations (Jira/Bitbucket/Confluence) write their URL + token to
- * ~/.dva/.env via the CLI, so they no longer need to be exported into the shell.
+ * ~/.keel/.env via the CLI, so they no longer need to be exported into the shell.
  * Devin remains env-only (its key is never persisted to disk).
  */
 const FORM_CONFIGURABLE = new Set([
@@ -155,14 +155,14 @@ export function SetupPanel({ onClose }: { onClose: () => void }) {
             <div className="flex items-start gap-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3 text-sm text-red-700 dark:text-red-300">
               <AlertTriangle className="h-4 w-4 mt-0.5" />
               <div>
-                The <code>dva</code> CLI is not available to the backend. Install it:
+                The <code>keel</code> CLI is not available to the backend. Install it:
                 <code className="block mt-1">./install-agentic-cli.sh</code>
               </div>
             </div>
           )}
 
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            These steps initialize the <code>dva</code> CLI that powers onboarding, KG ingest, OKF
+            These steps initialize the <code>keel</code> CLI that powers onboarding, KG ingest, OKF
             and agents. Required items must be configured before those workflows can run.
           </p>
 
@@ -173,8 +173,8 @@ export function SetupPanel({ onClose }: { onClose: () => void }) {
               <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 space-y-2">
                 {item.key === "workspaces" && (
                   <>
-                    <input className={fieldCls} placeholder="Code workspace dir (e.g. ~/dva-code-workspace)" value={code} onChange={(e) => setCode(e.target.value)} />
-                    <input className={fieldCls} placeholder="Docs workspace dir (e.g. ~/dva-doc-workspace)" value={docs} onChange={(e) => setDocs(e.target.value)} />
+                    <input className={fieldCls} placeholder="Code workspace dir (e.g. ~/keel-code-workspace)" value={code} onChange={(e) => setCode(e.target.value)} />
+                    <input className={fieldCls} placeholder="Docs workspace dir (e.g. ~/keel-doc-workspace)" value={docs} onChange={(e) => setDocs(e.target.value)} />
                     <Button size="sm" disabled={!code.trim() || !docs.trim()} onClick={() => setStreamUrl(api.setupWorkspaceStreamUrl(code.trim(), docs.trim()))}>
                       Run init workspace
                     </Button>
@@ -212,7 +212,7 @@ export function SetupPanel({ onClose }: { onClose: () => void }) {
                       onChange={(e) => setDevinKey(e.target.value)}
                     />
                     <p className="text-[11px] text-gray-400">
-                      Saved to <code>~/.dva/.env</code> (chmod 600) — loaded automatically.
+                      Saved to <code>~/.keel/.env</code> (chmod 600) — loaded automatically.
                     </p>
                     <Button
                       size="sm"
@@ -333,7 +333,7 @@ export function SetupPanel({ onClose }: { onClose: () => void }) {
                       onChange={(e) => setIntgField(item.key as IntegrationKind, "token", e.target.value)}
                     />
                     <p className="text-[11px] text-gray-400">
-                      Saved to <code>~/.dva/.env</code> (chmod 600) — loaded automatically, no shell export needed.
+                      Saved to <code>~/.keel/.env</code> (chmod 600) — loaded automatically, no shell export needed.
                     </p>
                     <Button
                       size="sm"
@@ -356,7 +356,7 @@ export function SetupPanel({ onClose }: { onClose: () => void }) {
             </ItemRow>
           ))}
 
-          <StreamConsole url={streamUrl} title="dva init output" onDone={onDone} />
+          <StreamConsole url={streamUrl} title="keel init output" onDone={onDone} />
         </div>
       </div>
     </div>

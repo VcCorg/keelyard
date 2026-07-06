@@ -1,7 +1,7 @@
 services:
   neo4j:
     image: neo4j:5.14-community
-    container_name: dva-neo4j
+    container_name: keel-neo4j
     ports:
       - "7474:7474"  # HTTP
       - "7687:7687"  # Bolt
@@ -37,7 +37,7 @@ services:
     restart: unless-stopped
     
     networks:
-      - dva-network
+      - keel-network
 
 volumes:
   neo4j_data:
@@ -50,6 +50,6 @@ volumes:
     driver: local
 
 networks:
-  dva-network:
+  keel-network:
     external: true
-    name: dva-network
+    name: keel-network

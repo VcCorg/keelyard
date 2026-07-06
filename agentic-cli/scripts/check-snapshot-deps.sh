@@ -4,9 +4,9 @@
 # required to build a per-domain Devin snapshot from a meta-repo blueprint.
 #
 # Background:
-#   `dva domain init-meta <slug>` commits a Devin DRS blueprint
+#   `keel domain init-meta <slug>` commits a Devin DRS blueprint
 #   (.devin/environment.yaml + .devin/setup.sh) into the domain meta-repo.
-#   `dva domain build-snapshot <slug>` turns that blueprint into a reusable
+#   `keel domain build-snapshot <slug>` turns that blueprint into a reusable
 #   snapshot_id. This script checks that everything that flow needs is present.
 #
 # Usage:
@@ -69,8 +69,8 @@ else
   hint "Install build tools (e.g. 'xcode-select --install' on macOS)."
 fi
 
-# python3 — required; pyyaml is bundled with `dva`, so a bare-python miss is
-# only a warning (blueprint rendering happens inside the dva process).
+# python3 — required; pyyaml is bundled with `keel`, so a bare-python miss is
+# only a warning (blueprint rendering happens inside the keel process).
 if have python3; then
   PYV="$(python3 --version 2>/dev/null)"
   if python3 -c "import yaml" >/dev/null 2>&1; then
@@ -83,22 +83,22 @@ if have python3; then
     fi
     python3 -c "import yaml" >/dev/null 2>&1 \
       && pass "pyyaml" "$PYV" \
-      || warn "pyyaml" "not in system python (ok — bundled with dva)"
+      || warn "pyyaml" "not in system python (ok — bundled with keel)"
   fi
 else
   fail "python3" "not found"
 fi
 
-# dva — the agentic CLI that owns init-meta / build-snapshot
-if have dva; then
-  pass "dva (agentic-cli)" "$(dva --version 2>/dev/null | head -n1)"
+# keel — the agentic CLI that owns init-meta / build-snapshot
+if have keel; then
+  pass "keel (agentic-cli)" "$(keel --version 2>/dev/null | head -n1)"
 else
   if [ "$INSTALL" -eq 1 ] && [ -f "pyproject.toml" ]; then
     echo "      installing agentic-cli (editable)..."
     if have uv; then uv pip install -e . >/dev/null 2>&1; else python3 -m pip install -e . >/dev/null 2>&1; fi
-    if have dva; then pass "dva (agentic-cli)" "installed"; else fail "dva" "install failed"; fi
+    if have keel; then pass "keel (agentic-cli)" "installed"; else fail "keel" "install failed"; fi
   else
-    fail "dva (agentic-cli)" "not found"
+    fail "keel (agentic-cli)" "not found"
     hint "From agentic-cli/: 'make install' (or 'uv pip install -e .')."
   fi
 fi
@@ -118,7 +118,7 @@ if have devin; then
     hint "Provision one of:"
     hint "  • env: DRS_DEVIN_API_URL=<url> DRS_API_KEY=<key> DRS_ORG_ID=<org>"
     hint "  • or re-auth against a Devin account: devin auth logout && devin auth login"
-    hint "Until then, build elsewhere and register: dva domain build-snapshot <slug> --snapshot-id <id>"
+    hint "Until then, build elsewhere and register: keel domain build-snapshot <slug> --snapshot-id <id>"
   elif echo "$DRS_OUT" | grep -qiE "error"; then
     warn "devin DRS access" "whoami returned an error"
     hint "$(echo "$DRS_OUT" | head -n1)"
@@ -127,10 +127,10 @@ if have devin; then
   fi
 else
   fail "devin CLI" "not found"
-  hint "Required for 'dva domain build-snapshot' DRS builds."
+  hint "Required for 'keel domain build-snapshot' DRS builds."
   hint "Install + authenticate the Devin CLI (see your Devin org's docs)."
   hint "Alternative: build elsewhere then register the id:"
-  hint "  dva domain build-snapshot <slug> --snapshot-id <id>"
+  hint "  keel domain build-snapshot <slug> --snapshot-id <id>"
 fi
 
 printf "\n${BOLD}Credentials${NC}\n"
@@ -164,7 +164,7 @@ if [ -n "$META_PATH" ]; then
     fi
   else
     fail "environment.yaml" "missing at $ENV_FILE"
-    hint "Generate it: dva domain gen-blueprint <slug>"
+    hint "Generate it: keel domain gen-blueprint <slug>"
   fi
   if [ -f "$SETUP_FILE" ]; then
     if [ -x "$SETUP_FILE" ]; then pass "setup.sh" "present (executable)"; else warn "setup.sh" "present but not executable"; fi

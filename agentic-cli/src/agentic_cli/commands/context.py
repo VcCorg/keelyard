@@ -21,7 +21,7 @@ def build(
     domain: Annotated[str, typer.Option("--domain", "-d", help="Domain slug")] = "",
     ref: Annotated[Optional[List[str]], typer.Option("--ref", help="Canonical context ref okf://<domain>/<concept> (repeatable)")] = None,
     tag: Annotated[Optional[List[str]], typer.Option("--tag", help="Tag (repeatable)")] = None,
-    out: Annotated[Optional[Path], typer.Option("--out", help="Output directory (default ~/.dva/context/<id>)")] = None,
+    out: Annotated[Optional[Path], typer.Option("--out", help="Output directory (default ~/.keel/context/<id>)")] = None,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Preview CONTEXT.md without writing files")] = False,
 ) -> None:
     """Project the org's canonical context into a self-contained bundle.

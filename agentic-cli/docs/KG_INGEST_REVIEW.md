@@ -6,8 +6,8 @@ The KG ingest system processes various data sources (PDFs, text files, Git repos
 
 ## Architecture
 
-### Entry Point: `dva kg ingest` Command
-**Location**: `src/dva_agentic_cli/commands/kg.py:374-620`
+### Entry Point: `keel kg ingest` Command
+**Location**: `src/agentic_cli/commands/kg.py:374-620`
 
 ```
 `agent kg ingest [--source NAME | --path PATH] [OPTIONS]

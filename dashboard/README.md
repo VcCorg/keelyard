@@ -51,8 +51,8 @@ python scripts/dashboard.py restart
 It logs to `dashboard/backend.log` / `dashboard/frontend.log`, records PIDs in
 `dashboard/.backend.pid` / `.frontend.pid`, and **warns before killing** a
 process that already owns a port (unless `--force-restart`, or a non-interactive
-shell, which skips). Integration tokens are read from `~/.dva/.env`
-(`%USERPROFILE%\.dva\.env`) automatically — no shell exports needed.
+shell, which skips). Integration tokens are read from `~/.keel/.env`
+(`%USERPROFILE%\.keel\.env`) automatically — no shell exports needed.
 
 The bash installer can start it after install:
 

@@ -75,7 +75,7 @@ Then configure the CLI:
 
 ### Configuration
 
-#### `dva kg init`
+#### `keel kg init`
 
 Initialize knowledge graph configuration.
 
@@ -90,7 +90,7 @@ Options:
 - `--password`: Neo4j password
 - `--embeddings`: Embeddings provider (vertex-ai, openai, none)
 
-#### `dva kg config`
+#### `keel kg config`
 
 Manage configuration.
 
@@ -104,12 +104,12 @@ Manage configuration.
 
 ### Data Ingestion
 
-#### `dva kg ingest`
+#### `keel kg ingest`
 
 Ingest data from various sources. You can specify sources in two ways:
 
 1. **Direct path/URL**: Use `--path` to specify a direct file or directory path
-2. **Data source name**: Use `--source` to reference a configured data source (created with `dva data create`)
+2. **Data source name**: Use `--source` to reference a configured data source (created with `keel data create`)
 
 ```bash
 # Direct path ingestion
@@ -153,7 +153,7 @@ Supported formats:
 
 ### Querying
 
-#### `dva kg query`
+#### `keel kg query`
 
 Query the knowledge graph.
 
@@ -168,7 +168,7 @@ Query the knowledge graph.
 `agent kg query "Show all organizations" --limit 5
 ```
 
-#### `dva kg search`
+#### `keel kg search`
 
 Search the knowledge graph.
 
@@ -185,7 +185,7 @@ Search the knowledge graph.
 
 ### Statistics
 
-#### `dva kg stats`
+#### `keel kg stats`
 
 Display knowledge graph statistics.
 
@@ -202,7 +202,7 @@ Shows:
 
 ### Visualization
 
-#### `dva kg visualize`
+#### `keel kg visualize`
 
 Generate interactive HTML visualization.
 
@@ -222,7 +222,7 @@ Generate interactive HTML visualization.
 
 ### Tool Generation
 
-#### `dva kg tool`
+#### `keel kg tool`
 
 Generate ADK tool class for knowledge graph operations.
 
@@ -323,7 +323,7 @@ class MyAgent:
 
 ```python
 from pathlib import Path
-from dva_agentic_cli.kg.ingest import ingest_data
+from agentic_cli.kg.ingest import ingest_data
 
 # Ingest all PDFs in a directory
 for pdf_file in Path("./documents").glob("*.pdf"):
@@ -339,7 +339,7 @@ for pdf_file in Path("./documents").glob("*.pdf"):
 ### Custom Entity Extraction
 
 ```python
-from dva_agentic_cli.kg.entity_extraction import extract_entities_from_documents
+from agentic_cli.kg.entity_extraction import extract_entities_from_documents
 
 documents = [
     {
@@ -357,7 +357,7 @@ entities, relationships = extract_entities_from_documents(
 
 ## Configuration File
 
-Configuration is stored in `~/.dva-agentic/kg-config.json`:
+Configuration is stored in `~/.keel-agentic/kg-config.json`:
 
 ```json
 {
@@ -412,9 +412,9 @@ pip install neo4j PyPDF2 pyvis google-cloud-aiplatform
 
 ### Empty Search Results
 
-1. Check if data is ingested: `dva kg stats`
-2. Verify Neo4j connection: `dva kg config --show`
-3. Try exact search instead of semantic: `dva kg search "query" --exact`
+1. Check if data is ingested: `keel kg stats`
+2. Verify Neo4j connection: `keel kg config --show`
+3. Try exact search instead of semantic: `keel kg search "query" --exact`
 
 ## Performance Tips
 

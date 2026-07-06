@@ -3,8 +3,8 @@
 Example demonstrating data source integration with knowledge graph ingestion.
 
 This example shows how to:
-1. Configure data sources using 'dva data create'
-2. Ingest data using configured sources with 'dva kg ingest --source'
+1. Configure data sources using 'keel data create'
+2. Ingest data using configured sources with 'keel kg ingest --source'
 3. Compare with direct path ingestion
 """
 
@@ -22,7 +22,7 @@ def run_command(cmd: str) -> tuple[int, str, str]:
 def main():
     """Demonstrate data source integration."""
     
-    print("🚀 DVA Data Source Integration Example")
+    print("🚀 KEEL Data Source Integration Example")
     print("=" * 50)
     
     # Create a temporary test file
@@ -51,7 +51,7 @@ def main():
         
         # Step 1: Configure a data source
         print("\n1️⃣ Configuring data source...")
-        cmd = f'dva data create --name test-docs --source-type doc --source-location {temp_file.parent} --description "Test documents for integration"'
+        cmd = f'keel data create --name test-docs --source-type doc --source-location {temp_file.parent} --description "Test documents for integration"'
         exit_code, stdout, stderr = run_command(cmd)
         
         if exit_code == 0:
@@ -62,14 +62,14 @@ def main():
         
         # Step 2: List data sources
         print("\n2️⃣ Listing configured data sources...")
-        exit_code, stdout, stderr = run_command("dva data list")
+        exit_code, stdout, stderr = run_command("keel data list")
         if exit_code == 0:
             print("📋 Configured data sources:")
             print(stdout)
         
         # Step 3: Show data source details
         print("\n3️⃣ Showing data source details...")
-        exit_code, stdout, stderr = run_command("dva data show test-docs")
+        exit_code, stdout, stderr = run_command("keel data show test-docs")
         if exit_code == 0:
             print("🔍 Data source details:")
             print(stdout)
@@ -77,12 +77,12 @@ def main():
         # Step 4: Demonstrate ingestion methods
         print("\n4️⃣ Knowledge Graph Ingestion Methods:")
         print("\n📝 Method 1: Direct path ingestion")
-        print(f"Command: dva kg ingest --path {temp_file}")
+        print(f"Command: keel kg ingest --path {temp_file}")
         print("   - Directly specify file path")
         print("   - Good for one-off ingestion")
         
         print("\n📝 Method 2: Data source ingestion")
-        print("Command: dva kg ingest --source test-docs")
+        print("Command: keel kg ingest --source test-docs")
         print("   - Use configured data source")
         print("   - Good for repeated ingestion")
         print("   - Centralized configuration")
@@ -93,11 +93,11 @@ def main():
         print("✨ Reusable data source definitions")
         print("✨ Support for multiple source types (local, GCS, Confluence)")
         print("✨ Consistent metadata and tagging")
-        print("✨ Easy source discovery with 'dva data list'")
+        print("✨ Easy source discovery with 'keel data list'")
         
         # Step 6: Cleanup
         print("\n6️⃣ Cleaning up...")
-        exit_code, stdout, stderr = run_command("dva data delete test-docs --yes")
+        exit_code, stdout, stderr = run_command("keel data delete test-docs --yes")
         if exit_code == 0:
             print("🧹 Data source removed successfully")
         
@@ -109,9 +109,9 @@ def main():
     
     print("\n🎉 Example completed!")
     print("\nNext steps:")
-    print("1. Configure your own data sources with 'dva data create'")
-    print("2. Set up Neo4j and configure 'dva kg init'")
-    print("3. Ingest data with 'dva kg ingest --source <name>'")
+    print("1. Configure your own data sources with 'keel data create'")
+    print("2. Set up Neo4j and configure 'keel kg init'")
+    print("3. Ingest data with 'keel kg ingest --source <name>'")
     print("4. Query and search your knowledge graph!")
 
 if __name__ == "__main__":

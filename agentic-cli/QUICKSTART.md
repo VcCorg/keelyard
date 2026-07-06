@@ -48,8 +48,8 @@ make test-cov
 
 ## 📝 Next Steps
 
-1. **Explore the codebase**: Check out `src/dva_agentic_cli/main.py`
-2. **Add new commands**: Create modules in `src/dva_agentic_cli/commands/`
+1. **Explore the codebase**: Check out `src/agentic_cli/main.py`
+2. **Add new commands**: Create modules in `src/agentic_cli/commands/`
 3. **Integrate ADK**: Start wrapping ADK agent commands
 4. **Write tests**: Add tests in `tests/` directory
 
@@ -76,7 +76,7 @@ make test
 
 ```
 agentic-cli/
-├── src/dva_agentic_cli/    # Main package
+├── src/agentic_cli/    # Main package
 │   ├── main.py             # CLI entry point
 │   └── commands/           # Command modules
 ├── tests/                  # Test files
@@ -94,8 +94,8 @@ agentic-cli/
 | `make lint` | Check code quality |
 | `make format` | Format code |
 | `make integration` | Run integration tests |
-| `dva --version` | Show CLI version |
-| `dva --help` | Show CLI help |
+| `keel --version` | Show CLI version |
+| `keel --help` | Show CLI help |
 
 ## 🐛 Troubleshooting
 
@@ -110,7 +110,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 source .venv/bin/activate
 ```
 
-### Command not found: dva
+### Command not found: keel
 ```bash
 # Reinstall the package
 make install-dev
@@ -118,7 +118,7 @@ make install-dev
 
 ## 💡 Tips
 
-- Use `dva --help` to see all available commands
+- Use `keel --help` to see all available commands
 - Each command has its own `--help` option
 - The CLI uses rich formatting for beautiful output
 - All commands are modular and extensible

@@ -2,7 +2,7 @@
 
 Status: **Draft / for review** · Owner: agentic-cli · Last updated: 2026-06-23
 
-This document specifies how the DVA Agentic CLI will **trigger and manage remote
+This document specifies how the KEEL Agentic CLI will **trigger and manage remote
 Devin sessions** from the command line, grounded in the domain knowledge the CLI
 already publishes to Devin. No code is committed yet — this is the contract and
 phased plan for review.
@@ -37,7 +37,7 @@ The CLI already integrates the **Devin Knowledge API** today:
 | Knowledge push (idempotent, versioned) | `push_bundle()` |
 | Concept → knowledge id map | `.devin-sync.json` (`load_sync`/`save_sync`) |
 | Prompt-building primitives | `build_knowledge_entries`, `_trigger_for`, `_render_body`, `_repo_slug`, `_feature_of` |
-| Command surface | `dva kg okf devin {list,prune,delete}` + `dva kg okf push-devin` |
+| Command surface | `keel kg okf devin {list,prune,delete}` + `keel kg okf push-devin` |
 
 **Key insight:** `.devin-sync.json` already maps `concept_id → knowledge_id`.
 A CLI-triggered session can therefore attach *exactly* the right `knowledge_ids`
@@ -67,7 +67,7 @@ Request body:
 | `playbook_id` | string | | Devin playbook to follow. Per-domain config. |
 | `knowledge_ids` | string[] | | **Attach from `.devin-sync.json`.** |
 | `secret_ids` | string[] | | Reference Devin-stored secrets; never inline. |
-| `tags` | string[] | | `["dva", domain, freq_id]` for querying/idempotency. |
+| `tags` | string[] | | `["keel", domain, freq_id]` for querying/idempotency. |
 | `idempotent` | bool | | Reuse a session for the same prompt/tag instead of dup. |
 | `max_acu_limit` | int | | Cost ceiling. Always set (config default). |
 | `unlisted` | bool | | Visibility control. |
@@ -96,19 +96,19 @@ Upload a file (e.g. a failing log, a spec PDF) and reference its URL in `prompt`
 
 ## 4. Proposed CLI surface
 
-Mirror the existing `devin_app` sub-typer under `dva kg okf devin`, adding a
-`session` group. (A top-level `dva devin` alias can be added later.)
+Mirror the existing `devin_app` sub-typer under `keel kg okf devin`, adding a
+`session` group. (A top-level `keel devin` alias can be added later.)
 
 ```
-dva kg okf devin session create   --prompt "<text>" | --domain <slug> [--jira KEY]
+keel kg okf devin session create   --prompt "<text>" | --domain <slug> [--jira KEY]
                                    [--repo <slug>] [--knowledge-from-sync]
                                    [--knowledge-id ID ...] [--playbook ID] [--snapshot ID]
                                    [--tag T ...] [--max-acu N] [--idempotent]
                                    [--watch] [--dry-run] [--api-key ...]
-dva kg okf devin session list      [--tag T] [--state working|finished|...]
-dva kg okf devin session status    <session_id> [--watch] [--json]
-dva kg okf devin session message   <session_id> "<text>"
-dva kg okf devin from-jira         <ISSUE-KEY> [--domain <slug>] [--comment-back] [--watch]
+keel kg okf devin session list      [--tag T] [--state working|finished|...]
+keel kg okf devin session status    <session_id> [--watch] [--json]
+keel kg okf devin session message   <session_id> "<text>"
+keel kg okf devin from-jira         <ISSUE-KEY> [--domain <slug>] [--comment-back] [--watch]
 ```
 
 ### Behaviors
@@ -164,20 +164,20 @@ A composed prompt is assembled from existing primitives:
 ```
 
 ### 5.4 Local session tracking — `.devin-sessions.json`
-Parallel to `.devin-sync.json`, stored in the bundle root (or `~/.dva/devin/`):
+Parallel to `.devin-sync.json`, stored in the bundle root (or `~/.keel/devin/`):
 ```json
 {
   "sessions": {
     "devin-xxxx": {
       "prompt_hash": "…", "domain": "cwow-facility", "jira": "CWOW-27901",
-      "tags": ["dva","cwow-facility","CWOW-27901"], "url": "https://app.devin.ai/…",
+      "tags": ["keel","cwow-facility","CWOW-27901"], "url": "https://app.devin.ai/…",
       "created_at": "…", "last_status": "working"
     }
   }
 }
 ```
 Enables idempotency (skip if a live session exists for the same `prompt_hash`/tag)
-and `dva agent status` integration.
+and `keel agent status` integration.
 
 ### 5.5 Reuse matrix
 
@@ -250,8 +250,8 @@ Env vars (consistent with existing client):
 - Idempotency via tags + `prompt_hash`.
 
 ### Phase 3 — Workflow hooks
-- `dva code onboard --devin-session` (remote familiarization / remote OKF gen).
-- `dva agent status` shows remote Devin sessions beside local/imported agents.
+- `keel code onboard --devin-session` (remote familiarization / remote OKF gen).
+- `keel agent status` shows remote Devin sessions beside local/imported agents.
 - Optional: attachments (`POST /attachments`), structured-output → KG ingest.
 
 ---
@@ -272,10 +272,10 @@ Env vars (consistent with existing client):
    how many concurrent sessions / ACU budget?
 3. **PHI policy** — is it acceptable to send Jira ticket bodies (which may contain
    patient context) to Devin? Required redaction level?
-4. **Command home** — keep under `dva kg okf devin session …`, or promote to a
-   top-level `dva devin …` group?
+4. **Command home** — keep under `keel kg okf devin session …`, or promote to a
+   top-level `keel devin …` group?
 5. **Session store location** — bundle-local `.devin-sessions.json` vs. a global
-   `~/.dva/devin/sessions.json` (cross-domain `agent status`)?
+   `~/.keel/devin/sessions.json` (cross-domain `agent status`)?
 
 ---
 
@@ -283,7 +283,7 @@ Env vars (consistent with existing client):
 
 ```bash
 # Trigger a grounded session straight from a Jira ticket
-$ dva kg okf devin from-jira CWOW-27901 --domain cwow-facility --comment-back --watch
+$ keel kg okf devin from-jira CWOW-27901 --domain cwow-facility --comment-back --watch
   ✓ Loaded FREQ CWOW-27901 from bundle (features/cwow-27901/...)
   ✓ Attached 6 knowledge entries from .devin-sync.json
   ✓ Pinned repo: cwow-facility-watercheck

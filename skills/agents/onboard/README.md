@@ -1,10 +1,10 @@
-# DVA Onboard Agent
+# KEEL Onboard Agent
 
 AI-powered skill gap detection and proposal generation for project onboarding.
 
 ## Overview
 
-This agent analyzes a project's tech stack and compares it against the DVA skills registry to identify gaps — technologies, patterns, or frameworks that aren't covered by existing skills. It then generates SKILL.md files and registry entries for proposed new skills.
+This agent analyzes a project's tech stack and compares it against the KEEL skills registry to identify gaps — technologies, patterns, or frameworks that aren't covered by existing skills. It then generates SKILL.md files and registry entries for proposed new skills.
 
 ## Architecture
 
@@ -25,7 +25,7 @@ onboard/
 └── pyproject.toml
 ```
 
-The agent imports reusable components from `dva_agentic_cli.agents.onboard`:
+The agent imports reusable components from `agentic_cli.agents.onboard`:
 - **`pipeline.run_onboard_pipeline()`** — Full pipeline orchestrator
 - **`gap_detector.detect_skill_gaps()`** — AI gap detection
 - **`skill_generator.generate_skill_content()`** — SKILL.md generation

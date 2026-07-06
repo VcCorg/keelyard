@@ -68,7 +68,7 @@ export function Agents() {
           <Bot className="h-10 w-10 text-gray-300 mx-auto mb-3" />
           <p className="text-sm text-gray-500">No agents tracked yet.</p>
           <p className="text-xs text-gray-400 mt-1">
-            Start an agent with <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded">dva agent start</code>
+            Start an agent with <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded">keel agent start</code>
           </p>
         </div>
       )}

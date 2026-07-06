@@ -34,9 +34,9 @@ export type Workspace = "mine" | "team";
 /** Visual theme. */
 export type Theme = "light" | "dark";
 
-const STORAGE_KEY = "dva.currentUser";
-const WORKSPACE_KEY = "dva.workspace";
-const THEME_KEY = "dva.theme";
+const STORAGE_KEY = "keel.currentUser";
+const WORKSPACE_KEY = "keel.workspace";
+const THEME_KEY = "keel.theme";
 
 const DEFAULT_USER: CurrentUser = {
   id: "local",
@@ -95,7 +95,7 @@ function navRoleFor(roles: string[]): UserRole {
 
 interface AuthInfo {
   provider: string;   // dev | forward-auth | none
-  mode: string;       // DVA_AUTH_MODE
+  mode: string;       // KEEL_AUTH_MODE
   authenticated: boolean;
   roles: string[];
   permissions: string[];

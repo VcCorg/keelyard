@@ -1,4 +1,4 @@
-"""Activity service — reads from the dva-agentic-cli tracker database.
+"""Activity service — reads from the keel-agentic-cli tracker database.
 
 Direct import from agentic_cli.tracker for reads.
 """

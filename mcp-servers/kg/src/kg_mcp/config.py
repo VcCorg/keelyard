@@ -18,9 +18,9 @@ class KGConfig(BaseSettings):
     # Default provider
     default_provider: str = "lightrag"
 
-    # DVA CLI config file path (source of truth for data sources)
-    # In Docker: mount ~/.dva-agentic/ as volume
-    source_registry_path: str = "~/.dva-agentic/config.json"
+    # KEEL CLI config file path (source of truth for data sources)
+    # In Docker: mount ~/.keel-agentic/ as volume
+    source_registry_path: str = "~/.keel-agentic/config.json"
 
     model_config = {
         "env_prefix": "KG_",

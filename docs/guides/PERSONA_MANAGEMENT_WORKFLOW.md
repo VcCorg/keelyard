@@ -77,7 +77,7 @@ personas:                                       # product-specific additions
 | `ai_enrich` | no | Enrich via LLM when run with `--enrich` (default `false`) |
 
 A starter `personas.yaml` (all built-ins enabled, commented examples) is written
-automatically by `dva product init-meta`.
+automatically by `keel product init-meta`.
 
 ---
 
@@ -86,15 +86,15 @@ automatically by `dva product init-meta`.
 ### 1. New product — get default personas
 
 ```bash
-dva product create CWOW
-dva product init-meta CWOW          # writes .platform/config/personas.yaml (defaults)
+keel product create CWOW
+keel product init-meta CWOW          # writes .platform/config/personas.yaml (defaults)
 ```
 
 ### 2. New domain — personas generated during scaffolding
 
 ```bash
-dva domain create Facility --product CWOW
-dva domain init-meta cwow-facility  # renders personas into .agents/skills/personas/
+keel domain create Facility --product CWOW
+keel domain init-meta cwow-facility  # renders personas into .agents/skills/personas/
 ```
 
 `init-meta` resolves the effective catalog from the product meta-repo and
@@ -105,13 +105,13 @@ generates each persona automatically — **no separate step required**.
 Add it to the product catalog via the CLI (covers the common case):
 
 ```bash
-dva product persona add CWOW --id tech-lead --label "Tech Lead" \
+keel product persona add CWOW --id tech-lead --label "Tech Lead" \
     --description "Architecture direction" \
     --section "Responsibilities::- Own ADRs" \
     --section "Review Standards::- Require tests for behavior changes" \
     --ai-enrich
-dva product persona list CWOW            # show effective catalog
-dva product persona remove CWOW tech-lead
+keel product persona list CWOW            # show effective catalog
+keel product persona remove CWOW tech-lead
 ```
 
 For rich, multi-line content, edit `personas.yaml` directly (see schema above).
@@ -119,9 +119,9 @@ For rich, multi-line content, edit `personas.yaml` directly (see schema above).
 Then regenerate into a domain meta-repo:
 
 ```bash
-dva domain regen-personas cwow-facility            # all personas
-dva domain regen-personas cwow-facility -p tech-lead   # just one
-dva domain regen-personas cwow-facility --enrich       # AI-enrich ai_enrich personas
+keel domain regen-personas cwow-facility            # all personas
+keel domain regen-personas cwow-facility -p tech-lead   # just one
+keel domain regen-personas cwow-facility --enrich       # AI-enrich ai_enrich personas
 ```
 
 `regen-personas` is safe to re-run; it overwrites existing persona files.
@@ -129,7 +129,7 @@ dva domain regen-personas cwow-facility --enrich       # AI-enrich ai_enrich per
 ### 4. Disable a built-in for a product
 
 Remove it from `defaults_enabled` in the product's `personas.yaml`, then run
-`dva domain regen-personas <domain>`.
+`keel domain regen-personas <domain>`.
 
 ---
 
@@ -155,7 +155,7 @@ content. Backed by `GET /api/domains/{slug}/personas` and
 **2. Recreate repo-level skills (all users)**
 Regenerates personas into the selected domain's meta-repo — all of them or a
 checkbox-selected subset, with an optional **AI-enrich** toggle. Streams
-`dva domain regen-personas <slug>` over SSE
+`keel domain regen-personas <slug>` over SSE
 (`GET /api/domains/{slug}/regen-personas/stream`).
 
 **3. Product-level persona catalog (admin only)**

@@ -6,8 +6,8 @@ produces structured documents that are embedded into skills and domain-context
 repositories during code onboarding.
 
 Used by:
-  - ``dva code onboard --domain <slug>``  → embed domain KG context into skills
-  - ``dva domain init-context``           → bootstrap domain context repo
+  - ``keel code onboard --domain <slug>``  → embed domain KG context into skills
+  - ``keel domain init-context``           → bootstrap domain context repo
 """
 
 import json
@@ -227,9 +227,9 @@ def build_domain_context_document(
         sections.append(
             "_No business context found in Knowledge Graph yet._\n\n"
             "To populate domain knowledge:\n"
-            "1. Register knowledge sources: `dva data create --name <name> --source-type doc --source-location /path --project <project>`\n"
-            "2. Ingest into KG: `dva kg ingest submit --source <name>`\n"
-            "3. Re-run: `dva domain init-context <domain>`\n"
+            "1. Register knowledge sources: `keel data create --name <name> --source-type doc --source-location /path --project <project>`\n"
+            "2. Ingest into KG: `keel kg ingest submit --source <name>`\n"
+            "3. Re-run: `keel domain init-context <domain>`\n"
         )
 
     # Tags
@@ -377,7 +377,7 @@ def build_domain_skill_md(
     if not any(kg_context.values()):
         lines.append(
             "_No business context found in KG. Use MCP tools to query at runtime, "
-            "or populate the KG with `dva kg ingest`._\n"
+            "or populate the KG with `keel kg ingest`._\n"
         )
 
     # Domain context repo reference
@@ -553,7 +553,7 @@ git submodule update --remote
 
 ```bash
 # Re-query KG and regenerate domain context
-dva domain init-context {domain}
+keel domain init-context {domain}
 ```
 """
     readme_path = output_dir / "README.md"

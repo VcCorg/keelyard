@@ -122,7 +122,7 @@ facility-events/                         # Events repo
 #### Step 1: Create Domain Context Repository
 ```bash
 # Create central domain repository
-$ dva domain create facility \
+$ keel domain create facility \
   --repos facility-query,facility-command,facility-events \
   --confluence-space FACILITY \
   --release-aware
@@ -141,23 +141,23 @@ Creates:
 #### Step 2: Onboard Each Repository
 ```bash
 # Onboard query repository
-$ dva code onboard --path ./facility-query \
+$ keel code onboard --path ./facility-query \
   --domain facility \
   --domain-context ../facility-domain
 
 Creates:
 ├─ facility-query/.skills/generated/ (query-specific skills)
-├─ facility-query/.dva/codebase-understanding.md
+├─ facility-query/.keel/codebase-understanding.md
 ├─ facility-query/kg-context.md (symlink to domain context)
 └─ facility-query/.domain-context.json (references domain)
 
 # Onboard command repository
-$ dva code onboard --path ./facility-command \
+$ keel code onboard --path ./facility-command \
   --domain facility \
   --domain-context ../facility-domain
 
 # Onboard events repository
-$ dva code onboard --path ./facility-events \
+$ keel code onboard --path ./facility-events \
   --domain facility \
   --domain-context ../facility-domain
 ```
@@ -255,7 +255,7 @@ facility-events/
 #### Step 1: Create Domain Context (One-Time)
 ```bash
 # Create domain context
-$ dva domain create facility \
+$ keel domain create facility \
   --repos facility-query,facility-command,facility-events \
   --confluence-space FACILITY
 
@@ -268,7 +268,7 @@ Creates:
 #### Step 2: Onboard Each Repository (Copies Context)
 ```bash
 # Onboard query repository
-$ dva code onboard --path ./facility-query \
+$ keel code onboard --path ./facility-query \
   --domain facility \
   --copy-domain-context
 
@@ -278,15 +278,15 @@ Copies to facility-query/:
 ├─ .domain/architecture.md (copy)
 ├─ .skills/domain/ (copy of shared skills)
 ├─ .skills/generated/ (query-specific skills)
-└─ .dva/codebase-understanding.md
+└─ .keel/codebase-understanding.md
 
 # Onboard command repository
-$ dva code onboard --path ./facility-command \
+$ keel code onboard --path ./facility-command \
   --domain facility \
   --copy-domain-context
 
 # Onboard events repository
-$ dva code onboard --path ./facility-events \
+$ keel code onboard --path ./facility-events \
   --domain facility \
   --copy-domain-context
 ```
@@ -294,7 +294,7 @@ $ dva code onboard --path ./facility-events \
 #### Step 3: Synchronize Domain Context (Periodic)
 ```bash
 # Update domain context across all repos
-$ dva domain sync facility \
+$ keel domain sync facility \
   --repos facility-query,facility-command,facility-events
 
 Updates all repos with latest:
@@ -353,21 +353,21 @@ facility-domain-monorepo/
 │   │   ├── src/
 │   │   ├── tests/
 │   │   ├── .skills/generated/
-│   │   ├── .dva/
+│   │   ├── .keel/
 │   │   └── package.json
 │   │
 │   ├── command/
 │   │   ├── src/
 │   │   ├── tests/
 │   │   ├── .skills/generated/
-│   │   ├── .dva/
+│   │   ├── .keel/
 │   │   └── package.json
 │   │
 │   ├── events/
 │   │   ├── src/
 │   │   ├── tests/
 │   │   ├── .skills/generated/
-│   │   ├── .dva/
+│   │   ├── .keel/
 │   │   └── package.json
 │   │
 │   └── shared/
@@ -384,7 +384,7 @@ facility-domain-monorepo/
 #### Step 1: Create Monorepo
 ```bash
 # Create monorepo structure
-$ dva domain create facility \
+$ keel domain create facility \
   --monorepo \
   --workspaces query,command,events,shared
 
@@ -399,22 +399,22 @@ Creates:
 #### Step 2: Onboard Each Workspace
 ```bash
 # Onboard query workspace
-$ dva code onboard --path ./facility-domain-monorepo/packages/query \
+$ keel code onboard --path ./facility-domain-monorepo/packages/query \
   --domain facility \
   --monorepo-root ../..
 
 Creates:
 ├─ packages/query/.skills/generated/
-├─ packages/query/.dva/codebase-understanding.md
+├─ packages/query/.keel/codebase-understanding.md
 └─ References shared domain context at root
 
 # Onboard command workspace
-$ dva code onboard --path ./facility-domain-monorepo/packages/command \
+$ keel code onboard --path ./facility-domain-monorepo/packages/command \
   --domain facility \
   --monorepo-root ../..
 
 # Onboard events workspace
-$ dva code onboard --path ./facility-domain-monorepo/packages/events \
+$ keel code onboard --path ./facility-domain-monorepo/packages/events \
   --domain facility \
   --monorepo-root ../..
 ```
@@ -518,7 +518,7 @@ facility-command/
 #### Step 1: Set Up Domain Context Service
 ```bash
 # Deploy domain context service
-$ dva service deploy domain-context \
+$ keel service deploy domain-context \
   --type api \
   --storage postgres
 
@@ -531,7 +531,7 @@ Service provides:
 #### Step 2: Register Domain
 ```bash
 # Register facility domain with service
-$ dva domain register facility \
+$ keel domain register facility \
   --service https://domain-context.company.com \
   --repos facility-query,facility-command,facility-events \
   --confluence-space FACILITY
@@ -546,23 +546,23 @@ Service stores:
 #### Step 3: Onboard Repositories
 ```bash
 # Onboard query repository
-$ dva code onboard --path ./facility-query \
+$ keel code onboard --path ./facility-query \
   --domain facility \
   --context-service https://domain-context.company.com
 
 Creates:
 ├─ .domain-config.json (service configuration)
 ├─ .skills/generated/ (query-specific skills)
-├─ .dva/codebase-understanding.md
+├─ .keel/codebase-understanding.md
 └─ Fetches domain context from service at startup
 
 # Onboard command repository
-$ dva code onboard --path ./facility-command \
+$ keel code onboard --path ./facility-command \
   --domain facility \
   --context-service https://domain-context.company.com
 
 # Onboard events repository
-$ dva code onboard --path ./facility-events \
+$ keel code onboard --path ./facility-events \
   --domain facility \
   --context-service https://domain-context.company.com
 ```
@@ -692,15 +692,15 @@ Implementation:
 
 ```bash
 # Create domain context repository
-$ dva domain create facility \
+$ keel domain create facility \
   --repos facility-query,facility-command,facility-events \
   --confluence-space FACILITY \
   --context-repo
 
 # Onboard each repository
-$ dva code onboard --path ./facility-query --domain facility --domain-context ../facility-domain
-$ dva code onboard --path ./facility-command --domain facility --domain-context ../facility-domain
-$ dva code onboard --path ./facility-events --domain facility --domain-context ../facility-domain
+$ keel code onboard --path ./facility-query --domain facility --domain-context ../facility-domain
+$ keel code onboard --path ./facility-command --domain facility --domain-context ../facility-domain
+$ keel code onboard --path ./facility-events --domain facility --domain-context ../facility-domain
 
 # Developer workflow
 $ windsurf ./facility-query
@@ -711,14 +711,14 @@ $ windsurf ./facility-query
 
 ```bash
 # Create multiple domain context repositories
-$ dva domain create facility --context-repo
-$ dva domain create patient --context-repo
-$ dva domain create order --context-repo
+$ keel domain create facility --context-repo
+$ keel domain create patient --context-repo
+$ keel domain create order --context-repo
 
 # Onboard repositories for each domain
-$ dva code onboard --path ./facility-query --domain facility --domain-context ../facility-domain
-$ dva code onboard --path ./patient-query --domain patient --domain-context ../patient-domain
-$ dva code onboard --path ./order-query --domain order --domain-context ../order-domain
+$ keel code onboard --path ./facility-query --domain facility --domain-context ../facility-domain
+$ keel code onboard --path ./patient-query --domain patient --domain-context ../patient-domain
+$ keel code onboard --path ./order-query --domain order --domain-context ../order-domain
 
 # Developer can work on any repo with full domain context
 ```
@@ -727,16 +727,16 @@ $ dva code onboard --path ./order-query --domain order --domain-context ../order
 
 ```bash
 # Deploy domain context service
-$ dva service deploy domain-context
+$ keel service deploy domain-context
 
 # Register all domains
-$ dva domain register facility --service https://domain-context.company.com
-$ dva domain register patient --service https://domain-context.company.com
-$ dva domain register order --service https://domain-context.company.com
+$ keel domain register facility --service https://domain-context.company.com
+$ keel domain register patient --service https://domain-context.company.com
+$ keel domain register order --service https://domain-context.company.com
 
 # Onboard repositories
-$ dva code onboard --path ./facility-query --domain facility --context-service https://domain-context.company.com
-$ dva code onboard --path ./patient-query --domain patient --context-service https://domain-context.company.com
+$ keel code onboard --path ./facility-query --domain facility --context-service https://domain-context.company.com
+$ keel code onboard --path ./patient-query --domain patient --context-service https://domain-context.company.com
 
 # Service provides context to all repos
 ```

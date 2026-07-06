@@ -32,7 +32,7 @@ def list_engines() -> None:
             i.detail or i.description,
         )
     console.print(table)
-    console.print("[dim]Default engine: set DVA_EXECUTION_ENGINE (defaults to 'devin').[/dim]")
+    console.print("[dim]Default engine: set KEEL_EXECUTION_ENGINE (defaults to 'devin').[/dim]")
 
 
 @execution_app.command("create", help="Launch a session on an execution engine (dry-run by default).")

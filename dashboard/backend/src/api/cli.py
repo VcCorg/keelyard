@@ -1,4 +1,4 @@
-"""Generic CLI runner API — streams whitelisted `dva ...` commands over SSE."""
+"""Generic CLI runner API — streams whitelisted `keel ...` commands over SSE."""
 
 from fastapi import APIRouter, HTTPException, Query
 from sse_starlette.sse import EventSourceResponse
@@ -26,7 +26,7 @@ async def run_stream(
     command: str = Query(..., description="e.g. 'kg stats' or 'domain list'"),
     allow_destructive: bool = Query(False, description="Danger mode: permit destructive subcommands"),
 ):
-    """Validate and stream a whitelisted `dva` command (recorded in run history)."""
+    """Validate and stream a whitelisted `keel` command (recorded in run history)."""
     try:
         cmd = svc.build_command(command, allow_destructive=allow_destructive)
     except svc.CommandNotAllowed as e:

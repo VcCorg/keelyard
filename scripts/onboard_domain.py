@@ -28,11 +28,11 @@ except ImportError:
 
 console = Console()
 
-# Detect CLI name (prefer dva alias if available)
+# Detect CLI name (prefer keel alias if available)
 import os
 import shutil
-if shutil.which("dva"):
-    CLI_NAME = "dva"
+if shutil.which("keel"):
+    CLI_NAME = "keel"
 else:
     CLI_NAME = os.getenv("AGENT_CLI_NAME", "agent-cli")
 SCRIPT_DIR = Path(__file__).resolve().parent

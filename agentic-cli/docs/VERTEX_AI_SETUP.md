@@ -22,7 +22,7 @@ This method uses your Google Cloud user credentials.
 # 2. Set your project
 gcloud config set project YOUR_PROJECT_ID
 
-# 3. Initialize DVA with your project (automatically runs gcloud auth)
+# 3. Initialize KEEL with your project (automatically runs gcloud auth)
 `agent init vertex-ai --project-id YOUR_PROJECT_ID --location us-central1
 
 # If already authenticated, skip the auth step
@@ -38,7 +38,7 @@ This method uses a service account JSON key file.
 # 2. Grant it "Vertex AI User" role
 # 3. Download the JSON key file
 
-# 4. Initialize DVA with the key file
+# 4. Initialize KEEL with the key file
 `agent init vertex-ai \
   --project-id YOUR_PROJECT_ID \
   --location us-central1 \
@@ -47,7 +47,7 @@ This method uses a service account JSON key file.
 
 ## Initialize Vertex AI Configuration
 
-The `dva init vertex-ai` command saves your Vertex AI settings for use in new projects. It automatically reuses existing configuration if available.
+The `keel init vertex-ai` command saves your Vertex AI settings for use in new projects. It automatically reuses existing configuration if available.
 
 ### Basic Usage
 
@@ -253,7 +253,7 @@ Add to `.gitignore`:
 ```
 .env
 *.json  # Service account keys
-.dva-agentic/config.json
+.keel-agentic/config.json
 ```
 
 ### Secure Service Account Keys

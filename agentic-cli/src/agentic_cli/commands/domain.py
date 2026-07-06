@@ -77,8 +77,8 @@ def _get_code_workspace() -> Path:
     workspace = config.get("code_workspace")
     if workspace:
         return Path(workspace).expanduser().resolve()
-    # Default to ~/dva-code-workspace
-    return Path.home() / "dva-code-workspace"
+    # Default to ~/keel-code-workspace
+    return Path.home() / "keel-code-workspace"
 
 
 def _slugify(product: str, domain: str) -> str:
@@ -1140,7 +1140,7 @@ def sync_docs(
     """
     Sync tracked docs to the domain's managed Confluence space.
 
-    Creates a managed space (DVA-<SLUG>) if it doesn't exist, then copies
+    Creates a managed space (KEEL-<SLUG>) if it doesn't exist, then copies
     or updates each tracked doc into the managed space.
 
     Calls the Confluence MCP server (credentials managed there).
@@ -1168,7 +1168,7 @@ def sync_docs(
         console.print(f"[yellow]No docs tracked for '{domain_name}'. fRun '{CLI_NAME} domain add-docs' first.[/yellow]")
         raise typer.Exit(1)
 
-    managed_key = d.get("managed_confluence_space") or f"DVA-{domain_name.upper().replace('-', '')}"
+    managed_key = d.get("managed_confluence_space") or f"KEEL-{domain_name.upper().replace('-', '')}"
 
     console.print(f"Syncing [bold]{len(docs)}[/bold] docs to managed space [cyan]{managed_key}[/cyan] via MCP...")
 
@@ -1187,7 +1187,7 @@ def sync_docs(
             console.print(f"  Using existing managed space: [cyan]{managed_key}[/cyan]")
         except MCPToolError as e:
             if "404" in str(e) or "not found" in str(e).lower():
-                space_name = f"DVA Managed — {d.get('product', '')} {d.get('domain', '')}"
+                space_name = f"KEEL Managed — {d.get('product', '')} {d.get('domain', '')}"
                 space_info = confluence_create_space(
                     managed_key,
                     space_name,
@@ -2473,7 +2473,7 @@ def sync_domain(
 
     repos = get_domain_repos(domain_name)
     if not repos:
-        console.print(f"[yellow]⚠ No repos linked to '{domain_name}'. Use 'dva domain link-repo' first.[/yellow]")
+        console.print(f"[yellow]⚠ No repos linked to '{domain_name}'. Use 'keel domain link-repo' first.[/yellow]")
         raise typer.Exit(0)
 
     meta = detect_domain_meta_repo(domain_name)

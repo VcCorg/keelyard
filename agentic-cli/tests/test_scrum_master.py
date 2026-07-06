@@ -26,7 +26,7 @@ runner = CliRunner()
 
 @pytest.fixture(autouse=True)
 def temp_db(tmp_path, monkeypatch):
-    db_dir = tmp_path / ".dva-agentic"
+    db_dir = tmp_path / ".keel-agentic"
     db_dir.mkdir()
     monkeypatch.setattr(tracker, "DB_DIR", db_dir)
     monkeypatch.setattr(tracker, "DB_PATH", db_dir / "tracker.db")

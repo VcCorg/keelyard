@@ -60,7 +60,7 @@ Implementation plans, roadmaps, and design proposals.
 - `DOMAIN_SKILLS_INDEX.md` — Domain skills index
 - `HYBRID_DISTRIBUTION_PLAN.md` — Hybrid distribution plan
 - `OKF_KG_BUILD_PATTERN_PLAN.md` — OKF KG build pattern plan
-- `DVA_CENTRAL_MCP_SERVICE.md` — Central MCP service design
+- `KEEL_CENTRAL_MCP_SERVICE.md` — Central MCP service design
 - `MULTI_REPO_DOMAIN_STRATEGY.md` — Multi-repo domain strategy
 - `KG_CONTEXT_TO_SKILL_WORKFLOW.md` — KG context → skill workflow
 - `KG_CONTEXT_SKILL_INTEGRATION_INDEX.md` — KG context skill integration index
@@ -78,7 +78,7 @@ Reference material and architecture documents.
 
 - `CLAUDE.md` — Claude-specific guidance
 - `AI_CONTEXT_FILES.md` — AI context files reference
-- `DVA_VS_ANCHOR_COMPARISON.md` — DVA vs. Anchor comparison
+- `KEEL_VS_ANCHOR_COMPARISON.md` — KEEL vs. Anchor comparison
 - `OPENSKILL_COMPLIANCE_MAPPING.md` — OpenSkill compliance mapping
 - `REPOSITORY_MIGRATION.md` — Repository migration notes
 - `SUPERPOWERS_INTEGRATION_REFERENCE.md` — Superpowers integration reference

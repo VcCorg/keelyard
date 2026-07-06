@@ -1,6 +1,6 @@
-# Skill Workflow + DVA CLI Integration - Visual Summary
+# Skill Workflow + KEEL CLI Integration - Visual Summary
 
-## Quick Answer: How Skills Execute in DVA Projects
+## Quick Answer: How Skills Execute in KEEL Projects
 
 ### The Flow
 
@@ -9,7 +9,7 @@ User Command
     ↓
 agent run --path <project> --task "Add authentication"
     ↓
-Load .dva/methodology.yaml (from project config)
+Load .keel/methodology.yaml (from project config)
     ↓
 Invoke 4 Skills in Sequence:
 ┌─────────────────────────────────────────────────┐
@@ -35,9 +35,9 @@ Invoke 4 Skills in Sequence:
 └─────────────────────────────────────────────────┘
     ↓
 Store Evidence
-    ├─ .dva/approvals/design-<uuid>/
-    ├─ .dva/approvals/plan-<uuid>/
-    ├─ .dva/approvals/review-<uuid>/
+    ├─ .keel/approvals/design-<uuid>/
+    ├─ .keel/approvals/plan-<uuid>/
+    ├─ .keel/approvals/review-<uuid>/
     └─ Full audit trail in tracker
     ↓
 ✅ COMPLETE (with full approval history)
@@ -63,13 +63,13 @@ agent project create my-backend --use-case rag
   ├─ [NEW] Asks: "Apply methodology pack? (Y/n)"
   │   └─ Recommended: "Backend Development"
   ├─ [YES] Adds to project:
-  │   ├─ .dva/methodology.yaml (workflow config)
+  │   ├─ .keel/methodology.yaml (workflow config)
   │   ├─ .skills/methodology/
   │   │   ├─ design-brainstorm-skill
   │   │   ├─ implementation-planning-skill
   │   │   ├─ test-driven-development-skill
   │   │   └─ code-review-skill
-  │   └─ .dva/approvals/ (checkpoint directory)
+  │   └─ .keel/approvals/ (checkpoint directory)
   └─ ✅ Project ready with methodology enforcement
 ```
 
@@ -85,16 +85,16 @@ agent code onboard https://github.com/myteam/backend \
 ```
 Step 1: Analyze Codebase
   └─ Detect: Python, FastAPI, PostgreSQL, pytest
-  └─ Save: .dva/onboarding/analysis.json
+  └─ Save: .keel/onboarding/analysis.json
 
 Step 2: Ask Clarifying Questions
   ├─ "What's the primary business purpose?"
   ├─ "What scale/latency requirements?"
   ├─ "What's your testing philosophy?"
-  └─ Save: .dva/onboarding/questionnaire.json
+  └─ Save: .keel/onboarding/questionnaire.json
 
 Step 3: Generate Understanding Document
-  └─ Create: .dva/codebase-understanding.md
+  └─ Create: .keel/codebase-understanding.md
      ├─ Architecture overview
      ├─ Key files and purposes
      ├─ Development workflow
@@ -112,7 +112,7 @@ Step 4: Generate Project-Specific Skills
 
 Step 5: Apply Methodology Pack
   ├─ Suggest: "Backend Development" methodology
-  ├─ Create: .dva/methodology.yaml
+  ├─ Create: .keel/methodology.yaml
   ├─ Approve? (Y/n)
   └─ ✅ Project fully configured with methodology
 ```
@@ -135,13 +135,13 @@ agent run --path ./my-backend --task "Add user authentication"
 │     ├─ Ask: Where to store users?
 │     ├─ Ask: Token expiration?
 │     ├─ Show: Design proposal
-│     └─ Store: .dva/approvals/design-<uuid>/proposal.json
+│     └─ Store: .keel/approvals/design-<uuid>/proposal.json
 │
 │  [EXECUTION PAUSES] ⏸️
 │  └─ Waiting for user approval
 │     └─ User reviews in: Agent Playground > Approvals panel
 │        └─ Clicks: APPROVE (or REJECT with feedback)
-│           └─ Stored: .dva/approvals/design-<uuid>/approval.json
+│           └─ Stored: .keel/approvals/design-<uuid>/approval.json
 │
 │ ✅ Approval received → Continue to Phase 2
 │
@@ -150,7 +150,7 @@ agent run --path ./my-backend --task "Add user authentication"
 │     ├─ Analyze approved design
 │     ├─ Break into 5 tasks (2-5 min each)
 │     ├─ For each task: Show files, code, tests, verification
-│     └─ Store: .dva/approvals/plan-<uuid>/tasks.json
+│     └─ Store: .keel/approvals/plan-<uuid>/tasks.json
 │
 │  [EXECUTION PAUSES] ⏸️
 │  └─ Waiting for user approval
@@ -179,7 +179,7 @@ agent run --path ./my-backend --task "Add user authentication"
 │     ├─ Check: Conventions match project
 │     ├─ Check: Test coverage > 80%
 │     ├─ Show: Code diff with quality report
-│     └─ Store: .dva/approvals/review-<uuid>/diff.json
+│     └─ Store: .keel/approvals/review-<uuid>/diff.json
 │
 │  [EXECUTION PAUSES] ⏸️
 │  └─ Waiting for code review approval
@@ -194,7 +194,7 @@ agent run --path ./my-backend --task "Add user authentication"
 
 ### 4️⃣ Project Context Injection (Skills Know Your Project)
 
-**Inside `.dva/methodology.yaml`:**
+**Inside `.keel/methodology.yaml`:**
 ```yaml
 ---
 methodology_pack: backend-development
@@ -216,7 +216,7 @@ Skill: fastapi-endpoint-development-skill
 
 Available Context:
 ├─ Project root: /path/to/my-backend
-├─ Understanding doc: .dva/codebase-understanding.md
+├─ Understanding doc: .keel/codebase-understanding.md
 ├─ Tech stack: FastAPI, PostgreSQL
 ├─ Conventions: DI, Pydantic, custom exceptions
 ├─ File patterns: Where to create files
@@ -235,7 +235,7 @@ The Skill Uses This To:
 
 ---
 
-## Skills Taxonomy in DVA Project
+## Skills Taxonomy in KEEL Project
 
 ### Where Skills Come From
 
@@ -270,11 +270,11 @@ my-backend-project/.skills/
 When you run: agent run --task "Add auth"
 
 The Execution Engine:
-1. Loads .dva/methodology.yaml
+1. Loads .keel/methodology.yaml
 2. Sees: 4 phases with 4 skills
 3. For each phase:
    ├─ Load skill (e.g., design-brainstorm-skill)
-   ├─ Inject project context (from .dva/)
+   ├─ Inject project context (from .keel/)
    ├─ Execute skill with project awareness
    └─ Wait for checkpoint (approval)
 
@@ -292,7 +292,7 @@ Result:
 ## Approval Checkpoints Storage
 
 ```
-.dva/approvals/
+.keel/approvals/
 ├── design-550e8400-e29b-41d4-a716-446655440000/
 │   ├── proposal.json
 │   │   └─ Agent's design proposal (questions, answers, design)
@@ -463,7 +463,7 @@ $ agent approvals history --project ./order-api
 
 ## Key Takeaways
 
-### Skills Execute **Within** DVA Projects
+### Skills Execute **Within** KEEL Projects
 - Skills have full access to project context
 - Skills know conventions, file patterns, examples
 - Skills enforce project standards automatically
@@ -475,7 +475,7 @@ $ agent approvals history --project ./order-api
 - Review phase: Code review required before merge
 
 ### Everything is **Traceable**
-- Approvals stored in `.dva/approvals/`
+- Approvals stored in `.keel/approvals/`
 - Full audit trail in activity tracker
 - Evidence captured at each checkpoint
 - History available for compliance/review
@@ -486,4 +486,4 @@ $ agent approvals history --project ./order-api
 - New `agent approvals` commands for management
 - Dashboard Approvals panel shows everything
 
-This is **Superpowers methodology + DVA project framework + multi-cloud deployments = Enterprise AI Agent Platform**
+This is **Superpowers methodology + KEEL project framework + multi-cloud deployments = Enterprise AI Agent Platform**

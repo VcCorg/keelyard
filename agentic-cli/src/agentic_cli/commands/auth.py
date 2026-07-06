@@ -24,7 +24,7 @@ def whoami() -> None:
         f"[bold]Roles:[/bold] {', '.join(p.roles) or 'none'}\n"
         f"[bold]Permissions:[/bold] {', '.join(sorted(p.permissions)) or 'none'}",
         title="whoami", border_style="cyan"))
-    console.print("[dim]Set DVA_AUTH_MODE=forward-auth behind an SSO proxy; "
+    console.print("[dim]Set KEEL_AUTH_MODE=forward-auth behind an SSO proxy; "
                   "dev mode defaults to an admin principal.[/dim]")
 
 

@@ -248,27 +248,27 @@ When onboarding with domain skills:
 
 ### Bootstrap Phase
 ```bash
-dva domain init-context <slug> \
+keel domain init-context <slug> \
   --bootstrap-skills superpowers \
   --superpowers-url <url>
 ```
 
 ### Validation Phase
 ```bash
-dva domain validate-skills <slug> --skill <name> --task <desc> --feedback <result>
-dva domain validate-skills <slug> --list
-dva domain validate-skills <slug> --report
-dva domain fork-skill <slug> --skill <name> --reason <reason>
+keel domain validate-skills <slug> --skill <name> --task <desc> --feedback <result>
+keel domain validate-skills <slug> --list
+keel domain validate-skills <slug> --report
+keel domain fork-skill <slug> --skill <name> --reason <reason>
 ```
 
 ### Onboarding Phase
 ```bash
-dva code onboard --path <repo> --domain <slug> --use-domain-skills
+keel code onboard --path <repo> --domain <slug> --use-domain-skills
 ```
 
 ### Contribution Phase
 ```bash
-dva domain contribute-skill <slug> --skill <name> --upstream-skill <name>
+keel domain contribute-skill <slug> --skill <name> --upstream-skill <name>
 ```
 
 ---

@@ -31,10 +31,10 @@ pip install uv
 
 ### Configurable CLI Name
 
-The CLI name is configurable via the `AGENT_CLI_NAME` environment variable. By default it's `dva`, but you can customize it during installation:
+The CLI name is configurable via the `AGENT_CLI_NAME` environment variable. By default it's `keel`, but you can customize it during installation:
 
 ```bash
-# Install with default name (dva)
+# Install with default name (keel)
 pip install ./agentic-cli
 
 # Install with custom name
@@ -140,72 +140,72 @@ raj project --help
 - `--version, -v`: Display version information
 - `--help`: Show help message
 
-All commands below use `dva` as the CLI name. If you installed with a custom name (e.g., `AGENT_CLI_NAME=raj`), replace `dva` with your chosen name in all examples.
+All commands below use `keel` as the CLI name. If you installed with a custom name (e.g., `AGENT_CLI_NAME=raj`), replace `keel` with your chosen name in all examples.
 
 #### Initialization & Authentication
-- `dva init vertex-ai`: Configure Vertex AI settings
-- `dva init show`: Show current configuration
-- `dva init reset`: Reset configuration to defaults
+- `keel init vertex-ai`: Configure Vertex AI settings
+- `keel init show`: Show current configuration
+- `keel init reset`: Reset configuration to defaults
 
 #### Project Management
-- `dva project create <name>`: Create a new agentic project from template
-- `dva project list-templates`: List available project templates
-- `dva project info [PATH]`: Show information about a project
-- `dva project list`: List all registered projects
-- `dva project validate [PATH]`: Validate project configuration
+- `keel project create <name>`: Create a new agentic project from template
+- `keel project list-templates`: List available project templates
+- `keel project info [PATH]`: Show information about a project
+- `keel project list`: List all registered projects
+- `keel project validate [PATH]`: Validate project configuration
 
 #### Knowledge Graph
-- `dva kg check`: Check prerequisites and Neo4j availability
-- `dva kg init`: Initialize knowledge graph configuration (supports Neo4j and LightRAG)
-- `dva kg config`: Manage knowledge graph settings
-- `dva kg ingest`: Ingest data from PDF, text, CSV, JSON, Confluence (✅ both providers)
-- `dva kg query <query>`: Query the knowledge graph (✅ both providers)
-- `dva kg search <text>`: Search with semantic or exact matching (✅ both providers)
-- `dva kg stats`: Display graph statistics (✅ both providers)
-- `dva kg tool`: Generate ADK tool for knowledge graph operations (Neo4j only)
-- `dva kg visualize`: Create interactive graph visualization (Neo4j only)
-- `dva kg workspace`: Manage workspaces (LightRAG only)
+- `keel kg check`: Check prerequisites and Neo4j availability
+- `keel kg init`: Initialize knowledge graph configuration (supports Neo4j and LightRAG)
+- `keel kg config`: Manage knowledge graph settings
+- `keel kg ingest`: Ingest data from PDF, text, CSV, JSON, Confluence (✅ both providers)
+- `keel kg query <query>`: Query the knowledge graph (✅ both providers)
+- `keel kg search <text>`: Search with semantic or exact matching (✅ both providers)
+- `keel kg stats`: Display graph statistics (✅ both providers)
+- `keel kg tool`: Generate ADK tool for knowledge graph operations (Neo4j only)
+- `keel kg visualize`: Create interactive graph visualization (Neo4j only)
+- `keel kg workspace`: Manage workspaces (LightRAG only)
 
 **Note:** See [Provider Support Guide](docs/PROVIDER_SUPPORT.md) for detailed provider compatibility.
 
 #### Data Source Configuration
-- `dva data init`: Configure global GCS and Confluence settings
-- `dva data create`: Register a new data source (local, GCS, Confluence, or Git)
-- `dva data list`: List all configured data sources
-- `dva data show <name>`: Show detailed information about a data source
-- `dva data update <name>`: Update an existing data source
-- `dva data delete <name>`: Delete a data source configuration
+- `keel data init`: Configure global GCS and Confluence settings
+- `keel data create`: Register a new data source (local, GCS, Confluence, or Git)
+- `keel data list`: List all configured data sources
+- `keel data show <name>`: Show detailed information about a data source
+- `keel data update <name>`: Update an existing data source
+- `keel data delete <name>`: Delete a data source configuration
 
 #### MCP Server Management
-- `dva mcp list`: List available MCP servers
-- `dva mcp test`: Test MCP server connections
-- `dva mcp status`: Show MCP server status
+- `keel mcp list`: List available MCP servers
+- `keel mcp test`: Test MCP server connections
+- `keel mcp status`: Show MCP server status
 
 #### Agent Management & Evaluation
-- `dva agent create <name>`: Create a new agent
-- `dva agent list`: List all agents
-- `dva agent info <name>`: Show agent details
-- `dva agent deploy <name>`: Deploy an agent
-- `dva agent test <name>`: Test an agent
-- `dva eval validate-skill <path>`: Validate a skill file for quality and structure
-- `dva eval validate-skill <path> --output json`: Validate skill and output as JSON
-- `dva eval validate-skill <path> --check structure`: Run specific validation checks
+- `keel agent create <name>`: Create a new agent
+- `keel agent list`: List all agents
+- `keel agent info <name>`: Show agent details
+- `keel agent deploy <name>`: Deploy an agent
+- `keel agent test <name>`: Test an agent
+- `keel eval validate-skill <path>`: Validate a skill file for quality and structure
+- `keel eval validate-skill <path> --output json`: Validate skill and output as JSON
+- `keel eval validate-skill <path> --check structure`: Run specific validation checks
 
 #### Code & Repository Management
-- `dva code onboard`: Onboard a code repository
-- `dva code list`: List onboarded repositories
-- `dva code skills`: Show available skills for a repository
-- `dva code analyze`: Analyze code structure
+- `keel code onboard`: Onboard a code repository
+- `keel code list`: List onboarded repositories
+- `keel code skills`: Show available skills for a repository
+- `keel code analyze`: Analyze code structure
 
 #### Skill Management
-- `dva skill create <name>`: Create a new skill
-- `dva skill list`: List available skills
-- `dva skill install <source>`: Install a skill from GitHub
-- `dva skill show <name>`: Show skill details
+- `keel skill create <name>`: Create a new skill
+- `keel skill list`: List available skills
+- `keel skill install <source>`: Install a skill from GitHub
+- `keel skill show <name>`: Show skill details
 
 #### Skill Validation & Evaluation
-- `dva eval validate-skill <path>`: Validate a skill file for quality and structure
-- `dva eval validate-skill <path> --output json`: Validate skill with JSON output
+- `keel eval validate-skill <path>`: Validate a skill file for quality and structure
+- `keel eval validate-skill <path> --output json`: Validate skill with JSON output
 
 **Note:** The skill validation system checks:
 - ✅ YAML frontmatter structure (name, description fields)
@@ -229,32 +229,32 @@ Example:
 For more information on skill evaluation, see [Skill Evaluation Integration](docs/SKILL_EVALUATION_INTEGRATION.md).
 
 #### Domain Management
-- `dva domain list`: List available domains
-- `dva domain info <name>`: Show domain details
-- `dva domain create <name>`: Create a new domain
+- `keel domain list`: List available domains
+- `keel domain info <name>`: Show domain details
+- `keel domain create <name>`: Create a new domain
 
 #### Product Management
-- `dva product list`: List available products
-- `dva product info <name>`: Show product details
-- `dva product create <name>`: Create a new product
+- `keel product list`: List available products
+- `keel product info <name>`: Show product details
+- `keel product create <name>`: Create a new product
 
 #### History & Execution Tracking
-- `dva history list`: List execution history
-- `dva history show <id>`: Show details of a past execution
-- `dva history clear`: Clear execution history
+- `keel history list`: List execution history
+- `keel history show <id>`: Show details of a past execution
+- `keel history clear`: Clear execution history
 
 #### Agent Templates
-- `dva agent-template list`: List available agent templates
-- `dva agent-template info <name>`: Show template details
-- `dva agent-template create`: Create from template
+- `keel agent-template list`: List available agent templates
+- `keel agent-template info <name>`: Show template details
+- `keel agent-template create`: Create from template
 
 #### Agent Tools
-- `dva agent-tool list`: List available agent tools
-- `dva agent-tool info <name>`: Show tool details
-- `dva agent-tool generate`: Generate tool code
+- `keel agent-tool list`: List available agent tools
+- `keel agent-tool info <name>`: Show tool details
+- `keel agent-tool generate`: Generate tool code
 
 #### Example Commands
-- `dva hello [NAME]`: Simple greeting command (placeholder)
+- `keel hello [NAME]`: Simple greeting command (placeholder)
 
 ### Google Vertex AI Setup
 
@@ -321,7 +321,7 @@ The CLI provides an embedded template system with multiple frameworks and use ca
 
 See [Project Templates Guide](docs/PROJECT_TEMPLATES.md) for full documentation.
 
-If you've configured Vertex AI with `dva init vertex-ai`, the project will automatically include Vertex AI settings.
+If you've configured Vertex AI with `keel init vertex-ai`, the project will automatically include Vertex AI settings.
 
 After creating a project:
 
@@ -473,7 +473,7 @@ Configure and manage data sources for ingestion into knowledge graphs or other p
 `agent data delete old-source --yes
 ```
 
-**Configuration Storage**: Data source configurations are stored in `~/.dva-agentic/config.json` alongside other CLI settings.
+**Configuration Storage**: Data source configurations are stored in `~/.keel-agentic/config.json` alongside other CLI settings.
 
 **Supported Source Types**:
 - **doc**: Local file paths or GCS paths (`gs://bucket/path`)
@@ -486,7 +486,7 @@ Configure and manage data sources for ingestion into knowledge graphs or other p
 - Cannot specify both branch and tag simultaneously
 - If neither is specified, the default branch will be used
 
-**Data Source Integration**: Data sources are now integrated with `dva kg ingest`:
+**Data Source Integration**: Data sources are now integrated with `keel kg ingest`:
 ```bash
 # Configure data sources
 `agent data create --name team-wiki --source-type confluence --source-location https://company.atlassian.net

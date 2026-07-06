@@ -1,6 +1,6 @@
-# DVA Knowledge Graph MCP Server
+# KEEL Knowledge Graph MCP Server
 
-Docker-based MCP (Model Context Protocol) server that exposes DVA Knowledge Graph operations to IDEs and AI assistants.
+Docker-based MCP (Model Context Protocol) server that exposes KEEL Knowledge Graph operations to IDEs and AI assistants.
 
 ## Overview
 
@@ -19,10 +19,10 @@ This MCP server provides a standardized interface for interacting with your Know
 ```
 IDE/AI Assistant (Claude Desktop, Windsurf, etc.)
     ↓ HTTP/SSE (localhost:8125)
-MCP Server Container (dva-kg-mcp)
+MCP Server Container (keel-kg-mcp)
     ↓ Internal Docker Network
-    ├─→ Neo4j Container (dva-neo4j:7687)
-    └─→ LightRAG Container (dva-lightrag:8001)
+    ├─→ Neo4j Container (keel-neo4j:7687)
+    └─→ LightRAG Container (keel-lightrag:8001)
 ```
 
 ## Quick Start
@@ -31,7 +31,7 @@ MCP Server Container (dva-kg-mcp)
 
 - Docker and Docker Compose installed
 - Neo4j or LightRAG running (or use full stack mode)
-- Agentic CLI configured (`dva kg init`)
+- Agentic CLI configured (`keel kg init`)
 
 ### Installation
 
@@ -59,7 +59,7 @@ cp .env.example .env
 # Edit .env with your configuration
 
 # Create Docker network
-docker network create dva-network
+docker network create keel-network
 
 # Start MCP server only
 make start
@@ -79,12 +79,12 @@ Edit `.env` file:
 KG_PROVIDER=neo4j  # or lightrag
 
 # Neo4j Configuration
-NEO4J_URI=bolt://dva-neo4j:7687
+NEO4J_URI=bolt://keel-neo4j:7687
 NEO4J_USER=neo4j
 NEO4J_PASSWORD=password
 
 # LightRAG Configuration
-LIGHTRAG_URL=http://dva-lightrag:8001
+LIGHTRAG_URL=http://keel-lightrag:8001
 
 # Vertex AI (for entity extraction)
 GOOGLE_PROJECT_ID=your-project-id
@@ -193,7 +193,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "dva-kg": {
+    "keel-kg": {
       "url": "http://localhost:8125/mcp",
       "transport": "http"
     }
@@ -209,7 +209,7 @@ Add to Windsurf MCP configuration:
 {
   "mcp": {
     "servers": {
-      "dva-kg": {
+      "keel-kg": {
         "url": "http://localhost:8125/mcp",
         "transport": "http"
       }
@@ -224,7 +224,7 @@ Add to Windsurf MCP configuration:
 {
   "mcp.servers": [
     {
-      "name": "dva-kg",
+      "name": "keel-kg",
       "url": "http://localhost:8125/mcp",
       "transport": "http"
     }
@@ -269,7 +269,7 @@ kg-mcp-infrastructure/
             └── lightrag_client.py
 ```
 
-**Note**: KG modules are **volume-mounted at runtime** from `../agentic-cli/src/dva_agentic_cli/kg/`. 
+**Note**: KG modules are **volume-mounted at runtime** from `../agentic-cli/src/agentic_cli/kg/`. 
 This means:
 - ✅ Code changes in CLI are immediately reflected after container restart
 - ✅ No need to rebuild Docker image for KG module changes
@@ -283,7 +283,7 @@ Since KG modules are volume-mounted from `agentic-cli`, changes are reflected im
 
 ```bash
 # 1. Edit KG code in CLI
-cd ../agentic-cli/src/dva_agentic_cli/kg
+cd ../agentic-cli/src/agentic_cli/kg
 nano query.py  # Make your changes
 
 # 2. Restart MCP container (no rebuild needed!)
@@ -350,7 +350,7 @@ curl -X POST http://localhost:8125/mcp/tools/call \
 
 1. **Check Docker network**:
    ```bash
-   docker network ls | grep dva-network
+   docker network ls | grep keel-network
    ```
 
 2. **Check logs**:
@@ -376,16 +376,16 @@ curl -X POST http://localhost:8125/mcp/tools/call \
 
 2. **Check environment variables**:
    ```bash
-   docker exec dva-kg-mcp env | grep KG_PROVIDER
+   docker exec keel-kg-mcp env | grep KG_PROVIDER
    ```
 
 3. **Test connectivity**:
    ```bash
    # From MCP container to Neo4j
-   docker exec dva-kg-mcp curl http://dva-neo4j:7474
+   docker exec keel-kg-mcp curl http://keel-neo4j:7474
    
    # From MCP container to LightRAG
-   docker exec dva-kg-mcp curl http://dva-lightrag:8001/health
+   docker exec keel-kg-mcp curl http://keel-lightrag:8001/health
    ```
 
 ### IDE Not Connecting
@@ -450,11 +450,11 @@ MCP_PORT=8126 KG_PROVIDER=lightrag docker-compose up -d
 
 ## Contributing
 
-See main DVA project for contribution guidelines.
+See main KEEL project for contribution guidelines.
 
 ## License
 
-See main DVA project for license information.
+See main KEEL project for license information.
 
 ## Support
 

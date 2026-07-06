@@ -7,7 +7,7 @@ description: Register products and domains, link repos and docs, and wire domain
 Register products and domains, link repositories and Confluence docs,
 and wire domain context across repos using the Agentic Platform MCP server.
 
-**Related skill**: Read `skills/skills/dva-manage-domains/SKILL.md` for the full MCP tool reference.
+**Related skill**: Read `skills/skills/keel-manage-domains/SKILL.md` for the full MCP tool reference.
 
 ## Prerequisites
 
@@ -119,11 +119,11 @@ KG business context, and installed domain skills.
 If Agentic MCP is not available, use the CLI:
 
 ```bash
-dva product create CWOW --description "Clinical & Workforce Operations"
-dva domain create Facility --product CWOW --jira CWOW --bb CGF --confluence MTT
-dva domain link-repo cwow-facility cwow-facility-service
-dva domain add-doc cwow-facility --page-id 847844475 --space CWOV --title "Release 29"
-dva code onboard --path ./cwow-facility-service --domain cwow-facility
+keel product create CWOW --description "Clinical & Workforce Operations"
+keel domain create Facility --product CWOW --jira CWOW --bb CGF --confluence MTT
+keel domain link-repo cwow-facility cwow-facility-service
+keel domain add-doc cwow-facility --page-id 847844475 --space CWOV --title "Release 29"
+keel code onboard --path ./cwow-facility-service --domain cwow-facility
 ```
 
 ## Related Workflows

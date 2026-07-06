@@ -47,7 +47,7 @@
 
 **Configuration:**
 ```bash
-dva kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password <password>
+keel kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password <password>
 ```
 
 ### 2. Weaviate ⭐ RECOMMENDED
@@ -76,7 +76,7 @@ dva kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --pass
 
 **Configuration:**
 ```bash
-dva kg init --provider weaviate --weaviate-host localhost --weaviate-port 8080
+keel kg init --provider weaviate --weaviate-host localhost --weaviate-port 8080
 ```
 
 ### 3. PostgreSQL (Cloud) ⭐ ALTERNATIVE
@@ -114,7 +114,7 @@ dva kg init --provider weaviate --weaviate-host localhost --weaviate-port 8080
 ```bash
 # Create Supabase project with pgvector extension
 # Enable Apache AGE extension in SQL editor
-dva kg init --provider postgres \
+keel kg init --provider postgres \
   --postgres-host <supabase-host>.supabase.co \
   --postgres-port 5432 \
   --postgres-user postgres \
@@ -221,22 +221,22 @@ Code Ingestion → Neo4j (Graph) + Weaviate (Vectors)
 
 ```bash
 # Already running
-dva kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password <password>
+keel kg init --provider neo4j --uri bolt://localhost:7687 --username neo4j --password <password>
 
 # Test
-dva kg check --provider neo4j
-dva kg stats
+keel kg check --provider neo4j
+keel kg stats
 ```
 
 ### Option 2: Weaviate (Quick Start)
 
 ```bash
 # Already configured
-dva kg init --provider weaviate --weaviate-host localhost --weaviate-port 8080
+keel kg init --provider weaviate --weaviate-host localhost --weaviate-port 8080
 
 # Test
-dva kg check --provider weaviate
-dva kg stats
+keel kg check --provider weaviate
+keel kg stats
 ```
 
 ### Option 3: PostgreSQL Cloud (Setup Required)
@@ -245,8 +245,8 @@ dva kg stats
 # 1. Create Supabase project
 # 2. Enable pgvector extension in SQL editor
 # 3. Enable Apache AGE extension
-# 4. Configure DVA
-dva kg init --provider postgres \
+# 4. Configure KEEL
+keel kg init --provider postgres \
   --postgres-host <supabase-host>.supabase.co \
   --postgres-port 5432 \
   --postgres-user postgres \

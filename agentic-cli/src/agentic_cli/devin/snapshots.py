@@ -111,7 +111,7 @@ def _verify_record(domain: str, rec: dict[str, Any]) -> SnapshotStatus:
 
     if not st.snapshot_id:
         st.state = STATE_NO_SNAPSHOT
-        st.detail = "No snapshot built yet (run: dva domain build-snapshot)."
+        st.detail = "No snapshot built yet (run: keel domain build-snapshot)."
         return st
 
     if not st.meta_repo_path:
@@ -145,7 +145,7 @@ def _verify_record(domain: str, rec: dict[str, Any]) -> SnapshotStatus:
             changed.append(f"meta-repo commit {st.recorded_sha} -> {st.current_sha}")
         if not bp_ok:
             changed.append("blueprint changed")
-        st.detail = "Stale: " + "; ".join(changed) + ". Rebuild with: dva domain build-snapshot."
+        st.detail = "Stale: " + "; ".join(changed) + ". Rebuild with: keel domain build-snapshot."
     return st
 
 

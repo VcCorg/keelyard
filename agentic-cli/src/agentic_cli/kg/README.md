@@ -28,7 +28,7 @@ Manages knowledge graph configuration including:
 - Vertex AI credentials
 - Embeddings configuration
 
-Configuration is stored in `~/.dva-agentic/kg-config.json` and can be loaded/saved using the `KGConfig` class.
+Configuration is stored in `~/.keel-agentic/kg-config.json` and can be loaded/saved using the `KGConfig` class.
 
 ### Neo4j Client (`neo4j_client.py`)
 
@@ -96,8 +96,8 @@ Create interactive HTML visualizations using PyVis:
 ### Basic Setup
 
 ```python
-from dva_agentic_cli.kg.config import KGConfig
-from dva_agentic_cli.kg.neo4j_client import Neo4jClient
+from agentic_cli.kg.config import KGConfig
+from agentic_cli.kg.neo4j_client import Neo4jClient
 
 # Load configuration
 config = KGConfig.load()
@@ -111,7 +111,7 @@ with Neo4jClient(config) as client:
 ### Data Ingestion
 
 ```python
-from dva_agentic_cli.kg.ingest import ingest_data
+from agentic_cli.kg.ingest import ingest_data
 
 # Ingest a PDF
 result = ingest_data(
@@ -128,7 +128,7 @@ print(f"Relationships: {result['relationships_count']}")
 ### Entity Extraction
 
 ```python
-from dva_agentic_cli.kg.entity_extraction import extract_entities_from_documents
+from agentic_cli.kg.entity_extraction import extract_entities_from_documents
 
 documents = [
     {
@@ -147,7 +147,7 @@ entities, relationships = extract_entities_from_documents(
 ### Querying
 
 ```python
-from dva_agentic_cli.kg.query import execute_query
+from agentic_cli.kg.query import execute_query
 
 # Natural language query
 results = execute_query(
@@ -166,7 +166,7 @@ results = execute_query(
 ### Searching
 
 ```python
-from dva_agentic_cli.kg.search import search_graph
+from agentic_cli.kg.search import search_graph
 
 # Semantic search
 results = search_graph(
@@ -186,7 +186,7 @@ results = search_graph(
 ### Tool Generation
 
 ```python
-from dva_agentic_cli.kg.tool_generator import generate_tool
+from agentic_cli.kg.tool_generator import generate_tool
 
 # Generate tool code
 tool_code = generate_tool(
@@ -213,8 +213,8 @@ Required packages (install with `pip install -e ".[kg]"`):
 
 The module uses two configuration files:
 
-1. **Main config** (`~/.dva-agentic/config.json`): Vertex AI settings
-2. **KG config** (`~/.dva-agentic/kg-config.json`): Neo4j and KG-specific settings
+1. **Main config** (`~/.keel-agentic/config.json`): Vertex AI settings
+2. **KG config** (`~/.keel-agentic/kg-config.json`): Neo4j and KG-specific settings
 
 ### Example KG Config
 
@@ -269,7 +269,7 @@ The module is designed to be extensible:
 
 ## Security
 
-- Credentials stored in user home directory (`~/.dva-agentic/`)
+- Credentials stored in user home directory (`~/.keel-agentic/`)
 - File permissions set to user-only (600)
 - No credentials in code or logs
 - Support for environment variables

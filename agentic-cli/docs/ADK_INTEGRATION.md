@@ -74,7 +74,7 @@ adk = [
 Create a new command module:
 
 ```python
-# src/dva_agentic_cli/commands/agent.py
+# src/agentic_cli/commands/agent.py
 import typer
 from rich.console import Console
 from typing_extensions import Annotated
@@ -131,8 +131,8 @@ def run_agent(
 ### Register the Command in main.py
 
 ```python
-# src/dva_agentic_cli/main.py
-from dva_agentic_cli.commands.agent import agent_app
+# src/agentic_cli/main.py
+from agentic_cli.commands.agent import agent_app
 
 # Add to your main app
 app.add_typer(agent_app, name="agent")
@@ -156,7 +156,7 @@ app.add_typer(agent_app, name="agent")
 Here's a complete example of a well-structured ADK command:
 
 ```python
-# src/dva_agentic_cli/commands/workflow.py
+# src/agentic_cli/commands/workflow.py
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -208,7 +208,7 @@ Create tests for your ADK commands:
 ```python
 # tests/test_agent_commands.py
 from typer.testing import CliRunner
-from dva_agentic_cli.main import app
+from agentic_cli.main import app
 
 runner = CliRunner()
 
@@ -240,7 +240,7 @@ def test_agent_list():
 ## Next Steps
 
 1. Create your ADK modules in the parent project
-2. Add command modules in `src/dva_agentic_cli/commands/`
+2. Add command modules in `src/agentic_cli/commands/`
 3. Register commands in `main.py`
 4. Write tests for new commands
 5. Update documentation

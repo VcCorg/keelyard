@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS code_entities (
     file_path TEXT,
     language TEXT,
     metadata JSONB,
-    _source TEXT DEFAULT 'dva_kg',
+    _source TEXT DEFAULT 'keel_kg',
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS document_entities (
     doc_type TEXT,
     url TEXT,
     metadata JSONB,
-    _source TEXT DEFAULT 'dva_kg',
+    _source TEXT DEFAULT 'keel_kg',
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS entity_relationships (
     to_entity_id INTEGER REFERENCES code_entities(id) ON DELETE CASCADE,
     relationship_type TEXT NOT NULL,
     metadata JSONB,
-    _source TEXT DEFAULT 'dva_kg',
+    _source TEXT DEFAULT 'keel_kg',
     created_at TIMESTAMP DEFAULT NOW()
 );
 "

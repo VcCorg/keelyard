@@ -310,7 +310,7 @@ class CodebaseAnalyzer:
 
 ### Phase 1: KG Onboarding (Already Designed)
 ```
-dva kg onboard --domain cwow-facility --confluence-space CWOV --release-aware
+keel kg onboard --domain cwow-facility --confluence-space CWOV --release-aware
     ↓
 Stores domain knowledge in KG
 ```
@@ -328,7 +328,7 @@ Agents can query Memory MCP
 
 ### Phase 3: Code Onboarding Integration (Already Designed)
 ```
-dva code onboard https://github.com/company/facility-service --domain cwow-facility
+keel code onboard https://github.com/company/facility-service --domain cwow-facility
     ↓
 Query KG for domain knowledge
     ↓
@@ -349,7 +349,7 @@ Generate skills with business context
                               ↓
                     ┌─────────────────────┐
                     │  KG Onboarding      │
-                    │  (dva kg onboard)   │
+                    │  (keel kg onboard)   │
                     └─────────────────────┘
                               ↓
                     ┌─────────────────────┐
@@ -466,13 +466,13 @@ async def sync_kg_to_memory_mcp(domain_name: str):
 
 ### Step 1: Register Domain
 ```bash
-$ dva domain create Facility --product CWOW --jira CWOW --bb CGF --confluence CWOV
+$ keel domain create Facility --product CWOW --jira CWOW --bb CGF --confluence CWOV
 ✓ Domain registered: cwow-facility
 ```
 
 ### Step 2: Onboard Knowledge
 ```bash
-$ dva kg onboard --domain cwow-facility --confluence-space CWOV --release-aware
+$ keel kg onboard --domain cwow-facility --confluence-space CWOV --release-aware
 ✓ Knowledge onboarding complete
   - Stored in KG
   - Synced to Memory MCP
@@ -480,7 +480,7 @@ $ dva kg onboard --domain cwow-facility --confluence-space CWOV --release-aware
 
 ### Step 3: Code Onboarding
 ```bash
-$ dva code onboard https://github.com/company/facility-service --domain cwow-facility
+$ keel code onboard https://github.com/company/facility-service --domain cwow-facility
 ✓ Code onboarding complete
   - Understanding includes business context from KG
   - Generated skills reference business rules

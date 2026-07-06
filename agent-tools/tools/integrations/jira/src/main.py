@@ -410,7 +410,7 @@ class JiraIntegrationTool:
                 "get_my_issues"
             ],
             "dependencies": ["jira>=3.1.0", "requests>=2.31.0", "pydantic>=2.0.0"],
-            "author": "DVA Team"
+            "author": "KEEL Team"
         }
 
 

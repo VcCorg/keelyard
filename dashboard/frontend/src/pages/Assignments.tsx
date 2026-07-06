@@ -11,7 +11,7 @@ export function Assignments() {
       planned={[
         "Per-user list of assigned tasks linking task → user → KG bundle → execution ref.",
         "Execution status rollup: which Devin session or local repo, last heartbeat, running/blocked/done.",
-        "Local-tool status via `dva task status <key> --state ...` syncing to the shared assignments store.",
+        "Local-tool status via `keel task status <key> --state ...` syncing to the shared assignments store.",
         "Optional git/PR link captured per assignment.",
       ]}
     />

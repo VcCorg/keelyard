@@ -1,6 +1,6 @@
 """MCP server service — discovers Docker MCP containers, checks health.
 
-Primary source of truth: docker-compose.yml in dva-mcp-servers/
+Primary source of truth: docker-compose.yml in keel-mcp-servers/
 Enriches with CLI registry metadata when available.
 """
 
@@ -60,10 +60,10 @@ def _check_port(host: str, port: int, timeout: float = 2.0) -> tuple[bool, str]:
 
 
 def _get_docker_status() -> dict[str, str]:
-    """Get container name → status mapping for dva- containers."""
+    """Get container name → status mapping for keel- containers."""
     try:
         result = subprocess.run(
-            ["docker", "ps", "-a", "--filter", "name=dva-", "--format", "{{.Names}}\t{{.Status}}"],
+            ["docker", "ps", "-a", "--filter", "name=keel-", "--format", "{{.Names}}\t{{.Status}}"],
             capture_output=True, text=True, timeout=5,
         )
         if result.returncode != 0:
@@ -100,7 +100,7 @@ def list_mcp_servers() -> list[MCPServerInfo]:
                     if ports:
                         port_str = str(ports[0]).split(":")[0]
                         port = int(port_str)
-                    container = svc_data.get("container_name", f"dva-{svc_name}")
+                    container = svc_data.get("container_name", f"keel-{svc_name}")
                     servers[svc_name] = MCPServerInfo(
                         name=svc_name,
                         type="docker",
@@ -165,7 +165,7 @@ def check_health(name: Optional[str] = None) -> list[MCPHealthResult]:
         if srv.port:
             ok, msg = _check_port("localhost", srv.port)
             # Append container status if available
-            cname = srv.container_name or f"dva-{srv.name}"
+            cname = srv.container_name or f"keel-{srv.name}"
             cstatus = docker_status.get(cname, "")
             if cstatus:
                 msg = f"{msg} ({cstatus})"
@@ -224,7 +224,7 @@ def _find_compose_file() -> Optional[Path]:
     workspace = Path(__file__).resolve().parents[4]
     candidates = [
         workspace / "mcp-servers" / "docker-compose.yml",
-        workspace / "dva-mcp-servers" / "docker-compose.yml",
+        workspace / "keel-mcp-servers" / "docker-compose.yml",
     ]
 
     # Also check MCP registry for docker compose paths

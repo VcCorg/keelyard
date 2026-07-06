@@ -7,7 +7,7 @@ Successfully enhanced Agentic CLI to support both Neo4j and LightRAG as knowledg
 ## Implementation Details
 
 ### 1. LightRAG Client Wrapper
-**File**: `agentic-cli/src/dva_agentic_cli/kg/lightrag_client.py`
+**File**: `agentic-cli/src/agentic_cli/kg/lightrag_client.py`
 
 - Created `LightRAGClient` class with HTTP-based API communication
 - Methods implemented:
@@ -22,7 +22,7 @@ Successfully enhanced Agentic CLI to support both Neo4j and LightRAG as knowledg
 - Graceful error handling with informative messages
 
 ### 2. Configuration Updates
-**File**: `agentic-cli/src/dva_agentic_cli/kg/config.py`
+**File**: `agentic-cli/src/agentic_cli/kg/config.py`
 
 - Extended `KGConfig` with LightRAG settings:
   - `lightrag_url` (default: http://localhost:8001)
@@ -31,15 +31,15 @@ Successfully enhanced Agentic CLI to support both Neo4j and LightRAG as knowledg
 - Updated provider field description to include "lightrag"
 
 ### 3. CLI Command Enhancements
-**File**: `agentic-cli/src/dva_agentic_cli/commands/kg.py`
+**File**: `agentic-cli/src/agentic_cli/commands/kg.py`
 
-#### `dva kg init`
+#### `keel kg init`
 - Added `--lightrag-url` option
 - Added `--lightrag-timeout` option
 - Provider-aware validation (Neo4j or LightRAG)
 - Updated help text to mention both providers
 
-#### `dva kg ingest`
+#### `keel kg ingest`
 - Provider-aware routing logic
 - LightRAG ingestion supports:
   - Single file ingestion
@@ -50,13 +50,13 @@ Successfully enhanced Agentic CLI to support both Neo4j and LightRAG as knowledg
 - Maintains full Neo4j ingestion functionality
 - Works with both `--path` and `--source` options
 
-#### `dva kg stats`
+#### `keel kg stats`
 - Provider-aware statistics display
 - Neo4j: Shows nodes, relationships, types, top entities
 - LightRAG: Shows all available metrics from API
 - Different table titles for clarity
 
-#### `dva kg config --show`
+#### `keel kg config --show`
 - Displays LightRAG settings when provider is "lightrag"
 - Shows URL and timeout configuration
 
@@ -103,7 +103,7 @@ Successfully enhanced Agentic CLI to support both Neo4j and LightRAG as knowledg
 
 ### ✅ Configuration Management
 - Provider-specific settings
-- Easy switching via `dva kg init`
+- Easy switching via `keel kg init`
 - Clear configuration display
 
 ### ✅ Validation & Error Handling
@@ -159,13 +159,13 @@ Database      HTTP API         User Feedback
 ## Files Modified/Created
 
 ### Created
-1. `src/dva_agentic_cli/kg/lightrag_client.py` (267 lines)
+1. `src/agentic_cli/kg/lightrag_client.py` (267 lines)
 2. `docs/LIGHTRAG_INTEGRATION.md` (400+ lines)
 3. `LIGHTRAG_ENHANCEMENT_SUMMARY.md` (this file)
 
 ### Modified
-1. `src/dva_agentic_cli/kg/config.py` - Added LightRAG config fields
-2. `src/dva_agentic_cli/commands/kg.py` - Enhanced init, ingest, stats commands
+1. `src/agentic_cli/kg/config.py` - Added LightRAG config fields
+2. `src/agentic_cli/commands/kg.py` - Enhanced init, ingest, stats commands
 3. `pyproject.toml` - Added httpx dependency
 4. `README.md` - Updated documentation
 

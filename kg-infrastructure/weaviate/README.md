@@ -1,6 +1,6 @@
 # Weaviate KG Infrastructure
 
-Weaviate-based knowledge graph infrastructure for DVA - single database solution for vector search and graph relationships.
+Weaviate-based knowledge graph infrastructure for KEEL - single database solution for vector search and graph relationships.
 
 ## Architecture
 

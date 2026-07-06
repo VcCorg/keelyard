@@ -41,7 +41,7 @@ import { useUser } from "@/context/UserContext";
 function StreamConsole({
   url,
   onDone,
-  label = "dva kg okf export",
+  label = "keel kg okf export",
 }: {
   url: string | null;
   onDone?: (code: string) => void;
@@ -764,7 +764,7 @@ function DevinEditModal({
 export function OKFGeneration() {
   const { can } = useUser();
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
-  const [streamLabel, setStreamLabel] = useState("dva kg okf export");
+  const [streamLabel, setStreamLabel] = useState("keel kg okf export");
   const [running, setRunning] = useState(false);
   const [mintFreqs, setMintFreqs] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -787,14 +787,14 @@ export function OKFGeneration() {
   const generate = (domain: string, product?: string) => {
     setRunning(true);
     setExpanded(null);
-    setStreamLabel("dva kg okf export");
+    setStreamLabel("keel kg okf export");
     setStreamUrl(api.okfExportStreamUrl({ domain, product, mint_freqs: mintFreqs }));
   };
 
   const enrich = (domain: string) => {
     setRunning(true);
     setExpanded(null);
-    setStreamLabel("dva kg okf enrich --code-source auto");
+    setStreamLabel("keel kg okf enrich --code-source auto");
     setStreamUrl(
       api.okfEnrichStreamUrl({ domain, source: "both", code_source: "auto", generate_graphs: true })
     );
@@ -802,7 +802,7 @@ export function OKFGeneration() {
 
   const pushDevin = (b: OKFBundleInfo, dryRun: boolean) => {
     setRunning(true);
-    setStreamLabel(`dva kg okf push-devin${dryRun ? " --dry-run" : ""}`);
+    setStreamLabel(`keel kg okf push-devin${dryRun ? " --dry-run" : ""}`);
     setStreamUrl(
       api.okfDevinPushStreamUrl({ domain: b.domain, source: b.source, dry_run: dryRun })
     );

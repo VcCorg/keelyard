@@ -436,11 +436,11 @@ def kg_get_requirements_for_code(domain: str, repo_name: str) -> str:
     try:
         cypher = """
         MATCH (c)-[r]->(d:Document)
-        WHERE c._source = 'dva_kg'
+        WHERE c._source = 'keel_kg'
           AND c.persona = 'developer'
           AND (c.domain = $domain OR c.metadata CONTAINS $domain)
           AND toLower(c.name) CONTAINS toLower($repo_name)
-          AND r.linked_by = 'dva-kg-link'
+          AND r.linked_by = 'keel-kg-link'
         RETURN c.name AS code_name,
                labels(c) AS code_type,
                type(r) AS relationship,
@@ -460,7 +460,7 @@ def kg_get_requirements_for_code(domain: str, repo_name: str) -> str:
                 "requirements": [],
                 "message": (
                     f"No linked requirements found for repo '{repo_name}' in domain '{domain}'. "
-                    "Run `dva kg link --domain {domain}` to generate links."
+                    "Run `keel kg link --domain {domain}` to generate links."
                 ),
             })
 
@@ -500,10 +500,10 @@ def kg_get_code_for_requirement(domain: str, requirement_id: str) -> str:
     try:
         cypher = """
         MATCH (c)-[r]->(d:Document)
-        WHERE c._source = 'dva_kg'
+        WHERE c._source = 'keel_kg'
           AND c.persona = 'developer'
           AND (c.domain = $domain OR c.metadata CONTAINS $domain)
-          AND r.linked_by = 'dva-kg-link'
+          AND r.linked_by = 'keel-kg-link'
           AND (
             toLower(d.name) CONTAINS toLower($req_id)
             OR toLower(d.id) CONTAINS toLower($req_id)
@@ -529,7 +529,7 @@ def kg_get_code_for_requirement(domain: str, requirement_id: str) -> str:
                 "code_entities": [],
                 "message": (
                     f"No code found implementing '{requirement_id}' in domain '{domain}'. "
-                    "This requirement may not be implemented yet, or run `dva kg link` to generate links."
+                    "This requirement may not be implemented yet, or run `keel kg link` to generate links."
                 ),
             })
 
@@ -568,9 +568,9 @@ def kg_get_coverage_gaps(domain: str) -> str:
     try:
         cypher = """
         MATCH (d:Document)
-        WHERE d._source = 'dva_kg'
+        WHERE d._source = 'keel_kg'
           AND (d.domain = $domain OR d.metadata CONTAINS $domain)
-        OPTIONAL MATCH (c)-[r {linked_by: 'dva-kg-link'}]->(d)
+        OPTIONAL MATCH (c)-[r {linked_by: 'keel-kg-link'}]->(d)
         WITH d, count(r) AS link_count
         WHERE link_count = 0
         RETURN d.id AS doc_id,
@@ -615,35 +615,35 @@ def kg_get_domain_graph_summary(domain: str) -> str:
     try:
         code_q = """
         MATCH (n)
-        WHERE n._source = 'dva_kg' AND n.persona = 'developer'
+        WHERE n._source = 'keel_kg' AND n.persona = 'developer'
           AND (n.domain = $domain OR n.metadata CONTAINS $domain)
         RETURN count(n) AS count
         """
         doc_q = """
         MATCH (n:Document)
-        WHERE n._source = 'dva_kg'
+        WHERE n._source = 'keel_kg'
           AND (n.domain = $domain OR n.metadata CONTAINS $domain)
         RETURN count(n) AS count
         """
         edge_q = """
         MATCH (c)-[r]->(d:Document)
-        WHERE c._source = 'dva_kg' AND r.linked_by = 'dva-kg-link'
+        WHERE c._source = 'keel_kg' AND r.linked_by = 'keel-kg-link'
           AND (c.domain = $domain OR c.metadata CONTAINS $domain)
         RETURN count(r) AS count
         """
         covered_q = """
         MATCH (d:Document)
-        WHERE d._source = 'dva_kg'
+        WHERE d._source = 'keel_kg'
           AND (d.domain = $domain OR d.metadata CONTAINS $domain)
-        OPTIONAL MATCH (c)-[r {linked_by: 'dva-kg-link'}]->(d)
+        OPTIONAL MATCH (c)-[r {linked_by: 'keel-kg-link'}]->(d)
         WITH d, count(r) AS links
         RETURN
           count(d) AS total_docs,
           sum(CASE WHEN links > 0 THEN 1 ELSE 0 END) AS covered_docs
         """
         top_req_q = """
-        MATCH (c)-[r {linked_by: 'dva-kg-link'}]->(d:Document)
-        WHERE c._source = 'dva_kg'
+        MATCH (c)-[r {linked_by: 'keel-kg-link'}]->(d:Document)
+        WHERE c._source = 'keel_kg'
           AND (c.domain = $domain OR c.metadata CONTAINS $domain)
         RETURN d.name AS requirement, count(r) AS link_count
         ORDER BY link_count DESC

@@ -1,13 +1,13 @@
 ---
-name: dva-onboard
+name: keel-onboard
 description: >-
-  Onboard any repository with AI coding skills using the DVA Central MCP.
+  Onboard any repository with AI coding skills using the KEEL Central MCP.
   Auto-detects tech stack, resolves skills from marketplace/local/domain,
   installs them, and registers the repo centrally for tracking.
 mcp_server: agentic
 ---
 
-# DVA Repository Onboarding
+# KEEL Repository Onboarding
 
 You have access to the Agentic Platform MCP server. Use these tools to onboard repositories
 with AI coding skills, track onboarding activity, and manage project context.

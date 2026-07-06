@@ -1,4 +1,4 @@
-"""LightRAG client wrapper for DVA Agentic CLI."""
+"""LightRAG client wrapper for KEEL Agentic CLI."""
 
 import logging
 from typing import Dict, Any, Optional

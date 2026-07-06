@@ -30,7 +30,7 @@
 ```
 Code Onboarding Phase (Initial)
     ↓
-dva code onboard --path ./facility-service --kg --extract-entities
+keel code onboard --path ./facility-service --kg --extract-entities
     ├─ Analyze code structure
     ├─ Query KG for cwow-facility domain knowledge
     ├─ Build kg-context.md
@@ -58,7 +58,7 @@ agent run --path ./facility-service --task "Add FHIR endpoint"
 
 ### Step 1: Code Onboarding Command
 ```bash
-dva code onboard --path ./facility-service --kg --extract-entities
+keel code onboard --path ./facility-service --kg --extract-entities
 ```
 
 ### Step 2: KG Query
@@ -320,7 +320,7 @@ When onboarding facility-service to cwow-facility:
 
 #### Step 1: Code Onboarding
 ```bash
-$ dva code onboard --path ./facility-service --kg --extract-entities
+$ keel code onboard --path ./facility-service --kg --extract-entities
 
 ✓ Analyzed code structure
 ✓ Queried KG for cwow-facility domain
@@ -344,7 +344,7 @@ facility-service/
 │       ├── implementation-planning-skill/
 │       ├── test-driven-development-skill/
 │       └── code-review-skill/
-├── .dva/
+├── .keel/
 │   ├── codebase-understanding.md
 │   ├── methodology.yaml
 │   └── approvals/
@@ -439,7 +439,7 @@ Phase 4: Review
 
 ```
 1. Code Onboarding
-   dva code onboard --path ./facility-service --kg
+   keel code onboard --path ./facility-service --kg
    └─ Query KG for cwow-facility domain only
    └─ Embed in SKILL.md files
 

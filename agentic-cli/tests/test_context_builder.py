@@ -228,7 +228,7 @@ class TestRegisterKGDataSource:
     def test_registers_source(self, project_dir, sample_analysis, tmp_path):
         with patch("agentic_cli.kg.context_builder.Path") as mock_path_cls:
             # Redirect home() to tmp
-            config_dir = tmp_path / ".dva-agentic"
+            config_dir = tmp_path / ".keel-agentic"
             config_file = config_dir / "config.json"
             config_dir.mkdir(parents=True)
 
@@ -238,7 +238,7 @@ class TestRegisterKGDataSource:
         # Direct test: use real filesystem with mocked home
         fake_home = tmp_path / "fakehome"
         fake_home.mkdir()
-        config_dir = fake_home / ".dva-agentic"
+        config_dir = fake_home / ".keel-agentic"
         config_dir.mkdir(parents=True)
         config_file = config_dir / "config.json"
         config_file.write_text(json.dumps({"data": {"globals": {}, "sources": []}}))
@@ -262,7 +262,7 @@ class TestRegisterKGDataSource:
 
     def test_idempotent_overwrites(self, project_dir, sample_analysis, tmp_path):
         fake_home = tmp_path / "fakehome"
-        config_dir = fake_home / ".dva-agentic"
+        config_dir = fake_home / ".keel-agentic"
         config_dir.mkdir(parents=True)
         (config_dir / "config.json").write_text(
             json.dumps({"data": {"globals": {}, "sources": []}})
@@ -280,7 +280,7 @@ class TestRegisterKGDataSource:
 
     def test_creates_config_from_scratch(self, project_dir, sample_analysis, tmp_path):
         fake_home = tmp_path / "fakehome"
-        (fake_home / ".dva-agentic").mkdir(parents=True)
+        (fake_home / ".keel-agentic").mkdir(parents=True)
 
         with patch(
             "agentic_cli.kg.context_builder.Path.home", return_value=fake_home
@@ -288,7 +288,7 @@ class TestRegisterKGDataSource:
             source = register_kg_data_source(project_dir, sample_analysis)
 
         assert source["name"] == "onboard-my-test-project"
-        config_file = fake_home / ".dva-agentic" / "config.json"
+        config_file = fake_home / ".keel-agentic" / "config.json"
         assert config_file.exists()
 
 
@@ -330,7 +330,7 @@ class TestIngestContextToLightRAG:
 class TestRunKGContextPipeline:
     def test_full_pipeline_without_ingest(self, project_dir, sample_analysis, tmp_path):
         fake_home = tmp_path / "fakehome"
-        (fake_home / ".dva-agentic").mkdir(parents=True)
+        (fake_home / ".keel-agentic").mkdir(parents=True)
 
         with patch(
             "agentic_cli.kg.context_builder.Path.home", return_value=fake_home
@@ -349,7 +349,7 @@ class TestRunKGContextPipeline:
 
     def test_pipeline_with_ingest(self, project_dir, sample_analysis, tmp_path):
         fake_home = tmp_path / "fakehome"
-        (fake_home / ".dva-agentic").mkdir(parents=True)
+        (fake_home / ".keel-agentic").mkdir(parents=True)
 
         mock_client = MagicMock()
         mock_client.insert.return_value = {"characters": 100}
@@ -370,7 +370,7 @@ class TestRunKGContextPipeline:
 
     def test_pipeline_records_lightrag_errors(self, project_dir, sample_analysis, tmp_path):
         fake_home = tmp_path / "fakehome"
-        (fake_home / ".dva-agentic").mkdir(parents=True)
+        (fake_home / ".keel-agentic").mkdir(parents=True)
 
         with patch(
             "agentic_cli.kg.context_builder.Path.home", return_value=fake_home
@@ -392,7 +392,7 @@ class TestRunKGContextPipeline:
     def test_pipeline_idempotent(self, project_dir, sample_analysis, tmp_path):
         """Running the pipeline twice should not duplicate data sources."""
         fake_home = tmp_path / "fakehome"
-        (fake_home / ".dva-agentic").mkdir(parents=True)
+        (fake_home / ".keel-agentic").mkdir(parents=True)
 
         with patch(
             "agentic_cli.kg.context_builder.Path.home", return_value=fake_home
@@ -409,6 +409,6 @@ class TestRunKGContextPipeline:
         assert result["skill_patched"] is False
         # Config should have exactly 1 source
         config = json.loads(
-            (fake_home / ".dva-agentic" / "config.json").read_text()
+            (fake_home / ".keel-agentic" / "config.json").read_text()
         )
         assert len(config["data"]["sources"]) == 1

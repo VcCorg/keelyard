@@ -1,6 +1,6 @@
 """Resolve every enrichment input from registered CLI domain data.
 
-Per the integration contract, `dva kg okf enrich --domain <slug>` must NOT take
+Per the integration contract, `keel kg okf enrich --domain <slug>` must NOT take
 manual paths. Everything is derived from what was registered when the domain and
 its repos/docs were created:
 
@@ -98,7 +98,7 @@ def resolve_domain_enrichment_context(
     if not d:
         raise ValueError(
             f"Domain '{slug}' is not registered. "
-            f"Create it first with: dva domain create <PRODUCT> <DOMAIN>"
+            f"Create it first with: keel domain create <PRODUCT> <DOMAIN>"
         )
 
     ctx = DomainEnrichmentContext(

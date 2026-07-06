@@ -7,7 +7,7 @@ description: Set up multi-repo domain context using git submodules and KG MCP
 This workflow sets up shared domain context across multiple repositories
 using a central domain-context repository referenced via git submodules.
 
-**Related skills**: `dva-manage-domains`, `dva-kg-context`
+**Related skills**: `keel-manage-domains`, `keel-kg-context`
 
 ## Prerequisites
 
@@ -16,23 +16,23 @@ using a central domain-context repository referenced via git submodules.
 - Use MCP tools: `domain_create`, `domain_link_repo`, `kg_ingest`
 
 **If using CLI fallback**:
-- DVA CLI (`dva`) installed and on PATH
-- Domain registered: `dva domain create <DOMAIN> --product <PRODUCT>`
-- Repos linked: `dva domain link-repo <slug> <repo-slug>`
-- (Optional) Knowledge Graph populated via `dva kg ingest`
+- KEEL CLI (`keel`) installed and on PATH
+- Domain registered: `keel domain create <DOMAIN> --product <PRODUCT>`
+- Repos linked: `keel domain link-repo <slug> <repo-slug>`
+- (Optional) Knowledge Graph populated via `keel kg ingest`
 
 ## Step 1: Ingest Confluence docs into the Knowledge Graph
 
 ```bash
 # Ingest tracked domain docs + specific release pages into LightRAG
-dva kg ingest submit --domain <domain-slug>
+keel kg ingest submit --domain <domain-slug>
 
 # Or with explicit Confluence page URLs (crawls child pages):
-dva kg ingest submit --domain <domain-slug> \
+keel kg ingest submit --domain <domain-slug> \
   --path https://confluence.example.com/spaces/CWOV/pages/847844475/Release+29
 
 # Control child-page crawl depth:
-dva kg ingest submit --domain <domain-slug> --path <page-url> --depth 4
+keel kg ingest submit --domain <domain-slug> --path <page-url> --depth 4
 ```
 
 This will:
@@ -45,7 +45,7 @@ This will:
 ## Step 2: Create the central domain context repository
 
 ```bash
-dva domain init-context <domain-slug> \
+keel domain init-context <domain-slug> \
   --git-remote <git-url-for-domain-context-repo>
 ```
 
@@ -66,7 +66,7 @@ git push -u origin main
 For each repository in the domain:
 
 ```bash
-dva code onboard \
+keel code onboard \
   --path ./<repo-path> \
   --domain <domain-slug> \
   --domain-context-repo <git-url-for-domain-context-repo> \
@@ -142,5 +142,5 @@ git commit -m "Update domain context"
 Or regenerate from KG:
 
 ```bash
-dva domain init-context <domain-slug> --output <existing-repo-path>
+keel domain init-context <domain-slug> --output <existing-repo-path>
 ```

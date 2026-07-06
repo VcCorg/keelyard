@@ -17,8 +17,8 @@ dashboard/.frontend.pid. If a port is already in use, the launcher WARNS (showin
 the owning process) and asks before killing it — unless --force-restart is given
 (or the shell is non-interactive, in which case it skips).
 
-Integration tokens are read by the backend itself from ~/.dva/.env
-(%USERPROFILE%\\.dva\\.env on Windows), so no shell exports are needed.
+Integration tokens are read by the backend itself from ~/.keel/.env
+(%USERPROFILE%\\.keel\\.env on Windows), so no shell exports are needed.
 """
 from __future__ import annotations
 

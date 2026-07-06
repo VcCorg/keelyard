@@ -7,14 +7,14 @@ Reference: Open Knowledge Format (OKF) — https://github.com/GoogleCloudPlatfor
 
 1. **Bundle as source of truth.** The OKF Markdown bundle is the canonical KG.
    Neo4j / LightRAG become *optional derived projections* produced on demand by
-   `dva kg okf compile`. Infra is removed from the default path.
+   `keel kg okf compile`. Infra is removed from the default path.
 2. **Per-domain in meta-repo.** Each bundle lives at
    `domain-<slug>-meta/knowledge/` with its own `okf.schema.yaml`, PR-reviewed
    per domain alongside existing domain context.
 
 ## Motivation
 
-Current KG generation (`dva kg ingest submit`) parses sources, LLM-extracts
+Current KG generation (`keel kg ingest submit`) parses sources, LLM-extracts
 free-form entities/relationships, and writes them to Neo4j + LightRAG via
 sync/async workers. Problems:
 
@@ -35,7 +35,7 @@ relationships are typed cross-links validated against a committed schema.
 | Relationship type (IMPLEMENTS, TESTED_BY)  | Allowed link-semantic role in schema            |
 | `linker.VALID_RELATIONSHIP_TYPES`          | `okf.schema.yaml: relationships:` allowlist     |
 | Confidence >= 0.7 prompt gate              | Validation rule + required citation             |
-| DB unique constraint / sanitize_label      | `dva kg okf validate` conformance check (CI)    |
+| DB unique constraint / sanitize_label      | `keel kg okf validate` conformance check (CI)    |
 
 Strictness improves: a constrained prompt hint becomes a committed schema
 validated on every change.
@@ -51,8 +51,8 @@ domain-<slug>-meta/knowledge/        # OKF bundle (committed, PR-reviewed)
     eligibility-check.md
   log/                               # generation provenance (optional)
         |
-        |-- dva kg okf validate ---> conformance gate (CI)
-        '-- dva kg okf compile  ---> OPTIONAL Neo4j / LightRAG projection
+        |-- keel kg okf validate ---> conformance gate (CI)
+        '-- keel kg okf compile  ---> OPTIONAL Neo4j / LightRAG projection
 ```
 
 - Default path is infra-free: generate + validate + query Markdown locally / via MCP.
@@ -71,7 +71,7 @@ it is hydrated live from the system of record via MCP at query/trace time.
 Rule of thumb: if a field can change without changing the requirement's meaning,
 it is transient — store the anchor, resolve the value on demand. Enforced by
 `okf.schema.yaml: transient_fields` + rule `forbid_transient_fields: true`, and
-hydrated by `dva kg okf trace --hydrate` (Jira MCP `mcp0_jira_get_issue`).
+hydrated by `keel kg okf trace --hydrate` (Jira MCP `mcp0_jira_get_issue`).
 
 ## Schema contract (`okf.schema.yaml`)
 
@@ -87,17 +87,17 @@ Seed the initial relationship allowlist from
 `agentic_cli/kg/linker.py: VALID_RELATIONSHIP_TYPES`
 (`IMPLEMENTS, REFERENCES, TESTED_BY, CONFIGURES`).
 
-## Command changes (`dva kg`)
+## Command changes (`keel kg`)
 
 New `okf` subcommand group:
-- `dva kg okf init <domain>` — scaffold `knowledge/` + seed `okf.schema.yaml`.
-- `dva kg okf generate --domain <slug> [--source ...]` — reuse `parsers.py`;
+- `keel kg okf init <domain>` — scaffold `knowledge/` + seed `okf.schema.yaml`.
+- `keel kg okf generate --domain <slug> [--source ...]` — reuse `parsers.py`;
   LLM emits schema-constrained OKF concept `.md` files instead of Neo4j writes.
-- `dva kg okf validate --domain <slug>` — conformance check (frontmatter, link
+- `keel kg okf validate --domain <slug>` — conformance check (frontmatter, link
   targets resolve, only allowed triples, citations). CI-friendly exit codes.
-- `dva kg okf compile --domain <slug> --provider neo4j|lightrag` — derive the
+- `keel kg okf compile --domain <slug> --provider neo4j|lightrag` — derive the
   graph/vectors from the bundle (replaces always-on ingest).
-- `dva kg okf query --domain <slug>` — answer over the local bundle
+- `keel kg okf query --domain <slug>` — answer over the local bundle
   (grep + frontmatter graph walk), no server required.
 
 Refactored internals (`agentic_cli/kg/okf/`):
@@ -107,7 +107,7 @@ Refactored internals (`agentic_cli/kg/okf/`):
 - Fold `linker.py` constrained-prompt logic into the OKF generator as the single
   relationship authority.
 
-Back-compat: existing `dva kg ingest submit` remains, but can internally route
+Back-compat: existing `keel kg ingest submit` remains, but can internally route
 through `okf generate -> okf compile` so existing graph consumers keep working.
 
 ## Phased delivery

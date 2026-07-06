@@ -233,8 +233,8 @@ export function KGContext() {
               <Database className="h-10 w-10 text-gray-300 mx-auto mb-3" />
               <p className="font-medium text-gray-500">No KG data found</p>
               <p className="text-sm text-gray-400 mt-1">
-                Run <code className="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">dva kg ingest</code> and{" "}
-                <code className="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">dva kg link</code> to populate the knowledge graph.
+                Run <code className="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">keel kg ingest</code> and{" "}
+                <code className="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">keel kg link</code> to populate the knowledge graph.
               </p>
             </div>
           ) : (

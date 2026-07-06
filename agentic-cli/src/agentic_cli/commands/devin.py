@@ -3,9 +3,9 @@
 Reuses the self-contained ``agentic_cli.devin`` package so the whole Devin
 integration is one reusable unit, decoupled from the KG/OKF commands.
 
-    dva devin init                         configure defaults (key via $DEVIN_API_KEY)
-    dva devin kg list|delete|move          manage Devin Knowledge entries
-    dva devin sessions create|list|status|message
+    keel devin init                         configure defaults (key via $DEVIN_API_KEY)
+    keel devin kg list|delete|move          manage Devin Knowledge entries
+    keel devin sessions create|list|status|message
 """
 from __future__ import annotations
 
@@ -49,7 +49,7 @@ def configure_devin(
 ) -> None:
     """Persist Devin defaults to the shared CLI config and print a summary.
 
-    Single source of truth shared by ``dva devin init`` and ``dva init devin``.
+    Single source of truth shared by ``keel devin init`` and ``keel init devin``.
     The API key is NEVER stored — it is read from ``$DEVIN_API_KEY`` at call time.
     """
     from agentic_cli.devin.config import DevinConfig, has_api_key, DEVIN_API_KEY_ENV
@@ -210,7 +210,7 @@ def sessions_create(
     kids: list[str] = list(knowledge_id or [])
     if knowledge_from_sync:
         kids += _knowledge_ids_from_sync(bundle)
-    tags = ["dva"] + ([domain] if domain else []) + ([jira] if jira else []) + list(tag or [])
+    tags = ["keel"] + ([domain] if domain else []) + ([jira] if jira else []) + list(tag or [])
 
     spec = SessionSpec(
         prompt=prompt,
@@ -390,7 +390,7 @@ def snapshots_list(
         console.print_json(json.dumps([s.__dict__ for s in statuses]))
         return
     if not statuses:
-        console.print("[dim]No domains configured. Build one: dva domain build-snapshot <slug>[/dim]")
+        console.print("[dim]No domains configured. Build one: keel domain build-snapshot <slug>[/dim]")
         return
 
     table = Table(title="Devin snapshots (per domain)")
@@ -422,7 +422,7 @@ def snapshots_list(
     stale = [s.domain for s in statuses if s.state in ("drift", "meta-missing")]
     if stale:
         console.print(f"  [yellow]⚠ needs attention:[/yellow] {', '.join(stale)} "
-                      f"([dim]dva devin snapshots verify <domain>[/dim])")
+                      f"([dim]keel devin snapshots verify <domain>[/dim])")
 
 
 @snapshots_app.command("verify")

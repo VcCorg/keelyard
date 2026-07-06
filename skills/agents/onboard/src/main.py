@@ -1,13 +1,13 @@
-"""DVA Onboard Agent — standalone entry point.
+"""KEEL Onboard Agent — standalone entry point.
 
 This agent can be run independently via:
     python src/main.py --project-path /path/to/repo
-    dva agent run --path ./onboard-agent
+    keel agent run --path ./onboard-agent
 
 Or invoked by the CLI via:
-    dva code onboard --path /path/to/repo --agent
+    keel code onboard --path /path/to/repo --agent
 
-It imports the reusable pipeline from dva_agentic_cli.agents.onboard
+It imports the reusable pipeline from agentic_cli.agents.onboard
 and adds configurable prompts, model selection, and result handling.
 """
 
@@ -20,9 +20,9 @@ from config import AgentConfig
 
 
 def main():
-    parser = argparse.ArgumentParser(description="DVA Onboard Agent")
+    parser = argparse.ArgumentParser(description="KEEL Onboard Agent")
     parser.add_argument("--project-path", required=True, help="Path to the project to analyze")
-    parser.add_argument("--registry-path", help="Path to skills registry (default: ~/.dva/skills-registry)")
+    parser.add_argument("--registry-path", help="Path to skills registry (default: ~/.keel/skills-registry)")
     parser.add_argument("--enrich", action="store_true", help="Enrich installed skills with project context")
     parser.add_argument("--model", help="Override model name (default: from config)")
     parser.add_argument("--output", help="Output file for results JSON (default: stdout)")
@@ -41,12 +41,12 @@ def main():
     config = AgentConfig.load()
 
     # Load prompts from local prompts/ dir (overrides defaults)
-    from dva_agentic_cli.agents.onboard.prompts import load_prompts_from_dir
+    from agentic_cli.agents.onboard.prompts import load_prompts_from_dir
     agent_dir = Path(__file__).parent.parent
     prompts = load_prompts_from_dir(agent_dir / "prompts")
 
     # Initialize model (configurable)
-    from dva_agentic_cli.agents.onboard.models import init_model
+    from agentic_cli.agents.onboard.models import init_model
     model = init_model(
         model_name=args.model or config.model_name,
         project_id=config.gcp_project_id,
@@ -54,14 +54,14 @@ def main():
     )
 
     # Analyze project
-    from dva_agentic_cli.analyzer.detector import analyze_project
-    from dva_agentic_cli.analyzer.matcher import load_registry, match_skills, detect_mcp_servers
+    from agentic_cli.analyzer.detector import analyze_project
+    from agentic_cli.analyzer.matcher import load_registry, match_skills, detect_mcp_servers
 
     print(f"Analyzing project: {project_path}")
     analysis = analyze_project(project_path)
 
     # Load registry
-    registry_path = Path(args.registry_path) if args.registry_path else Path.home() / ".dva" / "skills-registry"
+    registry_path = Path(args.registry_path) if args.registry_path else Path.home() / ".keel" / "skills-registry"
     if not (registry_path / "registry.json").exists():
         print(f"Warning: Registry not found at {registry_path}", file=sys.stderr)
         registry_data = {"skills": []}
@@ -74,7 +74,7 @@ def main():
     installed_skills = [m.name for m in matches]
 
     # Run the pipeline
-    from dva_agentic_cli.agents.onboard.pipeline import run_onboard_pipeline
+    from agentic_cli.agents.onboard.pipeline import run_onboard_pipeline
 
     print(f"Running onboard agent (model: {args.model or config.model_name})...")
     result = run_onboard_pipeline(

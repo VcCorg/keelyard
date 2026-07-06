@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "description": "DVA Skills Registry \u2014 Curated skills for AI code assistants",
+  "description": "KEEL Skills Registry \u2014 Curated skills for AI code assistants",
   "skills": [
     {
       "name": "java-spring-boot",
@@ -1008,10 +1008,10 @@
       }
     },
     {
-      "name": "dva-onboard",
-      "description": "Onboard repositories with AI coding skills via DVA Central MCP — detect, resolve, install, register",
+      "name": "keel-onboard",
+      "description": "Onboard repositories with AI coding skills via KEEL Central MCP — detect, resolve, install, register",
       "tags": [
-        "dva",
+        "keel",
         "onboarding",
         "mcp",
         "meta-skill"
@@ -1027,10 +1027,10 @@
       }
     },
     {
-      "name": "dva-manage-domains",
-      "description": "Manage products, domains, repos, and Confluence docs via DVA Central MCP",
+      "name": "keel-manage-domains",
+      "description": "Manage products, domains, repos, and Confluence docs via KEEL Central MCP",
       "tags": [
-        "dva",
+        "keel",
         "domain",
         "product",
         "mcp",
@@ -1047,10 +1047,10 @@
       }
     },
     {
-      "name": "dva-kg-context",
-      "description": "Search and query the Knowledge Graph for business context, domain rules, and requirements via DVA Central MCP",
+      "name": "keel-kg-context",
+      "description": "Search and query the Knowledge Graph for business context, domain rules, and requirements via KEEL Central MCP",
       "tags": [
-        "dva",
+        "keel",
         "knowledge-graph",
         "context",
         "mcp",
@@ -1066,10 +1066,10 @@
       }
     },
     {
-      "name": "dva-skill-management",
-      "description": "Manage AI coding skills across local registry, marketplace, and domain sources via DVA Central MCP",
+      "name": "keel-skill-management",
+      "description": "Manage AI coding skills across local registry, marketplace, and domain sources via KEEL Central MCP",
       "tags": [
-        "dva",
+        "keel",
         "skills",
         "marketplace",
         "mcp",

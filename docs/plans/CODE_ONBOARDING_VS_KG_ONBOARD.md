@@ -8,9 +8,9 @@
 
 ## The Two Commands
 
-### Command 1: `dva kg onboard`
+### Command 1: `keel kg onboard`
 ```bash
-dva kg onboard --domain cwow-facility --confluence-space CWOV --release-aware
+keel kg onboard --domain cwow-facility --confluence-space CWOV --release-aware
 ```
 
 **Purpose**: Onboard domain knowledge into the Knowledge Graph
@@ -35,9 +35,9 @@ dva kg onboard --domain cwow-facility --confluence-space CWOV --release-aware
 
 ---
 
-### Command 2: `dva code onboard --kg`
+### Command 2: `keel code onboard --kg`
 ```bash
-dva code onboard --path ./facility-service --kg
+keel code onboard --path ./facility-service --kg
 ```
 
 **Purpose**: Onboard a codebase and map it to business context
@@ -85,7 +85,7 @@ Your goal is: **Map code context to business requirements context**
 
 ### Which command helps?
 
-**`dva code onboard --kg`** is the right command for your goal!
+**`keel code onboard --kg`** is the right command for your goal!
 
 Here's why:
 
@@ -149,7 +149,7 @@ Structured Entities in KG
 
 ### Mode 1: Light Mode (Default)
 ```bash
-dva code onboard --path ./facility-service --kg
+keel code onboard --path ./facility-service --kg
 ```
 
 **What it does**:
@@ -172,7 +172,7 @@ dva code onboard --path ./facility-service --kg
 
 ### Mode 2: Full Mode (With Entity Extraction)
 ```bash
-dva code onboard --path ./facility-service --kg --extract-entities
+keel code onboard --path ./facility-service --kg --extract-entities
 ```
 
 **What it does**:
@@ -222,7 +222,7 @@ dva code onboard --path ./facility-service --kg --extract-entities
 
 ### Step 1: Onboard Domain Knowledge (One-time)
 ```bash
-dva kg onboard --domain cwow-facility --confluence-space CWOV --release-aware
+keel kg onboard --domain cwow-facility --confluence-space CWOV --release-aware
 ```
 
 **Result**: Domain knowledge in KG (SLAs, integration specs, security policies, performance requirements)
@@ -231,7 +231,7 @@ dva kg onboard --domain cwow-facility --confluence-space CWOV --release-aware
 
 ### Step 2: Onboard Code with Business Context (For each codebase)
 ```bash
-dva code onboard --path ./facility-service --kg
+keel code onboard --path ./facility-service --kg
 ```
 
 **Result**: 
@@ -243,7 +243,7 @@ dva code onboard --path ./facility-service --kg
 
 ### Step 3: (Optional) Generate Skills with Full Context
 ```bash
-dva code onboard --path ./facility-service --kg --graphify
+keel code onboard --path ./facility-service --kg --graphify
 ```
 
 **Result**: 
@@ -259,7 +259,7 @@ dva code onboard --path ./facility-service --kg --graphify
 
 ### Step 1: Onboard Domain Knowledge
 ```bash
-$ dva kg onboard --domain cwow-facility --confluence-space CWOV --release-aware
+$ keel kg onboard --domain cwow-facility --confluence-space CWOV --release-aware
 
 ✓ Knowledge onboarding complete
   Releases scanned: 5
@@ -277,7 +277,7 @@ $ dva kg onboard --domain cwow-facility --confluence-space CWOV --release-aware
 
 ### Step 2: Onboard Code with Business Context
 ```bash
-$ dva code onboard --path ./facility-service --kg
+$ keel code onboard --path ./facility-service --kg
 
 ✓ Project Onboarded
   Project: facility-service
@@ -317,7 +317,7 @@ $ dva code onboard --path ./facility-service --kg
 
 ## What Each Command Does for Your Goal
 
-### `dva kg onboard`
+### `keel kg onboard`
 ```
 Confluence Documents
     ↓
@@ -330,7 +330,7 @@ Result: Business requirements available in KG
 
 **Helps your goal**: ✅ YES (provides business requirements)
 
-### `dva code onboard --kg`
+### `keel code onboard --kg`
 ```
 Code Repository
     ↓
@@ -345,7 +345,7 @@ Result: Code context MAPPED to business requirements
 
 **Helps your goal**: ✅ YES (maps code to business requirements)
 
-### `dva code onboard --kg --extract-entities`
+### `keel code onboard --kg --extract-entities`
 ```
 Code Repository
     ↓
@@ -372,13 +372,13 @@ For your goal of **mapping code context to business requirements context**:
 
 ```bash
 # Step 1: One-time setup - Onboard domain knowledge
-dva kg onboard --domain cwow-facility --confluence-space CWOV --release-aware
+keel kg onboard --domain cwow-facility --confluence-space CWOV --release-aware
 
 # Step 2: For each codebase - Map code to business requirements
-dva code onboard --path ./facility-service --kg
+keel code onboard --path ./facility-service --kg
 
 # Step 3: (Optional) Add Graphify for better code structure
-dva code onboard --path ./facility-service --kg --graphify
+keel code onboard --path ./facility-service --kg --graphify
 ```
 
 ### Why this approach:
@@ -407,4 +407,4 @@ dva code onboard --path ./facility-service --kg --graphify
 | **Should you use `--extract-entities`?** | NO - it's overkill |
 | **What's the recommended workflow?** | `kg onboard` (once) + `code onboard --kg` (per codebase) |
 
-**Your goal is achieved with `dva code onboard --kg`** - no entity extraction needed!
+**Your goal is achieved with `keel code onboard --kg`** - no entity extraction needed!

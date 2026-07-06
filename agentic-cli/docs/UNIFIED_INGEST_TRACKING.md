@@ -34,10 +34,10 @@ All ingestion operations are now tracked in a single system:
 
 | Command | Description |
 |---------|-------------|
-| `dva kg ingest --async` | Run ingestion asynchronously |
-| `dva kg ingest-list` | List all ingestion operations |
-| `dva kg ingest-status <id>` | Check operation status |
-| `dva kg ingest-cancel <id>` | Cancel async operation |
+| `keel kg ingest --async` | Run ingestion asynchronously |
+| `keel kg ingest-list` | List all ingestion operations |
+| `keel kg ingest-status <id>` | Check operation status |
+| `keel kg ingest-cancel <id>` | Cancel async operation |
 
 ---
 
@@ -160,11 +160,11 @@ class IngestionJob(BaseModel):
 
 ## Command Reference
 
-### `dva kg ingest`
+### `keel kg ingest`
 
 **Options**:
 - `--path TEXT`: Direct path to data source
-- `--source TEXT`: Data source name (from `dva data create`)
+- `--source TEXT`: Data source name (from `keel data create`)
 - `--format TEXT`: Source format (auto-detected if not specified)
 - `--workspace TEXT`: Target workspace (LightRAG only)
 - `--async`: Run asynchronously in background
@@ -188,7 +188,7 @@ class IngestionJob(BaseModel):
 `agent kg ingest --source my-dataset --async
 ```
 
-### `dva kg ingest-list`
+### `keel kg ingest-list`
 
 **Options**:
 - `--status TEXT`: Filter by status (pending, running, completed, failed, cancelled)
@@ -226,7 +226,7 @@ Ingestion Operations (10)
 └──────────┴──────┴───────────┴──────────┴────────────────────┴──────────────────┴──────────┘
 ```
 
-### `dva kg ingest-status`
+### `keel kg ingest-status`
 
 **Arguments**:
 - `job_id`: Job ID to check (supports partial ID matching)
@@ -260,7 +260,7 @@ Ingestion Operations (10)
 ╰──────────────────────────────────────────────────────────────────────────╯
 ```
 
-### `dva kg ingest-cancel`
+### `keel kg ingest-cancel`
 
 **Arguments**:
 - `job_id`: Job ID to cancel (async operations only)
@@ -348,7 +348,7 @@ See which workspace was used:
 
 Operations are stored in:
 ```
-~/.dva-agentic/jobs/
+~/.keel-agentic/jobs/
 ├── abc123-def456-....json
 ├── xyz789-abc123-....json
 └── ...

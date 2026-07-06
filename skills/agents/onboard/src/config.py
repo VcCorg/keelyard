@@ -1,7 +1,7 @@
 """Agent configuration — loaded from agent.json or environment variables.
 
 This allows each agent instance to have its own model and GCP config
-independent of the global DVA CLI config.
+independent of the global KEEL CLI config.
 """
 
 import json

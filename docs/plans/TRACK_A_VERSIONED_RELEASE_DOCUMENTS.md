@@ -49,7 +49,7 @@ When building context for **Facility domain**, we need to:
 ### New CLI Command
 ```bash
 # Collect all facility documents from all releases
-dva domain create Facility --product CWOW \
+keel domain create Facility --product CWOW \
   --jira CWOW --bb CGF --confluence CWOV \
   --ingest-business-context \
   --release-aware \
@@ -321,7 +321,7 @@ class Attachment:
 
 ### Collect Latest Documents Only
 ```bash
-dva domain create Facility --product CWOW \
+keel domain create Facility --product CWOW \
   --jira CWOW --bb CGF --confluence CWOV \
   --ingest-business-context \
   --release-aware \
@@ -340,7 +340,7 @@ dva domain create Facility --product CWOW \
 
 ### Collect All Versions for Comparison
 ```bash
-dva domain create Facility --product CWOW \
+keel domain create Facility --product CWOW \
   --jira CWOW --bb CGF --confluence CWOV \
   --ingest-business-context \
   --release-aware \
@@ -360,7 +360,7 @@ dva domain create Facility --product CWOW \
 
 ### Collect Latest + Previous for Change Analysis
 ```bash
-dva domain create Facility --product CWOW \
+keel domain create Facility --product CWOW \
   --jira CWOW --bb CGF --confluence CWOV \
   --ingest-business-context \
   --release-aware \
@@ -496,7 +496,7 @@ CREATE TABLE domain_document_attachments_versioned (
 
 ### Input
 ```bash
-dva domain create Facility --product CWOW \
+keel domain create Facility --product CWOW \
   --jira CWOW --bb CGF --confluence CWOV \
   --ingest-business-context \
   --release-aware \

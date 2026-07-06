@@ -1,6 +1,6 @@
 """Onboard Agent — backward-compatible shim.
 
-The actual implementation lives in dva_agentic_cli.agents.onboard package.
+The actual implementation lives in agentic_cli.agents.onboard package.
 This file re-exports everything so existing imports continue to work:
 
     from agentic_cli.agents.onboard_agent import run_onboard_agent

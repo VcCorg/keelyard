@@ -30,11 +30,11 @@ changes** — same headers, same seam.
 
 | Provider | Activated by | Identity source |
 |----------|--------------|-----------------|
-| `dev` | default | `DVA_DEV_USER` / `DVA_DEV_ROLES` env (defaults to `dev@local` as **admin** — no lockout in local/CI) |
-| `forward-auth` | `DVA_AUTH_MODE=forward-auth` | the SSO proxy's verified headers |
+| `dev` | default | `KEEL_DEV_USER` / `KEEL_DEV_ROLES` env (defaults to `dev@local` as **admin** — no lockout in local/CI) |
+| `forward-auth` | `KEEL_AUTH_MODE=forward-auth` | the SSO proxy's verified headers |
 
-`resolve_provider()` picks by `DVA_AUTH_MODE`; the dashboard resolves the principal per request
-from headers, the CLI from env (`dva auth whoami`).
+`resolve_provider()` picks by `KEEL_AUTH_MODE`; the dashboard resolves the principal per request
+from headers, the CLI from env (`keel auth whoami`).
 
 ---
 
@@ -60,11 +60,11 @@ Configure the proxy to pass identity headers and a shared secret, then set the a
 
 ```bash
 # App (dashboard backend) environment
-DVA_AUTH_MODE=forward-auth
-DVA_FORWARD_AUTH_SECRET=<random-secret-also-set-on-the-proxy>   # anti-spoofing
-DVA_ROLE_MAP=eng-admins:admin,platform-maintainers:maintainer,engineers:developer
-DVA_DEFAULT_ROLE=developer          # authenticated users with no mapped group
-DVA_ADMIN_EMAILS=cto@corp.com       # optional explicit admins
+KEEL_AUTH_MODE=forward-auth
+KEEL_FORWARD_AUTH_SECRET=<random-secret-also-set-on-the-proxy>   # anti-spoofing
+KEEL_ROLE_MAP=eng-admins:admin,platform-maintainers:maintainer,engineers:developer
+KEEL_DEFAULT_ROLE=developer          # authenticated users with no mapped group
+KEEL_ADMIN_EMAILS=cto@corp.com       # optional explicit admins
 ```
 
 Headers consumed (oauth2-proxy defaults; common fallbacks also accepted):
@@ -73,8 +73,8 @@ Headers consumed (oauth2-proxy defaults; common fallbacks also accepted):
 |--------|---------|
 | `X-Auth-Request-Email` | subject (identity) |
 | `X-Auth-Request-Preferred-Username` / `X-Auth-Request-User` | display name |
-| `X-Auth-Request-Groups` | groups → mapped to roles via `DVA_ROLE_MAP` |
-| `X-Auth-Proxy-Secret` | must equal `DVA_FORWARD_AUTH_SECRET`, else the request is anonymous |
+| `X-Auth-Request-Groups` | groups → mapped to roles via `KEEL_ROLE_MAP` |
+| `X-Auth-Proxy-Secret` | must equal `KEEL_FORWARD_AUTH_SECRET`, else the request is anonymous |
 
 > **Security invariant:** the app must be reachable **only** through the proxy. The shared-secret
 > gate enforces this — a client that reaches the app directly cannot present the secret and is
@@ -96,22 +96,22 @@ Glean can authenticate two ways under SSO — both live today:
 
 | Mode | Config | Token used |
 |------|--------|------------|
-| **Service token** (client-credentials) | `dva init glean --sso --issuer <> --client-id <> --client-secret <>` | Minted from the IdP (OIDC discovery → `token_endpoint`), cached in-process |
-| **On-behalf-of** (per-user) | `dva init glean --sso --issuer <> --client-id <>` (no secret) | The **signed-in user's** access token, forwarded by the SSO proxy |
+| **Service token** (client-credentials) | `keel init glean --sso --issuer <> --client-id <> --client-secret <>` | Minted from the IdP (OIDC discovery → `token_endpoint`), cached in-process |
+| **On-behalf-of** (per-user) | `keel init glean --sso --issuer <> --client-id <>` (no secret) | The **signed-in user's** access token, forwarded by the SSO proxy |
 
 For on-behalf-of, configure the SSO proxy to pass the user's access token
 (oauth2-proxy: `--pass-access-token`, header `X-Auth-Request-Access-Token`).
 The dashboard forwards it to Glean, which applies that user's document
 permissions — mirroring the per-user IDE plugin. Glean requests carry
 `X-Glean-Auth-Type: OAUTH` so the token is treated as an OAuth token. Verify
-with `dva glean status` / `dva doctor`.
+with `keel glean status` / `keel doctor`.
 
 ## Inspecting from the CLI
 
 ```bash
-dva auth whoami                 # resolved identity, provider, roles, permissions
-dva auth roles                  # role → permission matrix
-dva auth check knowledge:project  # exit 0 if permitted, 1 otherwise
+keel auth whoami                 # resolved identity, provider, roles, permissions
+keel auth roles                  # role → permission matrix
+keel auth check knowledge:project  # exit 0 if permitted, 1 otherwise
 ```
 
 ---
@@ -121,11 +121,11 @@ dva auth check knowledge:project  # exit 0 if permitted, 1 otherwise
 This is built for the **evaluation phase**. The access decision (403) is fully enforced today;
 the items below are deferred to a production hardening pass:
 
-- **Actor attribution on the streamed OKF push.** `dva kg okf push-devin` runs as a streamed CLI
+- **Actor attribution on the streamed OKF push.** `keel kg okf push-devin` runs as a streamed CLI
   subprocess, so its audit rows are attributed to the CLI principal rather than the dashboard user.
   The **route is RBAC-enforced** (`knowledge:project`), but per-row actor attribution for that
   streamed path needs the actor threaded into the subprocess environment. *(Future / PROD.)*
-- **Group/role source of truth.** Role mapping is env-driven (`DVA_ROLE_MAP`); PROD may prefer a
+- **Group/role source of truth.** Role mapping is env-driven (`KEEL_ROLE_MAP`); PROD may prefer a
   managed mapping (directory groups / SCIM) with periodic refresh.
 - **Session/secret handling.** Session-scoped vendor secrets and token lifetimes are delegated to
   the SSO proxy today; PROD should define rotation + per-session secret binding.

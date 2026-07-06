@@ -1,11 +1,11 @@
 # Windsurf IDE MCP Configuration
 
-This guide shows how to configure Windsurf IDE to connect to the DVA Knowledge Graph MCP server.
+This guide shows how to configure Windsurf IDE to connect to the KEEL Knowledge Graph MCP server.
 
 ## Prerequisites
 
 - Windsurf IDE installed
-- DVA KG MCP server running (`make start` in kg-mcp-infrastructure/)
+- KEEL KG MCP server running (`make start` in kg-mcp-infrastructure/)
 - Server accessible at `http://localhost:8125`
 
 ## Configuration Steps
@@ -17,14 +17,14 @@ The Windsurf MCP configuration file is located at:
 ~/.codeium/windsurf/mcp_config.json
 ```
 
-### 2. Add DVA KG MCP Server
+### 2. Add KEEL KG MCP Server
 
 Open `~/.codeium/windsurf/mcp_config.json` and add the following configuration to the `mcpServers` object:
 
 ```json
 {
   "mcpServers": {
-    "dva-kg": {
+    "keel-kg": {
       "command": "curl",
       "args": [
         "-X", "POST",
@@ -49,7 +49,7 @@ For Server-Sent Events (streaming), use this configuration:
 ```json
 {
   "mcpServers": {
-    "dva-kg": {
+    "keel-kg": {
       "url": "http://localhost:8125",
       "transport": "http",
       "disabled": false,
@@ -61,18 +61,18 @@ For Server-Sent Events (streaming), use this configuration:
 
 ### 4. Complete Example Configuration
 
-Here's a complete example with the DVA KG server:
+Here's a complete example with the KEEL KG server:
 
 ```json
 {
   "mcpServers": {
-    "dva-kg": {
+    "keel-kg": {
       "url": "http://localhost:8125",
       "transport": "http",
       "disabled": false,
       "alwaysAllow": [],
       "metadata": {
-        "name": "DVA Knowledge Graph",
+        "name": "KEEL Knowledge Graph",
         "description": "Access Neo4j and LightRAG knowledge graphs",
         "version": "0.1.0"
       }
@@ -89,7 +89,7 @@ After updating the config, restart Windsurf IDE to load the new MCP server.
 
 ### 2. Check MCP Server Status
 
-In Windsurf, you should see the DVA KG MCP server in the MCP servers list.
+In Windsurf, you should see the KEEL KG MCP server in the MCP servers list.
 
 ### 3. Test MCP Tools
 
@@ -177,7 +177,7 @@ Use kg_query with provider=lightrag to find information about AI
 ```json
 {
   "mcpServers": {
-    "dva-kg": {
+    "keel-kg": {
       "url": "http://localhost:8125",
       "transport": "http",
       "timeout": 30000,
@@ -215,7 +215,7 @@ If you need custom environment variables for the MCP server:
 ```json
 {
   "mcpServers": {
-    "dva-kg": {
+    "keel-kg": {
       "url": "http://localhost:8125",
       "transport": "http",
       "env": {
@@ -235,7 +235,7 @@ You can configure multiple MCP servers:
 ```json
 {
   "mcpServers": {
-    "dva-kg": {
+    "keel-kg": {
       "url": "http://localhost:8125",
       "transport": "http",
       "disabled": false

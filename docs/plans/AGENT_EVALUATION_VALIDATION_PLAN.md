@@ -30,7 +30,7 @@ AI) and the live knowledge graph.
 
 ### CLI — `agentic_cli/commands/eval.py`
 
-New/extended commands under the `dva eval` group:
+New/extended commands under the `keel eval` group:
 
 - `eval frameworks` — list frameworks and availability.
 - `eval dataset register|versions|generate|golden` — CSV import, versioning,
@@ -119,10 +119,10 @@ These paths are lazy-loaded and are not covered by the zero-dep suite.
 
 ```bash
 pip install 'agentic-cli[eval]'        # ragas, langchain-google-vertexai, pandas, datasets
-# Configure Vertex AI project/location via dva config / KG config.
-dva eval create rag-eval docs-qa -f ragas -m Faithfulness,AnswerCorrectness \
+# Configure Vertex AI project/location via keel config / KG config.
+keel eval create rag-eval docs-qa -f ragas -m Faithfulness,AnswerCorrectness \
   --llm gemini-2.5-flash --embedding-model text-embedding-004
-dva eval run agent mock:qa rag-eval
+keel eval run agent mock:qa rag-eval
 ```
 
 Validate: framework loads without ImportError, RAG metrics produce 0–1 scores,
@@ -135,7 +135,7 @@ raises a clear `ImportError` with the `pip install 'agentic-cli[eval]'` hint
 ### 4.2 Vertex AI question generation (Phase 4)
 
 ```bash
-dva eval dataset generate faq --source local:./docs -n 20 --ai
+keel eval dataset generate faq --source local:./docs -n 20 --ai
 ```
 
 Validate: questions are LLM-generated; on any Vertex error the command logs a
@@ -144,9 +144,9 @@ warning and falls back to the heuristic generator (no crash).
 ### 4.3 LLM-judge custom metrics (Phase 4)
 
 ```bash
-dva eval metric register empathy -p "Rate how empathetic the answer is (1-5)."
-dva eval create cx-eval support-qa -m helpfulness,empathy -j vertex-ai
-dva eval run agent my_pkg.agents:answer cx-eval
+keel eval metric register empathy -p "Rate how empathetic the answer is (1-5)."
+keel eval create cx-eval support-qa -m helpfulness,empathy -j vertex-ai
+keel eval run agent my_pkg.agents:answer cx-eval
 ```
 
 Validate: `empathy` scored 1–5 by the judge; with `-j none` it falls back to a
@@ -155,9 +155,9 @@ neutral `3.0` (covered by automated test).
 ### 4.4 Domain KG source + meta-repo config (Phase 5)
 
 ```bash
-# Requires an ingested KG for the domain (dva kg ...).
-dva eval dataset generate facility --source kg:cwow-facility -n 15 --adversarial-ratio 0.2
-dva eval create facility-eval facility --domain cwow-facility
+# Requires an ingested KG for the domain (keel kg ...).
+keel eval dataset generate facility --source kg:cwow-facility -n 15 --adversarial-ratio 0.2
+keel eval create facility-eval facility --domain cwow-facility
 ```
 
 Validate: KG aspects become Q&A rows; config is written to
@@ -169,8 +169,8 @@ automated tests via monkeypatch).
 
 - `python -c "import agentic_cli.commands.eval"` — import succeeds (no syntax or
   circular import errors).
-- `dva eval --help`, `dva eval dataset --help`, `dva eval metric --help`,
-  `dva eval compare --help`, `dva eval report --help` — all exit 0
+- `keel eval --help`, `keel eval dataset --help`, `keel eval metric --help`,
+  `keel eval compare --help`, `keel eval report --help` — all exit 0
   (verified via `typer.testing.CliRunner`).
 - Existing `eval validate`, `eval run skill`, `eval metrics list`, and
   `eval dataset create|list|show` commands remain registered and unchanged.
@@ -196,5 +196,5 @@ automated tests via monkeypatch).
 - [ ] `48 passed` for the three test files.
 - [ ] `smoke_eval_phase1.py` prints success.
 - [ ] `scripts/dev/smoke_eval_phase2_5.py` prints `SMOKE OK; html exists: True True`.
-- [ ] `dva eval` help commands all exit 0.
+- [ ] `keel eval` help commands all exit 0.
 - [ ] (Optional) Ragas/Vertex/KG manual paths validated in a configured env.

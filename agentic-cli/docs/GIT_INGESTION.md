@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the Git repository ingestion feature for the DVA KG system, which enables ingesting source code from Git repositories with developer persona support.
+This document describes the Git repository ingestion feature for the KEEL KG system, which enables ingesting source code from Git repositories with developer persona support.
 
 ## Implementation Summary
 
@@ -301,7 +301,7 @@ Repository: backend-api
 - [ ] Test persona-based retrieval in LightRAG
 
 ### 3. Query Enhancements
-- [ ] Add `--persona` flag to `dva kg query` command
+- [ ] Add `--persona` flag to `keel kg query` command
 - [ ] Update Neo4j queries to filter by persona
 - [ ] Update LightRAG queries to filter by persona
 - [ ] Add persona context to LLM prompts
@@ -369,7 +369,7 @@ User Command
 `agent kg ingest --source backend-api
     ↓
 Resolve Data Source (commands/kg.py)
-    ├── Load from ~/.dva-agentic/config.json
+    ├── Load from ~/.keel-agentic/config.json
     ├── Extract: URL, branch, tag, name, domain, purpose
     └── Detect source_type = "git"
     ↓

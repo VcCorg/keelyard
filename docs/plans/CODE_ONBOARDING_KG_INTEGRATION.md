@@ -429,7 +429,7 @@ documents_for_kg = [
 ### Step 1: Code Onboarding Initiated
 
 ```bash
-dva code onboard --path ./facility-service --kg --graphify --domain cwow-facility
+keel code onboard --path ./facility-service --kg --graphify --domain cwow-facility
 ```
 
 ### Step 2: Repository Analysis

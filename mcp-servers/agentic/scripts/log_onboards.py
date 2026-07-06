@@ -18,7 +18,7 @@ for name, skills in repos_onboarded:
         command="code",
         subcommand="onboard",
         status="success",
-        repo_path=f"/Users/your-user/dva-workspace/{name}",
+        repo_path=f"/Users/your-user/keel-workspace/{name}",
         details={"repo": name, "skills_installed": skills, "domain": "cwow-patient"},
     )
     print(f"  logged: {name} ({skills} skills)")

@@ -36,7 +36,7 @@ from src.api.admin import router as admin_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup/shutdown lifecycle."""
-    # Load ~/.dva/.env (then project ./.env) so integration tokens configured
+    # Load ~/.keel/.env (then project ./.env) so integration tokens configured
     # via the CLI / setup panel are visible to the backend without exporting
     # them into the environment. Real exported vars still take precedence.
     try:

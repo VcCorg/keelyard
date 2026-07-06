@@ -27,7 +27,7 @@ The Agentic CLI now supports both Neo4j and LightRAG as knowledge graph provider
 ### Initialize LightRAG Provider
 
 ```bash
-# Configure DVA to use LightRAG
+# Configure KEEL to use LightRAG
 `agent kg init --provider lightrag --lightrag-url http://localhost:8001
 
 # With custom timeout
@@ -121,17 +121,17 @@ When ingesting directories, the following file types are automatically processed
 
 ### Components
 
-1. **LightRAG Client** (`src/dva_agentic_cli/kg/lightrag_client.py`)
+1. **LightRAG Client** (`src/agentic_cli/kg/lightrag_client.py`)
    - HTTP client wrapper for LightRAG API
    - Methods: `insert()`, `insert_file()`, `query()`, `search()`, `get_stats()`
    - Health checking and connection validation
 
-2. **Configuration** (`src/dva_agentic_cli/kg/config.py`)
+2. **Configuration** (`src/agentic_cli/kg/config.py`)
    - Extended `KGConfig` with LightRAG settings
    - Fields: `lightrag_url`, `lightrag_timeout`
    - Method: `is_lightrag_configured()`
 
-3. **CLI Commands** (`src/dva_agentic_cli/commands/kg.py`)
+3. **CLI Commands** (`src/agentic_cli/commands/kg.py`)
    - Provider-aware routing (Neo4j vs LightRAG)
    - Automatic validation and error handling
    - Unified interface for both providers
@@ -318,5 +318,5 @@ make start
 ## References
 
 - [LightRAG Infrastructure](../lightrag-infrastructure/README.md)
-- [DVA Data Commands](../README.md#data-source-management)
+- [KEEL Data Commands](../README.md#data-source-management)
 - [Knowledge Graph Commands](../README.md#knowledge-graph-commands)

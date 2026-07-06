@@ -1,17 +1,17 @@
 # KG Context Storage & Retrieval
 
-How project context flows from `dva code onboard` into the Knowledge Graph and
+How project context flows from `keel code onboard` into the Knowledge Graph and
 back to coding agents.
 
 ---
 
 ## Overview
 
-When you run `dva code onboard --path ./repo --kg`, the onboard pipeline adds
+When you run `keel code onboard --path ./repo --kg`, the onboard pipeline adds
 three extra steps after the standard skill installation:
 
 1. **Build** a rich context document (`kg-context.md`) from the project analysis
-2. **Register** the project as a data source in `~/.dva-agentic/config.json`
+2. **Register** the project as a data source in `~/.keel-agentic/config.json`
 3. **Ingest** the context into LightRAG for semantic search
 
 The coding agent is then instructed (via `SKILL.md`) to query the Knowledge
@@ -22,7 +22,7 @@ Graph before acting on any coding task.
 ## Storage Locations
 
 ```
-~/.dva-agentic/
+~/.keel-agentic/
 ├── config.json                        ← Global config: data sources registry
 │   └── data.sources[]                 ← Contains "onboard-<project>" entries
 ├── kg-config.json                     ← KG provider config (LightRAG URL, etc.)
@@ -43,8 +43,8 @@ Graph before acting on any coding task.
 |------|---------|------------|-------------|
 | `kg-context.md` | Rich markdown with tech stack, architecture, deps, patterns, integrations | `context_builder.save_kg_context()` | LightRAG (ingested), humans (readable) |
 | `SKILL.md` | Agent instructions including "Context-First Workflow" section | `_generate_project_context_skill()` + `patch_skill_md_with_kg_instructions()` | IDE agents (Windsurf, Claude, Cursor, OpenCode) |
-| `onboard.json` | Full `ProjectAnalysis.to_dict()` + installed/suggested skills | `_save_onboard_manifest()` | `dva code validate`, programmatic access |
-| `config.json` → `data.sources[]` | Data source registration for `dva kg ingest` | `register_kg_data_source()` | `dva kg ingest submit --source onboard-<project>` |
+| `onboard.json` | Full `ProjectAnalysis.to_dict()` + installed/suggested skills | `_save_onboard_manifest()` | `keel code validate`, programmatic access |
+| `config.json` → `data.sources[]` | Data source registration for `keel kg ingest` | `register_kg_data_source()` | `keel kg ingest submit --source onboard-<project>` |
 
 ---
 
@@ -70,7 +70,7 @@ Graph before acting on any coding task.
 ```
 
 - Everything in light mode, **plus**:
-- Runs the full `dva kg ingest` pipeline on `.skills/project-context/`
+- Runs the full `keel kg ingest` pipeline on `.skills/project-context/`
 - Entity extraction via Vertex AI (Framework, Database, API entities)
 - Relationship building → `USES`, `DEPENDS_ON`, `CONTAINS` edges in Neo4j
 - Enables structured queries: `get_entity_details("PatientService")`
@@ -219,7 +219,7 @@ This works across all IDEs that read `.skills/*/SKILL.md`:
                   │    → SKILL.md updated with "Context-First Workflow"
                   │
                   ├─ register_kg_data_source()
-                  │    → ~/.dva-agentic/config.json data.sources[]
+                  │    → ~/.keel-agentic/config.json data.sources[]
                   │
                   └─ ingest_context_to_lightrag()  (light mode)
                        → LightRAG semantic index
@@ -236,7 +236,7 @@ This works across all IDEs that read `.skills/*/SKILL.md`:
 
 ## Re-onboarding & Idempotency
 
-Running `dva code onboard --path ./repo --kg` again is safe:
+Running `keel code onboard --path ./repo --kg` again is safe:
 
 - `kg-context.md` is **overwritten** with fresh content
 - Data source registration is **idempotent** (same name → overwrites)
@@ -259,8 +259,8 @@ To clean up and re-ingest:
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `src/dva_agentic_cli/kg/context_builder.py` | ~310 | Context builder module: build, save, register, ingest, pipeline |
-| `src/dva_agentic_cli/commands/code.py` | +55 | `--kg` / `--extract-entities` flags + step 9c integration |
+| `src/agentic_cli/kg/context_builder.py` | ~310 | Context builder module: build, save, register, ingest, pipeline |
+| `src/agentic_cli/commands/code.py` | +55 | `--kg` / `--extract-entities` flags + step 9c integration |
 | `tests/test_context_builder.py` | ~410 | 29 unit tests covering all functions |
 | `docs/KG_CONTEXT_STORAGE.md` | this file | Storage architecture documentation |
 

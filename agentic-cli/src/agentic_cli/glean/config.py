@@ -1,6 +1,6 @@
 """Glean configuration resolved from the environment (.env-backed).
 
-Configured via ``dva init glean`` (token or SSO mode). Both are functional:
+Configured via ``keel init glean`` (token or SSO mode). Both are functional:
 
 * token — a Glean API token.
 * sso   — OAuth. A live query needs an access token, obtained either by the
@@ -61,7 +61,7 @@ class GleanConfig:
         present, SSO can query as that user without client credentials.
         """
         if not self.api_url:
-            return "Glean not configured (GLEAN_API_URL unset). Run: dva init glean ..."
+            return "Glean not configured (GLEAN_API_URL unset). Run: keel init glean ..."
         if self.is_token_mode:
             if not self.api_token:
                 return "Glean token mode selected but GLEAN_API_TOKEN is unset."
@@ -72,7 +72,7 @@ class GleanConfig:
         if self.has_client_credentials:
             return None  # service token via client-credentials
         return ("Glean SSO needs a client secret for service auth "
-                "(dva init glean --sso --client-secret <>), or a forwarded user token.")
+                "(keel init glean --sso --client-secret <>), or a forwarded user token.")
 
     @property
     def search_url(self) -> str:

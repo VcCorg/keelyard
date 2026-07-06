@@ -122,7 +122,7 @@ export function Snapshots() {
       {rows.length === 0 && (
         <div className="text-sm text-gray-500 border border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-8 text-center">
           No domains configured yet. Build a snapshot with{" "}
-          <code>dva domain build-snapshot &lt;slug&gt;</code> or register a pre-built one with{" "}
+          <code>keel domain build-snapshot &lt;slug&gt;</code> or register a pre-built one with{" "}
           <code>--snapshot-id &lt;id&gt;</code>.
         </div>
       )}
@@ -192,9 +192,9 @@ export function Snapshots() {
       )}
 
       <p className="text-xs text-gray-400">
-        CLI equivalents: <code>dva devin snapshots list</code> ·{" "}
-        <code>dva devin snapshots verify &lt;domain&gt;</code>. Stale snapshots should be rebuilt
-        with <code>dva domain build-snapshot &lt;slug&gt;</code>.
+        CLI equivalents: <code>keel devin snapshots list</code> ·{" "}
+        <code>keel devin snapshots verify &lt;domain&gt;</code>. Stale snapshots should be rebuilt
+        with <code>keel domain build-snapshot &lt;slug&gt;</code>.
       </p>
     </div>
   );

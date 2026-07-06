@@ -18,11 +18,11 @@ ENV MCP_PORT=8131
 ENV MCP_HOST=0.0.0.0
 
 # KG backend defaults (overridden via docker-compose env)
-ENV KG_NEO4J_URI=bolt://dva-neo4j:7687
+ENV KG_NEO4J_URI=bolt://keel-neo4j:7687
 ENV KG_NEO4J_USER=neo4j
-ENV KG_LIGHTRAG_URL=http://dva-lightrag:8001
+ENV KG_LIGHTRAG_URL=http://keel-lightrag:8001
 ENV KG_DEFAULT_PROVIDER=lightrag
-ENV KG_SOURCE_REGISTRY_PATH=/root/.dva-agentic/config.json
+ENV KG_SOURCE_REGISTRY_PATH=/root/.keel-agentic/config.json
 
 EXPOSE 8131
 

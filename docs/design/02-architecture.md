@@ -29,7 +29,7 @@ flowchart TB
     UI["React UI"] --> BE["FastAPI backend"]
     BE --> L1["manifest logic"]
     BE --> L2["security scan"]
-    BE --> L3["retriever store (~/.dva JSON)"]
+    BE --> L3["retriever store (~/.keel JSON)"]
   end
   subgraph CLIB["⌨ CLI (agentic-cli)"]
     ENG["templates · onboard · skills"]
@@ -104,10 +104,10 @@ flowchart TB
 
 | Capability | Current (drift) | New (CLI-first) |
 |------------|-----------------|-----------------|
-| **Manifest** | dashboard derives/writes `agent.yaml` | `dva project manifest` — dashboard delegates |
-| **Security** | dashboard-only scan + CI script | `dva skill scan` + **gate in `dva skill install`** — dashboard delegates |
-| **Retrievers** | dashboard-only JSON store | `dva retriever …` registry — dashboard delegates |
-| **Audit** | activity log only | `activity_log` + **correlation_id / entity / source**; `record_action`, `get_action_chain`; `dva history` shows Source |
+| **Manifest** | dashboard derives/writes `agent.yaml` | `keel project manifest` — dashboard delegates |
+| **Security** | dashboard-only scan + CI script | `keel skill scan` + **gate in `keel skill install`** — dashboard delegates |
+| **Retrievers** | dashboard-only JSON store | `keel retriever …` registry — dashboard delegates |
+| **Audit** | activity log only | `activity_log` + **correlation_id / entity / source**; `record_action`, `get_action_chain`; `keel history` shows Source |
 
 ---
 

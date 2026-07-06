@@ -19,7 +19,7 @@ def list_retrievers() -> None:
     items = retr.list_instances()
     if not items:
         console.print("[yellow]No retrievers yet.[/yellow]")
-        console.print("[dim]Create one with: dva retriever create <name>[/dim]")
+        console.print("[dim]Create one with: keel retriever create <name>[/dim]")
         return
     table = Table(show_header=True, header_style="bold magenta", title="Retrievers")
     table.add_column("Name", style="cyan")

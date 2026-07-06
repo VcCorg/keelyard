@@ -249,7 +249,7 @@ class ConfluenceClient:
         """Create a new Confluence space.
 
         Args:
-            key: Space key (uppercase, e.g. 'DVA-CWOW')
+            key: Space key (uppercase, e.g. 'KEEL-CWOW')
             name: Display name for the space
             description: Space description
         """

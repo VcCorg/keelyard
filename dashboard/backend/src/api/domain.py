@@ -1,7 +1,7 @@
 """Domain onboarding API — thin proxy over the agentic-cli core logic.
 
 Reads + simple mutations call `agentic_cli.tracker` via the domain_service.
-Long-running steps stream the real `dva domain ...` CLI output over SSE.
+Long-running steps stream the real `keel domain ...` CLI output over SSE.
 """
 
 from typing import Optional
@@ -292,7 +292,7 @@ async def api_fetch_repos_stream(
     limit: int = Query(500, le=1000),
     filter: Optional[str] = Query(None),
 ):
-    """Run `dva domain fetch-repos <slug> --all` and stream output."""
+    """Run `keel domain fetch-repos <slug> --all` and stream output."""
     args = ["fetch-repos", slug, "--all", "--limit", str(limit)]
     if filter:
         args += ["--filter", filter]
@@ -305,7 +305,7 @@ async def api_add_docs_stream(
     limit: int = Query(200, le=1000),
     filter: Optional[str] = Query(None),
 ):
-    """Run `dva domain add-docs <slug> --all` and stream output."""
+    """Run `keel domain add-docs <slug> --all` and stream output."""
     args = ["add-docs", slug, "--all", "--limit", str(limit)]
     if filter:
         args += ["--filter", filter]
@@ -314,7 +314,7 @@ async def api_add_docs_stream(
 
 @router.get("/{slug}/gen-skills/stream")
 async def api_gen_skills_stream(slug: str, role: Optional[str] = Query(None)):
-    """Run `dva domain gen-skills <slug>` and stream output."""
+    """Run `keel domain gen-skills <slug>` and stream output."""
     args = ["gen-skills", slug]
     if role:
         args += ["--role", role]
@@ -378,7 +378,7 @@ async def api_init_context_stream(
     no_kg: bool = Query(False),
     kg_timeout: int = Query(20, ge=1, le=300),
 ):
-    """Run `dva domain init-context <slug>` and stream output.
+    """Run `keel domain init-context <slug>` and stream output.
 
     Pass `force=true` to overwrite an existing context repo (the CLI cannot
     prompt in this non-interactive context). `no_kg=true` skips the Knowledge
@@ -399,7 +399,7 @@ async def api_init_meta_stream(
     product_meta: Optional[str] = Query(None),
     force: bool = Query(False),
 ):
-    """Run `dva domain init-meta <slug>` and stream output.
+    """Run `keel domain init-meta <slug>` and stream output.
 
     Pass `product_meta` (URL/path) to reference the product meta-repo as a
     submodule (threads the outer-loop shared tier into the domain meta).
@@ -433,7 +433,7 @@ async def api_product_init_meta_stream(
     org_methodology: Optional[str] = Query(None),
     force: bool = Query(False),
 ):
-    """Run `dva product init-meta <name>` and stream output.
+    """Run `keel product init-meta <name>` and stream output.
 
     Pass `force=true` to overwrite an existing product meta-repo (the CLI
     cannot prompt in this non-interactive context).
@@ -531,7 +531,7 @@ async def api_product_regen_personas_stream(name: str, enrich: bool = Query(Fals
     """Product-level: regenerate personas across all domains in the product.
 
     Admin action — iterates every domain under the product and runs
-    `dva domain regen-personas <slug>`, streaming a combined log.
+    `keel domain regen-personas <slug>`, streaming a combined log.
     """
     async def gen():
         async for line in svc.stream_product_regen_personas(name, enrich=enrich):

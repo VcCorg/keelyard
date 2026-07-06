@@ -10,7 +10,7 @@
 ```
 Code Onboarding Phase (Initial)
     ↓
-dva code onboard --path ./facility-service --kg --extract-entities
+keel code onboard --path ./facility-service --kg --extract-entities
     ├─ Analyze code structure (Graphify)
     ├─ Query KG for domain knowledge (cwow-facility)
     ├─ Build kg-context.md (hybrid context)
@@ -38,7 +38,7 @@ agent run --path ./facility-service --task "Add FHIR endpoint"
 
 ### Command
 ```bash
-dva code onboard --path ./facility-service --kg --extract-entities
+keel code onboard --path ./facility-service --kg --extract-entities
 ```
 
 ### What Happens
@@ -169,7 +169,7 @@ kg_context:
 # PROJECT CONTEXT (Automatically Injected)
 project_context:
   project_root: /path/to/facility-service
-  understanding_doc: .dva/codebase-understanding.md
+  understanding_doc: .keel/codebase-understanding.md
   methodology: backend-development
   tech_stack: [Python, FastAPI, PostgreSQL, pytest]
   conventions:
@@ -469,7 +469,7 @@ MCP Context (Memory MCP)
 
 #### Step 1: Initial Code Onboarding
 ```bash
-$ dva code onboard --path ./facility-service --kg --extract-entities
+$ keel code onboard --path ./facility-service --kg --extract-entities
 
 ✓ Analyzed code structure
 ✓ Queried KG for cwow-facility domain
@@ -505,7 +505,7 @@ facility-service/
 │       ├── implementation-planning-skill/
 │       ├── test-driven-development-skill/
 │       └── code-review-skill/
-├── .dva/
+├── .keel/
 │   ├── codebase-understanding.md
 │   ├── methodology.yaml
 │   └── approvals/
@@ -575,7 +575,7 @@ Agent (during execution):
 
 ```
 1. Code Onboarding
-   dva code onboard --path ./facility-service --kg
+   keel code onboard --path ./facility-service --kg
    ├─ Query KG for domain knowledge
    └─ Embed in generated SKILL.md files
 

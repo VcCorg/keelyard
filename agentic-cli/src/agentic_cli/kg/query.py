@@ -95,7 +95,7 @@ def natural_language_to_cypher(query: str, limit: int = 10, persona: str = None)
     
     prompt = f"""
 Convert the following natural language query to a Cypher query for Neo4j.
-IMPORTANT: Always include WHERE n._source = 'dva_kg' to scope results to knowledge graph nodes only.
+IMPORTANT: Always include WHERE n._source = 'keel_kg' to scope results to knowledge graph nodes only.
 
 Natural language query: {query}
 {persona_instruction}
@@ -137,8 +137,8 @@ def simple_query_to_cypher(query: str, limit: int = 10, persona: str = None) -> 
     """
     query_lower = query.lower()
     
-    # Build persona filter clause (always scope to dva_kg source)
-    base_filter = "WHERE n._source = 'dva_kg'"
+    # Build persona filter clause (always scope to keel_kg source)
+    base_filter = "WHERE n._source = 'keel_kg'"
     if persona:
         base_filter += f" AND n.persona = '{persona}'"
     persona_filter = base_filter + " "
@@ -149,14 +149,14 @@ def simple_query_to_cypher(query: str, limit: int = 10, persona: str = None) -> 
     
     elif "relationship" in query_lower:
         if persona:
-            return f"MATCH (a)-[r]->(b) WHERE a._source = 'dva_kg' AND (a.persona = '{persona}' OR b.persona = '{persona}') RETURN a, r, b LIMIT {limit}"
-        return f"MATCH (a)-[r]->(b) WHERE a._source = 'dva_kg' RETURN a, r, b LIMIT {limit}"
+            return f"MATCH (a)-[r]->(b) WHERE a._source = 'keel_kg' AND (a.persona = '{persona}' OR b.persona = '{persona}') RETURN a, r, b LIMIT {limit}"
+        return f"MATCH (a)-[r]->(b) WHERE a._source = 'keel_kg' RETURN a, r, b LIMIT {limit}"
     
     elif "find" in query_lower or "search" in query_lower:
         # Extract potential entity name
         words = query.split()
         search_term = " ".join(words[-2:])  # Take last 2 words as search term
-        where_clause = f"WHERE n._source = 'dva_kg' AND (n.name CONTAINS '{search_term}' OR n.content CONTAINS '{search_term}')"
+        where_clause = f"WHERE n._source = 'keel_kg' AND (n.name CONTAINS '{search_term}' OR n.content CONTAINS '{search_term}')"
         if persona:
             where_clause += f" AND n.persona = '{persona}'"
         return f"""
@@ -167,7 +167,7 @@ def simple_query_to_cypher(query: str, limit: int = 10, persona: str = None) -> 
         """
     
     else:
-        # Default: return all dva_kg nodes with persona filter
+        # Default: return all keel_kg nodes with persona filter
         return f"MATCH (n) {persona_filter}RETURN n LIMIT {limit}"
 
 

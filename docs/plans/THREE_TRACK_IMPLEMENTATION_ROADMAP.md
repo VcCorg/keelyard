@@ -383,7 +383,7 @@ agentic-cli/src/agentic_cli/commands/
 ## Track C: Knowledge Graph Integration
 
 ### Objective
-Integrate DVA's Knowledge Graph (Neo4j + LightRAG) into code onboarding to build semantic codebase graphs for richer understanding and skill generation.
+Integrate KEEL's Knowledge Graph (Neo4j + LightRAG) into code onboarding to build semantic codebase graphs for richer understanding and skill generation.
 
 ### Current State
 - ✅ KG infrastructure in place (Neo4j, LightRAG)

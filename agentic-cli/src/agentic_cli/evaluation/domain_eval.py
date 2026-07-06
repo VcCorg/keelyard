@@ -59,7 +59,7 @@ class KgDomainSource(DocumentSource):
         if not chunks:
             raise ValueError(
                 f"No domain context returned from the KG for '{self.domain}'. "
-                "Ensure the KG is configured and ingested (dva kg ...)."
+                "Ensure the KG is configured and ingested (keel kg ...)."
             )
         return chunks
 

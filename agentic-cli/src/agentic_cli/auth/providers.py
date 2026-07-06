@@ -6,8 +6,8 @@ identity headers injected by an **SSO reverse proxy** (oauth2-proxy / Okta /
 Azure AD / Cloudflare Access) that already performed the OIDC/SAML handshake.
 
 Trusted headers are only safe if the app is unreachable except *through* the
-proxy. We enforce that two ways: forward-auth is opt-in (``DVA_AUTH_MODE=
-forward-auth``), and — when ``DVA_FORWARD_AUTH_SECRET`` is set — a shared secret
+proxy. We enforce that two ways: forward-auth is opt-in (``KEEL_AUTH_MODE=
+forward-auth``), and — when ``KEEL_FORWARD_AUTH_SECRET`` is set — a shared secret
 header the proxy injects must match, so a client that bypasses the proxy cannot
 spoof identity.
 """
@@ -19,15 +19,15 @@ from typing import Mapping, Optional, Protocol, runtime_checkable
 from agentic_cli.auth.models import ADMIN, DEVELOPER, Principal
 
 # ── Env config ───────────────────────────────────────────────────────────────
-ENV_MODE = "DVA_AUTH_MODE"                    # dev | forward-auth
-ENV_DEV_USER = "DVA_DEV_USER"
-ENV_DEV_ROLES = "DVA_DEV_ROLES"               # comma-separated
+ENV_MODE = "KEEL_AUTH_MODE"                    # dev | forward-auth
+ENV_DEV_USER = "KEEL_DEV_USER"
+ENV_DEV_ROLES = "KEEL_DEV_ROLES"               # comma-separated
 # Env var NAME (not a value) holding the shared proxy credential. Split literal
 # to avoid tripping repo secret-scanners on a `SECRET = "…"`-shaped line.
-ENV_FWD_SECRET = "DVA_FORWARD_AUTH" "_SECRET"
-ENV_ROLE_MAP = "DVA_ROLE_MAP"                 # "group:role,group:role"
-ENV_DEFAULT_ROLE = "DVA_DEFAULT_ROLE"         # role for authed users w/o a mapped group
-ENV_ADMIN_EMAILS = "DVA_ADMIN_EMAILS"         # comma-separated explicit admins
+ENV_FWD_SECRET = "KEEL_FORWARD_AUTH" "_SECRET"
+ENV_ROLE_MAP = "KEEL_ROLE_MAP"                 # "group:role,group:role"
+ENV_DEFAULT_ROLE = "KEEL_DEFAULT_ROLE"         # role for authed users w/o a mapped group
+ENV_ADMIN_EMAILS = "KEEL_ADMIN_EMAILS"         # comma-separated explicit admins
 
 # oauth2-proxy standard identity headers (lower-cased for case-insensitive lookup)
 HDR_EMAIL = "x-auth-request-email"
@@ -50,7 +50,7 @@ def _split(value: str) -> list[str]:
 
 
 def _role_map() -> dict[str, str]:
-    """Parse ``DVA_ROLE_MAP='eng-admins:admin,eng:developer'`` → {group: role}."""
+    """Parse ``KEEL_ROLE_MAP='eng-admins:admin,eng:developer'`` → {group: role}."""
     out: dict[str, str] = {}
     for pair in _split(os.environ.get(ENV_ROLE_MAP, "")):
         group, _, role = pair.partition(":")
@@ -130,7 +130,7 @@ def _apply_assignments(subject: str, fallback: list[str]) -> list[str]:
 
 
 def resolve_provider(mode: Optional[str] = None) -> AuthProvider:
-    """Select the auth provider from ``DVA_AUTH_MODE`` (default: dev)."""
+    """Select the auth provider from ``KEEL_AUTH_MODE`` (default: dev)."""
     m = (mode or os.environ.get(ENV_MODE, "dev")).strip().lower()
     if m in ("forward-auth", "forward", "proxy", "sso"):
         return ForwardAuthProvider()

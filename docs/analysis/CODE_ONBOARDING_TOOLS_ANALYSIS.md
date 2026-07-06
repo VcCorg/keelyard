@@ -275,7 +275,7 @@ agent code onboard <repo> --kg --skip-graphify
 ```
 markdown doc
     ↓
-Send to LightRAG REST API (http://dva-lightrag:8001)
+Send to LightRAG REST API (http://keel-lightrag:8001)
     ↓
 LightRAG processes:
 ├─ Entity extraction (FastAPI, PostgreSQL, async, etc.)
@@ -372,7 +372,7 @@ agent code onboard <repo>
     ├─ "What scale requirements?"
     ├─ "What's your testing philosophy?"
     ├─ "Key business rules?"
-    └─ Answers stored in .dva/questionnaire.json
+    └─ Answers stored in .keel/questionnaire.json
 ```
 
 **Questionnaire schema:**
@@ -432,9 +432,9 @@ agent code onboard <repo>
 │     └─ Semantic indexing
 │
 └─ Phase 5: Output
-   ├─ .dva/codebase-understanding.md
-   ├─ .dva/kg-context.md (for KG ingestion)
-   ├─ .dva/questionnaire.json (business answers)
+   ├─ .keel/codebase-understanding.md
+   ├─ .keel/kg-context.md (for KG ingestion)
+   ├─ .keel/questionnaire.json (business answers)
    ├─ .skills/project-context/SKILL.md (AI-ready context)
    └─ Neo4j/LightRAG indexed (queryable via kg-mcp)
 ```
@@ -487,7 +487,7 @@ agent code onboard https://github.com/myteam/order-api
     # Answers questionnaire about business purpose, users, scale
 
 # Output: Complete project understanding
-ls -la .dva/
+ls -la .keel/
 ├─ codebase-understanding.md     ← Human-readable
 ├─ kg-context.md                 ← For KG ingestion
 ├─ questionnaire.json            ← Business answers

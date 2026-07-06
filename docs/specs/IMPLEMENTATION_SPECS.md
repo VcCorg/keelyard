@@ -158,7 +158,7 @@ Q9: "Are there team-specific conventions or patterns?"
 
 Combine analysis + responses into structured markdown document.
 
-**Output File:** `.dva/codebase-understanding.md`
+**Output File:** `.keel/codebase-understanding.md`
 
 ```markdown
 # Codebase Understanding: Backend API
@@ -348,7 +348,7 @@ backend/src/agentic_cli/commands/code.py:
   - Enhance code_onboard() function with 5-phase flow
   - Add interactive questionnaire (Q&A capture)
   - Implement analysis → questions → document → skills generation
-  - Store understanding document in .dva/codebase-understanding.md
+  - Store understanding document in .keel/codebase-understanding.md
   - Create skill generation logic based on patterns + answers
 
 backend/src/agentic_cli/analysis/:

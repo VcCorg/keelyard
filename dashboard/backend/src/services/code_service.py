@@ -2,7 +2,7 @@
 
 `code onboard` clones/analyzes a repo, installs skills, and optionally builds
 KG context — all long-running and full of external logic, so the dashboard
-shells out to the real `dva code onboard ...` and streams its output.
+shells out to the real `keel code onboard ...` and streams its output.
 """
 
 import asyncio
@@ -32,9 +32,9 @@ class OnboardOptions(BaseModel):
 
 
 def resolve_cli_command() -> list[str]:
-    dva = shutil.which("dva")
-    if dva:
-        return [dva]
+    keel = shutil.which("keel")
+    if keel:
+        return [keel]
     return [sys.executable, "-m", "agentic_cli.main"]
 
 
@@ -67,7 +67,7 @@ def build_onboard_args(opts: OnboardOptions) -> list[str]:
 
 
 async def stream_code_command(args: list[str]) -> AsyncGenerator[str, None]:
-    """Run `dva code <args>` and yield stdout/stderr lines as they arrive."""
+    """Run `keel code <args>` and yield stdout/stderr lines as they arrive."""
     cmd = resolve_cli_command() + args
     yield f"$ {' '.join(cmd)}"
 

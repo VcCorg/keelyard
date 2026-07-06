@@ -1,4 +1,4 @@
-"""Code onboarding API — streams `dva code onboard ...` over SSE."""
+"""Code onboarding API — streams `keel code onboard ...` over SSE."""
 
 from typing import Optional
 
@@ -28,7 +28,7 @@ async def onboard_stream(
     okf_no_confluence: bool = Query(False, description="Skip the Confluence enrichment pass"),
     okf_model: Optional[str] = Query(None, description="Vertex AI model for the OKF enrichment pass"),
 ):
-    """Run `dva code onboard ...` and stream output over SSE."""
+    """Run `keel code onboard ...` and stream output over SSE."""
     if not (repo or path or repo_slug):
         raise HTTPException(
             status_code=400,
