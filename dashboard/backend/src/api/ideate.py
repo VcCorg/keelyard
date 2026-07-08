@@ -5,12 +5,16 @@ gathered requirements. Pushing approved stories to Jira is a separate,
 confirmed step (added alongside the source connectors).
 """
 
+import json
 from typing import List, Optional
 
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel
+from sse_starlette.sse import EventSourceResponse
 
 from src.services import ideate_service as svc
+from src.services.ideate_agent import run_agent as _run_agent
+from src.services.ideate_tools import ToolContext, list_tools
 
 router = APIRouter(prefix="/api/ideate", tags=["ideate"])
 
@@ -169,3 +173,38 @@ async def audit(limit: int = 50):
     if limit < 1 or limit > 500:
         raise HTTPException(status_code=400, detail="limit must be between 1 and 500")
     return {"actions": _get_activity(command="ideate", limit=limit)}
+
+
+@router.get("/tools")
+async def tools(project: str = ""):
+    """The enabled tool catalog for a scope (no run callables)."""
+    specs = list_tools(ToolContext(project_key=project))
+    return {"tools": [{"name": s.name, "kind": s.kind, "description": s.description,
+                       "params": s.params, "mutating": s.mutating} for s in specs]}
+
+
+class AgentRunRequest(BaseModel):
+    task: str = "Draft Jira user stories from the gathered context."
+    context: str = ""
+    project_key: str = ""
+    model: Optional[str] = None
+
+
+@router.post("/agent/run")
+async def agent_run(req: AgentRunRequest, request: Request):
+    """Run the ReAct agent, streaming its trace + final stories as SSE."""
+    from src.services import ideate_audit
+
+    actor = _forwarded_user_email(request)
+    tok = _forwarded_user_token(request)
+    ctx = ToolContext(project_key=req.project_key, actor=actor, user_token=tok,
+                      correlation_id=ideate_audit.new_correlation_id())
+
+    async def event_generator():
+        try:
+            async for ev in _run_agent(req.task, req.context, ctx, model=req.model):
+                yield {"event": ev.type, "data": ev.model_dump_json()}
+        except Exception as e:  # noqa: BLE001
+            yield {"event": "error", "data": json.dumps({"type": "error", "error": str(e)})}
+
+    return EventSourceResponse(event_generator())
