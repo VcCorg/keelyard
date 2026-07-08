@@ -208,10 +208,12 @@ class JiraClient:
             f = item.get("fields", {})
             assignee = f.get("assignee") or {}
             reporter = f.get("reporter") or {}
+            status = f.get("status") or {}
             issues.append({
                 "key": item.get("key", ""),
                 "summary": f.get("summary", ""),
-                "status": (f.get("status") or {}).get("name", ""),
+                "status": status.get("name", ""),
+                "status_category": (status.get("statusCategory") or {}).get("name", ""),
                 "priority": (f.get("priority") or {}).get("name", ""),
                 "assignee": assignee.get("displayName", "Unassigned"),
                 "reporter": reporter.get("displayName", ""),
@@ -228,6 +230,34 @@ class JiraClient:
             "max_results": data.get("maxResults", max_results),
             "start_at": data.get("startAt", 0),
             "issues": issues,
+        }
+
+    # ── Create screen metadata + issue creation ──────────────────────────
+
+    def get_create_meta(self, project_key: str) -> dict[str, Any]:
+        """Return the raw ``/issue/createmeta`` payload for a project.
+
+        Expands issue types and their fields so callers can detect custom-field
+        ids (Epic Link, Story Points, Acceptance Criteria) and which standard
+        fields are on the create screen.
+        """
+        return self._get(
+            "/issue/createmeta",
+            params={"projectKeys": project_key,
+                    "expand": "projects.issuetypes.fields"},
+        )
+
+    def create_issue(self, fields: dict[str, Any]) -> dict[str, Any]:
+        """Create an issue from a fully-formed Jira ``fields`` dict.
+
+        The caller is responsible for field mapping (project, summary,
+        issuetype, custom-field ids, etc.). Returns ``{key, url}``.
+        """
+        data = self._post("/issue", json_data={"fields": fields})
+        key = data.get("key", "")
+        return {
+            "key": key,
+            "url": f"{self._config.jira_server_url}/browse/{key}" if key else "",
         }
 
     # ── Comments ─────────────────────────────────────────────────────────

@@ -1,10 +1,14 @@
-"""Jira integration — list issues assigned to the current user.
+"""Jira integration — routed entirely through the Jira MCP server.
 
-Reuses the same environment credentials as the Jira MCP server:
+All Jira REST access goes through the ``jira-mcp`` server (SSE) rather than a
+separate HTTP client in the dashboard, so there is a single Jira client
+implementation. The MCP server authenticates with the shared PAT
+(``JIRA_PERSONAL_ACCESS_TOKEN`` / ``JIRA_SERVER_URL``); the dashboard only reads
+those env vars to report configuration status and build browse links.
 
   - ``JIRA_SERVER_URL``: base URL of the Jira Server/Data Center instance
-  - ``JIRA_PERSONAL_ACCESS_TOKEN``: PAT used as a Bearer token
-  - ``JIRA_VERIFY_SSL``: optional, ``0``/``false`` to disable TLS verification
+  - ``JIRA_PERSONAL_ACCESS_TOKEN``: PAT (used by the MCP server)
+  - ``JIRA_MCP_URL``: SSE endpoint of the Jira MCP (default ``http://localhost:8128/sse``)
 
 The set of Jira projects is derived from the onboarded domains (each domain's
 ``jira_project`` key), so "my work items" are scoped to what has actually been
@@ -13,10 +17,12 @@ is the assignee (JQL ``assignee = currentUser()``).
 """
 from __future__ import annotations
 
+import asyncio
+import json
 import os
-from typing import Optional
+import threading
+from typing import Any, Optional
 
-import httpx
 from pydantic import BaseModel
 
 
@@ -196,24 +202,62 @@ def _build_issue_fields(
     return fields
 
 
-def _client() -> httpx.Client:
-    return httpx.Client(
-        base_url=f"{_server_url()}/rest/api/2",
-        headers={"Authorization": f"Bearer {_token()}", "Accept": "application/json",
-                 "Content-Type": "application/json"},
-        verify=_verify_ssl(), timeout=30.0)
+def _jira_mcp_url() -> str:
+    return os.environ.get("JIRA_MCP_URL", "http://localhost:8128/sse")
+
+
+async def _acall_tool(tool: str, args: dict) -> Any:
+    """Call a Jira MCP tool over SSE and return its parsed JSON payload."""
+    from mcp import ClientSession
+    from mcp.client.sse import sse_client
+
+    async with sse_client(_jira_mcp_url()) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            result = await session.call_tool(tool, args)
+            text = "".join(
+                (getattr(item, "text", "") or "")
+                for item in (getattr(result, "content", None) or [])
+            )
+            if getattr(result, "isError", False):
+                raise RuntimeError(text or f"Jira MCP tool '{tool}' failed")
+            return json.loads(text) if text.strip() else None
+
+
+def _run(coro) -> Any:
+    """Run an async coroutine from sync code, safe inside or outside a loop."""
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+    box: dict = {}
+
+    def worker() -> None:
+        try:
+            box["value"] = asyncio.run(coro)
+        except BaseException as exc:  # noqa: BLE001 - re-raised on the caller thread
+            box["error"] = exc
+
+    t = threading.Thread(target=worker)
+    t.start()
+    t.join()
+    if "error" in box:
+        raise box["error"]
+    return box.get("value")
+
+
+def _call_tool(tool: str, args: dict) -> Any:
+    """Synchronous wrapper around a Jira MCP tool call."""
+    return _run(_acall_tool(tool, args))
 
 
 def get_create_meta(project_key: str) -> CreateMeta:
-    """Fetch+parse create screen metadata; empty CreateMeta on any error."""
+    """Fetch+parse create screen metadata via MCP; empty CreateMeta on any error."""
     if not is_configured() or not project_key:
         return CreateMeta(project_key=project_key)
     try:
-        with _client() as c:
-            resp = c.get("/issue/createmeta",
-                         params={"projectKeys": project_key, "expand": "projects.issuetypes.fields"})
-            resp.raise_for_status()
-            return _parse_create_meta(resp.json(), project_key)
+        data = _call_tool("get_create_meta", {"project_key": project_key})
+        return _parse_create_meta(data or {}, project_key)
     except Exception:  # noqa: BLE001
         return CreateMeta(project_key=project_key)
 
@@ -228,14 +272,11 @@ def list_epics(project_key: str, max_results: int = 100) -> list[JiraEpic]:
         return []
     jql = f'project = "{project_key}" AND issuetype = Epic AND statusCategory != Done ORDER BY updated DESC'
     try:
-        with _client() as c:
-            resp = c.get("/search", params={"jql": jql, "maxResults": max_results, "fields": "summary"})
-            resp.raise_for_status()
-            data = resp.json()
+        data = _call_tool("search_issues", {"jql": jql, "max_results": max_results})
     except Exception:  # noqa: BLE001
         return []
-    return [JiraEpic(key=i.get("key", ""), summary=(i.get("fields") or {}).get("summary", ""))
-            for i in data.get("issues", [])]
+    return [JiraEpic(key=i.get("key", ""), summary=i.get("summary", ""))
+            for i in (data or {}).get("issues", [])]
 
 
 def create_issue(
@@ -271,13 +312,12 @@ def create_issue(
         story_points=story_points, assignee=assignee, components=components,
         acceptance_criteria=acceptance_criteria, meta=meta)
 
-    with _client() as client:
-        resp = client.post("/issue", json={"fields": fields})
-        if resp.status_code >= 300:
-            raise RuntimeError(f"Jira create failed ({resp.status_code}): {resp.text[:300]}")
-        key = resp.json().get("key", "")
-
-    return {"key": key, "url": f"{_server_url()}/browse/{key}" if key else ""}
+    result = _call_tool("create_issue", {"fields": fields}) or {}
+    key = result.get("key", "")
+    if not key:
+        raise RuntimeError("Jira create returned no issue key")
+    url = result.get("url") or (f"{_server_url()}/browse/{key}" if key else "")
+    return {"key": key, "url": url}
 
 
 def list_my_domain_issues(
@@ -315,32 +355,8 @@ def list_my_domain_issues(
         clauses.append("statusCategory != Done")
     jql = " AND ".join(clauses) + " ORDER BY updated DESC"
 
-    fields = (
-        "summary,status,priority,assignee,issuetype,project,"
-        "created,updated,labels"
-    )
     try:
-        with httpx.Client(
-            base_url=f"{_server_url()}/rest/api/2",
-            headers={
-                "Authorization": f"Bearer {_token()}",
-                "Accept": "application/json",
-            },
-            verify=_verify_ssl(),
-            timeout=30.0,
-        ) as client:
-            resp = client.get(
-                "/search",
-                params={"jql": jql, "maxResults": max_results, "fields": fields},
-            )
-            resp.raise_for_status()
-            data = resp.json()
-    except httpx.HTTPStatusError as e:
-        detail = e.response.text[:300] if e.response is not None else str(e)
-        return MyIssuesResponse(
-            configured=True, projects=projects, jql=jql,
-            error=f"Jira returned {e.response.status_code}: {detail}",
-        )
+        data = _call_tool("search_issues", {"jql": jql, "max_results": max_results}) or {}
     except Exception as e:  # noqa: BLE001 - surface any transport error to the UI
         return MyIssuesResponse(
             configured=True, projects=projects, jql=jql, error=str(e)[:300]
@@ -348,21 +364,19 @@ def list_my_domain_issues(
 
     issues: list[JiraIssue] = []
     for item in data.get("issues", []):
-        f = item.get("fields", {})
-        status = f.get("status") or {}
         issues.append(
             JiraIssue(
                 key=item.get("key", ""),
-                summary=f.get("summary", ""),
-                status=status.get("name", ""),
-                status_category=(status.get("statusCategory") or {}).get("name", ""),
-                priority=(f.get("priority") or {}).get("name", ""),
-                issuetype=(f.get("issuetype") or {}).get("name", ""),
-                project=(f.get("project") or {}).get("key", ""),
-                created=f.get("created", ""),
-                updated=f.get("updated", ""),
-                labels=f.get("labels", []) or [],
-                link=f"{_server_url()}/browse/{item.get('key', '')}",
+                summary=item.get("summary", ""),
+                status=item.get("status", ""),
+                status_category=item.get("status_category", ""),
+                priority=item.get("priority", ""),
+                issuetype=item.get("issuetype", ""),
+                project=item.get("project", ""),
+                created=item.get("created", ""),
+                updated=item.get("updated", ""),
+                labels=item.get("labels", []) or [],
+                link=item.get("link", f"{_server_url()}/browse/{item.get('key', '')}"),
             )
         )
 
@@ -394,44 +408,32 @@ def get_issue(key: str) -> Optional[JiraIssueDetail]:
             "JIRA_PERSONAL_ACCESS_TOKEN on the dashboard backend."
         )
 
-    fields = (
-        "summary,status,priority,assignee,issuetype,project,"
-        "created,updated,labels,description"
-    )
     try:
-        with httpx.Client(
-            base_url=f"{_server_url()}/rest/api/2",
-            headers={
-                "Authorization": f"Bearer {_token()}",
-                "Accept": "application/json",
-            },
-            verify=_verify_ssl(),
-            timeout=30.0,
-        ) as client:
-            resp = client.get(f"/issue/{key}", params={"fields": fields})
-            if resp.status_code == 404:
-                return None
-            resp.raise_for_status()
-            item = resp.json()
-    except httpx.HTTPStatusError as e:
-        code = e.response.status_code if e.response is not None else "?"
-        raise RuntimeError(f"Jira returned {code} for {key}") from e
+        item = _call_tool("get_issue", {"issue_key": key})
+    except RuntimeError as e:
+        msg = str(e)
+        if "404" in msg or "not found" in msg.lower():
+            return None
+        raise RuntimeError(str(e)[:200]) from e
     except Exception as e:  # noqa: BLE001
         raise RuntimeError(str(e)[:200]) from e
 
-    f = item.get("fields", {})
-    status = f.get("status") or {}
+    if not item:
+        return None
+
+    project = item.get("project")
+    project_key = project.get("key", "") if isinstance(project, dict) else (project or "")
     return JiraIssueDetail(
         key=item.get("key", key),
-        summary=f.get("summary", ""),
-        status=status.get("name", ""),
-        status_category=(status.get("statusCategory") or {}).get("name", ""),
-        priority=(f.get("priority") or {}).get("name", ""),
-        issuetype=(f.get("issuetype") or {}).get("name", ""),
-        project=(f.get("project") or {}).get("key", ""),
-        created=f.get("created", ""),
-        updated=f.get("updated", ""),
-        labels=f.get("labels", []) or [],
-        link=f"{_server_url()}/browse/{item.get('key', key)}",
-        description=_description_text(f.get("description")),
+        summary=item.get("summary", ""),
+        status=item.get("status", ""),
+        status_category=item.get("status_category", ""),
+        priority=item.get("priority", ""),
+        issuetype=item.get("issuetype", ""),
+        project=project_key,
+        created=item.get("created", ""),
+        updated=item.get("updated", ""),
+        labels=item.get("labels", []) or [],
+        link=item.get("link", f"{_server_url()}/browse/{item.get('key', key)}"),
+        description=_description_text(item.get("description")),
     )

@@ -67,40 +67,23 @@ def test_build_fields_no_meta_permissive():
 import src.services.jira_service as js
 
 
-class _Resp:
-    status_code = 201
-    text = ""
-
-    def json(self):
-        return {"key": "CGF-42"}
-
-
-class _Client:
+def test_create_issue_sends_mapped_fields(monkeypatch):
+    """create_issue builds mapped fields and sends them through the Jira MCP tool."""
     captured = {}
 
-    def __init__(self, *a, **k):
-        pass
+    def fake_call_tool(tool, args):
+        captured["tool"] = tool
+        captured["args"] = args
+        return {"key": "CGF-42", "url": "https://jira.example/browse/CGF-42"}
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *a):
-        return False
-
-    def post(self, path, json):
-        _Client.captured = json
-        return _Resp()
-
-
-def test_create_issue_sends_mapped_fields(monkeypatch):
     monkeypatch.setattr(js, "is_configured", lambda: True)
     monkeypatch.setattr(js, "_server_url", lambda: "https://jira.example")
-    monkeypatch.setattr(js, "_token", lambda: "tok")
-    monkeypatch.setattr(js.httpx, "Client", _Client)
+    monkeypatch.setattr(js, "_call_tool", fake_call_tool)
     monkeypatch.setattr(js, "get_create_meta", lambda pk: FULL)
     out = js.create_issue(project_key="CGF", summary="S", description="D",
         issue_type="Story", labels=["x"], priority="High", epic_key="CGF-1",
         story_points=3, assignee="jdoe", components=["api"], acceptance_criteria=["ac1"])
-    sent = _Client.captured["fields"]
+    assert captured["tool"] == "create_issue"
+    sent = captured["args"]["fields"]
     assert sent["customfield_10008"] == "CGF-1" and sent["customfield_10100"] == "ac1"
     assert out == {"key": "CGF-42", "url": "https://jira.example/browse/CGF-42"}
