@@ -1,4 +1,4 @@
-import type { EditableStory, JiraMeta, PushResult } from "./types";
+import type { EditableStory, IdeateAgent, JiraMeta, PushResult } from "./types";
 import { newStory } from "./types";
 import { StoryCard } from "./StoryCard";
 
@@ -8,12 +8,16 @@ export function StepReview({
   onStories,
   pushResults,
   onPushOne,
+  agents = [],
+  onRefine,
 }: {
   stories: EditableStory[];
   meta: JiraMeta | null;
   onStories: (s: EditableStory[]) => void;
   pushResults: Record<string, PushResult>;
   onPushOne: (story: EditableStory) => void;
+  agents?: IdeateAgent[];
+  onRefine?: (story: EditableStory, agentPath: string, instruction: string) => Promise<void> | void;
 }) {
   const patch = (id: string, p: Partial<EditableStory>) =>
     onStories(stories.map((s) => (s._id === id ? { ...s, ...p } : s)));
@@ -38,6 +42,8 @@ export function StepReview({
           onDuplicate={() => duplicate(s)}
           onPushOne={() => onPushOne(s)}
           pushed={pushResults[s._id]}
+          agents={agents}
+          onRefine={onRefine ? (agentPath, instruction) => onRefine(s, agentPath, instruction) : undefined}
         />
       ))}
     </div>

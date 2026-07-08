@@ -1,6 +1,7 @@
-import { Trash2, Plus, X } from "lucide-react";
+import { useState } from "react";
+import { Trash2, Plus, X, Sparkles, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { EditableStory, JiraMeta, PushResult } from "./types";
+import type { EditableStory, IdeateAgent, JiraMeta, PushResult } from "./types";
 import { PRIORITIES, DEFAULT_ISSUE_TYPES } from "./types";
 
 const PRIORITY_CHIP: Record<string, string> = {
@@ -17,6 +18,8 @@ export function StoryCard({
   onPushOne,
   onDuplicate,
   pushed,
+  agents = [],
+  onRefine,
 }: {
   story: EditableStory;
   meta: JiraMeta | null;
@@ -25,8 +28,23 @@ export function StoryCard({
   onPushOne?: () => void;
   onDuplicate?: () => void;
   pushed?: PushResult;
+  agents?: IdeateAgent[];
+  onRefine?: (agentPath: string, instruction: string) => Promise<void> | void;
 }) {
   const issueTypes = meta?.issue_types?.length ? meta.issue_types : DEFAULT_ISSUE_TYPES;
+  const [refineAgent, setRefineAgent] = useState(agents[0]?.path ?? "");
+  const [instruction, setInstruction] = useState("");
+  const [refining, setRefining] = useState(false);
+  const runRefine = async () => {
+    if (!onRefine || !refineAgent) return;
+    setRefining(true);
+    try {
+      await onRefine(refineAgent, instruction || "Improve this story.");
+      setInstruction("");
+    } finally {
+      setRefining(false);
+    }
+  };
   const show = meta?.fields;
   const setAc = (i: number, val: string) => {
     const ac = [...story.acceptance_criteria];
@@ -196,6 +214,36 @@ export function StoryCard({
         )}
         {pushed && !pushed.ok && <span className="text-[11px] text-red-600">{pushed.error}</span>}
       </div>
+
+      {onRefine && agents.length > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <select
+            value={refineAgent}
+            onChange={(e) => setRefineAgent(e.target.value)}
+            className="text-[11px] rounded border border-gray-200 dark:border-gray-800 bg-transparent px-1.5 py-0.5 outline-none"
+          >
+            {agents.map((a) => (
+              <option key={a.path} value={a.path}>
+                {a.name}
+              </option>
+            ))}
+          </select>
+          <input
+            value={instruction}
+            onChange={(e) => setInstruction(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && runRefine()}
+            placeholder="Refine instruction…"
+            className="flex-1 min-w-[140px] text-[11px] rounded border border-gray-200 dark:border-gray-800 bg-transparent px-1.5 py-0.5 outline-none"
+          />
+          <button
+            onClick={runRefine}
+            disabled={refining || !refineAgent}
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-violet-700 hover:text-violet-800 disabled:opacity-50"
+          >
+            {refining ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />} Refine
+          </button>
+        </div>
+      )}
     </div>
   );
 }
