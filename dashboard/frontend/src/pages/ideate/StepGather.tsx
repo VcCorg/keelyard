@@ -1,7 +1,8 @@
 import { useRef } from "react";
-import { FileUp, Search, Loader2 } from "lucide-react";
+import { FileUp, Search, Loader2, Bot } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { AgentWindow } from "./AgentWindow";
-import type { AgentEvent } from "./types";
+import type { AgentEvent, IdeateAgent } from "./types";
 
 export function StepGather({
   context,
@@ -17,6 +18,9 @@ export function StepGather({
   agentEvents,
   agentRunning,
   onRunAgent,
+  agents,
+  selectedAgentPaths,
+  onToggleAgent,
 }: {
   context: string;
   onContext: (v: string) => void;
@@ -31,6 +35,9 @@ export function StepGather({
   agentEvents: AgentEvent[];
   agentRunning: boolean;
   onRunAgent: () => void;
+  agents: IdeateAgent[];
+  selectedAgentPaths: string[];
+  onToggleAgent: (path: string) => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   return (
@@ -83,6 +90,33 @@ export function StepGather({
         placeholder="Paste or gather requirements here…"
         className="w-full text-sm rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 px-3 py-2 outline-none"
       />
+      {agents.length > 0 && (
+        <div className="space-y-1">
+          <div className="text-[11px] font-semibold text-gray-500 flex items-center gap-1">
+            <Bot className="h-3.5 w-3.5 text-violet-500" /> Inject agents as tools
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {agents.map((a) => {
+              const on = selectedAgentPaths.includes(a.path);
+              return (
+                <button
+                  key={a.path}
+                  onClick={() => onToggleAgent(a.path)}
+                  className={cn(
+                    "text-[11px] rounded-full px-2.5 py-1 border transition-colors",
+                    on
+                      ? "bg-violet-50 text-violet-700 border-violet-300 dark:bg-violet-900/30 dark:text-violet-300 dark:border-violet-700"
+                      : "bg-transparent text-gray-500 border-gray-200 dark:border-gray-800 hover:border-gray-300"
+                  )}
+                  title={a.path}
+                >
+                  {a.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
       <AgentWindow
         events={agentEvents}
         running={agentRunning}

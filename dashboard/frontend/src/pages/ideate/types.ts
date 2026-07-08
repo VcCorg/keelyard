@@ -56,6 +56,13 @@ export interface ToolSpec {
   mutating: boolean;
 }
 
+export interface IdeateAgent {
+  name: string;
+  path: string;
+  use_case?: string | null;
+  tool_name: string;
+}
+
 export const PRIORITIES = ["High", "Medium", "Low"];
 export const DEFAULT_ISSUE_TYPES = ["Story", "Task", "Bug", "Spike"];
 

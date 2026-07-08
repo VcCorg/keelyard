@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Lightbulb, ChevronLeft, ChevronRight, AlertCircle, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { AgentEvent, EditableStory, JiraMeta, PushResult, Story } from "./ideate/types";
+import type { AgentEvent, EditableStory, IdeateAgent, JiraMeta, PushResult, Story } from "./ideate/types";
 import { newStory } from "./ideate/types";
 import { runAgent } from "./ideate/agentStream";
 import { StepScope } from "./ideate/StepScope";
@@ -33,6 +33,8 @@ export function Ideate() {
 
   const [agentEvents, setAgentEvents] = useState<AgentEvent[]>([]);
   const [agentRunning, setAgentRunning] = useState(false);
+  const [availableAgents, setAvailableAgents] = useState<IdeateAgent[]>([]);
+  const [selectedAgentPaths, setSelectedAgentPaths] = useState<string[]>([]);
 
   const [jira, setJira] = useState<{ configured: boolean; projects: string[] } | null>(null);
   const [project, setProject] = useState("");
@@ -65,7 +67,24 @@ export function Ideate() {
         /* non-fatal */
       }
     })();
+    (async () => {
+      try {
+        const res = await fetch("/api/ideate/agents");
+        if (res.ok) setAvailableAgents((await res.json()).agents ?? []);
+      } catch {
+        /* non-fatal */
+      }
+    })();
   }, []);
+
+  const selectedAgents = useMemo(
+    () => availableAgents.filter((a) => selectedAgentPaths.includes(a.path)),
+    [availableAgents, selectedAgentPaths]
+  );
+  const toggleAgent = (path: string) =>
+    setSelectedAgentPaths((prev) =>
+      prev.includes(path) ? prev.filter((p) => p !== path) : [...prev, path]
+    );
 
   // Fetch createmeta whenever the project changes.
   useEffect(() => {
@@ -208,6 +227,7 @@ export function Ideate() {
       await runAgent({
         context,
         project_key: project,
+        agents: selectedAgents.map((a) => ({ name: a.name, path: a.path })),
         onEvent: (ev) => {
           setAgentEvents((prev) => [...prev, ev]);
           if (ev.type === "stories" && ev.stories) {
@@ -224,6 +244,33 @@ export function Ideate() {
       showToast({ type: "error", message: "Agent run failed" });
     } finally {
       setAgentRunning(false);
+    }
+  };
+
+  const refineStory = async (story: EditableStory, agentPath: string, instruction: string) => {
+    const agent = availableAgents.find((a) => a.path === agentPath);
+    if (!agent) return;
+    try {
+      const res = await fetch("/api/ideate/agent/refine", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          story: (({ _id, keep, ...s }) => s)(story),
+          agent: { name: agent.name, path: agent.path },
+          instruction,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        setStories((prev) =>
+          prev.map((s) => (s._id === story._id ? { ...s, ...(data.story as Story) } : s))
+        );
+        showToast({ type: "success", message: `Refined with ${agent.name}` });
+      } else {
+        showToast({ type: "error", message: data.error || "Refine failed" });
+      }
+    } catch {
+      showToast({ type: "error", message: "Refine failed" });
     }
   };
 
@@ -277,6 +324,9 @@ export function Ideate() {
             agentEvents={agentEvents}
             agentRunning={agentRunning}
             onRunAgent={runAgentGather}
+            agents={availableAgents}
+            selectedAgentPaths={selectedAgentPaths}
+            onToggleAgent={toggleAgent}
           />
         )}
         {step === 2 && (
@@ -289,6 +339,8 @@ export function Ideate() {
             onStories={setStories}
             pushResults={pushResults}
             onPushOne={(s) => pushStories([s])}
+            agents={availableAgents}
+            onRefine={refineStory}
           />
         )}
         {step === 4 && (

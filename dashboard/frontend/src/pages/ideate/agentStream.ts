@@ -5,6 +5,7 @@ export interface RunAgentOptions {
   context: string;
   project_key: string;
   model?: string | null;
+  agents?: { name: string; path: string }[];
   signal?: AbortSignal;
   onEvent: (ev: AgentEvent) => void;
 }
@@ -21,13 +22,14 @@ export async function runAgent({
   context,
   project_key,
   model,
+  agents,
   signal,
   onEvent,
 }: RunAgentOptions): Promise<void> {
   const res = await fetch("/api/ideate/agent/run", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ task, context, project_key, model }),
+    body: JSON.stringify({ task, context, project_key, model, agents: agents ?? [] }),
     signal,
   });
 
