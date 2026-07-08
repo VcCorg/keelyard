@@ -1436,7 +1436,263 @@ def regen_personas(
 # {CLI_NAME} domain init-context
 # ---------------------------------------------------------------------------
 
-@domain_app.command("init-context")
+def _resolve_context_meta_path(domain_name: str, output: Optional[str] = None) -> Path:
+    """Resolve the unified context-meta repo path.
+
+    Default: ``<workspace>/<domain>/<domain>-context-meta``.
+    """
+    if output:
+        return Path(output).resolve()
+    workspace = _get_code_workspace()
+    return workspace / domain_name / f"{domain_name}-context-meta"
+
+
+@domain_app.command("init")
+def init_domain(
+    domain_name: Annotated[str, typer.Argument(help="Domain name (slug, e.g. cwow-facility)")],
+    output: Annotated[str, typer.Option("--output", "-o", help="Output directory for the unified context-meta repo")] = None,
+    git_init: Annotated[bool, typer.Option("--git-init/--no-git-init", help="Initialize as a git repo (registers repo submodules)")] = True,
+    git_remote: Annotated[str, typer.Option("--git-remote", help="Git remote URL to set as origin")] = None,
+    bootstrap_skills: Annotated[bool, typer.Option("--bootstrap-skills/--no-bootstrap-skills", help="Inject superpowers skills as baseline")] = True,
+    superpowers_url: Annotated[str, typer.Option("--superpowers-url", help="Git URL for superpowers skills repo")] = "https://github.com/venkatchinta/superpowers.git",
+    code_assist_tool: Annotated[str, typer.Option("--code-assist-tool", help="Code assist tool (auto, windsurf, cursor, devin, generic). 'auto' detects the IDE.")] = "auto",
+    product_meta_url: Annotated[str, typer.Option("--product-meta", help="Git URL/path of the product meta-repo to reference as a submodule (outer-loop shared tier)")] = None,
+    clone_repos: Annotated[bool, typer.Option("--clone-repos/--no-clone-repos", help="Clone submodule working trees now (default: register + fetch lazily via `make init`)")] = False,
+    no_kg: Annotated[bool, typer.Option("--no-kg", help="Skip the Knowledge Graph query (fastest; uses placeholder content)")] = False,
+    kg_timeout: Annotated[int, typer.Option("--kg-timeout", help="Max seconds to wait for the KG query before falling back to placeholder content")] = 20,
+    force: Annotated[bool, typer.Option("--force", "-f", help="Overwrite an existing repo without prompting (required in non-interactive contexts such as the dashboard)")] = False,
+) -> None:
+    """
+    Initialize a unified domain **context-meta** repository (context + meta in one).
+
+    This single command replaces the previous two-step ``init-context`` +
+    ``init-meta`` flow. It creates ``<workspace>/<domain>/<domain>-context-meta``
+    containing BOTH:
+      - Context: ``.domain/`` (KG business context, metadata, architecture),
+        ``.skills/`` (superpowers + project-context), README.
+      - Meta: ``.platform/config`` (governance), ``.agents/skills/personas``,
+        ``repos/`` submodules, ``docs/``, ``Makefile``, ``.devin`` DRS blueprint.
+
+    Skills are bridged into the code assist tool automatically (for Windsurf,
+    symlinked into ~/.codeium/windsurf/skills so Cascade loads them immediately).
+
+    Examples:
+        {CLI_NAME} domain init cwow-facility
+        {CLI_NAME} domain init cwow-facility --code-assist-tool windsurf
+        {CLI_NAME} domain init cwow-facility --product-meta ../product-cwow-meta
+    """
+    import subprocess
+
+    d = get_domain(domain_name)
+    if not d:
+        console.print(f"[red]✗ Domain '{domain_name}' not found.[/red]")
+        console.print(f"[dim]Register it first: {CLI_NAME} domain create <DOMAIN> --product <PRODUCT>[/dim]")
+        raise typer.Exit(1)
+
+    if code_assist_tool == "auto":
+        from agentic_cli.commands.code import detect_code_assist_tool
+
+        code_assist_tool = detect_code_assist_tool()
+        console.print(f"[dim]Code assist tool (auto-detected): {code_assist_tool}[/dim]")
+
+    out_dir = _resolve_context_meta_path(domain_name, output)
+    out_dir.parent.mkdir(parents=True, exist_ok=True)
+
+    if out_dir.exists() and any(out_dir.iterdir()):
+        import sys
+
+        if force:
+            _robust_rmtree(out_dir)
+            console.print(f"[yellow]Removed existing repo (--force): {out_dir}[/yellow]")
+        elif sys.stdin.isatty():
+            if not typer.confirm(f"Directory {out_dir} is not empty. Overwrite?", default=False):
+                raise typer.Exit(0)
+            _robust_rmtree(out_dir)
+        else:
+            console.print(f"[red]✗ Repo already exists and is not empty: {out_dir}[/red]")
+            console.print("[dim]Re-run with --force to overwrite, or delete the directory first.[/dim]")
+            raise typer.Exit(1)
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    console.print(f"[cyan]Initializing unified context-meta repo for '{domain_name}'...[/cyan]")
+
+    repos = get_domain_repos(domain_name)
+    docs = get_domain_docs(domain_name)
+
+    # ── Context: query KG (time-boxed/skippable) + scaffold context files ──
+    from agentic_cli.kg.domain_context import scaffold_domain_context_repo
+
+    kg_context: dict = {}
+    if no_kg:
+        console.print("[dim]Skipping Knowledge Graph query (--no-kg) — using placeholder content.[/dim]")
+    else:
+        console.print(f"[dim]Querying Knowledge Graph for domain context (timeout {kg_timeout}s)...[/dim]")
+        try:
+            import concurrent.futures
+
+            from agentic_cli.kg.domain_context import query_domain_kg
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+                fut = ex.submit(query_domain_kg, domain_name)
+                try:
+                    kg_context = fut.result(timeout=kg_timeout) or {}
+                except concurrent.futures.TimeoutError:
+                    console.print(
+                        f"[yellow]⚠ KG query exceeded {kg_timeout}s — continuing with "
+                        f"placeholder content.[/yellow]"
+                    )
+                    kg_context = {}
+            if any(kg_context.values()):
+                console.print(
+                    f"[green]✓ KG domain context retrieved "
+                    f"({sum(1 for v in kg_context.values() if v)}/6 aspects)[/green]"
+                )
+            else:
+                console.print("[yellow]⚠ No domain context found in KG — using placeholder content.[/yellow]")
+        except Exception as e:  # noqa: BLE001
+            console.print(f"[yellow]⚠ KG query failed: {e}[/yellow]")
+            kg_context = {}
+
+    try:
+        created = scaffold_domain_context_repo(
+            output_dir=out_dir, domain=domain_name, domain_data=d,
+            kg_context=kg_context, repos=repos, code_assist_tool=code_assist_tool,
+        )
+        for name, path in created.items():
+            console.print(f"  [green]✓[/green] context/{name}")
+    except Exception as e:  # noqa: BLE001
+        console.print(f"[red]✗ Failed to scaffold context files: {e}[/red]")
+        raise typer.Exit(1)
+
+    # ── Skills injection ──────────────────────────────────────────────────
+    skills_result = None
+    if bootstrap_skills:
+        console.print("\n[cyan]Injecting superpowers skills as baseline...[/cyan]")
+        try:
+            from agentic_cli.kg.domain_skills import bootstrap_domain_skills
+
+            skills_result = bootstrap_domain_skills(
+                domain_context_dir=out_dir, domain=domain_name,
+                superpowers_url=superpowers_url, use_submodule=False,
+                code_assist_tool=code_assist_tool,
+            )
+            console.print(f"[green]✓ {skills_result['skill_count']} superpowers skills injected[/green]")
+        except Exception as e:  # noqa: BLE001
+            console.print(f"[yellow]⚠ Skill injection failed: {e}[/yellow]")
+
+    # ── project-context skill ─────────────────────────────────────────────
+    try:
+        from agentic_cli.commands.code import _generate_project_context_skill
+        from agentic_cli.analyzer.detector import ProjectAnalysis
+
+        analysis = ProjectAnalysis()
+        analysis.languages = ["markdown"]
+        analysis.frameworks = ["domain-context"]
+        _generate_project_context_skill(
+            project_path=out_dir, analysis=analysis, code_assist_tool=code_assist_tool,
+            domain=domain_name, product=d.get("product"),
+        )
+        console.print("[green]✓ project-context skill generated[/green]")
+    except Exception as e:  # noqa: BLE001
+        console.print(f"[yellow]⚠ project-context skill generation failed: {e}[/yellow]")
+
+    # ── Meta: governance, personas, submodules, Devin blueprint ───────────
+    console.print("\n[cyan]Scaffolding meta layer (governance, personas, submodules)...[/cyan]")
+    try:
+        from agentic_cli.meta_repo import scaffold_domain_meta_repo
+        from agentic_cli.meta_repo.git_utils import detect_git_host
+        from agentic_cli.persona_catalog import resolve_personas
+
+        repos_config = [
+            {
+                "slug": r["repo_slug"], "clone_url": r["clone_url"],
+                "description": r.get("description", ""), "languages": r.get("languages", []),
+                "frameworks": r.get("frameworks", []),
+                "host": detect_git_host(r.get("clone_url", "")), "branch": r.get("branch"),
+            }
+            for r in repos
+        ]
+
+        product = d.get("product", "")
+        product_meta_path = None
+        if product_meta_url and Path(product_meta_url).exists():
+            product_meta_path = Path(product_meta_url)
+        elif product:
+            slug = product.lower()
+            product_meta_path = _get_code_workspace() / slug / f"product-{slug}-meta"
+
+        personas = resolve_personas(product_meta_path)
+        persona_context = gather_domain_context(d, repos, docs)
+
+        meta_created = scaffold_domain_meta_repo(
+            output_dir=out_dir.parent, domain=domain_name, product=product,
+            description=d.get("description", ""), owner=d.get("owner", ""),
+            product_meta_url=product_meta_url, repos=repos_config,
+            git_init=git_init, code_assist_tool=code_assist_tool,
+            personas=personas, persona_context=persona_context,
+            clone_repos=clone_repos, repo_name=out_dir.name, allow_existing=True,
+        )
+        for name, path in meta_created.items():
+            if name != "root":
+                console.print(f"  [green]✓[/green] meta/{name}")
+    except Exception as e:  # noqa: BLE001
+        console.print(f"[red]✗ Failed to scaffold meta layer: {e}[/red]")
+        raise typer.Exit(1)
+
+    # ── Bridge skills into the code assist tool ───────────────────────────
+    if code_assist_tool == "windsurf":
+        console.print("\n[cyan]Registering skills with Windsurf/Cascade...[/cyan]")
+        try:
+            from agentic_cli.kg.domain_skills import (
+                install_skills_to_windsurf, get_windsurf_skills_root,
+            )
+
+            bridged = install_skills_to_windsurf(out_dir / ".skills", domain_name)
+            console.print(
+                f"[green]✓ {len(bridged)} skills registered[/green] "
+                f"[dim]in {get_windsurf_skills_root()}[/dim]"
+            )
+            console.print("[dim]Reload the Cascade window to load them.[/dim]")
+        except Exception as e:  # noqa: BLE001
+            console.print(f"[yellow]⚠ Windsurf skill registration failed: {e}[/yellow]")
+
+    # ── Git remote ────────────────────────────────────────────────────────
+    # The meta scaffold's _init_git_repo already made the initial commit,
+    # which includes the context files + skills (written BEFORE the meta
+    # scaffold) AND the submodule gitlinks (product-meta + linked repos).
+    # We must NOT run `git add .` here: with submodules registered but not
+    # cloned (clone_repos=False), `git add .` sees the empty submodule paths
+    # as deletions and would clobber the gitlinks — dropping every submodule.
+    if git_init and git_remote:
+        try:
+            subprocess.run(
+                ["git", "remote", "add", "origin", git_remote],
+                cwd=str(out_dir), capture_output=True, check=True,
+            )
+            console.print(f"[green]✓ Git remote set:[/green] {git_remote}")
+        except subprocess.CalledProcessError as e:
+            stderr = e.stderr.decode() if e.stderr else str(e)
+            console.print(f"[yellow]⚠ Git remote add failed: {stderr}[/yellow]")
+
+    skills_count = skills_result["skill_count"] if skills_result else 0
+    console.print()
+    console.print(Panel(
+        f"[bold]Domain:[/bold] {d.get('domain', domain_name)} ({d.get('product', '')})\n"
+        f"[bold]Location:[/bold] {out_dir}\n"
+        f"[bold]KG Context:[/bold] {'Yes' if any((kg_context or {}).values()) else 'Placeholder'}\n"
+        f"[bold]Skills:[/bold] {skills_count} injected"
+        + (f"\n[bold]Remote:[/bold] {git_remote}" if git_remote else ""),
+        title=f"Domain Context-Meta Repo — {domain_name}", border_style="green",
+    ))
+
+    record_activity(
+        command="domain", subcommand="init",
+        args={"domain": domain_name, "output": str(out_dir),
+              "skills_injected": skills_count, "tool": code_assist_tool},
+    )
+
+
+@domain_app.command("init-context", hidden=True, deprecated=True)
 def init_context(
     domain_name: Annotated[str, typer.Argument(help="Domain name (slug, e.g. cwow-facility)")],
     output: Annotated[str, typer.Option("--output", "-o", help="Output directory for domain context repo")] = None,
@@ -1444,7 +1700,7 @@ def init_context(
     git_remote: Annotated[str, typer.Option("--git-remote", help="Git remote URL to set as origin")] = None,
     bootstrap_skills: Annotated[bool, typer.Option("--bootstrap-skills/--no-bootstrap-skills", help="Inject superpowers skills as baseline")] = True,
     superpowers_url: Annotated[str, typer.Option("--superpowers-url", help="Git URL for superpowers skills repo")] = "https://github.com/venkatchinta/superpowers.git",
-    code_assist_tool: Annotated[str, typer.Option("--code-assist-tool", help="Code assist tool (windsurf, cursor, or generic). Determines where skills are installed.")] = "generic",
+    code_assist_tool: Annotated[str, typer.Option("--code-assist-tool", help="Code assist tool (auto, windsurf, cursor, devin, or generic). 'auto' detects the IDE. Determines where skills are installed and whether they're bridged into the tool's skill dir.")] = "auto",
     no_kg: Annotated[bool, typer.Option("--no-kg", help="Skip the Knowledge Graph query (fastest; uses placeholder content)")] = False,
     kg_timeout: Annotated[int, typer.Option("--kg-timeout", help="Max seconds to wait for the KG query before falling back to placeholder content")] = 20,
     force: Annotated[bool, typer.Option("--force", "-f", help="Overwrite an existing context repo without prompting (required in non-interactive contexts such as the dashboard)")] = False,
@@ -1467,9 +1723,14 @@ def init_context(
     to skip skill injection.
 
     The --code-assist-tool determines where skills are installed:
-    - windsurf: Skills installed as .windsurf/workflows/*.md (Windsurf workflow format)
-    - cursor: Skills installed as .cursorrules/*.md (Cursor rules format)
-    - generic: Skills installed as .skills/*/SKILL.md (generic format)
+    - auto: Detect the active IDE (default) and use its convention.
+    - windsurf: Skills stored as .skills/*/SKILL.md AND symlinked into the
+      per-user dir Cascade scans (~/.codeium/windsurf/skills/<domain>__*) so
+      they load immediately. (Skills are NOT .windsurf/workflows — that is the
+      slash-command feature and is never loaded as a skill.)
+    - cursor: Skills installed under .cursorrules (Cursor rules format)
+    - devin: Skills installed as .devin/skills/*/SKILL.md
+    - generic: Skills installed as .skills/*/SKILL.md (portable format)
 
     Examples:
         {CLI_NAME} domain init-context cwow-facility
@@ -1485,6 +1746,13 @@ def init_context(
         console.print(f"[red]✗ Domain '{domain_name}' not found.[/red]")
         console.print(f"[dim]Register it first: {CLI_NAME} domain create <DOMAIN> --product <PRODUCT>[/dim]")
         raise typer.Exit(1)
+
+    # Resolve 'auto' to the active IDE so skills land where the tool loads them.
+    if code_assist_tool == "auto":
+        from agentic_cli.commands.code import detect_code_assist_tool
+
+        code_assist_tool = detect_code_assist_tool()
+        console.print(f"[dim]Code assist tool (auto-detected): {code_assist_tool}[/dim]")
 
     # Determine output directory
     if output:
@@ -1676,6 +1944,26 @@ def init_context(
         console.print(f"[yellow]⚠ project-context skill generation failed: {e}[/yellow]")
         console.print("[dim]Domain context repo created without project-context skill.[/dim]")
 
+    # Bridge all repo-local skills into the per-user dir Cascade scans, so
+    # Windsurf loads them immediately (covers superpowers + project-context).
+    if code_assist_tool == "windsurf":
+        console.print("\n[cyan]Registering skills with Windsurf/Cascade...[/cyan]")
+        try:
+            from agentic_cli.kg.domain_skills import (
+                install_skills_to_windsurf, get_windsurf_skills_root,
+            )
+
+            bridged = install_skills_to_windsurf(out_dir / ".skills", domain_name)
+            for b in bridged:
+                console.print(f"  [green]✓[/green] {b['global_name']} [dim]({b['mode']})[/dim]")
+            console.print(
+                f"[green]✓ {len(bridged)} skills registered[/green] "
+                f"[dim]in {get_windsurf_skills_root()}[/dim]"
+            )
+            console.print("[dim]Reload the Cascade window (or restart Windsurf) to load them.[/dim]")
+        except Exception as e:  # noqa: BLE001
+            console.print(f"[yellow]⚠ Windsurf skill registration failed: {e}[/yellow]")
+
     # Commit files to git (repo already initialized earlier)
     if git_init:
         try:
@@ -1739,6 +2027,90 @@ def init_context(
 
 
 # ---------------------------------------------------------------------------
+# {CLI_NAME} domain reinstall-skills
+# ---------------------------------------------------------------------------
+
+@domain_app.command("reinstall-skills")
+def reinstall_skills(
+    domain_name: Annotated[str, typer.Argument(help="Domain name (slug, e.g. cwow-apoc)")],
+    code_assist_tool: Annotated[str, typer.Option("--code-assist-tool", help="Code assist tool (auto, windsurf, cursor, devin, generic). 'auto' detects the IDE.")] = "auto",
+    context_repo: Annotated[str, typer.Option("--context-repo", help="Path to the domain-context repo (defaults to the workspace location)")] = None,
+    copy: Annotated[bool, typer.Option("--copy", help="Copy skill folders instead of symlinking (robust, but updates need re-running this)")] = False,
+) -> None:
+    """Re-register an already-injected domain's skills with the code assist tool.
+
+    Backfills existing domains (whose skills were injected before the install
+    step existed) without re-cloning superpowers or re-scaffolding the repo.
+    For Windsurf/Cascade this symlinks the repo's ``.skills`` folders into
+    ``~/.codeium/windsurf/skills/<domain>__*`` so Cascade discovers them.
+
+    Examples:
+        {CLI_NAME} domain reinstall-skills cwow-apoc
+        {CLI_NAME} domain reinstall-skills cwow-apoc --code-assist-tool windsurf
+    """
+    d = get_domain(domain_name)
+    if not d:
+        console.print(f"[red]✗ Domain '{domain_name}' not found.[/red]")
+        raise typer.Exit(1)
+
+    if code_assist_tool == "auto":
+        from agentic_cli.commands.code import detect_code_assist_tool
+
+        code_assist_tool = detect_code_assist_tool()
+        console.print(f"[dim]Code assist tool (auto-detected): {code_assist_tool}[/dim]")
+
+    # Resolve the unified context-meta repo path (falls back to legacy
+    # split-context repo for domains created before the cutover).
+    if context_repo:
+        ctx_dir = Path(context_repo).resolve()
+    else:
+        ctx_dir = _resolve_context_meta_path(domain_name)
+        if not (ctx_dir / ".skills").is_dir():
+            legacy = _get_code_workspace() / domain_name / f"{domain_name}-domain-context"
+            if (legacy / ".skills").is_dir():
+                ctx_dir = legacy
+
+    skills_dir = ctx_dir / ".skills"
+    if not skills_dir.is_dir():
+        console.print(f"[red]✗ No .skills found at {skills_dir}[/red]")
+        console.print(
+            f"[dim]Create the repo first: {CLI_NAME} domain init {domain_name} "
+            f"--code-assist-tool {code_assist_tool}[/dim]"
+        )
+        raise typer.Exit(1)
+
+    if code_assist_tool != "windsurf":
+        console.print(
+            f"[yellow]Skills for '{code_assist_tool}' are loaded from the repo directly "
+            f"({skills_dir}); no global registration needed.[/yellow]"
+        )
+        raise typer.Exit(0)
+
+    from agentic_cli.kg.domain_skills import (
+        install_skills_to_windsurf, get_windsurf_skills_root,
+    )
+
+    console.print(f"[cyan]Registering '{domain_name}' skills with Windsurf/Cascade...[/cyan]")
+    bridged = install_skills_to_windsurf(skills_dir, domain_name, use_symlink=not copy)
+    if not bridged:
+        console.print(f"[yellow]No skills (SKILL.md folders) found under {skills_dir}.[/yellow]")
+        raise typer.Exit(0)
+
+    for b in bridged:
+        console.print(f"  [green]✓[/green] {b['global_name']} [dim]({b['mode']})[/dim]")
+    console.print(
+        f"\n[bold green]✓[/bold green] Registered [bold]{len(bridged)}[/bold] skills "
+        f"[dim]in {get_windsurf_skills_root()}[/dim]"
+    )
+    console.print("[dim]Reload the Cascade window (or restart Windsurf) to load them.[/dim]")
+
+    record_activity(
+        command="domain", subcommand="reinstall-skills",
+        args={"domain": domain_name, "tool": code_assist_tool, "count": len(bridged)},
+    )
+
+
+# ---------------------------------------------------------------------------
 # {CLI_NAME} domain init-meta
 # ---------------------------------------------------------------------------
 
@@ -1759,7 +2131,7 @@ def _robust_rmtree(path: Path, attempts: int = 5) -> None:
         time.sleep(0.1)
 
 
-@domain_app.command("init-meta")
+@domain_app.command("init-meta", hidden=True, deprecated=True)
 def init_meta(
     domain_name: Annotated[str, typer.Argument(help="Domain name (slug, e.g. cwow-facility)")],
     output: Annotated[
@@ -1979,11 +2351,15 @@ def init_meta(
 # ---------------------------------------------------------------------------
 
 def _resolve_domain_meta_path(domain_name: str, meta: Optional[str] = None) -> Path:
-    """Resolve a domain meta-repo path (mirrors the init-meta default rule)."""
+    """Resolve a domain's meta-repo path.
+
+    Post-cutover this is the unified context-meta repo
+    (``<workspace>/<domain>/<domain>-context-meta``), which now holds the
+    ``.devin`` DRS blueprint, ``.platform`` governance, and ``repos/`` submodules.
+    """
     if meta:
         return Path(meta).resolve()
-    workspace = _get_code_workspace()
-    return workspace / domain_name / f"domain-{domain_name}-meta"
+    return _resolve_context_meta_path(domain_name)
 
 
 @domain_app.command("gen-blueprint")

@@ -458,20 +458,20 @@ def scaffold_domain_context_repo(
     arch_path.write_text(arch_content)
     created["architecture.md"] = arch_path
 
-    # Shared domain skill - location depends on code_assist_tool
-    if code_assist_tool == "windsurf":
-        # Windsurf workflow format: .windsurf/workflows/<domain>-domain-skill.md
-        skills_dir = output_dir / ".windsurf" / "workflows"
-        skills_dir.mkdir(parents=True, exist_ok=True)
-        skill_path = skills_dir / f"{domain}-domain-skill.md"
-    elif code_assist_tool == "devin":
+    # Shared domain skill - location depends on code_assist_tool.
+    # NOTE: Windsurf/Cascade skills are full SKILL.md folders (NOT
+    # .windsurf/workflows, which is the slash-command feature). Windsurf uses
+    # the same .skills layout as generic; the install step bridges it into the
+    # per-user dir Cascade scans.
+    if code_assist_tool == "devin":
         # Devin project skill format: .devin/skills/<domain>-domain-skill/SKILL.md
         skills_dir = output_dir / ".devin" / "skills"
         skills_dir.mkdir(parents=True, exist_ok=True)
         skill_path = skills_dir / f"{domain}-domain-skill" / "SKILL.md"
     else:
-        # Generic/Cursor format: .skills/shared/<domain>-domain-skill/SKILL.md
-        skills_dir = output_dir / ".skills" / "shared"
+        # Generic/Cursor/Windsurf format: .skills/<domain>-domain-skill/SKILL.md
+        # (top-level so the Windsurf bridge discovers it).
+        skills_dir = output_dir / ".skills"
         skills_dir.mkdir(parents=True, exist_ok=True)
         skill_path = skills_dir / f"{domain}-domain-skill" / "SKILL.md"
 

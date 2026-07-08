@@ -105,7 +105,7 @@ export function PersonaSkillsPanel({
           </Button>
         </div>
         <p className="text-xs text-gray-500 mb-3">
-          Skills generated into <code>{`domain-${slug}-meta/.agents/skills/personas/`}</code>
+          Skills generated into <code>{`${slug}-context-meta/.agents/skills/personas/`}</code>
         </p>
         {generated.length === 0 ? (
           <p className="text-sm text-gray-400">

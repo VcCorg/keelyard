@@ -109,24 +109,31 @@ This is the new top tier. Do it once per product.
 
 ---
 
-## Step 6 — Scaffold
+## Step 6 — Generate context-meta
 
-This produces the per-domain repos and **links the product tier**.
+This produces a **single unified `abc-a1-context-meta` repo** (context + meta in
+one) and **links the product tier**. It replaces the old two-step
+init-context / init-meta flow.
 
-1. **Init context repo** — creates `abc-a1-domain-context` (KG business context +
-   baseline methodology skills).
-   - *CLI:* `keel domain init-context abc-a1`
+1. **Generate context-meta** — creates `abc-a1-context-meta` containing:
+   - Context: `.domain/` (KG business context, metadata, architecture) and
+     `.skills/` (superpowers baseline + project-context).
+   - Meta: `.platform/config` (governance), `.agents/skills/personas`,
+     `repos/` submodules, `docs/`, `Makefile`, and the `.devin` DRS blueprint.
+   - Skills are **auto-registered with your IDE** — for Windsurf/Cascade they're
+     symlinked into `~/.codeium/windsurf/skills/abc-a1__<skill>` so Cascade
+     loads them immediately (no `.windsurf/workflows` — that's a different
+     feature). Re-register anytime with `keel domain reinstall-skills abc-a1`.
+   - *CLI:* `keel domain init abc-a1` (add `--code-assist-tool windsurf` or let
+     `auto` detect your IDE).
 
 2. **Link product meta-repo** checkbox — leave it **on** (it auto-detects the
-   `product-abc-meta` you scaffolded in Step 1). This is what threads the shared
-   outer-loop governance, crosswalk, and exceptions into the domain.
+   `product-abc-meta` you scaffolded in Step 1). This threads the shared
+   outer-loop governance, crosswalk, and exceptions into the domain as a submodule.
    - If the checkbox shows *"no product meta"*, go back to Step 1 and scaffold it.
+   - *CLI:* `keel domain init abc-a1 --product-meta <path-or-url>`
 
-3. **Init meta repo** — creates `domain-abc-a1-meta`, referencing the product meta
-   as a submodule.
-   - *CLI:* `keel domain init-meta abc-a1 --product-meta <path-or-url>`
-
-4. Finally, onboard each working repo so it picks up the chain:
+3. Finally, onboard each working repo so it picks up the chain:
    - *CLI:* `keel code onboard --path ./abc-a1-service --domain abc-a1 --link-meta-repo --use-domain-skills`
 
 ---

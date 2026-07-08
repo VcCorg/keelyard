@@ -1,6 +1,7 @@
 """Code onboarding commands — analyze repos and install context skills for AI code assistants."""
 
 import json
+import os
 import shutil
 import subprocess
 import typer
@@ -106,16 +107,40 @@ def _ensure_registry(registry_override: Optional[str] = None) -> Path:
 
 
 def _get_skills_dir(project_path: Path, code_assist_tool: str) -> Path:
-    """Get the skills directory based on the code assist tool."""
-    if code_assist_tool == "windsurf":
-        return project_path / ".windsurf" / "workflows"
-    elif code_assist_tool == "cursor":
+    """Get the repo-local skills directory based on the code assist tool.
+
+    Skills are stored as full directories (SKILL.md + companions). Windsurf uses
+    the same ``.skills`` layout as generic; a separate bridge step installs them
+    into the per-user dir Cascade scans (~/.codeium/windsurf/skills). Windsurf
+    skills are NOT ``.windsurf/workflows`` (that's the slash-command feature).
+    """
+    if code_assist_tool == "cursor":
         return project_path / ".cursorrules"
     elif code_assist_tool == "devin":
         # Devin loads project skills from .devin/skills/<name>/SKILL.md
         return project_path / ".devin" / "skills"
     else:
+        # generic AND windsurf both use full skill dirs under .skills/.
         return project_path / ".skills"
+
+
+def detect_code_assist_tool(default: str = "generic") -> str:
+    """Best-effort detection of the active code assist tool / IDE.
+
+    Order: explicit ``KEEL_CODE_ASSIST_TOOL`` env override → Windsurf (Cascade)
+    per-user dir → Cursor config dir → Devin env markers → ``default``.
+    """
+    override = os.environ.get("KEEL_CODE_ASSIST_TOOL", "").strip().lower()
+    if override in {"windsurf", "cursor", "devin", "generic"}:
+        return override
+    home = Path.home()
+    if (home / ".codeium" / "windsurf").exists():
+        return "windsurf"
+    if (home / ".cursor").exists():
+        return "cursor"
+    if os.environ.get("DEVIN_API_KEY") or os.environ.get("DEVIN_SESSION_ID"):
+        return "devin"
+    return default
 
 
 def _generate_project_context_skill(
@@ -292,7 +317,8 @@ def _install_graphify_skill(project_path: Path, code_assist_tool: str) -> None:
     """Install the graphify guidance where the chosen tool will load it.
 
     - devin    → ``.devin/skills/graphify/SKILL.md`` (name + description frontmatter)
-    - windsurf → ``.windsurf/workflows/graphify.md`` (workflow, description frontmatter)
+    - windsurf → ``.skills/graphify/SKILL.md`` (portable skill, later bridged to
+                 the per-user Cascade skills dir — NOT a .windsurf/workflows file)
     - cursor   → ``.cursor/rules/graphify.md`` (conditional rule)
     - generic  → ``.skills/graphify/SKILL.md`` (portable skill)
     """
@@ -301,9 +327,9 @@ def _install_graphify_skill(project_path: Path, code_assist_tool: str) -> None:
         content = f"---\nname: graphify\ndescription: {_GRAPHIFY_DESCRIPTION}\n---\n\n{_GRAPHIFY_BODY}"
         label = "Devin (.devin/skills/graphify)"
     elif code_assist_tool == "windsurf":
-        dest = project_path / ".windsurf" / "workflows" / "graphify.md"
-        content = f"---\ndescription: {_GRAPHIFY_DESCRIPTION}\n---\n\n{_GRAPHIFY_BODY}"
-        label = "Windsurf (.windsurf/workflows/graphify.md)"
+        dest = project_path / ".skills" / "graphify" / "SKILL.md"
+        content = f"---\nname: graphify\ndescription: {_GRAPHIFY_DESCRIPTION}\n---\n\n{_GRAPHIFY_BODY}"
+        label = "Windsurf (.skills/graphify)"
     elif code_assist_tool == "cursor":
         dest = project_path / ".cursor" / "rules" / "graphify.md"
         content = f"---\ndescription: {_GRAPHIFY_DESCRIPTION}\n---\n\n{_GRAPHIFY_BODY}"
@@ -785,6 +811,23 @@ def onboard(
 
     # Step 9: Save manifest
     _save_onboard_manifest(project_path, analysis, installed_names, suggested_names, code_assist_tool)
+
+    # Step 9-bis: For Windsurf/Cascade, bridge the project's .skills into the
+    # per-user dir Cascade actually scans so they're immediately invokable.
+    if code_assist_tool == "windsurf":
+        try:
+            from agentic_cli.kg.domain_skills import install_skills_to_windsurf
+
+            ns = domain or project_path.name
+            bridged = install_skills_to_windsurf(project_path / ".skills", ns)
+            if bridged:
+                console.print(
+                    f"[green]✓ Registered {len(bridged)} skills with Windsurf/Cascade[/green] "
+                    f"[dim](~/.codeium/windsurf/skills/{ns}__*)[/dim]"
+                )
+                console.print("[dim]Reload the Cascade window to pick them up.[/dim]")
+        except Exception as e:  # noqa: BLE001
+            console.print(f"[yellow]⚠ Could not register skills with Windsurf: {e}[/yellow]")
 
     # Step 9a: Agent-powered skill gap detection (optional)
     agent_result = None

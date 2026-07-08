@@ -284,16 +284,6 @@ ALTER TABLE activity_log ADD COLUMN actor TEXT;
 CREATE INDEX IF NOT EXISTS idx_activity_actor ON activity_log(actor);
 """
 
-# Indexes that depend on columns added in v12/v13 migrations.  These are safe
-# to run after all migrations have completed (IF NOT EXISTS makes them no-ops
-# when already present).  They are NOT part of _SCHEMA_SQL to avoid a crash on
-# existing databases that haven't yet been migrated to v12.
-_POST_MIGRATION_INDEXES = """
-CREATE INDEX IF NOT EXISTS idx_activity_correlation ON activity_log(correlation_id);
-CREATE INDEX IF NOT EXISTS idx_activity_entity      ON activity_log(entity_type, entity_id);
-CREATE INDEX IF NOT EXISTS idx_activity_actor       ON activity_log(actor);
-"""
-
 
 def _ensure_db() -> Path:
     """Create the database and schema if they don't exist. Run migrations."""
@@ -360,8 +350,6 @@ def _ensure_db() -> Path:
                 conn.executescript(_MIGRATION_V13)
                 conn.execute("UPDATE schema_version SET version = 13")
                 current_version = 13
-            # Ensure post-migration indexes exist (safe no-ops if already present)
-            conn.executescript(_POST_MIGRATION_INDEXES)
         conn.commit()
     finally:
         conn.close()
@@ -373,6 +361,7 @@ def _get_conn():
     """Context manager for a database connection."""
     _ensure_db()
     conn = sqlite3.connect(str(DB_PATH))
+    conn.execute("PRAGMA foreign_keys = ON")
     conn.row_factory = sqlite3.Row
     try:
         yield conn
@@ -1358,44 +1347,3 @@ def get_full_context() -> dict:
         "activity_summary": get_activity_summary(),
         "recent_activity": get_activity(limit=20),
     }
-
-
-# ---------------------------------------------------------------------------
-# Platform reset (admin)
-# ---------------------------------------------------------------------------
-
-# Logical groups of tables an admin can clear. Children are listed before
-# parents so deletes are safe regardless of foreign-key state.
-RESET_TABLE_GROUPS: dict[str, list[str]] = {
-    "activity": ["activity_log"],
-    "catalog": [
-        "domain_docs", "domain_repos", "domains",
-        "projects", "products", "repos", "workspaces",
-    ],
-}
-
-
-def table_counts(tables: list[str]) -> dict[str, int]:
-    """Return current row counts for the given tables (0 if missing)."""
-    out: dict[str, int] = {}
-    with _get_conn() as conn:
-        for t in tables:
-            try:
-                out[t] = conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
-            except Exception:  # noqa: BLE001 - table may not exist
-                out[t] = 0
-    return out
-
-
-def clear_tables(tables: list[str]) -> dict[str, int]:
-    """Delete all rows from the given tables. Returns rows deleted per table."""
-    deleted: dict[str, int] = {}
-    with _get_conn() as conn:
-        for t in tables:
-            try:
-                before = conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
-                conn.execute(f"DELETE FROM {t}")
-                deleted[t] = before
-            except Exception:  # noqa: BLE001
-                deleted[t] = 0
-    return deleted

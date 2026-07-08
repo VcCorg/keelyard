@@ -30,6 +30,8 @@ def scaffold_domain_meta_repo(
     enrich_personas: bool = False,
     clone_repos: bool = False,
     write_blueprint: bool = True,
+    repo_name: Optional[str] = None,
+    allow_existing: bool = False,
 ) -> dict[str, Path]:
     """Create domain meta-repo directory structure.
 
@@ -59,10 +61,12 @@ def scaffold_domain_meta_repo(
     if not output_dir.exists():
         raise ValueError(f"Output directory does not exist: {output_dir}")
 
-    meta_repo_name = f"domain-{domain}-meta"
+    meta_repo_name = repo_name or f"domain-{domain}-meta"
     meta_repo_path = output_dir / meta_repo_name
 
-    if meta_repo_path.exists():
+    # ``allow_existing`` lets the unified context-meta flow layer meta content
+    # into a directory that already holds the domain-context files/skills.
+    if meta_repo_path.exists() and any(meta_repo_path.iterdir()) and not allow_existing:
         raise ValueError(f"Meta-repo already exists: {meta_repo_path}")
 
     created = {}

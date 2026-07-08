@@ -22,19 +22,24 @@ def detect_domain_meta_repo(domain_slug: str, search_paths: list[Path] = None) -
     Returns:
         Path to domain-meta-repo if found, None otherwise.
     """
+    # Post-cutover the meta layer lives in the unified context-meta repo;
+    # prefer it, then fall back to the legacy split meta-repo name.
+    unified_name = f"{domain_slug}-context-meta"
     meta_repo_name = f"domain-{domain_slug}-meta"
+    names = [unified_name, meta_repo_name]
 
-    candidates = [
-        Path.cwd() / meta_repo_name,
-        Path.cwd().parent / meta_repo_name,
-    ]
+    candidates: list[Path] = []
+    for name in names:
+        candidates.append(Path.cwd() / name)
+        candidates.append(Path.cwd().parent / name)
 
-    # Search the configured code workspace, where `keel domain init-meta`
-    # creates meta-repos: <workspace>/<domain>/domain-<domain>-meta
+    # Search the configured code workspace, where `keel domain init`
+    # creates repos: <workspace>/<domain>/<domain>-context-meta
     workspace = _get_code_workspace()
     if workspace:
-        candidates.append(workspace / domain_slug / meta_repo_name)
-        candidates.append(workspace / meta_repo_name)
+        for name in names:
+            candidates.append(workspace / domain_slug / name)
+            candidates.append(workspace / name)
 
     # Add custom search paths. Each path is treated both as a direct
     # candidate and as a parent directory that may contain the meta-repo.

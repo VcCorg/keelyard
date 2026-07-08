@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { FileUp, Search, Loader2, Bot, ExternalLink, Plus } from "lucide-react";
+import { FileUp, Search, Loader2, Bot, ExternalLink, Plus, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AgentWindow } from "./AgentWindow";
 import type { AgentEvent, IdeateAgent, SearchResult } from "./types";
@@ -14,8 +14,11 @@ export function StepGather({
   onSearch,
   searching,
   searchResults,
-  onAttachResult,
+  attached,
+  onToggleAttach,
   onAttachAll,
+  onRemoveAttached,
+  onClearAttached,
   onUpload,
   uploading,
   agentEvents,
@@ -34,8 +37,11 @@ export function StepGather({
   onSearch: () => void;
   searching: boolean;
   searchResults: SearchResult[];
-  onAttachResult: (r: SearchResult) => void;
+  attached: SearchResult[];
+  onToggleAttach: (r: SearchResult) => void;
   onAttachAll: () => void;
+  onRemoveAttached: (r: SearchResult) => void;
+  onClearAttached: () => void;
   onUpload: (file: File) => void;
   uploading: boolean;
   agentEvents: AgentEvent[];
@@ -46,6 +52,8 @@ export function StepGather({
   onToggleAgent: (path: string) => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const keyOf = (r: SearchResult) => r.url || r.title;
+  const isAttached = (r: SearchResult) => attached.some((a) => keyOf(a) === keyOf(r));
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -129,15 +137,71 @@ export function StepGather({
                       <p className="mt-0.5 text-xs text-gray-500 line-clamp-2">{r.snippet}</p>
                     )}
                   </div>
-                  <button
-                    onClick={() => onAttachResult(r)}
-                    className="inline-flex items-center gap-1 shrink-0 text-[11px] font-medium text-blue-600 hover:text-blue-700 border border-blue-200 dark:border-blue-800 rounded-lg px-2 py-1"
-                    title="Attach to context"
-                  >
-                    <Plus className="h-3 w-3" /> Attach
-                  </button>
+                  {isAttached(r) ? (
+                    <button
+                      onClick={() => onToggleAttach(r)}
+                      className="inline-flex items-center gap-1 shrink-0 text-[11px] font-medium text-emerald-700 border border-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700 rounded-lg px-2 py-1"
+                      title="Remove from context"
+                    >
+                      <Check className="h-3 w-3" /> Attached
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => onToggleAttach(r)}
+                      className="inline-flex items-center gap-1 shrink-0 text-[11px] font-medium text-blue-600 hover:text-blue-700 border border-blue-200 dark:border-blue-800 rounded-lg px-2 py-1"
+                      title="Attach to context"
+                    >
+                      <Plus className="h-3 w-3" /> Attach
+                    </button>
+                  )}
                 </div>
               </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {attached.length > 0 && (
+        <div className="space-y-1">
+          <div className="flex items-center justify-between">
+            <div className="text-[11px] font-semibold text-gray-500">
+              Attached context ({attached.length})
+            </div>
+            <button
+              onClick={onClearAttached}
+              className="text-[11px] font-medium text-gray-500 hover:text-red-600"
+            >
+              Clear all
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {attached.map((r) => (
+              <span
+                key={keyOf(r)}
+                className="inline-flex items-center gap-1 max-w-[260px] text-[11px] rounded-full border border-emerald-300 bg-emerald-50 text-emerald-700 px-2 py-1 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700"
+              >
+                {r.url ? (
+                  <a
+                    href={r.url}
+                    target="_blank"
+                    rel="noopener"
+                    className="truncate hover:underline"
+                    title={r.title || r.url}
+                  >
+                    {r.title || r.url}
+                  </a>
+                ) : (
+                  <span className="truncate" title={r.title}>
+                    {r.title || "Untitled"}
+                  </span>
+                )}
+                <button
+                  onClick={() => onRemoveAttached(r)}
+                  className="shrink-0 hover:text-red-600"
+                  title="Remove from context"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
             ))}
           </div>
         </div>
@@ -145,8 +209,8 @@ export function StepGather({
       <textarea
         value={context}
         onChange={(e) => onContext(e.target.value)}
-        rows={10}
-        placeholder="Paste or gather requirements here…"
+        rows={8}
+        placeholder="Add any extra requirements or instructions… (attached results are included automatically)"
         className="w-full text-sm rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 px-3 py-2 outline-none"
       />
       {agents.length > 0 && (
@@ -180,7 +244,7 @@ export function StepGather({
         events={agentEvents}
         running={agentRunning}
         onRun={onRunAgent}
-        disabled={!context.trim()}
+        disabled={!context.trim() && attached.length === 0}
       />
     </div>
   );
