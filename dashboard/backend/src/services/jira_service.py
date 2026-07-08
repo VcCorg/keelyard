@@ -28,6 +28,22 @@ class JiraStatus(BaseModel):
     projects: list[str] = []
 
 
+class CreateMeta(BaseModel):
+    project_key: str
+    issue_types: list[str] = []
+    epic_link_field: Optional[str] = None
+    story_points_field: Optional[str] = None
+    acceptance_criteria_field: Optional[str] = None
+    has_components: bool = False
+    has_assignee: bool = False
+    has_priority: bool = False
+
+
+class JiraEpic(BaseModel):
+    key: str
+    summary: str = ""
+
+
 class JiraIssue(BaseModel):
     key: str
     summary: str
@@ -95,6 +111,43 @@ def get_status() -> JiraStatus:
         configured=is_configured(),
         server_url=_server_url(),
         projects=_domain_project_keys(),
+    )
+
+
+def _parse_create_meta(data: dict, project_key: str) -> CreateMeta:
+    """Turn a Jira /issue/createmeta payload into a typed CreateMeta.
+
+    Detects custom-field ids for Epic Link, Story Points, and Acceptance
+    Criteria by name; records whether components/assignee/priority are on the
+    create screen.
+    """
+    project = next((p for p in (data.get("projects") or []) if p.get("key") == project_key), None)
+    if not project:
+        return CreateMeta(project_key=project_key)
+
+    issue_types = [it.get("name", "") for it in project.get("issuetypes", []) if it.get("name")]
+    epic = points = ac = None
+    has_components = has_assignee = has_priority = False
+    for it in project.get("issuetypes", []):
+        for fid, meta in (it.get("fields") or {}).items():
+            name = (meta.get("name") or "").strip().lower()
+            if fid == "components":
+                has_components = True
+            elif fid == "assignee":
+                has_assignee = True
+            elif fid == "priority":
+                has_priority = True
+            elif name == "epic link" and not epic:
+                epic = fid
+            elif name == "story points" and not points:
+                points = fid
+            elif name == "acceptance criteria" and not ac:
+                ac = fid
+    return CreateMeta(
+        project_key=project_key, issue_types=issue_types,
+        epic_link_field=epic, story_points_field=points,
+        acceptance_criteria_field=ac, has_components=has_components,
+        has_assignee=has_assignee, has_priority=has_priority,
     )
 
 
