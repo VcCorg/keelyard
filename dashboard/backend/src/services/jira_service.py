@@ -28,6 +28,22 @@ class JiraStatus(BaseModel):
     projects: list[str] = []
 
 
+class CreateMeta(BaseModel):
+    project_key: str
+    issue_types: list[str] = []
+    epic_link_field: Optional[str] = None
+    story_points_field: Optional[str] = None
+    acceptance_criteria_field: Optional[str] = None
+    has_components: bool = False
+    has_assignee: bool = False
+    has_priority: bool = False
+
+
+class JiraEpic(BaseModel):
+    key: str
+    summary: str = ""
+
+
 class JiraIssue(BaseModel):
     key: str
     summary: str
@@ -98,6 +114,130 @@ def get_status() -> JiraStatus:
     )
 
 
+def _parse_create_meta(data: dict, project_key: str) -> CreateMeta:
+    """Turn a Jira /issue/createmeta payload into a typed CreateMeta.
+
+    Detects custom-field ids for Epic Link, Story Points, and Acceptance
+    Criteria by name; records whether components/assignee/priority are on the
+    create screen.
+    """
+    project = next((p for p in (data.get("projects") or []) if p.get("key") == project_key), None)
+    if not project:
+        return CreateMeta(project_key=project_key)
+
+    issue_types = [it.get("name", "") for it in project.get("issuetypes", []) if it.get("name")]
+    epic = points = ac = None
+    has_components = has_assignee = has_priority = False
+    for it in project.get("issuetypes", []):
+        for fid, meta in (it.get("fields") or {}).items():
+            name = (meta.get("name") or "").strip().lower()
+            if fid == "components":
+                has_components = True
+            elif fid == "assignee":
+                has_assignee = True
+            elif fid == "priority":
+                has_priority = True
+            elif name == "epic link" and not epic:
+                epic = fid
+            elif name == "story points" and not points:
+                points = fid
+            elif name == "acceptance criteria" and not ac:
+                ac = fid
+    return CreateMeta(
+        project_key=project_key, issue_types=issue_types,
+        epic_link_field=epic, story_points_field=points,
+        acceptance_criteria_field=ac, has_components=has_components,
+        has_assignee=has_assignee, has_priority=has_priority,
+    )
+
+
+def _build_issue_fields(
+    project_key: str, summary: str, description: str = "", issue_type: str = "Story",
+    labels: Optional[list[str]] = None, priority: Optional[str] = None,
+    epic_key: Optional[str] = None, story_points: Optional[float] = None,
+    assignee: Optional[str] = None, components: Optional[list[str]] = None,
+    acceptance_criteria: Optional[list[str]] = None, meta: Optional[CreateMeta] = None,
+) -> dict:
+    """Assemble the Jira `fields` dict, mapping real fields when supported and
+    degrading gracefully. meta=None → permissive for standard fields; custom
+    fields omitted (AC appended to description)."""
+    labels = labels or []
+    components = components or []
+    acceptance_criteria = [a for a in (acceptance_criteria or []) if a]
+    fields: dict = {"project": {"key": project_key}, "summary": summary[:255],
+                    "issuetype": {"name": issue_type or "Story"}}
+
+    def ok(flag: bool) -> bool:
+        return flag if meta is not None else True
+
+    if labels:
+        fields["labels"] = [l.replace(" ", "-") for l in labels if l]
+    if priority and ok(getattr(meta, "has_priority", False)):
+        fields["priority"] = {"name": priority}
+    if assignee and ok(getattr(meta, "has_assignee", False)):
+        fields["assignee"] = {"name": assignee}
+    if components and ok(getattr(meta, "has_components", False)):
+        fields["components"] = [{"name": c} for c in components if c]
+    if epic_key and getattr(meta, "epic_link_field", None):
+        fields[meta.epic_link_field] = epic_key
+    if story_points is not None and getattr(meta, "story_points_field", None):
+        fields[meta.story_points_field] = story_points
+
+    ac_field = getattr(meta, "acceptance_criteria_field", None)
+    desc = description or ""
+    if acceptance_criteria:
+        if ac_field:
+            fields[ac_field] = "\n".join(acceptance_criteria)
+        else:
+            desc = (desc + "\n\nAcceptance criteria:\n"
+                    + "\n".join(f"- {a}" for a in acceptance_criteria)).strip()
+    if desc:
+        fields["description"] = desc
+    return fields
+
+
+def _client() -> httpx.Client:
+    return httpx.Client(
+        base_url=f"{_server_url()}/rest/api/2",
+        headers={"Authorization": f"Bearer {_token()}", "Accept": "application/json",
+                 "Content-Type": "application/json"},
+        verify=_verify_ssl(), timeout=30.0)
+
+
+def get_create_meta(project_key: str) -> CreateMeta:
+    """Fetch+parse create screen metadata; empty CreateMeta on any error."""
+    if not is_configured() or not project_key:
+        return CreateMeta(project_key=project_key)
+    try:
+        with _client() as c:
+            resp = c.get("/issue/createmeta",
+                         params={"projectKeys": project_key, "expand": "projects.issuetypes.fields"})
+            resp.raise_for_status()
+            return _parse_create_meta(resp.json(), project_key)
+    except Exception:  # noqa: BLE001
+        return CreateMeta(project_key=project_key)
+
+
+def list_issue_types(project_key: str) -> list[str]:
+    return get_create_meta(project_key).issue_types
+
+
+def list_epics(project_key: str, max_results: int = 100) -> list[JiraEpic]:
+    """List open epics (key + summary) for the epic picker."""
+    if not is_configured() or not project_key:
+        return []
+    jql = f'project = "{project_key}" AND issuetype = Epic AND statusCategory != Done ORDER BY updated DESC'
+    try:
+        with _client() as c:
+            resp = c.get("/search", params={"jql": jql, "maxResults": max_results, "fields": "summary"})
+            resp.raise_for_status()
+            data = resp.json()
+    except Exception:  # noqa: BLE001
+        return []
+    return [JiraEpic(key=i.get("key", ""), summary=(i.get("fields") or {}).get("summary", ""))
+            for i in data.get("issues", [])]
+
+
 def create_issue(
     project_key: str,
     summary: str,
@@ -105,8 +245,14 @@ def create_issue(
     issue_type: str = "Story",
     labels: Optional[list[str]] = None,
     priority: Optional[str] = None,
+    epic_key: Optional[str] = None,
+    story_points: Optional[float] = None,
+    assignee: Optional[str] = None,
+    components: Optional[list[str]] = None,
+    acceptance_criteria: Optional[list[str]] = None,
+    meta: Optional[CreateMeta] = None,
 ) -> dict:
-    """Create a Jira issue and return {key, url}. Raises on failure."""
+    """Create a Jira issue with real field mapping. Returns {key, url}. Raises on failure."""
     if not is_configured():
         raise RuntimeError(
             "Jira is not configured. Set JIRA_SERVER_URL and "
@@ -116,30 +262,16 @@ def create_issue(
         raise ValueError("A Jira project key is required")
     if not summary:
         raise ValueError("A summary is required")
+    if meta is None:
+        meta = get_create_meta(project_key)
 
-    fields: dict = {
-        "project": {"key": project_key},
-        "summary": summary[:255],
-        "issuetype": {"name": issue_type or "Story"},
-    }
-    if description:
-        fields["description"] = description
-    if labels:
-        # Jira labels cannot contain spaces.
-        fields["labels"] = [l.replace(" ", "-") for l in labels if l]
-    if priority:
-        fields["priority"] = {"name": priority}
+    fields = _build_issue_fields(
+        project_key=project_key, summary=summary, description=description,
+        issue_type=issue_type, labels=labels, priority=priority, epic_key=epic_key,
+        story_points=story_points, assignee=assignee, components=components,
+        acceptance_criteria=acceptance_criteria, meta=meta)
 
-    with httpx.Client(
-        base_url=f"{_server_url()}/rest/api/2",
-        headers={
-            "Authorization": f"Bearer {_token()}",
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        },
-        verify=_verify_ssl(),
-        timeout=30.0,
-    ) as client:
+    with _client() as client:
         resp = client.post("/issue", json={"fields": fields})
         if resp.status_code >= 300:
             raise RuntimeError(f"Jira create failed ({resp.status_code}): {resp.text[:300]}")
