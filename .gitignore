@@ -183,3 +183,6 @@ Pipfile.lock
 # Local configuration
 config.local.json
 settings.local.py
+
+# Brainstorming visual companion
+.superpowers/
