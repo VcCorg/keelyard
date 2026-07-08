@@ -61,3 +61,65 @@ def test_search_source_joins_structured_blocks(monkeypatch):
     monkeypatch.setattr(svc, "search_results", fake_results)
     text = asyncio.run(svc.search_source("confluence", "q"))
     assert "T" in text and "https://u/1" in text and "body" in text
+
+
+class _AsyncCM:
+    def __init__(self, value):
+        self._value = value
+
+    async def __aenter__(self):
+        return self._value
+
+    async def __aexit__(self, *a):
+        return False
+
+
+class _FakeSession:
+    def __init__(self, result):
+        self._result = result
+
+    async def initialize(self):
+        return None
+
+    async def list_tools(self):
+        tool = SimpleNamespace(name="search_glean", inputSchema={"properties": {"query": {}}})
+        return SimpleNamespace(tools=[tool])
+
+    async def call_tool(self, name, args):
+        return self._result
+
+
+def _install_fake_mcp(monkeypatch, result):
+    """Stub the mcp modules imported inside search_results with a fake session."""
+    mcp_mod = SimpleNamespace(ClientSession=lambda r, w: _AsyncCM(_FakeSession(result)))
+    sse_mod = SimpleNamespace(sse_client=lambda url: _AsyncCM((object(), object())))
+    client_pkg = SimpleNamespace(sse=sse_mod)
+    monkeypatch.setitem(__import__("sys").modules, "mcp", mcp_mod)
+    monkeypatch.setitem(__import__("sys").modules, "mcp.client", client_pkg)
+    monkeypatch.setitem(__import__("sys").modules, "mcp.client.sse", sse_mod)
+
+
+def test_search_results_raises_on_tool_error(monkeypatch):
+    """An MCP tool error (e.g. 'Glean is not configured') surfaces as RuntimeError."""
+    err = SimpleNamespace(
+        isError=True,
+        content=[SimpleNamespace(text="Error executing tool search_glean: Glean is not configured. Set GLEAN_API_TOKEN")],
+    )
+    _install_fake_mcp(monkeypatch, err)
+    try:
+        asyncio.run(svc.search_results("glean", "test", limit=3))
+        assert False, "expected RuntimeError"
+    except RuntimeError as e:
+        assert "not configured" in str(e)
+
+
+def test_search_results_ok_via_mcp(monkeypatch):
+    """A successful MCP tool result is parsed into structured hits."""
+    ok = SimpleNamespace(
+        isError=False,
+        content=[SimpleNamespace(text=json.dumps({"results": [
+            {"title": "Doc", "url": "https://g/1", "snippet": "snip"}]}))],
+    )
+    _install_fake_mcp(monkeypatch, ok)
+    out = asyncio.run(svc.search_results("glean", "test", limit=3))
+    assert out[0].title == "Doc" and out[0].url == "https://g/1"
