@@ -34,6 +34,12 @@ class DraftResult(BaseModel):
     source: str  # "llm" | "heuristic"
 
 
+class SearchResult(BaseModel):
+    title: str = ""
+    url: str = ""
+    snippet: str = ""
+
+
 _PRIORITIES = {"high", "medium", "low"}
 
 
@@ -271,6 +277,78 @@ def _result_text(result: Any, limit: int) -> str:
     return joined[: limit * 2000] if joined else ""
 
 
+_TITLE_KEYS = ("title", "name", "summary")
+_SNIPPET_KEYS = ("excerpt", "description", "snippet", "body_text", "text", "content")
+_URL_KEYS = ("url", "link")
+
+
+def _nested_link(entry: Dict[str, Any]) -> str:
+    """Extract a URL from a nested ``_links`` object (Confluence/Glean shapes)."""
+    links = entry.get("_links")
+    if isinstance(links, dict):
+        for k in ("webui", "self", "download", "tinyui"):
+            if links.get(k):
+                return str(links[k])
+    return ""
+
+
+def _results_from_json(obj: Any, limit: int) -> List[SearchResult]:
+    """Map a parsed JSON payload (dict/list of hits) to SearchResults, defensively."""
+    if isinstance(obj, dict):
+        entries = obj.get("results") if isinstance(obj.get("results"), list) else [obj]
+    elif isinstance(obj, list):
+        entries = obj
+    else:
+        return []
+    out: List[SearchResult] = []
+    for e in entries:
+        if not isinstance(e, dict):
+            continue
+        title = next((str(e[k]) for k in _TITLE_KEYS if e.get(k)), "")
+        url = next((str(e[k]) for k in _URL_KEYS if e.get(k)), "") or _nested_link(e)
+        snippet = next((str(e[k]) for k in _SNIPPET_KEYS if e.get(k)), "")
+        if not (title or url or snippet):
+            continue
+        out.append(SearchResult(title=title.strip(), url=url.strip(),
+                                snippet=snippet.strip()[:1000]))
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _parse_mcp_results(result: Any, limit: int) -> List[SearchResult]:
+    """Turn an MCP tool result into structured SearchResults.
+
+    Each content item is parsed as JSON (Confluence/Glean return JSON blobs);
+    non-JSON text degrades to a single snippet-only result so nothing is lost.
+    """
+    out: List[SearchResult] = []
+    for item in getattr(result, "content", None) or []:
+        text = getattr(item, "text", None)
+        if not text:
+            continue
+        try:
+            obj = json.loads(text)
+        except (json.JSONDecodeError, TypeError):
+            out.append(SearchResult(snippet=text.strip()[:1000]))
+            continue
+        out.extend(_results_from_json(obj, limit))
+        if len(out) >= limit:
+            break
+    return out[:limit]
+
+
+def _result_block(r: SearchResult) -> str:
+    """Render a SearchResult as a markdown context block for drafting."""
+    head = r.title or r.url or "result"
+    line = f"### {head}"
+    if r.url:
+        line += f"\n{r.url}"
+    if r.snippet:
+        line += f"\n{r.snippet}"
+    return line.strip()
+
+
 def glean_status(user_token: Optional[str] = None) -> Dict[str, Any]:
     """Report how the Glean source will resolve (configured REST vs MCP fallback)."""
     try:
@@ -291,36 +369,36 @@ def glean_status(user_token: Optional[str] = None) -> Dict[str, Any]:
     return {"mode": "mcp", "configured": cfg.is_configured(), "auth": cfg.auth_mode, "detail": reason}
 
 
-def _glean_configured_search(query: str, limit: int, user_token: Optional[str] = None) -> Optional[str]:
-    """Query the org-configured Glean (token or SSO) via its REST API.
+def _glean_configured_results(query: str, limit: int,
+                              user_token: Optional[str] = None) -> Optional[List[SearchResult]]:
+    """Query org-configured Glean (token/SSO) and return structured results.
 
-    Returns text on success, ``None`` if Glean isn't configured for a live query
-    (so the caller can fall back to the MCP server). Raises RuntimeError on a
-    real failure (bad token, unreachable host). ``user_token`` is the signed-in
-    user's forwarded access token, enabling per-user SSO (on-behalf-of).
-    """
+    Returns results on success, ``None`` if Glean isn't configured for a live
+    query (so the caller falls back to the MCP server). Raises RuntimeError on a
+    real failure (bad token, unreachable host)."""
     try:
-        from agentic_cli.glean import GleanConfig, GleanError, search_text
+        from agentic_cli.glean import GleanConfig, GleanError
+        from agentic_cli.glean import search as glean_search
     except Exception:  # noqa: BLE001 - package optional
         return None
     cfg = GleanConfig.load()
     if cfg.unavailable_reason(user_token):
         return None  # not configured for a live query → let MCP handle it
     try:
-        return search_text(query, limit=limit, config=cfg, user_token=user_token)
+        results = glean_search(query, page_size=limit, config=cfg, user_token=user_token)
     except GleanError as exc:
         raise RuntimeError(str(exc)) from exc
+    return [SearchResult(title=r.title, url=r.url, snippet=r.snippet) for r in results][:limit]
 
 
-async def search_source(source: str, query: str, limit: int = 5,
-                        user_token: Optional[str] = None) -> str:
-    """Gather context text for Ideate.
+async def search_results(source: str, query: str, limit: int = 5,
+                         user_token: Optional[str] = None) -> List[SearchResult]:
+    """Structured enterprise-search results (title / url / snippet) for Ideate.
 
     For Glean, prefer the org-configured Glean REST API (``keel init glean``);
     fall back to a Glean/Confluence MCP server when Glean isn't configured for a
-    live query. ``user_token`` (the signed-in user's forwarded access token)
-    enables per-user SSO. Degrades with a clear RuntimeError when nothing is
-    available."""
+    live query. ``user_token`` enables per-user SSO. Raises a clear RuntimeError
+    when nothing is available."""
     url = _MCP_URLS.get(source)
     if not url:
         raise ValueError(f"Unknown source '{source}'. Valid: {', '.join(_MCP_URLS)}")
@@ -328,9 +406,9 @@ async def search_source(source: str, query: str, limit: int = 5,
         raise ValueError("A search query is required")
 
     if source == "glean":
-        text = _glean_configured_search(query, limit, user_token)
-        if text is not None:
-            return text
+        results = _glean_configured_results(query, limit, user_token)
+        if results is not None:
+            return results
         # else: not configured for a live query — try the MCP server below.
 
     try:
@@ -349,11 +427,22 @@ async def search_source(source: str, query: str, limit: int = 5,
                     raise RuntimeError(f"No search tool exposed by the {source} MCP server.")
                 arg = _pick_query_arg(tool)
                 result = await session.call_tool(tool.name, {arg: query})
-                return _result_text(result, limit)
+                return _parse_mcp_results(result, limit)
     except RuntimeError:
         raise
     except Exception as exc:  # noqa: BLE001 - unreachable server, timeout, etc.
         raise RuntimeError(f"Could not reach the {source} MCP server: {exc}") from exc
+
+
+async def search_source(source: str, query: str, limit: int = 5,
+                        user_token: Optional[str] = None) -> str:
+    """Gather context text for Ideate — structured results rendered as blocks.
+
+    Thin wrapper over :func:`search_results` for callers (e.g. the agent tool
+    loop) that want a single context string rather than structured hits."""
+    results = await search_results(source, query, limit=limit, user_token=user_token)
+    blocks = [b for b in (_result_block(r) for r in results) if b]
+    return "\n\n".join(blocks).strip()
 
 
 def extract_text(content: bytes, filename: str) -> str:

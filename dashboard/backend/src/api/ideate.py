@@ -86,11 +86,12 @@ class SearchRequest(BaseModel):
 
 @router.post("/search")
 async def search(req: SearchRequest, request: Request):
-    """Gather context text — configured Glean REST (preferred) or MCP fallback."""
+    """Gather structured results (title/url/snippet) — Glean REST or MCP fallback."""
     tok = _forwarded_user_token(request)
     try:
-        text = await svc.search_source(req.source, req.query, limit=req.limit, user_token=tok)
-        return {"source": req.source, "query": req.query, "text": text, "chars": len(text)}
+        results = await svc.search_results(req.source, req.query, limit=req.limit, user_token=tok)
+        return {"source": req.source, "query": req.query,
+                "results": [r.model_dump() for r in results]}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except RuntimeError as e:

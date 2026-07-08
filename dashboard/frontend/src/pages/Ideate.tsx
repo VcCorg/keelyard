@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Lightbulb, ChevronLeft, ChevronRight, AlertCircle, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { AgentEvent, EditableStory, IdeateAgent, JiraMeta, PushResult, Story } from "./ideate/types";
+import type { AgentEvent, EditableStory, IdeateAgent, JiraMeta, PushResult, SearchResult, Story } from "./ideate/types";
 import { newStory } from "./ideate/types";
 import { runAgent } from "./ideate/agentStream";
 import { StepScope } from "./ideate/StepScope";
@@ -30,6 +30,7 @@ export function Ideate() {
   const [searchSource, setSearchSource] = useState<"glean" | "confluence">("glean");
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
 
   const [agentEvents, setAgentEvents] = useState<AgentEvent[]>([]);
   const [agentRunning, setAgentRunning] = useState(false);
@@ -116,9 +117,14 @@ export function Ideate() {
         body: JSON.stringify({ source: searchSource, query: searchQuery }),
       });
       const data = await res.json();
-      if (res.ok && data.text) {
-        setContext((c) => (c ? `${c}\n\n--- ${searchSource}: ${searchQuery} ---\n${data.text}` : data.text));
-        showToast({ type: "success", message: `Added ${data.chars} chars from ${searchSource}` });
+      if (res.ok) {
+        const results: SearchResult[] = data.results ?? [];
+        setSearchResults(results);
+        showToast(
+          results.length
+            ? { type: "success", message: `Found ${results.length} result${results.length === 1 ? "" : "s"} in ${searchSource}` }
+            : { type: "error", message: `No results from ${searchSource}` }
+        );
       } else {
         showToast({ type: "error", message: data.detail || "No results from " + searchSource });
       }
@@ -127,6 +133,22 @@ export function Ideate() {
     } finally {
       setSearching(false);
     }
+  };
+
+  const resultBlock = (r: SearchResult) => {
+    const head = r.title || r.url || "result";
+    return [`### ${head}`, r.url, r.snippet].filter(Boolean).join("\n");
+  };
+  const attachResult = (r: SearchResult) => {
+    const block = resultBlock(r);
+    setContext((c) => (c ? `${c}\n\n${block}` : block));
+    showToast({ type: "success", message: "Attached to context" });
+  };
+  const attachAllResults = () => {
+    if (!searchResults.length) return;
+    const block = searchResults.map(resultBlock).join("\n\n");
+    setContext((c) => (c ? `${c}\n\n${block}` : block));
+    showToast({ type: "success", message: `Attached ${searchResults.length} results` });
   };
 
   const uploadFile = async (file: File) => {
@@ -319,6 +341,9 @@ export function Ideate() {
             onSearchQuery={setSearchQuery}
             onSearch={runSearch}
             searching={searching}
+            searchResults={searchResults}
+            onAttachResult={attachResult}
+            onAttachAll={attachAllResults}
             onUpload={uploadFile}
             uploading={uploading}
             agentEvents={agentEvents}
