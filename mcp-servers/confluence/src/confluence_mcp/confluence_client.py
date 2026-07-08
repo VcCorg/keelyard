@@ -83,7 +83,10 @@ class ConfluenceClient:
         data = self._get("/content/search", params)
         results = []
         for item in data.get("results", []):
-            results.append(self._summarize_content(item))
+            summary = self._summarize_content(item)
+            summary["url"] = self._content_url(item)
+            summary["excerpt"] = self.strip_html(item.get("excerpt", ""))
+            results.append(summary)
 
         return {
             "total": data.get("totalSize", len(results)),
@@ -91,6 +94,15 @@ class ConfluenceClient:
             "limit": data.get("limit", limit),
             "results": results,
         }
+
+    def _content_url(self, item: dict) -> str:
+        """Absolute web URL for a content item (webui link, else viewpage by id)."""
+        base = self.config.server_url.rstrip("/")
+        webui = (item.get("_links", {}) or {}).get("webui", "")
+        if webui:
+            return f"{base}{webui}"
+        cid = item.get("id", "")
+        return f"{base}/pages/viewpage.action?pageId={cid}" if cid else base
 
     # ── Spaces ───────────────────────────────────────────────────────────
 

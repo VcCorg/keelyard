@@ -63,6 +63,12 @@ export interface IdeateAgent {
   tool_name: string;
 }
 
+export interface SearchResult {
+  title: string;
+  url: string;
+  snippet: string;
+}
+
 export const PRIORITIES = ["High", "Medium", "Low"];
 export const DEFAULT_ISSUE_TYPES = ["Story", "Task", "Bug", "Spike"];
 

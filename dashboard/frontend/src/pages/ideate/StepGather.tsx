@@ -1,8 +1,8 @@
 import { useRef } from "react";
-import { FileUp, Search, Loader2, Bot } from "lucide-react";
+import { FileUp, Search, Loader2, Bot, ExternalLink, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AgentWindow } from "./AgentWindow";
-import type { AgentEvent, IdeateAgent } from "./types";
+import type { AgentEvent, IdeateAgent, SearchResult } from "./types";
 
 export function StepGather({
   context,
@@ -13,6 +13,9 @@ export function StepGather({
   onSearchQuery,
   onSearch,
   searching,
+  searchResults,
+  onAttachResult,
+  onAttachAll,
   onUpload,
   uploading,
   agentEvents,
@@ -30,6 +33,9 @@ export function StepGather({
   onSearchQuery: (q: string) => void;
   onSearch: () => void;
   searching: boolean;
+  searchResults: SearchResult[];
+  onAttachResult: (r: SearchResult) => void;
+  onAttachAll: () => void;
   onUpload: (file: File) => void;
   uploading: boolean;
   agentEvents: AgentEvent[];
@@ -83,6 +89,59 @@ export function StepGather({
           }}
         />
       </div>
+      {searchResults.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <div className="text-[11px] font-semibold text-gray-500">
+              {searchResults.length} result{searchResults.length === 1 ? "" : "s"}
+            </div>
+            <button
+              onClick={onAttachAll}
+              className="text-[11px] font-medium text-blue-600 hover:text-blue-700"
+            >
+              Attach all
+            </button>
+          </div>
+          <div className="space-y-1.5 max-h-72 overflow-y-auto">
+            {searchResults.map((r, i) => (
+              <div
+                key={i}
+                className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-2.5"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    {r.url ? (
+                      <a
+                        href={r.url}
+                        target="_blank"
+                        rel="noopener"
+                        className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:underline break-words"
+                      >
+                        {r.title || r.url}
+                        <ExternalLink className="h-3 w-3 shrink-0" />
+                      </a>
+                    ) : (
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                        {r.title || "Untitled"}
+                      </span>
+                    )}
+                    {r.snippet && (
+                      <p className="mt-0.5 text-xs text-gray-500 line-clamp-2">{r.snippet}</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => onAttachResult(r)}
+                    className="inline-flex items-center gap-1 shrink-0 text-[11px] font-medium text-blue-600 hover:text-blue-700 border border-blue-200 dark:border-blue-800 rounded-lg px-2 py-1"
+                    title="Attach to context"
+                  >
+                    <Plus className="h-3 w-3" /> Attach
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <textarea
         value={context}
         onChange={(e) => onContext(e.target.value)}
