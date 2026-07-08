@@ -31,6 +31,22 @@ def _forwarded_user_token(request: Request) -> Optional[str]:
     return None
 
 
+def _forwarded_user_email(request: Request) -> Optional[str]:
+    """The signed-in user's email forwarded by the SSO proxy, if present."""
+    h = request.headers
+    email = h.get("x-auth-request-email") or h.get("x-forwarded-email")
+    return email.strip() if email else None
+
+
+def _get_activity(command: str, limit: int):
+    """Query the central audit trail; empty list if unavailable."""
+    try:
+        from agentic_cli.tracker import get_activity
+        return get_activity(command=command, limit=limit)
+    except Exception:  # noqa: BLE001
+        return []
+
+
 class DraftRequest(BaseModel):
     context: str
     count: int = 5
@@ -90,12 +106,16 @@ class PushStory(BaseModel):
     acceptance_criteria: List[str] = []
     priority: Optional[str] = None
     labels: List[str] = []
+    issue_type: str = "Story"
+    epic_key: Optional[str] = None
+    story_points: Optional[float] = None
+    assignee: Optional[str] = None
+    components: List[str] = []
 
 
 class PushRequest(BaseModel):
     project_key: str
     stories: List[PushStory]
-    issue_type: str = "Story"
 
 
 @router.get("/jira-status")
@@ -108,32 +128,44 @@ async def jira_status():
 
 
 @router.post("/push")
-async def push(req: PushRequest):
-    """Create the approved stories as Jira issues (draft → review → push)."""
-    from src.services import jira_service
-
+async def push(req: PushRequest, request: Request):
+    """Create approved stories as Jira issues with real field mapping + audit."""
     if not req.stories:
         raise HTTPException(status_code=400, detail="No stories to push")
     if not req.project_key:
         raise HTTPException(status_code=400, detail="A Jira project key is required")
 
-    results = []
-    for s in req.stories:
-        # Fold acceptance criteria into the issue description.
-        desc = s.description
-        if s.acceptance_criteria:
-            desc += "\n\nAcceptance criteria:\n" + "\n".join(f"- {a}" for a in s.acceptance_criteria)
-        try:
-            created = jira_service.create_issue(
-                project_key=req.project_key,
-                summary=s.title,
-                description=desc,
-                issue_type=req.issue_type,
-                labels=s.labels,
-                priority=s.priority,
-            )
-            results.append({"title": s.title, "ok": True, **created})
-        except Exception as e:  # noqa: BLE001 - report per-story, don't abort the batch
-            results.append({"title": s.title, "ok": False, "error": str(e)})
+    actor = _forwarded_user_email(request)
+    stories = [svc.Story(title=s.title, description=s.description,
+        acceptance_criteria=s.acceptance_criteria, priority=s.priority or "Medium",
+        labels=s.labels, issue_type=s.issue_type, epic_key=s.epic_key,
+        story_points=s.story_points, assignee=s.assignee, components=s.components)
+        for s in req.stories]
+    return svc.push_stories(req.project_key, stories, actor=actor)
 
-    return {"results": results, "created": sum(1 for r in results if r.get("ok"))}
+
+@router.get("/jira-meta")
+async def jira_meta(project: str):
+    """Issue types, epics, and available custom fields for a project."""
+    from src.services import jira_service
+
+    if not project:
+        raise HTTPException(status_code=400, detail="A project key is required")
+    meta = jira_service.get_create_meta(project)
+    epics = jira_service.list_epics(project)
+    return {"project": project,
+            "issue_types": meta.issue_types or ["Story", "Task", "Bug", "Spike"],
+            "epics": [e.model_dump() for e in epics],
+            "fields": {"epic_link": meta.epic_link_field is not None,
+                       "story_points": meta.story_points_field is not None,
+                       "acceptance_criteria": meta.acceptance_criteria_field is not None,
+                       "components": meta.has_components, "assignee": meta.has_assignee,
+                       "priority": meta.has_priority}}
+
+
+@router.get("/audit")
+async def audit(limit: int = 50):
+    """Recent Ideate mutating actions from the central audit trail."""
+    if limit < 1 or limit > 500:
+        raise HTTPException(status_code=400, detail="limit must be between 1 and 500")
+    return {"actions": _get_activity(command="ideate", limit=limit)}
