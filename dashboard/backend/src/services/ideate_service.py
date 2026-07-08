@@ -103,6 +103,65 @@ def _fallback_stories(context: str, count: int) -> List[Story]:
     return stories
 
 
+_STORY_KEYS = {"title", "description", "acceptance_criteria", "priority", "labels",
+               "issue_type", "epic_key", "story_points", "assignee", "components"}
+
+
+def _first_json_object(text: str) -> Optional[Dict[str, Any]]:
+    """Return the first balanced JSON object in ``text``, or None (tolerant)."""
+    cleaned = re.sub(r"```(?:json)?", "", text or "")
+    start = cleaned.find("{")
+    while start != -1:
+        depth = 0
+        for i in range(start, len(cleaned)):
+            c = cleaned[i]
+            if c == "{":
+                depth += 1
+            elif c == "}":
+                depth -= 1
+                if depth == 0:
+                    try:
+                        obj = json.loads(cleaned[start:i + 1])
+                        return obj if isinstance(obj, dict) else None
+                    except json.JSONDecodeError:
+                        break
+        start = cleaned.find("{", start + 1)
+    return None
+
+
+def refine_story(story: "Story", agent_path: str, instruction: str) -> Dict[str, Any]:
+    """Refine a single story using a built/imported agent (agents-as-tools).
+
+    Sends the current story + instruction to the agent's ``answer()`` and merges
+    any JSON story fields it returns onto the original. If the agent replies with
+    prose (no JSON), that prose is folded into the description so nothing is lost.
+    """
+    from src.services import agent_service
+
+    current = story.model_dump()
+    prompt = (
+        "You are refining a single Jira user story. Apply the instruction and "
+        "return ONLY a JSON object with any of these keys you want to change: "
+        f"{sorted(_STORY_KEYS)}.\n\n"
+        f"Instruction: {instruction}\n\n"
+        f"Current story:\n{json.dumps(current)}\n"
+    )
+    result = agent_service.test_agent(agent_path, prompt)
+    if not result.get("ok"):
+        return {"ok": False, "error": result.get("error", "agent failed"), "story": current}
+
+    text = str(result.get("response", ""))
+    obj = _first_json_object(text)
+    if obj:
+        for k, v in obj.items():
+            if k in _STORY_KEYS and v is not None:
+                current[k] = v
+    elif text.strip():
+        current["description"] = (current.get("description", "") +
+                                  f"\n\n[agent] {text.strip()}").strip()
+    return {"ok": True, "story": Story(**current).model_dump()}
+
+
 def push_stories(project_key: str, stories: List["Story"], actor: Optional[str] = None) -> Dict[str, Any]:
     """Create approved stories as Jira issues with real field mapping + audit.
 

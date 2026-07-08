@@ -7,7 +7,9 @@ call, so the agent's side effects are traceable exactly like the manual push.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+import asyncio
+import re
+from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 # Indirection so tests can monkeypatch the search entrypoint cleanly.
@@ -20,6 +22,8 @@ class ToolContext:
     actor: Optional[str] = None
     user_token: Optional[str] = None
     correlation_id: Optional[str] = None
+    # Built/imported agents injected as tools: each {"name", "path"}.
+    agents: List[Dict[str, str]] = field(default_factory=list)
 
 
 @dataclass
@@ -75,11 +79,33 @@ _CREATE_PARAMS = {"type": "object", "properties": {
     "title": {"type": "string"}, "description": {"type": "string"},
     "acceptance_criteria": {"type": "array", "items": {"type": "string"}},
     "issue_type": {"type": "string"}}, "required": ["title"]}
+_AGENT_PARAMS = {"type": "object", "properties": {"message": {"type": "string"}},
+                 "required": ["message"]}
+
+
+def agent_tool_name(name: str) -> str:
+    """Deterministic, model-safe tool name for an injected agent."""
+    slug = re.sub(r"[^a-z0-9]+", "_", (name or "").lower()).strip("_")
+    return f"agent_{slug or 'agent'}"
+
+
+def _make_agent_tool(name: str, path: str) -> ToolSpec:
+    async def _run(args: Dict[str, Any], ctx: ToolContext) -> Dict[str, Any]:
+        from src.services import agent_service
+        message = args.get("message") or args.get("query") or ""
+        result = await asyncio.to_thread(agent_service.test_agent, path, message)
+        if result.get("ok"):
+            return {"text": result.get("response", "")}
+        return {"error": result.get("error", "agent failed")}
+
+    return ToolSpec(agent_tool_name(name), "agent",
+                    f"Ask the '{name}' agent for help drafting or refining stories.",
+                    _AGENT_PARAMS, False, _run)
 
 
 def list_tools(ctx: ToolContext) -> List[ToolSpec]:
     """Return the enabled tool catalog for the given scope."""
-    return [
+    tools: List[ToolSpec] = [
         ToolSpec("glean_search", "integration", "Search Glean enterprise knowledge.",
                  _SEARCH_PARAMS, False, _glean_search),
         ToolSpec("confluence_search", "integration", "Search Confluence pages.",
@@ -90,6 +116,11 @@ def list_tools(ctx: ToolContext) -> List[ToolSpec]:
                  "Create a Jira issue in the target project (mutating).",
                  _CREATE_PARAMS, True, _jira_create_issue),
     ]
+    for a in ctx.agents or []:
+        name, path = a.get("name", ""), a.get("path", "")
+        if name and path:
+            tools.append(_make_agent_tool(name, path))
+    return tools
 
 
 async def call_tool(name: str, args: Dict[str, Any], ctx: ToolContext) -> Dict[str, Any]:

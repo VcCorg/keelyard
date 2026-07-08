@@ -14,7 +14,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from src.services import ideate_service as svc
 from src.services.ideate_agent import run_agent as _run_agent
-from src.services.ideate_tools import ToolContext, list_tools
+from src.services.ideate_tools import ToolContext, agent_tool_name, list_tools
 
 router = APIRouter(prefix="/api/ideate", tags=["ideate"])
 
@@ -183,11 +183,46 @@ async def tools(project: str = ""):
                        "params": s.params, "mutating": s.mutating} for s in specs]}
 
 
+def _discover_agents():
+    """Discover built/imported agent projects; empty list if unavailable."""
+    try:
+        from src.services.agent_service import discover_agent_projects
+        return discover_agent_projects()
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def _agent_has_answer(path: str) -> bool:
+    """True if the project exposes an ``answer()`` entrypoint (agents-as-tools)."""
+    try:
+        from src.services.agent_service import get_agent_eval_spec
+        return get_agent_eval_spec(path) is not None
+    except Exception:  # noqa: BLE001
+        return False
+
+
+@router.get("/agents")
+async def agents():
+    """Built/imported agents that can be injected as tools (expose answer())."""
+    out = []
+    for a in _discover_agents():
+        if _agent_has_answer(a.path):
+            out.append({"name": a.name, "path": a.path, "use_case": a.use_case,
+                        "tool_name": agent_tool_name(a.name)})
+    return {"agents": out}
+
+
+class AgentRef(BaseModel):
+    name: str
+    path: str
+
+
 class AgentRunRequest(BaseModel):
     task: str = "Draft Jira user stories from the gathered context."
     context: str = ""
     project_key: str = ""
     model: Optional[str] = None
+    agents: List[AgentRef] = []
 
 
 @router.post("/agent/run")
@@ -198,7 +233,8 @@ async def agent_run(req: AgentRunRequest, request: Request):
     actor = _forwarded_user_email(request)
     tok = _forwarded_user_token(request)
     ctx = ToolContext(project_key=req.project_key, actor=actor, user_token=tok,
-                      correlation_id=ideate_audit.new_correlation_id())
+                      correlation_id=ideate_audit.new_correlation_id(),
+                      agents=[a.model_dump() for a in req.agents])
 
     async def event_generator():
         try:
@@ -208,3 +244,17 @@ async def agent_run(req: AgentRunRequest, request: Request):
             yield {"event": "error", "data": json.dumps({"type": "error", "error": str(e)})}
 
     return EventSourceResponse(event_generator())
+
+
+class RefineRequest(BaseModel):
+    story: svc.Story
+    agent: AgentRef
+    instruction: str = "Improve this story."
+
+
+@router.post("/agent/refine")
+async def agent_refine(req: RefineRequest):
+    """Refine a single story card using a built/imported agent."""
+    import asyncio
+    return await asyncio.to_thread(
+        svc.refine_story, req.story, req.agent.path, req.instruction)
