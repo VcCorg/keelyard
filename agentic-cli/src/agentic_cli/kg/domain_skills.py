@@ -11,6 +11,7 @@ This module handles:
 
 import json
 import logging
+import os
 import re
 import shutil
 import subprocess
@@ -103,24 +104,178 @@ SUPERPOWERS_SKILLS = [
 
 
 def _get_skills_dir(domain_context_dir: Path, code_assist_tool: str) -> Path:
-    """Get the skills directory based on the code assist tool.
+    """Get the *repo-local* skills directory based on the code assist tool.
+
+    Skills are always stored as full directories (SKILL.md + companion files).
+    For Windsurf/Cascade the repo copy lives in ``.skills`` just like the
+    generic layout; a separate install step (:func:`install_skills_to_windsurf`)
+    bridges those into the per-user directory Cascade actually scans
+    (``~/.codeium/windsurf/skills``). Windsurf skills are NOT workflows, so we
+    never write them under ``.windsurf/workflows`` (that is the slash-command
+    feature and Cascade never loads it as a skill).
 
     Args:
         domain_context_dir: Domain-context repo path.
-        code_assist_tool: Code assist tool (windsurf, cursor, or generic).
+        code_assist_tool: Code assist tool (windsurf, cursor, devin, generic).
 
     Returns:
-        Path to the skills directory.
+        Path to the repo-local skills directory.
     """
-    if code_assist_tool == "windsurf":
-        return domain_context_dir / ".windsurf" / "workflows"
-    elif code_assist_tool == "cursor":
+    if code_assist_tool == "cursor":
         return domain_context_dir / ".cursorrules"
     elif code_assist_tool == "devin":
         # Devin loads project skills from .devin/skills/<name>/SKILL.md
         return domain_context_dir / ".devin" / "skills"
     else:
+        # generic AND windsurf both use full skill dirs under .skills/.
         return domain_context_dir / ".skills"
+
+
+# ---------------------------------------------------------------------------
+# Windsurf / Cascade global skills bridge
+# ---------------------------------------------------------------------------
+#
+# Cascade discovers skills ONLY from a per-user directory, where each skill is
+# a full folder containing SKILL.md (+ optional companion files/dirs):
+#
+#     ~/.codeium/windsurf/skills/<name>/SKILL.md
+#
+# A domain-context repo is consumed as a git submodule, so its repo-local
+# ``.skills`` are never scanned. We bridge them by symlinking each skill folder
+# into the global dir under a domain-namespaced name so multiple domains (and
+# the user's own personal skills) never collide or clobber each other.
+
+
+def get_windsurf_skills_root() -> Path:
+    """Resolve the per-user directory Cascade scans for skills.
+
+    Override with ``WINDSURF_SKILLS_DIR`` for non-default installs.
+    """
+    override = os.environ.get("WINDSURF_SKILLS_DIR", "").strip()
+    if override:
+        return Path(override).expanduser()
+    return Path.home() / ".codeium" / "windsurf" / "skills"
+
+
+def _namespaced_skill_name(domain: str, skill_name: str) -> str:
+    """Namespace a skill for the global dir: ``<domain>__<skill>``."""
+    safe_domain = re.sub(r"[^A-Za-z0-9._-]+", "-", domain).strip("-")
+    return f"{safe_domain}__{skill_name}"
+
+
+def _iter_repo_skill_dirs(repo_skills_dir: Path):
+    """Yield ``(skill_name, skill_dir)`` for every skill folder in the repo.
+
+    A skill folder is any directory containing a ``SKILL.md``. Handles both the
+    flat ``.skills/<skill>/`` layout and a ``.skills/superpowers/skills/<skill>/``
+    submodule layout.
+    """
+    if not repo_skills_dir.is_dir():
+        return
+    search_roots = [repo_skills_dir]
+    submodule_skills = repo_skills_dir / "superpowers" / "skills"
+    if submodule_skills.is_dir():
+        search_roots.append(submodule_skills)
+    seen: set[str] = set()
+    for root in search_roots:
+        for entry in sorted(root.iterdir()):
+            if not entry.is_dir() or entry.name == "superpowers":
+                continue
+            if not (entry / "SKILL.md").exists():
+                continue
+            if entry.name in seen:
+                continue
+            seen.add(entry.name)
+            yield entry.name, entry
+
+
+def install_skills_to_windsurf(
+    repo_skills_dir: Path,
+    domain: str,
+    *,
+    skill_names: Optional[list[str]] = None,
+    use_symlink: bool = True,
+) -> list[dict[str, Any]]:
+    """Bridge a repo's ``.skills`` into the global dir Cascade scans.
+
+    For each skill folder (containing ``SKILL.md``) under ``repo_skills_dir``,
+    create ``~/.codeium/windsurf/skills/<domain>__<skill>`` pointing at (symlink)
+    or copied from the repo folder, so Cascade discovers it with all companion
+    files intact.
+
+    Args:
+        repo_skills_dir: The repo-local ``.skills`` directory.
+        domain: Domain slug used to namespace the global skill name.
+        skill_names: Restrict to these skills (None = all discovered).
+        use_symlink: Symlink (default, auto-propagates updates) vs. copy.
+
+    Returns:
+        List of dicts: ``{name, global_name, source, target, mode}``.
+    """
+    root = get_windsurf_skills_root()
+    root.mkdir(parents=True, exist_ok=True)
+
+    installed: list[dict[str, Any]] = []
+    for skill_name, skill_dir in _iter_repo_skill_dirs(repo_skills_dir):
+        if skill_names and skill_name not in skill_names:
+            continue
+        global_name = _namespaced_skill_name(domain, skill_name)
+        target = root / global_name
+        source = skill_dir.resolve()
+
+        # Clear any prior install (symlink, dir, or broken link).
+        if target.is_symlink() or target.exists():
+            if target.is_dir() and not target.is_symlink():
+                shutil.rmtree(target, ignore_errors=True)
+            else:
+                try:
+                    target.unlink()
+                except OSError:
+                    shutil.rmtree(target, ignore_errors=True)
+
+        mode = "symlink"
+        try:
+            if use_symlink:
+                target.symlink_to(source, target_is_directory=True)
+            else:
+                shutil.copytree(source, target)
+                mode = "copy"
+        except OSError as e:
+            # Symlinks can fail on some filesystems/Windows — fall back to copy.
+            logger.debug(f"Symlink failed for {global_name} ({e}); copying instead")
+            shutil.copytree(source, target)
+            mode = "copy"
+
+        installed.append({
+            "name": skill_name,
+            "global_name": global_name,
+            "source": str(source),
+            "target": str(target),
+            "mode": mode,
+        })
+
+    return installed
+
+
+def uninstall_skills_from_windsurf(domain: str) -> list[str]:
+    """Remove all global skills namespaced to ``domain``. Returns removed names."""
+    root = get_windsurf_skills_root()
+    if not root.is_dir():
+        return []
+    prefix = _namespaced_skill_name(domain, "")
+    removed: list[str] = []
+    for entry in root.iterdir():
+        if not entry.name.startswith(prefix):
+            continue
+        try:
+            if entry.is_symlink() or not entry.is_dir():
+                entry.unlink()
+            else:
+                shutil.rmtree(entry, ignore_errors=True)
+            removed.append(entry.name)
+        except OSError:
+            continue
+    return removed
 
 
 # ---------------------------------------------------------------------------
@@ -291,22 +446,14 @@ def inject_skills_copy(
 
     for skill in discovered:
         src = Path(skill["path"])
-        skill_md = src / "SKILL.md"
-
-        if code_assist_tool == "windsurf":
-            # Windsurf workflow format: copy SKILL.md as <skill-name>.md in workflows directory
-            dest = skills_dir / f"{skill['name']}.md"
-            if dest.exists():
-                dest.unlink()
-            shutil.copy(skill_md, dest)
-            injected.append(skill["name"])
-        else:
-            # Generic/Cursor format: copy entire skill directory
-            dest = skills_dir / skill["name"]
-            if dest.exists():
-                shutil.rmtree(dest)
-            shutil.copytree(src, dest)
-            injected.append(skill["name"])
+        # Always copy the ENTIRE skill directory (SKILL.md + companion files like
+        # scripts/, references/, evals/). Flattening to a single .md drops those
+        # and is also the wrong feature for Windsurf (workflows != skills).
+        dest = skills_dir / skill["name"]
+        if dest.exists():
+            shutil.rmtree(dest)
+        shutil.copytree(src, dest)
+        injected.append(skill["name"])
 
     return injected
 
@@ -676,6 +823,18 @@ def bootstrap_domain_skills(
     md_path = domain_context_dir / "SKILLS_MANIFEST.md"
     md_path.write_text(manifest_md)
 
+    # For Windsurf/Cascade, bridge the repo-local .skills into the per-user dir
+    # Cascade actually scans, so the skills are immediately invokable. Symlinked
+    # + domain-namespaced so submodule updates propagate and nothing collides.
+    windsurf_installed: list[dict[str, Any]] = []
+    if code_assist_tool == "windsurf":
+        try:
+            windsurf_installed = install_skills_to_windsurf(
+                _get_skills_dir(domain_context_dir, code_assist_tool), domain,
+            )
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"Failed to bridge skills into Windsurf global dir: {e}")
+
     return {
         "injected_skills": [s["name"] for s in injected_skills],
         "skill_count": len(injected_skills),
@@ -683,6 +842,7 @@ def bootstrap_domain_skills(
         "manifest_md_path": md_path,
         "use_submodule": use_submodule,
         "superpowers_url": superpowers_url,
+        "windsurf_installed": windsurf_installed,
     }
 
 
@@ -693,6 +853,11 @@ def _generate_skills_manifest_md(domain: str, skills: list[dict]) -> str:
     lines = [
         f"# Skills Manifest — {domain}\n",
         f"> Generated: {now}\n",
+        "> **Windsurf/Cascade:** skills in this repo's `.skills/` are bridged into "
+        "the per-user dir Cascade scans (`~/.codeium/windsurf/skills/"
+        f"{domain}__<skill>`) via symlink, so submodule updates propagate "
+        "automatically. Re-register anytime with "
+        f"`keel domain reinstall-skills {domain}`.\n",
         f"## Superpowers Skills (Injected)\n",
         "| Skill | Description | Status | Validated |",
         "|-------|-------------|--------|-----------|",

@@ -55,6 +55,28 @@ def test_glean_parses_mcp_json():
     assert out[0].title == "Doc" and out[0].url == "https://g/1" and out[0].snippet == "snip"
 
 
+def test_glean_parses_nested_document_and_snippets():
+    """Glean's real REST shape nests title/url under `document` and uses a
+    `snippets` array — these must map to a linkable SearchResult."""
+    payload = json.dumps({"results": [
+        {
+            "trackingToken": "abc",
+            "document": {"id": "d1", "title": "Facility Onboarding",
+                         "url": "https://confluence/x/FAC/123", "datasource": "confluence"},
+            "snippets": [
+                {"text": "Step one of onboarding"},
+                {"snippet": {"text": "Step two details"}},
+            ],
+        },
+    ]})
+    out = svc._parse_mcp_results(_mcp_result(payload), limit=5)
+    assert len(out) == 1
+    assert out[0].title == "Facility Onboarding"
+    assert out[0].url == "https://confluence/x/FAC/123"
+    assert "Step one of onboarding" in out[0].snippet
+    assert "Step two details" in out[0].snippet
+
+
 def test_search_source_joins_structured_blocks(monkeypatch):
     async def fake_results(source, query, limit=5, user_token=None):
         return [svc.SearchResult(title="T", url="https://u/1", snippet="body")]

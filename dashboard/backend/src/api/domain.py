@@ -371,6 +371,33 @@ async def api_scaffold_paths(slug: str):
     return svc.get_scaffold_paths(slug)
 
 
+@router.get("/{slug}/init/stream")
+async def api_init_stream(
+    slug: str,
+    force: bool = Query(False),
+    no_kg: bool = Query(False),
+    kg_timeout: int = Query(20, ge=1, le=300),
+    product_meta: Optional[str] = Query(None),
+    code_assist_tool: str = Query("auto"),
+):
+    """Run `keel domain init <slug>` (unified context-meta) and stream output.
+
+    Produces a single `<slug>-context-meta` repo (context + meta + skills) and
+    bridges skills into the code assist tool. `force=true` overwrites; `no_kg`
+    skips the KG query; `product_meta` references the product meta as a
+    submodule; `code_assist_tool` controls where skills land ('auto' detects).
+    """
+    args = ["init", slug, "--code-assist-tool", code_assist_tool]
+    if force:
+        args.append("--force")
+    if no_kg:
+        args.append("--no-kg")
+    args += ["--kg-timeout", str(kg_timeout)]
+    if product_meta:
+        args += ["--product-meta", product_meta]
+    return _sse(args)
+
+
 @router.get("/{slug}/init-context/stream")
 async def api_init_context_stream(
     slug: str,
@@ -378,13 +405,10 @@ async def api_init_context_stream(
     no_kg: bool = Query(False),
     kg_timeout: int = Query(20, ge=1, le=300),
 ):
-    """Run `keel domain init-context <slug>` and stream output.
-
-    Pass `force=true` to overwrite an existing context repo (the CLI cannot
-    prompt in this non-interactive context). `no_kg=true` skips the Knowledge
-    Graph query; `kg_timeout` bounds it so a slow provider never stalls.
+    """DEPRECATED: use `/init/stream`. Routes to the unified `keel domain init`
+    so old clients still produce the merged context-meta repo.
     """
-    args = ["init-context", slug]
+    args = ["init", slug]
     if force:
         args.append("--force")
     if no_kg:
@@ -399,14 +423,12 @@ async def api_init_meta_stream(
     product_meta: Optional[str] = Query(None),
     force: bool = Query(False),
 ):
-    """Run `keel domain init-meta <slug>` and stream output.
+    """DEPRECATED: use `/init/stream`. Routes to the unified `keel domain init`.
 
-    Pass `product_meta` (URL/path) to reference the product meta-repo as a
-    submodule (threads the outer-loop shared tier into the domain meta).
-    Pass `force=true` to overwrite an existing meta-repo (the CLI cannot prompt
-    in this non-interactive context).
+    `product_meta` references the product meta-repo as a submodule; `force`
+    overwrites an existing repo.
     """
-    args = ["init-meta", slug]
+    args = ["init", slug]
     if product_meta:
         args += ["--product-meta", product_meta]
     if force:

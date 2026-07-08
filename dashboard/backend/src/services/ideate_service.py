@@ -282,8 +282,17 @@ _SNIPPET_KEYS = ("excerpt", "description", "snippet", "body_text", "text", "cont
 _URL_KEYS = ("url", "link")
 
 
-def _nested_link(entry: Dict[str, Any]) -> str:
+def _first_key(d: Any, keys: tuple[str, ...]) -> str:
+    """First non-empty string value among ``keys`` in dict ``d`` (else "")."""
+    if not isinstance(d, dict):
+        return ""
+    return next((str(d[k]) for k in keys if d.get(k)), "")
+
+
+def _nested_link(entry: Any) -> str:
     """Extract a URL from a nested ``_links`` object (Confluence/Glean shapes)."""
+    if not isinstance(entry, dict):
+        return ""
     links = entry.get("_links")
     if isinstance(links, dict):
         for k in ("webui", "self", "download", "tinyui"):
@@ -292,8 +301,36 @@ def _nested_link(entry: Dict[str, Any]) -> str:
     return ""
 
 
+def _extract_snippet(entry: Any) -> str:
+    """Best-effort snippet: direct keys, else Glean's ``snippets`` array."""
+    if not isinstance(entry, dict):
+        return ""
+    direct = _first_key(entry, _SNIPPET_KEYS)
+    if direct:
+        return direct
+    snips = entry.get("snippets")
+    if isinstance(snips, list):
+        texts: List[str] = []
+        for sn in snips:
+            if not isinstance(sn, dict):
+                continue
+            text = sn.get("text")
+            if not text and isinstance(sn.get("snippet"), dict):
+                text = sn["snippet"].get("text")
+            if text:
+                texts.append(str(text).strip())
+        if texts:
+            return " … ".join(texts)
+    return ""
+
+
 def _results_from_json(obj: Any, limit: int) -> List[SearchResult]:
-    """Map a parsed JSON payload (dict/list of hits) to SearchResults, defensively."""
+    """Map a parsed JSON payload (dict/list of hits) to SearchResults, defensively.
+
+    Handles both the flat shape (Confluence MCP: ``title``/``url``/``excerpt``)
+    and Glean's nested shape, where each hit carries a ``document`` object
+    (``document.title``/``document.url``) and a ``snippets`` array.
+    """
     if isinstance(obj, dict):
         entries = obj.get("results") if isinstance(obj.get("results"), list) else [obj]
     elif isinstance(obj, list):
@@ -304,9 +341,11 @@ def _results_from_json(obj: Any, limit: int) -> List[SearchResult]:
     for e in entries:
         if not isinstance(e, dict):
             continue
-        title = next((str(e[k]) for k in _TITLE_KEYS if e.get(k)), "")
-        url = next((str(e[k]) for k in _URL_KEYS if e.get(k)), "") or _nested_link(e)
-        snippet = next((str(e[k]) for k in _SNIPPET_KEYS if e.get(k)), "")
+        doc = e.get("document") if isinstance(e.get("document"), dict) else {}
+        title = _first_key(e, _TITLE_KEYS) or _first_key(doc, _TITLE_KEYS)
+        url = (_first_key(e, _URL_KEYS) or _first_key(doc, _URL_KEYS)
+               or _nested_link(e) or _nested_link(doc))
+        snippet = _extract_snippet(e) or _extract_snippet(doc)
         if not (title or url or snippet):
             continue
         out.append(SearchResult(title=title.strip(), url=url.strip(),

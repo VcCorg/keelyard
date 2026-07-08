@@ -238,26 +238,27 @@ def main():
         step_header(6, "Ingest into Knowledge Graph (SKIPPED)")
         console.print(f"  [dim]Run later: {CLI_NAME} kg ingest submit --domain {domain_slug}[/dim]")
 
-    # ── Step 7: Domain context repo ────────────────────────
-    step_header(7, "Initialize Domain Context Repo")
+    # ── Step 7: Domain context-meta repo (unified) ────────
+    step_header(7, "Initialize Domain Context-Meta Repo")
 
-    context_dir = str(Path(workspace) / f"{domain_slug}-domain-context")
+    context_dir = str(Path(workspace) / domain_slug / f"{domain_slug}-context-meta")
     init_args = [
-        "domain", "init-context", domain_slug,
-        "--lightrag-url", lightrag_url,
+        "domain", "init", domain_slug,
         "--output", context_dir,
     ]
     if skip_skills:
         init_args.append("--no-bootstrap-skills")
+    if skip_kg:
+        init_args.append("--no-kg")
     if git_remote:
         init_args.extend(["--git-remote", git_remote])
 
     r = run_cli(init_args)
     if r.returncode == 0:
-        console.print(f"  [green]✓[/green] Domain context repo created at {context_dir}")
+        console.print(f"  [green]✓[/green] Domain context-meta repo created at {context_dir}")
     else:
-        console.print(f"  [red]✗[/red] Domain context initialization failed")
-        errors.append("domain context init")
+        console.print(f"  [red]✗[/red] Domain context-meta initialization failed")
+        errors.append("domain context-meta init")
 
     # ── Step 8: Persona skills ─────────────────────────────
     step_header(8, "Generate Domain Persona Skills")

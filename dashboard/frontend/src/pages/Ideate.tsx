@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Lightbulb, ChevronLeft, ChevronRight, AlertCircle, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { api, type DomainInfo, type ProductInfo } from "@/lib/api";
 import type { AgentEvent, EditableStory, IdeateAgent, JiraMeta, PushResult, SearchResult, Story } from "./ideate/types";
 import { newStory } from "./ideate/types";
 import { runAgent } from "./ideate/agentStream";
@@ -31,6 +32,7 @@ export function Ideate() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [attached, setAttached] = useState<SearchResult[]>([]);
 
   const [agentEvents, setAgentEvents] = useState<AgentEvent[]>([]);
   const [agentRunning, setAgentRunning] = useState(false);
@@ -39,6 +41,10 @@ export function Ideate() {
 
   const [jira, setJira] = useState<{ configured: boolean; projects: string[] } | null>(null);
   const [project, setProject] = useState("");
+  const [products, setProducts] = useState<ProductInfo[]>([]);
+  const [domains, setDomains] = useState<DomainInfo[]>([]);
+  const [productName, setProductName] = useState("");
+  const [domainSlug, setDomainSlug] = useState("");
   const [meta, setMeta] = useState<JiraMeta | null>(null);
   const [pushing, setPushing] = useState(false);
   const [pushResults, setPushResults] = useState<Record<string, PushResult>>({});
@@ -59,11 +65,7 @@ export function Ideate() {
     (async () => {
       try {
         const res = await fetch("/api/ideate/jira-status");
-        if (res.ok) {
-          const d = await res.json();
-          setJira(d);
-          if (d.projects?.length) setProject(d.projects[0]);
-        }
+        if (res.ok) setJira(await res.json());
       } catch {
         /* non-fatal */
       }
@@ -76,7 +78,39 @@ export function Ideate() {
         /* non-fatal */
       }
     })();
+    (async () => {
+      try {
+        const [p, d] = await Promise.all([api.listProducts(), api.listDomains()]);
+        setProducts(p);
+        setDomains(d);
+        // Default to the first product that actually has a domain.
+        setProductName(p.find((x) => d.some((dd) => dd.product === x.name))?.name || p[0]?.name || "");
+      } catch {
+        /* non-fatal */
+      }
+    })();
   }, []);
+
+  // Keep the domain selection valid for the chosen product; prefer a domain
+  // that already has a Jira project configured.
+  useEffect(() => {
+    if (!productName) {
+      setDomainSlug("");
+      return;
+    }
+    const inProduct = domains.filter((d) => d.product === productName);
+    setDomainSlug((cur) => {
+      if (cur && inProduct.some((d) => d.name === cur)) return cur;
+      const preferred = inProduct.find((d) => (d.jira_project || "").trim()) || inProduct[0];
+      return preferred?.name || "";
+    });
+  }, [productName, domains]);
+
+  // The target Jira project is derived from the selected domain (set at onboarding).
+  useEffect(() => {
+    const d = domains.find((x) => x.name === domainSlug);
+    setProject((d?.jira_project || "").trim());
+  }, [domainSlug, domains]);
 
   const selectedAgents = useMemo(
     () => availableAgents.filter((a) => selectedAgentPaths.includes(a.path)),
@@ -135,21 +169,38 @@ export function Ideate() {
     }
   };
 
-  const resultBlock = (r: SearchResult) => {
-    const head = r.title || r.url || "result";
-    return [`### ${head}`, r.url, r.snippet].filter(Boolean).join("\n");
-  };
-  const attachResult = (r: SearchResult) => {
-    const block = resultBlock(r);
-    setContext((c) => (c ? `${c}\n\n${block}` : block));
-    showToast({ type: "success", message: "Attached to context" });
-  };
-  const attachAllResults = () => {
+  // Selected search results are tracked separately (as removable chips) and
+  // merged into the draft/agent input at submit time — we no longer dump their
+  // text into the free-form context box.
+  const keyOf = (r: SearchResult) => r.url || r.title;
+  const toggleAttach = (r: SearchResult) =>
+    setAttached((prev) =>
+      prev.some((a) => keyOf(a) === keyOf(r))
+        ? prev.filter((a) => keyOf(a) !== keyOf(r))
+        : [...prev, r]
+    );
+  const removeAttached = (r: SearchResult) =>
+    setAttached((prev) => prev.filter((a) => keyOf(a) !== keyOf(r)));
+  const clearAttached = () => setAttached([]);
+  const attachAll = () => {
     if (!searchResults.length) return;
-    const block = searchResults.map(resultBlock).join("\n\n");
-    setContext((c) => (c ? `${c}\n\n${block}` : block));
-    showToast({ type: "success", message: `Attached ${searchResults.length} results` });
+    setAttached((prev) => {
+      const have = new Set(prev.map(keyOf));
+      const add = searchResults.filter((r) => !have.has(keyOf(r)));
+      if (!add.length) return prev;
+      showToast({ type: "success", message: `Attached ${add.length} result${add.length === 1 ? "" : "s"}` });
+      return [...prev, ...add];
+    });
   };
+
+  // Attached results (rendered as blocks) + free-form context = draft/agent input.
+  const composedContext = useMemo(() => {
+    const parts = attached.map((r) =>
+      [`### ${r.title || r.url || "result"}`, r.url, r.snippet].filter(Boolean).join("\n")
+    );
+    if (context.trim()) parts.push(context.trim());
+    return parts.join("\n\n");
+  }, [attached, context]);
 
   const uploadFile = async (file: File) => {
     setUploading(true);
@@ -172,7 +223,7 @@ export function Ideate() {
   };
 
   const draft = async () => {
-    if (!context.trim()) {
+    if (!composedContext.trim()) {
       showToast({ type: "error", message: "Gather some requirements first" });
       return;
     }
@@ -181,7 +232,7 @@ export function Ideate() {
       const res = await fetch("/api/ideate/draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ context, count }),
+        body: JSON.stringify({ context: composedContext, count }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -239,7 +290,7 @@ export function Ideate() {
   };
 
   const runAgentGather = async () => {
-    if (!context.trim()) {
+    if (!composedContext.trim()) {
       showToast({ type: "error", message: "Gather some requirements first" });
       return;
     }
@@ -247,7 +298,7 @@ export function Ideate() {
     setAgentEvents([]);
     try {
       await runAgent({
-        context,
+        context: composedContext,
         project_key: project,
         agents: selectedAgents.map((a) => ({ name: a.name, path: a.path })),
         onEvent: (ev) => {
@@ -330,7 +381,17 @@ export function Ideate() {
       </div>
 
       <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
-        {step === 0 && <StepScope projects={jira?.projects ?? []} project={project} onProject={setProject} />}
+        {step === 0 && (
+          <StepScope
+            products={products}
+            domains={domains}
+            productName={productName}
+            domainSlug={domainSlug}
+            onProduct={setProductName}
+            onDomain={setDomainSlug}
+            jiraConfigured={!!jira?.configured}
+          />
+        )}
         {step === 1 && (
           <StepGather
             context={context}
@@ -342,8 +403,11 @@ export function Ideate() {
             onSearch={runSearch}
             searching={searching}
             searchResults={searchResults}
-            onAttachResult={attachResult}
-            onAttachAll={attachAllResults}
+            attached={attached}
+            onToggleAttach={toggleAttach}
+            onAttachAll={attachAll}
+            onRemoveAttached={removeAttached}
+            onClearAttached={clearAttached}
             onUpload={uploadFile}
             uploading={uploading}
             agentEvents={agentEvents}

@@ -132,9 +132,10 @@ class IntegrationTargetsResponse(BaseModel):
 def _resolve_domain_repo_path(workspace: Path, slug: str) -> Optional[Path]:
     """Best-effort resolution of a domain's local context/meta repo on disk."""
     candidates = [
-        workspace / slug / f"{slug}-domain-context",
+        workspace / slug / f"{slug}-context-meta",   # unified (post-cutover)
+        workspace / slug / f"{slug}-domain-context",  # legacy
         workspace / slug / "repos" / "domain-context",
-        workspace / slug / f"domain-{slug}-meta",
+        workspace / slug / f"domain-{slug}-meta",     # legacy
         workspace / slug,
     ]
     for c in candidates:

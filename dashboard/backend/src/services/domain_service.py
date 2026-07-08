@@ -632,22 +632,25 @@ def _resolve_product_meta_path(product: str):
 
 
 def _resolve_domain_meta_path(slug: str):
-    """Resolve the on-disk domain meta-repo path (mirrors the CLI rule)."""
-    from agentic_cli.commands.domain import _get_code_workspace
+    """Resolve the on-disk domain meta-repo path.
 
-    workspace = _get_code_workspace()
-    return workspace / slug / f"domain-{slug}-meta"
+    Post-cutover this is the unified context-meta repo
+    (``<workspace>/<slug>/<slug>-context-meta``), which holds both the meta
+    layer (``.platform``, ``.agents``, ``repos/``, ``.devin``) and the context.
+    """
+    from agentic_cli.commands.domain import _resolve_context_meta_path
+
+    return _resolve_context_meta_path(slug)
 
 
 def _resolve_domain_context_path(slug: str):
-    """Resolve the on-disk domain context-repo path (mirrors the CLI rule).
+    """Resolve the on-disk domain context repo path.
 
-    Matches ``domain init-context`` default: ``<workspace>/<slug>/<slug>-domain-context``.
+    Post-cutover context and meta live in a single ``<slug>-context-meta`` repo.
     """
-    from agentic_cli.commands.domain import _get_code_workspace
+    from agentic_cli.commands.domain import _resolve_context_meta_path
 
-    workspace = _get_code_workspace()
-    return workspace / slug / f"{slug}-domain-context"
+    return _resolve_context_meta_path(slug)
 
 
 class ScaffoldRepoPath(BaseModel):

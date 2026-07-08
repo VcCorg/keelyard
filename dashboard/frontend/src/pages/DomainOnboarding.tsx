@@ -967,13 +967,24 @@ function DocsStep({
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [savingSrc, setSavingSrc] = useState(false);
+
+  // The single input doubles as the `--filter` (title substring). Users often
+  // paste a full Confluence page/space URL here expecting it to scope the
+  // fetch — but a URL is never a page *title*, so it silently matches nothing.
+  // Detect that case and steer them to set it as the domain's Confluence
+  // source instead (which fetches the page + all descendants recursively).
+  const filterIsUrl = /^https?:\/\//i.test(filter.trim());
+  const hasConfluenceSource = Boolean(domain.confluence_space || domain.confluence_url);
 
   const run = () => {
+    if (filterIsUrl) return; // guarded in the UI; never send a URL as --filter
     const q = filter ? `?filter=${encodeURIComponent(filter)}` : "";
     setStreamUrl(api.streamUrl(`/domains/${domain.name}/add-docs/stream${q}`));
   };
 
   const loadCandidates = async () => {
+    if (filterIsUrl) return;
     setLoading(true);
     setErr(null);
     try {
@@ -982,6 +993,25 @@ function DocsStep({
       setErr(String(e));
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Correction path: treat the pasted URL as the domain's Confluence source,
+  // persist it, then run `add-docs --all` (no --filter) so the CLI parses the
+  // URL into a space key + page id and walks descendants recursively.
+  const useAsConfluenceSource = async () => {
+    setSavingSrc(true);
+    setErr(null);
+    try {
+      await api.updateDomain(domain.name, { confluence_url: filter.trim() });
+      onChanged();
+      setFilter("");
+      setCandidates(null);
+      setStreamUrl(api.streamUrl(`/domains/${domain.name}/add-docs/stream`));
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setSavingSrc(false);
     }
   };
 
@@ -1040,21 +1070,53 @@ function DocsStep({
 
       <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-4">
         <h2 className="font-semibold mb-3">Fetch & track docs</h2>
+        {!hasConfluenceSource && !filterIsUrl && (
+          <div className="mb-3 flex items-start gap-2 rounded-md border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>
+              No Confluence source set for this domain. Paste a Confluence space or
+              page URL below to set it, or configure it in step 1.
+            </span>
+          </div>
+        )}
         <div className="flex gap-2 mb-1">
           <Input
-            placeholder="Filter page titles (optional)"
+            placeholder="Filter page titles, or paste a Confluence page/space URL"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
+            aria-invalid={filterIsUrl}
           />
-          <Button variant="outline" onClick={loadCandidates} disabled={loading}>
+          <Button variant="outline" onClick={loadCandidates} disabled={loading || filterIsUrl}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           </Button>
-          <Button onClick={run}>Track all</Button>
+          <Button onClick={run} disabled={filterIsUrl}>Track all</Button>
         </div>
-        <p className="text-xs text-gray-400 mb-3">
-          Preview pages to select individually, or "Track all" to run{" "}
-          <code>keel domain add-docs {domain.name} --all</code> (includes cross-space scan).
-        </p>
+
+        {filterIsUrl ? (
+          <div className="mt-2 mb-3 rounded-md border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3 space-y-2">
+            <div className="flex items-start gap-2 text-xs text-amber-700 dark:text-amber-300">
+              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>
+                That looks like a <strong>URL</strong>, not a page title. Filtering by a
+                URL never matches, so no pages are found. Set it as this domain's
+                Confluence source to fetch that page and all its descendants.
+              </span>
+            </div>
+            <Button size="sm" onClick={useAsConfluenceSource} disabled={savingSrc}>
+              {savingSrc ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-1" />
+              ) : (
+                <Check className="h-4 w-4 mr-1" />
+              )}
+              Set as Confluence source &amp; fetch
+            </Button>
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400 mb-3">
+            Preview pages to select individually, or "Track all" to run{" "}
+            <code>keel domain add-docs {domain.name} --all</code> (includes cross-space scan).
+          </p>
+        )}
         {err && <p className="text-xs text-red-600 mb-2">{err}</p>}
 
         {candidates !== null && (
@@ -1128,7 +1190,7 @@ function ScaffoldStep({ slug, product }: { slug: string; product: string }) {
   };
   useEffect(refreshPaths, [slug]);
 
-  const initMetaUrl = () => {
+  const initUrl = () => {
     const params = new URLSearchParams();
     if (linkProduct && productMetaPath) {
       params.set("product_meta", productMetaPath);
@@ -1136,38 +1198,23 @@ function ScaffoldStep({ slug, product }: { slug: string; product: string }) {
     if (overwrite) {
       params.set("force", "true");
     }
-    const qs = params.toString();
-    return api.streamUrl(
-      `/domains/${slug}/init-meta/stream${qs ? `?${qs}` : ""}`
-    );
-  };
-
-  const initContextUrl = () => {
-    const params = new URLSearchParams();
-    if (overwrite) {
-      params.set("force", "true");
-    }
     if (skipKg) {
       params.set("no_kg", "true");
     }
     const qs = params.toString();
-    return api.streamUrl(
-      `/domains/${slug}/init-context/stream${qs ? `?${qs}` : ""}`
-    );
+    return api.streamUrl(`/domains/${slug}/init/stream${qs ? `?${qs}` : ""}`);
   };
+
+  // Post-cutover: context + meta live in ONE <slug>-context-meta repo. Both
+  // scaffold-path entries resolve to it, so show it once.
+  const repo = paths?.context ?? paths?.meta ?? null;
 
   return (
     <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-      <h2 className="font-semibold mb-3">Scaffold repos</h2>
+      <h2 className="font-semibold mb-3">Generate context-meta repo</h2>
       <div className="flex gap-2 flex-wrap">
-        <Button
-          variant="outline"
-          onClick={() => setStreamUrl(initContextUrl())}
-        >
-          Init context repo
-        </Button>
-        <Button variant="outline" onClick={() => setStreamUrl(initMetaUrl())}>
-          Init meta repo
+        <Button onClick={() => setStreamUrl(initUrl())}>
+          <FolderGit2 className="h-4 w-4 mr-1" /> Generate context-meta
         </Button>
       </div>
 
@@ -1203,44 +1250,35 @@ function ScaffoldStep({ slug, product }: { slug: string; product: string }) {
           checked={skipKg}
           onChange={(e) => setSkipKg(e.target.checked)}
         />
-        Skip Knowledge Graph query for context repo (faster; placeholder content)
+        Skip Knowledge Graph query (faster; placeholder content)
       </label>
 
       <p className="text-xs text-gray-400 mt-2">
-        Runs <code>keel domain init-context / init-meta {slug}</code> via the CLI.
-        When linked, the domain meta references the product meta as a submodule
-        so it inherits shared governance, the crosswalk, and the exceptions ledger.
+        Runs <code>keel domain init {slug}</code> — one repo (<code>{slug}-context-meta</code>)
+        with KG context, skills, governance, personas, and repo submodules. Skills
+        are auto-registered with your IDE (Windsurf/Cascade, Cursor, or Devin).
+        When linked, it references the product meta as a submodule (shared
+        governance + crosswalk + exceptions ledger).
       </p>
 
-      {/* Review generated files: open the context / meta repos in an IDE. */}
+      {/* Review generated files: open the unified repo in an IDE. */}
       <div className="mt-4 border-t border-gray-200 dark:border-gray-800 pt-3 space-y-3">
         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
           Review generated files
         </h3>
-        {(["context", "meta"] as const).map((kind) => {
-          const p = paths?.[kind];
-          const title =
-            kind === "context" ? "Domain context repo" : "Domain meta repo";
-          return (
-            <div key={kind} className="flex items-center gap-3 flex-wrap">
-              <span className="text-sm w-36 shrink-0">{title}</span>
-              {p?.exists ? (
-                <>
-                  <OpenInIdeButton
-                    path={p.path}
-                    size="sm"
-                    label="Open in IDE"
-                  />
-                  <code className="text-xs text-gray-400 break-all">{p.path}</code>
-                </>
-              ) : (
-                <span className="text-xs text-amber-500">
-                  not generated yet — run “Init {kind} repo” above
-                </span>
-              )}
-            </div>
-          );
-        })}
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-sm w-36 shrink-0">Context-meta repo</span>
+          {repo?.exists ? (
+            <>
+              <OpenInIdeButton path={repo.path} size="sm" label="Open in IDE" />
+              <code className="text-xs text-gray-400 break-all">{repo.path}</code>
+            </>
+          ) : (
+            <span className="text-xs text-amber-500">
+              not generated yet — run “Generate context-meta” above
+            </span>
+          )}
+        </div>
       </div>
 
       <StreamConsole url={streamUrl} onDone={refreshPaths} />
