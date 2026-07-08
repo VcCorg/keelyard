@@ -1,78 +1,58 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Lightbulb,
-  FileUp,
-  Sparkles,
-  Loader2,
-  Trash2,
-  Search,
-  BookText,
-  FileText,
-  AlertCircle,
-  CheckCircle2,
-  Send,
-  ExternalLink,
-} from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Lightbulb, ChevronLeft, ChevronRight, AlertCircle, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-interface Story {
-  title: string;
-  description: string;
-  acceptance_criteria: string[];
-  priority: string;
-  labels: string[];
-}
-
-interface EditableStory extends Story {
-  _id: string;
-  keep: boolean;
-}
+import type { EditableStory, JiraMeta, PushResult, Story } from "./ideate/types";
+import { newStory } from "./ideate/types";
+import { StepScope } from "./ideate/StepScope";
+import { StepGather } from "./ideate/StepGather";
+import { StepDraft } from "./ideate/StepDraft";
+import { StepReview } from "./ideate/StepReview";
+import { StepPush } from "./ideate/StepPush";
 
 type Toast = { type: "success" | "error"; message: string };
-
-const PRIORITIES = ["High", "Medium", "Low"];
-
-const PRIORITY_CHIP: Record<string, string> = {
-  High: "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300",
-  Medium: "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300",
-  Low: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
-};
+const STEPS = ["Scope", "Gather", "Draft", "Review", "Push"] as const;
 
 let _sid = 0;
+const nextId = () => `s${Date.now()}_${_sid++}`;
 
 export function Ideate() {
+  const [step, setStep] = useState(0);
+  const [maxStep, setMaxStep] = useState(0);
+
   const [context, setContext] = useState("");
   const [count, setCount] = useState(5);
   const [stories, setStories] = useState<EditableStory[]>([]);
+  const [source, setSource] = useState<"llm" | "heuristic" | null>(null);
   const [drafting, setDrafting] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [source, setSource] = useState<"llm" | "heuristic" | null>(null);
-  const [toast, setToast] = useState<Toast | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const [searchSource, setSearchSource] = useState<"glean" | "confluence">("glean");
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
-  const [gleanStatus, setGleanStatus] = useState<{ mode: string; detail: string } | null>(null);
 
   const [jira, setJira] = useState<{ configured: boolean; projects: string[] } | null>(null);
   const [project, setProject] = useState("");
+  const [meta, setMeta] = useState<JiraMeta | null>(null);
   const [pushing, setPushing] = useState(false);
-  const [pushResults, setPushResults] = useState<
-    { title: string; ok: boolean; key?: string; url?: string; error?: string }[] | null
-  >(null);
+  const [pushResults, setPushResults] = useState<Record<string, PushResult>>({});
+  const [auditRefresh, setAuditRefresh] = useState(0);
 
+  const [toast, setToast] = useState<Toast | null>(null);
   const showToast = useCallback((t: Toast) => {
     setToast(t);
     window.setTimeout(() => setToast(null), 3500);
   }, []);
 
+  const goto = (i: number) => {
+    setStep(i);
+    setMaxStep((m) => Math.max(m, i));
+  };
+
   useEffect(() => {
-    let cancelled = false;
     (async () => {
       try {
         const res = await fetch("/api/ideate/jira-status");
-        if (res.ok && !cancelled) {
+        if (res.ok) {
           const d = await res.json();
           setJira(d);
           if (d.projects?.length) setProject(d.projects[0]);
@@ -80,9 +60,20 @@ export function Ideate() {
       } catch {
         /* non-fatal */
       }
+    })();
+  }, []);
+
+  // Fetch createmeta whenever the project changes.
+  useEffect(() => {
+    if (!project) {
+      setMeta(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
       try {
-        const gs = await fetch("/api/ideate/glean-status");
-        if (gs.ok && !cancelled) setGleanStatus(await gs.json());
+        const res = await fetch(`/api/ideate/jira-meta?project=${encodeURIComponent(project)}`);
+        if (res.ok && !cancelled) setMeta(await res.json());
       } catch {
         /* non-fatal */
       }
@@ -90,7 +81,7 @@ export function Ideate() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [project]);
 
   const runSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -115,51 +106,29 @@ export function Ideate() {
     }
   };
 
-  const pushToJira = async () => {
-    const kept = stories.filter((s) => s.keep);
-    if (!kept.length) {
-      showToast({ type: "error", message: "Select at least one story" });
-      return;
-    }
-    if (!project) {
-      showToast({ type: "error", message: "Choose a Jira project" });
-      return;
-    }
-    if (!window.confirm(`Create ${kept.length} issue(s) in ${project}?`)) return;
-    setPushing(true);
-    setPushResults(null);
+  const uploadFile = async (file: File) => {
+    setUploading(true);
     try {
-      const res = await fetch("/api/ideate/push", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          project_key: project,
-          stories: kept.map(({ title, description, acceptance_criteria, priority, labels }) => ({
-            title,
-            description,
-            acceptance_criteria,
-            priority,
-            labels,
-          })),
-        }),
-      });
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/ideate/upload", { method: "POST", body: fd });
       const data = await res.json();
-      if (res.ok) {
-        setPushResults(data.results);
-        showToast({ type: "success", message: `Created ${data.created} Jira issue(s)` });
+      if (res.ok && data.text) {
+        setContext((c) => (c ? `${c}\n\n--- ${file.name} ---\n${data.text}` : data.text));
+        showToast({ type: "success", message: `Added ${data.chars} chars from ${file.name}` });
       } else {
-        showToast({ type: "error", message: data.detail || "Push failed" });
+        showToast({ type: "error", message: data.detail || "Upload failed" });
       }
     } catch {
-      showToast({ type: "error", message: "Push failed" });
+      showToast({ type: "error", message: "Upload failed" });
     } finally {
-      setPushing(false);
+      setUploading(false);
     }
   };
 
   const draft = async () => {
     if (!context.trim()) {
-      showToast({ type: "error", message: "Add some requirements first" });
+      showToast({ type: "error", message: "Gather some requirements first" });
       return;
     }
     setDrafting(true);
@@ -171,362 +140,159 @@ export function Ideate() {
       });
       const data = await res.json();
       if (res.ok) {
-        setStories(
-          (data.stories ?? []).map((s: Story) => ({ ...s, _id: `s${_sid++}`, keep: true }))
-        );
         setSource(data.source);
-        if (!data.stories?.length) showToast({ type: "error", message: "No stories drafted" });
+        setStories(
+          (data.stories as Story[]).map((s) => ({ ...newStory(s), ...s, _id: nextId(), keep: true }))
+        );
+        goto(3);
       } else {
-        showToast({ type: "error", message: data.detail || "Failed to draft stories" });
+        showToast({ type: "error", message: data.detail || "Draft failed" });
       }
     } catch {
-      showToast({ type: "error", message: "Failed to draft stories" });
+      showToast({ type: "error", message: "Draft failed" });
     } finally {
       setDrafting(false);
     }
   };
 
-  const onUpload = async (file: File) => {
-    setUploading(true);
+  const pushStories = async (subset: EditableStory[]) => {
+    if (!project) {
+      showToast({ type: "error", message: "Pick a Jira project (Scope step)" });
+      return;
+    }
+    if (!subset.length) {
+      showToast({ type: "error", message: "Nothing to push" });
+      return;
+    }
+    setPushing(true);
     try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch("/api/ideate/upload", { method: "POST", body: form });
+      const res = await fetch("/api/ideate/push", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          project_key: project,
+          stories: subset.map(({ _id, keep, ...s }) => s),
+        }),
+      });
       const data = await res.json();
       if (res.ok) {
-        setContext((c) => (c ? `${c}\n\n--- ${data.filename} ---\n${data.text}` : data.text));
-        showToast({ type: "success", message: `Added ${data.chars} chars from ${data.filename}` });
+        const merged: Record<string, PushResult> = { ...pushResults };
+        subset.forEach((s, i) => {
+          merged[s._id] = data.results[i];
+        });
+        setPushResults(merged);
+        setAuditRefresh((n) => n + 1);
+        showToast({ type: "success", message: `Created ${data.created} of ${subset.length}` });
       } else {
-        showToast({ type: "error", message: data.detail || "Could not read file" });
+        showToast({ type: "error", message: data.detail || "Push failed" });
       }
     } catch {
-      showToast({ type: "error", message: "Upload failed" });
+      showToast({ type: "error", message: "Push failed" });
     } finally {
-      setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
+      setPushing(false);
     }
   };
 
-  const update = (id: string, patch: Partial<EditableStory>) =>
-    setStories((prev) => prev.map((s) => (s._id === id ? { ...s, ...patch } : s)));
-  const removeStory = (id: string) => setStories((prev) => prev.filter((s) => s._id !== id));
-
-  const keptCount = useMemo(() => stories.filter((s) => s.keep).length, [stories]);
+  const kept = useMemo(() => stories.filter((s) => s.keep), [stories]);
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-xl bg-yellow-50 dark:bg-yellow-900/20 flex items-center justify-center">
-          <Lightbulb className="h-5 w-5 text-yellow-600 dark:text-yellow-300" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Ideate</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Gather requirements and draft Jira stories — review before anything is pushed.
-          </p>
-        </div>
+    <div className="max-w-3xl mx-auto p-6 space-y-6">
+      <div className="flex items-center gap-2">
+        <Lightbulb className="h-5 w-5 text-amber-500" />
+        <h1 className="text-lg font-semibold">Ideate</h1>
+      </div>
+
+      {/* Stepper */}
+      <div className="flex flex-wrap gap-2">
+        {STEPS.map((label, i) => (
+          <button
+            key={label}
+            onClick={() => i <= maxStep && setStep(i)}
+            disabled={i > maxStep}
+            className={cn(
+              "text-xs rounded-full px-3 py-1 transition-colors",
+              i === step
+                ? "bg-blue-600 text-white"
+                : i < step
+                  ? "bg-emerald-600 text-white"
+                  : i <= maxStep
+                    ? "bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-300"
+                    : "bg-gray-100 dark:bg-gray-900 text-gray-400 cursor-not-allowed"
+            )}
+          >
+            {i + 1} {label}
+            {i < step ? " ✓" : ""}
+          </button>
+        ))}
+      </div>
+
+      <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
+        {step === 0 && <StepScope projects={jira?.projects ?? []} project={project} onProject={setProject} />}
+        {step === 1 && (
+          <StepGather
+            context={context}
+            onContext={setContext}
+            searchSource={searchSource}
+            onSearchSource={setSearchSource}
+            searchQuery={searchQuery}
+            onSearchQuery={setSearchQuery}
+            onSearch={runSearch}
+            searching={searching}
+            onUpload={uploadFile}
+            uploading={uploading}
+          />
+        )}
+        {step === 2 && (
+          <StepDraft count={count} onCount={setCount} onDraft={draft} drafting={drafting} source={source} />
+        )}
+        {step === 3 && (
+          <StepReview
+            stories={stories}
+            meta={meta}
+            onStories={setStories}
+            pushResults={pushResults}
+            onPushOne={(s) => pushStories([s])}
+          />
+        )}
+        {step === 4 && (
+          <StepPush
+            project={project}
+            keepCount={kept.length}
+            pushing={pushing}
+            onPushAll={() => pushStories(kept)}
+            refreshKey={auditRefresh}
+          />
+        )}
+      </div>
+
+      {/* Nav */}
+      <div className="flex justify-between">
+        <button
+          onClick={() => setStep((s) => Math.max(0, s - 1))}
+          disabled={step === 0}
+          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 disabled:opacity-40"
+        >
+          <ChevronLeft className="h-4 w-4" /> Back
+        </button>
+        {step < STEPS.length - 1 && (
+          <button
+            onClick={() => goto(step + 1)}
+            className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700"
+          >
+            Next <ChevronRight className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       {toast && (
         <div
           className={cn(
-            "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm",
-            toast.type === "error"
-              ? "border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300"
-              : "border-green-200 bg-green-50 text-green-700 dark:border-green-900/50 dark:bg-green-900/20 dark:text-green-300"
+            "fixed bottom-6 right-6 flex items-center gap-2 rounded-lg px-4 py-2 text-sm shadow-lg",
+            toast.type === "success" ? "bg-emerald-600 text-white" : "bg-red-600 text-white"
           )}
         >
-          {toast.type === "error" ? <AlertCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+          {toast.type === "success" ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
           {toast.message}
-        </div>
-      )}
-
-      <div className="grid lg:grid-cols-2 gap-5">
-        {/* Sources */}
-        <div className="space-y-3">
-          <h2 className="text-sm font-semibold">1 · Gather requirements</h2>
-
-          <div className="flex flex-wrap gap-2">
-            <SourceChip icon={FileText} label="Free-text" active />
-            <SourceChip icon={FileUp} label="File upload" active />
-            <SourceChip icon={Search} label="Glean" active />
-            <SourceChip icon={BookText} label="Confluence" active />
-          </div>
-
-          {/* Enterprise-search gathering */}
-          <div className="flex items-center gap-2">
-            <select
-              value={searchSource}
-              onChange={(e) => setSearchSource(e.target.value as "glean" | "confluence")}
-              className="px-2.5 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 outline-none"
-            >
-              <option value="glean">Glean</option>
-              <option value="confluence">Confluence</option>
-            </select>
-            <input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && runSearch()}
-              placeholder={`Search ${searchSource}…`}
-              className="flex-1 px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 outline-none focus:ring-2 focus:ring-blue-500/40"
-            />
-            <button
-              onClick={runSearch}
-              disabled={searching || !searchQuery.trim()}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
-            >
-              {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-              Search
-            </button>
-          </div>
-
-          {searchSource === "glean" && gleanStatus && (
-            <p className="text-[11px] text-gray-400 flex items-center gap-1.5">
-              <span
-                className={cn(
-                  "inline-block h-1.5 w-1.5 rounded-full",
-                  gleanStatus.mode === "rest" ? "bg-emerald-500" : "bg-amber-400"
-                )}
-              />
-              {gleanStatus.mode === "rest"
-                ? "Using configured Glean (live search)"
-                : `Glean not live — ${gleanStatus.detail} Falling back to the Glean MCP server.`}
-            </p>
-          )}
-
-          <textarea
-            value={context}
-            onChange={(e) => setContext(e.target.value)}
-            rows={12}
-            placeholder="Paste requirements, notes, meeting transcripts… or upload a document."
-            className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 outline-none focus:ring-2 focus:ring-blue-500/40 font-mono"
-          />
-
-          <div className="flex items-center gap-2 flex-wrap">
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".txt,.md,.pdf,.csv,.json"
-              className="hidden"
-              onChange={(e) => e.target.files?.[0] && onUpload(e.target.files[0])}
-            />
-            <button
-              onClick={() => fileRef.current?.click()}
-              disabled={uploading}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
-            >
-              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}
-              Upload document
-            </button>
-            <div className="ml-auto flex items-center gap-2">
-              <label className="text-xs text-gray-500">Stories</label>
-              <input
-                type="number"
-                min={1}
-                max={20}
-                value={count}
-                onChange={(e) => setCount(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
-                className="w-16 px-2 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 outline-none"
-              />
-              <button
-                onClick={draft}
-                disabled={drafting || !context.trim()}
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-              >
-                {drafting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                Draft stories
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Review */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">2 · Review drafted stories</h2>
-            {stories.length > 0 && (
-              <span className="text-xs text-gray-400">
-                {keptCount} of {stories.length} kept
-                {source && <span className="ml-2 opacity-70">· {source === "llm" ? "LLM" : "heuristic"}</span>}
-              </span>
-            )}
-          </div>
-
-          {stories.length === 0 ? (
-            <div className="text-center py-16 rounded-xl border border-dashed border-gray-200 dark:border-gray-800">
-              <Sparkles className="h-10 w-10 mx-auto text-gray-300 dark:text-gray-700 mb-3" />
-              <p className="text-sm text-gray-500">Drafted stories will appear here for review.</p>
-            </div>
-          ) : (
-            <div className="space-y-3 max-h-[55vh] overflow-auto pr-1">
-              {stories.map((s) => (
-                <StoryCard key={s._id} story={s} onChange={(p) => update(s._id, p)} onRemove={() => removeStory(s._id)} />
-              ))}
-            </div>
-          )}
-
-          {/* Push to Jira */}
-          {stories.length > 0 && (
-            <div className="pt-3 border-t border-gray-100 dark:border-gray-800">
-              {jira?.configured ? (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-semibold">3 · Push to Jira</span>
-                  <select
-                    value={project}
-                    onChange={(e) => setProject(e.target.value)}
-                    className="px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 outline-none"
-                  >
-                    {jira.projects.length === 0 && <option value="">No project keys</option>}
-                    {jira.projects.map((p) => (
-                      <option key={p} value={p}>
-                        {p}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={pushToJira}
-                    disabled={pushing || keptCount === 0 || !project}
-                    className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {pushing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                    Push {keptCount} to Jira
-                  </button>
-                </div>
-              ) : (
-                <p className="text-xs text-amber-600 dark:text-amber-400">
-                  Jira is not configured — set JIRA_SERVER_URL and JIRA_PERSONAL_ACCESS_TOKEN on the backend to push stories.
-                </p>
-              )}
-
-              {pushResults && (
-                <ul className="mt-3 space-y-1">
-                  {pushResults.map((r, i) => (
-                    <li key={i} className="flex items-center gap-2 text-xs">
-                      {r.ok ? (
-                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                      ) : (
-                        <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />
-                      )}
-                      <span className="truncate flex-1">{r.title}</span>
-                      {r.ok && r.url ? (
-                        <a href={r.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline shrink-0">
-                          {r.key} <ExternalLink className="h-3 w-3" />
-                        </a>
-                      ) : (
-                        <span className="text-red-500 truncate max-w-[50%]" title={r.error}>{r.error}</span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SourceChip({
-  icon: Icon,
-  label,
-  active,
-  pending,
-}: {
-  icon: typeof FileText;
-  label: string;
-  active?: boolean;
-  pending?: boolean;
-}) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border",
-        active
-          ? "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-          : "border-gray-200 dark:border-gray-800 text-gray-400"
-      )}
-      title={pending ? "Coming in the next slice" : undefined}
-    >
-      <Icon className="h-3 w-3" />
-      {label}
-      {pending && <span className="opacity-60">· soon</span>}
-    </span>
-  );
-}
-
-function StoryCard({
-  story,
-  onChange,
-  onRemove,
-}: {
-  story: EditableStory;
-  onChange: (patch: Partial<EditableStory>) => void;
-  onRemove: () => void;
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-xl border p-3 bg-white dark:bg-gray-900 transition-opacity",
-        story.keep ? "border-gray-200 dark:border-gray-800" : "border-gray-200 dark:border-gray-800 opacity-50"
-      )}
-    >
-      <div className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          checked={story.keep}
-          onChange={(e) => onChange({ keep: e.target.checked })}
-          className="h-4 w-4 accent-blue-600"
-          title="Keep this story"
-        />
-        <input
-          value={story.title}
-          onChange={(e) => onChange({ title: e.target.value })}
-          className="flex-1 text-sm font-medium bg-transparent outline-none border-b border-transparent focus:border-gray-300 dark:focus:border-gray-700"
-        />
-        <select
-          value={story.priority}
-          onChange={(e) => onChange({ priority: e.target.value })}
-          className={cn("text-[10px] font-semibold rounded px-1.5 py-0.5 outline-none", PRIORITY_CHIP[story.priority] ?? PRIORITY_CHIP.Medium)}
-        >
-          {PRIORITIES.map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
-          ))}
-        </select>
-        <button
-          onClick={onRemove}
-          className="p-1 rounded text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-          title="Remove"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
-      </div>
-      <textarea
-        value={story.description}
-        onChange={(e) => onChange({ description: e.target.value })}
-        rows={2}
-        className="mt-2 w-full text-xs text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-950 rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1.5 outline-none"
-      />
-      {story.acceptance_criteria.length > 0 && (
-        <ul className="mt-2 space-y-0.5">
-          {story.acceptance_criteria.map((ac, i) => (
-            <li key={i} className="text-[11px] text-gray-500 flex items-start gap-1.5">
-              <CheckCircle2 className="h-3 w-3 mt-0.5 text-emerald-500 shrink-0" />
-              {ac}
-            </li>
-          ))}
-        </ul>
-      )}
-      {story.labels.length > 0 && (
-        <div className="flex flex-wrap gap-1 mt-2">
-          {story.labels.map((l) => (
-            <span key={l} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-400">
-              {l}
-            </span>
-          ))}
         </div>
       )}
     </div>
