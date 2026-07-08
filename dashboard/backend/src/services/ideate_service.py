@@ -398,6 +398,12 @@ async def search_results(source: str, query: str, limit: int = 5,
                     raise RuntimeError(f"No search tool exposed by the {source} MCP server.")
                 arg = _pick_query_arg(tool)
                 result = await session.call_tool(tool.name, {arg: query})
+                if getattr(result, "isError", False):
+                    text = "".join(
+                        (getattr(i, "text", "") or "")
+                        for i in (getattr(result, "content", None) or [])
+                    ).strip()
+                    raise RuntimeError(text or f"The {source} MCP server returned an error.")
                 return _parse_mcp_results(result, limit)
     except RuntimeError:
         raise
