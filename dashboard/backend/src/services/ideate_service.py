@@ -22,6 +22,11 @@ class Story(BaseModel):
     acceptance_criteria: List[str] = []
     priority: str = "Medium"
     labels: List[str] = []
+    issue_type: str = "Story"
+    epic_key: Optional[str] = None
+    story_points: Optional[float] = None
+    assignee: Optional[str] = None
+    components: List[str] = []
 
 
 class DraftResult(BaseModel):
