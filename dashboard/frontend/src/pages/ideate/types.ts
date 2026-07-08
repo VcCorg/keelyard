@@ -38,6 +38,24 @@ export interface PushResult {
   error?: string;
 }
 
+export interface AgentEvent {
+  type: "thinking" | "tool_call" | "tool_result" | "stories" | "final" | "error";
+  text?: string | null;
+  tool?: string | null;
+  args?: Record<string, unknown> | null;
+  result?: unknown;
+  stories?: Story[] | null;
+  error?: string | null;
+}
+
+export interface ToolSpec {
+  name: string;
+  kind: string;
+  description: string;
+  params: Record<string, unknown>;
+  mutating: boolean;
+}
+
 export const PRIORITIES = ["High", "Medium", "Low"];
 export const DEFAULT_ISSUE_TYPES = ["Story", "Task", "Bug", "Spike"];
 

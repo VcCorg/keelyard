@@ -1,5 +1,7 @@
 import { useRef } from "react";
 import { FileUp, Search, Loader2 } from "lucide-react";
+import { AgentWindow } from "./AgentWindow";
+import type { AgentEvent } from "./types";
 
 export function StepGather({
   context,
@@ -12,6 +14,9 @@ export function StepGather({
   searching,
   onUpload,
   uploading,
+  agentEvents,
+  agentRunning,
+  onRunAgent,
 }: {
   context: string;
   onContext: (v: string) => void;
@@ -23,6 +28,9 @@ export function StepGather({
   searching: boolean;
   onUpload: (file: File) => void;
   uploading: boolean;
+  agentEvents: AgentEvent[];
+  agentRunning: boolean;
+  onRunAgent: () => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   return (
@@ -74,6 +82,12 @@ export function StepGather({
         rows={10}
         placeholder="Paste or gather requirements here…"
         className="w-full text-sm rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 px-3 py-2 outline-none"
+      />
+      <AgentWindow
+        events={agentEvents}
+        running={agentRunning}
+        onRun={onRunAgent}
+        disabled={!context.trim()}
       />
     </div>
   );
