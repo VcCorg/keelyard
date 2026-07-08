@@ -103,6 +103,43 @@ def _fallback_stories(context: str, count: int) -> List[Story]:
     return stories
 
 
+def push_stories(project_key: str, stories: List["Story"], actor: Optional[str] = None) -> Dict[str, Any]:
+    """Create approved stories as Jira issues with real field mapping + audit.
+
+    Fetches createmeta once per batch; records one audit row per issue (success
+    and failure) under a shared correlation id. Never aborts on a single failure.
+    """
+    from src.services import ideate_audit, jira_service
+
+    if not project_key:
+        raise ValueError("A Jira project key is required")
+
+    correlation_id = ideate_audit.new_correlation_id()
+    meta = jira_service.get_create_meta(project_key)
+
+    results: List[Dict[str, Any]] = []
+    for s in stories:
+        try:
+            created = jira_service.create_issue(
+                project_key=project_key, summary=s.title, description=s.description,
+                issue_type=s.issue_type or "Story", labels=s.labels, priority=s.priority,
+                epic_key=s.epic_key, story_points=s.story_points, assignee=s.assignee,
+                components=s.components, acceptance_criteria=s.acceptance_criteria, meta=meta)
+            results.append({"title": s.title, "ok": True, **created})
+            ideate_audit.record_jira_create(
+                project_key=project_key, key=created.get("key", ""),
+                url=created.get("url", ""), ok=True, title=s.title, actor=actor,
+                correlation_id=correlation_id)
+        except Exception as e:  # noqa: BLE001 - per-story reporting
+            results.append({"title": s.title, "ok": False, "error": str(e)})
+            ideate_audit.record_jira_create(
+                project_key=project_key, key="", url="", ok=False,
+                title=s.title, error=str(e), actor=actor, correlation_id=correlation_id)
+
+    return {"results": results, "created": sum(1 for r in results if r.get("ok")),
+            "correlation_id": correlation_id}
+
+
 def draft_stories(context: str, count: int = 5, model: Optional[str] = None) -> DraftResult:
     """Draft up to ``count`` user stories from gathered requirements."""
     context = (context or "").strip()
