@@ -43,3 +43,39 @@ def test_call_unknown_tool_errors():
     ctx = ToolContext(project_key="CGF")
     out = asyncio.run(call_tool("nope", {}, ctx))
     assert "error" in out
+
+
+def test_injected_agents_registered_as_tools():
+    ctx = ToolContext(project_key="CGF", agents=[
+        {"name": "Spec Writer", "path": "/tmp/spec-writer"},
+        {"name": "PR-Reviewer", "path": "/tmp/pr"},
+    ])
+    by_name = {t.name: t for t in list_tools(ctx)}
+    assert "agent_spec_writer" in by_name and "agent_pr_reviewer" in by_name
+    spec = by_name["agent_spec_writer"]
+    assert spec.kind == "agent" and spec.mutating is False
+
+
+def test_call_agent_tool_invokes_answer(monkeypatch):
+    calls = []
+
+    def fake_test_agent(path, message, timeout=120):
+        calls.append((path, message))
+        return {"ok": True, "response": "agent says hi"}
+
+    import src.services.agent_service as agent_service
+    monkeypatch.setattr(agent_service, "test_agent", fake_test_agent)
+
+    ctx = ToolContext(project_key="CGF", agents=[{"name": "Spec Writer", "path": "/tmp/spec-writer"}])
+    out = asyncio.run(call_tool("agent_spec_writer", {"message": "draft"}, ctx))
+    assert out["text"] == "agent says hi"
+    assert calls[0][0] == "/tmp/spec-writer" and calls[0][1] == "draft"
+
+
+def test_call_agent_tool_surfaces_error(monkeypatch):
+    import src.services.agent_service as agent_service
+    monkeypatch.setattr(agent_service, "test_agent",
+                        lambda path, message, timeout=120: {"ok": False, "error": "boom"})
+    ctx = ToolContext(project_key="CGF", agents=[{"name": "Spec Writer", "path": "/tmp/x"}])
+    out = asyncio.run(call_tool("agent_spec_writer", {"message": "draft"}, ctx))
+    assert "boom" in out["error"]
