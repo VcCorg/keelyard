@@ -521,3 +521,71 @@ class TestMergedServers:
                 servers = get_merged_servers(tmp_path)
                 assert "global" not in servers
                 assert "local" in servers
+
+
+class TestMCPSyncEnv:
+    """Tests for `mcp sync-env` (CLI .env → MCP stack .env)."""
+
+    def _mcp_dir(self, base: Path) -> Path:
+        d = base / "mcp-servers"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "docker-compose.yml").write_text("services: {}\n")
+        return d
+
+    def _env(self, **overrides):
+        base = {
+            "JIRA_SERVER_URL": "https://jira.example.com",
+            "JIRA_PERSONAL_ACCESS_TOKEN": "jira-secret-token",
+            "GLEAN_API_URL": "https://co-be.glean.com",
+            "GLEAN_API_TOKEN": "glean-secret-token",
+            "GLEAN_AUTH_MODE": "token",
+        }
+        base.update(overrides)
+        return base
+
+    def test_remaps_glean_url_and_writes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            mcp_dir = self._mcp_dir(Path(tmp))
+            with patch("agentic_cli.env.load_env"), \
+                 patch.dict("os.environ", self._env(), clear=True):
+                r = runner.invoke(app, ["mcp", "sync-env", "--mcp-dir", str(mcp_dir)])
+            assert r.exit_code == 0, r.output
+            written = (mcp_dir / ".env").read_text()
+            # GLEAN_API_URL is remapped to GLEAN_DOMAIN; GLEAN_API_URL not present.
+            assert "GLEAN_DOMAIN=https://co-be.glean.com" in written
+            assert "GLEAN_API_URL" not in written
+            assert "GLEAN_API_TOKEN=glean-secret-token" in written
+            assert "JIRA_PERSONAL_ACCESS_TOKEN=jira-secret-token" in written
+
+    def test_secrets_masked_in_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            mcp_dir = self._mcp_dir(Path(tmp))
+            with patch("agentic_cli.env.load_env"), \
+                 patch.dict("os.environ", self._env(), clear=True):
+                r = runner.invoke(app, ["mcp", "sync-env", "--mcp-dir", str(mcp_dir), "--dry-run"])
+            assert r.exit_code == 0
+            assert "glean-secret-token" not in r.output  # masked
+            assert "https://co-be.glean.com" in r.output  # URL shown
+            assert not (mcp_dir / ".env").exists()  # dry-run writes nothing
+
+    def test_only_filter(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            mcp_dir = self._mcp_dir(Path(tmp))
+            with patch("agentic_cli.env.load_env"), \
+                 patch.dict("os.environ", self._env(), clear=True):
+                r = runner.invoke(app, ["mcp", "sync-env", "--mcp-dir", str(mcp_dir), "--only", "glean"])
+            assert r.exit_code == 0, r.output
+            written = (mcp_dir / ".env").read_text()
+            assert "GLEAN_DOMAIN=" in written
+            assert "JIRA_" not in written  # filtered out
+
+    def test_sso_without_token_warns(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            mcp_dir = self._mcp_dir(Path(tmp))
+            env = self._env(GLEAN_AUTH_MODE="sso")
+            env.pop("GLEAN_API_TOKEN")
+            with patch("agentic_cli.env.load_env"), \
+                 patch.dict("os.environ", env, clear=True):
+                r = runner.invoke(app, ["mcp", "sync-env", "--mcp-dir", str(mcp_dir), "--only", "glean"])
+            assert r.exit_code == 0, r.output
+            assert "SSO" in r.output and "token-only" in r.output

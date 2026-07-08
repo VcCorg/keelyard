@@ -626,6 +626,140 @@ def sync_ide(
             raise typer.Exit(1)
 
 
+# CLI `.env` key → MCP-stack `.env` key. Same name unless the MCP server reads
+# a differently-named variable (e.g. Glean's base URL is GLEAN_DOMAIN, not
+# GLEAN_API_URL). Grouped by integration for the --only filter.
+_MCP_ENV_MAP: dict[str, list[tuple[str, str]]] = {
+    "bitbucket": [
+        ("BITBUCKET_SERVER_URL", "BITBUCKET_SERVER_URL"),
+        ("BITBUCKET_PERSONAL_ACCESS_TOKEN", "BITBUCKET_PERSONAL_ACCESS_TOKEN"),
+        ("BITBUCKET_DEFAULT_PROJECT", "BITBUCKET_DEFAULT_PROJECT"),
+    ],
+    "jira": [
+        ("JIRA_SERVER_URL", "JIRA_SERVER_URL"),
+        ("JIRA_PERSONAL_ACCESS_TOKEN", "JIRA_PERSONAL_ACCESS_TOKEN"),
+        ("JIRA_DEFAULT_PROJECT", "JIRA_DEFAULT_PROJECT"),
+    ],
+    "confluence": [
+        ("CONFLUENCE_SERVER_URL", "CONFLUENCE_SERVER_URL"),
+        ("CONFLUENCE_PERSONAL_ACCESS_TOKEN", "CONFLUENCE_PERSONAL_ACCESS_TOKEN"),
+        ("CONFLUENCE_DEFAULT_SPACE", "CONFLUENCE_DEFAULT_SPACE"),
+    ],
+    "glean": [
+        ("GLEAN_API_TOKEN", "GLEAN_API_TOKEN"),
+        ("GLEAN_API_URL", "GLEAN_DOMAIN"),  # CLI base-URL var → MCP base-URL var
+    ],
+}
+
+_SECRET_HINTS = ("TOKEN", "SECRET", "KEY", "PASSWORD")
+
+
+def _find_mcp_dir(explicit: Optional[Path]) -> Optional[Path]:
+    """Locate the MCP stack dir (holding docker-compose.yml + .env)."""
+    if explicit:
+        return explicit.expanduser().resolve()
+    cur = Path.cwd().resolve()
+    for directory in [cur, *cur.parents]:
+        candidate = directory / "mcp-servers"
+        if (candidate / "docker-compose.yml").is_file():
+            return candidate
+    return None
+
+
+@mcp_app.command("sync-env")
+def sync_env(
+    only: Annotated[
+        Optional[str],
+        typer.Option("--only", "-o", help="Comma-separated integrations to sync (glean,jira,confluence,bitbucket)"),
+    ] = None,
+    mcp_dir: Annotated[
+        Optional[Path],
+        typer.Option("--mcp-dir", help="Path to the mcp-servers directory (auto-detected by default)"),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Show what would be written without modifying the file"),
+    ] = False,
+) -> None:
+    """Copy integration credentials from the CLI env into the MCP stack's .env.
+
+    Reads the CLI's resolved config (``~/.keel/.env`` then project ``./.env``)
+    and writes the matching variables into ``mcp-servers/.env`` so the Dockerized
+    MCP servers authenticate with the same credentials configured via
+    ``keel init``. Glean's ``GLEAN_API_URL`` is remapped to the MCP's
+    ``GLEAN_DOMAIN``.
+    """
+    import os
+
+    from agentic_cli.env import load_env, mask, set_env_vars
+
+    # Ensure the CLI .env files are loaded into the environment.
+    load_env()
+
+    target_dir = _find_mcp_dir(mcp_dir)
+    if not target_dir:
+        console.print("[red]✗[/red] Could not find an [cyan]mcp-servers/[/cyan] directory "
+                      "(with docker-compose.yml). Pass [cyan]--mcp-dir[/cyan].")
+        raise typer.Exit(1)
+    env_path = target_dir / ".env"
+
+    groups = list(_MCP_ENV_MAP.keys())
+    if only:
+        requested = {g.strip().lower() for g in only.split(",") if g.strip()}
+        unknown = requested - set(groups)
+        if unknown:
+            console.print(f"[red]✗[/red] Unknown integration(s): {', '.join(sorted(unknown))}. "
+                          f"Valid: {', '.join(groups)}")
+            raise typer.Exit(1)
+        groups = [g for g in groups if g in requested]
+
+    updates: dict[str, str] = {}
+    skipped_empty: list[str] = []
+    for group in groups:
+        for cli_key, mcp_key in _MCP_ENV_MAP[group]:
+            val = (os.environ.get(cli_key) or "").strip()
+            if val:
+                updates[mcp_key] = val
+            else:
+                skipped_empty.append(cli_key)
+
+    # Warn when Glean is SSO-only: there's no static token for the token-only MCP.
+    if "glean" in groups:
+        mode = (os.environ.get("GLEAN_AUTH_MODE", "token").strip() or "token").lower()
+        if mode == "sso" and not (os.environ.get("GLEAN_API_TOKEN") or "").strip():
+            console.print("[yellow]![/yellow] CLI Glean is in [bold]SSO[/bold] mode with no static "
+                          "GLEAN_API_TOKEN. The Glean MCP is token-only and cannot use SSO — "
+                          "set a token (keel init glean --token <>) or add SSO support to the MCP.")
+
+    if not updates:
+        console.print("[yellow]Nothing to sync[/yellow] — no matching non-empty variables found in the CLI env.")
+        if skipped_empty:
+            console.print(f"[dim]Empty in CLI env: {', '.join(sorted(set(skipped_empty)))}[/dim]")
+        raise typer.Exit(1)
+
+    table = Table(title=f"Sync → {env_path}")
+    table.add_column("MCP variable", style="cyan")
+    table.add_column("Value", style="white")
+    for key in sorted(updates):
+        shown = mask(updates[key]) if any(h in key for h in _SECRET_HINTS) else updates[key]
+        table.add_row(key, shown)
+    console.print(table)
+
+    if dry_run:
+        console.print("[dim]--dry-run: no changes written.[/dim]")
+        return
+
+    if not env_path.exists():
+        console.print(f"[dim]Creating {env_path} (chmod 600)…[/dim]")
+    set_env_vars(updates, path=env_path)
+    console.print(f"[green]✓[/green] Wrote {len(updates)} variable(s) to [cyan]{env_path}[/cyan]")
+    console.print("[dim]Recreate the affected containers to pick up changes, e.g.:[/dim]")
+    console.print(f"[dim]  docker compose -f {target_dir / 'docker-compose.yml'} up -d --force-recreate[/dim]")
+
+    record_activity(command="mcp", subcommand="sync-env",
+                    args={"groups": groups, "count": len(updates)})
+
+
 @mcp_app.command("import")
 def import_config(
     source: Annotated[
