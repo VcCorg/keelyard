@@ -151,6 +151,51 @@ def _parse_create_meta(data: dict, project_key: str) -> CreateMeta:
     )
 
 
+def _build_issue_fields(
+    project_key: str, summary: str, description: str = "", issue_type: str = "Story",
+    labels: Optional[list[str]] = None, priority: Optional[str] = None,
+    epic_key: Optional[str] = None, story_points: Optional[float] = None,
+    assignee: Optional[str] = None, components: Optional[list[str]] = None,
+    acceptance_criteria: Optional[list[str]] = None, meta: Optional[CreateMeta] = None,
+) -> dict:
+    """Assemble the Jira `fields` dict, mapping real fields when supported and
+    degrading gracefully. meta=None → permissive for standard fields; custom
+    fields omitted (AC appended to description)."""
+    labels = labels or []
+    components = components or []
+    acceptance_criteria = [a for a in (acceptance_criteria or []) if a]
+    fields: dict = {"project": {"key": project_key}, "summary": summary[:255],
+                    "issuetype": {"name": issue_type or "Story"}}
+
+    def ok(flag: bool) -> bool:
+        return flag if meta is not None else True
+
+    if labels:
+        fields["labels"] = [l.replace(" ", "-") for l in labels if l]
+    if priority and ok(getattr(meta, "has_priority", False)):
+        fields["priority"] = {"name": priority}
+    if assignee and ok(getattr(meta, "has_assignee", False)):
+        fields["assignee"] = {"name": assignee}
+    if components and ok(getattr(meta, "has_components", False)):
+        fields["components"] = [{"name": c} for c in components if c]
+    if epic_key and getattr(meta, "epic_link_field", None):
+        fields[meta.epic_link_field] = epic_key
+    if story_points is not None and getattr(meta, "story_points_field", None):
+        fields[meta.story_points_field] = story_points
+
+    ac_field = getattr(meta, "acceptance_criteria_field", None)
+    desc = description or ""
+    if acceptance_criteria:
+        if ac_field:
+            fields[ac_field] = "\n".join(acceptance_criteria)
+        else:
+            desc = (desc + "\n\nAcceptance criteria:\n"
+                    + "\n".join(f"- {a}" for a in acceptance_criteria)).strip()
+    if desc:
+        fields["description"] = desc
+    return fields
+
+
 def create_issue(
     project_key: str,
     summary: str,
