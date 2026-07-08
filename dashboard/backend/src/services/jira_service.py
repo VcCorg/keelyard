@@ -196,6 +196,48 @@ def _build_issue_fields(
     return fields
 
 
+def _client() -> httpx.Client:
+    return httpx.Client(
+        base_url=f"{_server_url()}/rest/api/2",
+        headers={"Authorization": f"Bearer {_token()}", "Accept": "application/json",
+                 "Content-Type": "application/json"},
+        verify=_verify_ssl(), timeout=30.0)
+
+
+def get_create_meta(project_key: str) -> CreateMeta:
+    """Fetch+parse create screen metadata; empty CreateMeta on any error."""
+    if not is_configured() or not project_key:
+        return CreateMeta(project_key=project_key)
+    try:
+        with _client() as c:
+            resp = c.get("/issue/createmeta",
+                         params={"projectKeys": project_key, "expand": "projects.issuetypes.fields"})
+            resp.raise_for_status()
+            return _parse_create_meta(resp.json(), project_key)
+    except Exception:  # noqa: BLE001
+        return CreateMeta(project_key=project_key)
+
+
+def list_issue_types(project_key: str) -> list[str]:
+    return get_create_meta(project_key).issue_types
+
+
+def list_epics(project_key: str, max_results: int = 100) -> list[JiraEpic]:
+    """List open epics (key + summary) for the epic picker."""
+    if not is_configured() or not project_key:
+        return []
+    jql = f'project = "{project_key}" AND issuetype = Epic AND statusCategory != Done ORDER BY updated DESC'
+    try:
+        with _client() as c:
+            resp = c.get("/search", params={"jql": jql, "maxResults": max_results, "fields": "summary"})
+            resp.raise_for_status()
+            data = resp.json()
+    except Exception:  # noqa: BLE001
+        return []
+    return [JiraEpic(key=i.get("key", ""), summary=(i.get("fields") or {}).get("summary", ""))
+            for i in data.get("issues", [])]
+
+
 def create_issue(
     project_key: str,
     summary: str,
@@ -203,8 +245,14 @@ def create_issue(
     issue_type: str = "Story",
     labels: Optional[list[str]] = None,
     priority: Optional[str] = None,
+    epic_key: Optional[str] = None,
+    story_points: Optional[float] = None,
+    assignee: Optional[str] = None,
+    components: Optional[list[str]] = None,
+    acceptance_criteria: Optional[list[str]] = None,
+    meta: Optional[CreateMeta] = None,
 ) -> dict:
-    """Create a Jira issue and return {key, url}. Raises on failure."""
+    """Create a Jira issue with real field mapping. Returns {key, url}. Raises on failure."""
     if not is_configured():
         raise RuntimeError(
             "Jira is not configured. Set JIRA_SERVER_URL and "
@@ -214,30 +262,16 @@ def create_issue(
         raise ValueError("A Jira project key is required")
     if not summary:
         raise ValueError("A summary is required")
+    if meta is None:
+        meta = get_create_meta(project_key)
 
-    fields: dict = {
-        "project": {"key": project_key},
-        "summary": summary[:255],
-        "issuetype": {"name": issue_type or "Story"},
-    }
-    if description:
-        fields["description"] = description
-    if labels:
-        # Jira labels cannot contain spaces.
-        fields["labels"] = [l.replace(" ", "-") for l in labels if l]
-    if priority:
-        fields["priority"] = {"name": priority}
+    fields = _build_issue_fields(
+        project_key=project_key, summary=summary, description=description,
+        issue_type=issue_type, labels=labels, priority=priority, epic_key=epic_key,
+        story_points=story_points, assignee=assignee, components=components,
+        acceptance_criteria=acceptance_criteria, meta=meta)
 
-    with httpx.Client(
-        base_url=f"{_server_url()}/rest/api/2",
-        headers={
-            "Authorization": f"Bearer {_token()}",
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        },
-        verify=_verify_ssl(),
-        timeout=30.0,
-    ) as client:
+    with _client() as client:
         resp = client.post("/issue", json={"fields": fields})
         if resp.status_code >= 300:
             raise RuntimeError(f"Jira create failed ({resp.status_code}): {resp.text[:300]}")
