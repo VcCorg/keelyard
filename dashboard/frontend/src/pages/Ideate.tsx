@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Lightbulb, ChevronLeft, ChevronRight, AlertCircle, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { EditableStory, JiraMeta, PushResult, Story } from "./ideate/types";
+import type { AgentEvent, EditableStory, JiraMeta, PushResult, Story } from "./ideate/types";
 import { newStory } from "./ideate/types";
+import { runAgent } from "./ideate/agentStream";
 import { StepScope } from "./ideate/StepScope";
 import { StepGather } from "./ideate/StepGather";
 import { StepDraft } from "./ideate/StepDraft";
@@ -29,6 +30,9 @@ export function Ideate() {
   const [searchSource, setSearchSource] = useState<"glean" | "confluence">("glean");
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
+
+  const [agentEvents, setAgentEvents] = useState<AgentEvent[]>([]);
+  const [agentRunning, setAgentRunning] = useState(false);
 
   const [jira, setJira] = useState<{ configured: boolean; projects: string[] } | null>(null);
   const [project, setProject] = useState("");
@@ -193,6 +197,36 @@ export function Ideate() {
     }
   };
 
+  const runAgentGather = async () => {
+    if (!context.trim()) {
+      showToast({ type: "error", message: "Gather some requirements first" });
+      return;
+    }
+    setAgentRunning(true);
+    setAgentEvents([]);
+    try {
+      await runAgent({
+        context,
+        project_key: project,
+        onEvent: (ev) => {
+          setAgentEvents((prev) => [...prev, ev]);
+          if (ev.type === "stories" && ev.stories) {
+            setSource("llm");
+            setStories(
+              ev.stories.map((s) => ({ ...newStory(s), ...s, _id: nextId(), keep: true }))
+            );
+          }
+        },
+      });
+      goto(3);
+      showToast({ type: "success", message: "Agent drafted stories" });
+    } catch {
+      showToast({ type: "error", message: "Agent run failed" });
+    } finally {
+      setAgentRunning(false);
+    }
+  };
+
   const kept = useMemo(() => stories.filter((s) => s.keep), [stories]);
 
   return (
@@ -240,6 +274,9 @@ export function Ideate() {
             searching={searching}
             onUpload={uploadFile}
             uploading={uploading}
+            agentEvents={agentEvents}
+            agentRunning={agentRunning}
+            onRunAgent={runAgentGather}
           />
         )}
         {step === 2 && (
