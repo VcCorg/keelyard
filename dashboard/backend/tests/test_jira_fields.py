@@ -62,3 +62,45 @@ def test_build_fields_no_meta_permissive():
         issue_type="Story", labels=[], priority="High", epic_key=None,
         story_points=None, assignee=None, components=[], acceptance_criteria=[], meta=None)
     assert f["priority"] == {"name": "High"}
+
+
+import src.services.jira_service as js
+
+
+class _Resp:
+    status_code = 201
+    text = ""
+
+    def json(self):
+        return {"key": "CGF-42"}
+
+
+class _Client:
+    captured = {}
+
+    def __init__(self, *a, **k):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def post(self, path, json):
+        _Client.captured = json
+        return _Resp()
+
+
+def test_create_issue_sends_mapped_fields(monkeypatch):
+    monkeypatch.setattr(js, "is_configured", lambda: True)
+    monkeypatch.setattr(js, "_server_url", lambda: "https://jira.example")
+    monkeypatch.setattr(js, "_token", lambda: "tok")
+    monkeypatch.setattr(js.httpx, "Client", _Client)
+    monkeypatch.setattr(js, "get_create_meta", lambda pk: FULL)
+    out = js.create_issue(project_key="CGF", summary="S", description="D",
+        issue_type="Story", labels=["x"], priority="High", epic_key="CGF-1",
+        story_points=3, assignee="jdoe", components=["api"], acceptance_criteria=["ac1"])
+    sent = _Client.captured["fields"]
+    assert sent["customfield_10008"] == "CGF-1" and sent["customfield_10100"] == "ac1"
+    assert out == {"key": "CGF-42", "url": "https://jira.example/browse/CGF-42"}
