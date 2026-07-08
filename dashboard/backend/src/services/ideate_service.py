@@ -369,47 +369,18 @@ def glean_status(user_token: Optional[str] = None) -> Dict[str, Any]:
     return {"mode": "mcp", "configured": cfg.is_configured(), "auth": cfg.auth_mode, "detail": reason}
 
 
-def _glean_configured_results(query: str, limit: int,
-                              user_token: Optional[str] = None) -> Optional[List[SearchResult]]:
-    """Query org-configured Glean (token/SSO) and return structured results.
-
-    Returns results on success, ``None`` if Glean isn't configured for a live
-    query (so the caller falls back to the MCP server). Raises RuntimeError on a
-    real failure (bad token, unreachable host)."""
-    try:
-        from agentic_cli.glean import GleanConfig, GleanError
-        from agentic_cli.glean import search as glean_search
-    except Exception:  # noqa: BLE001 - package optional
-        return None
-    cfg = GleanConfig.load()
-    if cfg.unavailable_reason(user_token):
-        return None  # not configured for a live query → let MCP handle it
-    try:
-        results = glean_search(query, page_size=limit, config=cfg, user_token=user_token)
-    except GleanError as exc:
-        raise RuntimeError(str(exc)) from exc
-    return [SearchResult(title=r.title, url=r.url, snippet=r.snippet) for r in results][:limit]
-
-
 async def search_results(source: str, query: str, limit: int = 5,
                          user_token: Optional[str] = None) -> List[SearchResult]:
     """Structured enterprise-search results (title / url / snippet) for Ideate.
 
-    For Glean, prefer the org-configured Glean REST API (``keel init glean``);
-    fall back to a Glean/Confluence MCP server when Glean isn't configured for a
-    live query. ``user_token`` enables per-user SSO. Raises a clear RuntimeError
-    when nothing is available."""
+    All sources (Glean and Confluence) are queried through their MCP servers so
+    the dashboard keeps a single client path. Raises a clear RuntimeError when
+    the MCP server is unavailable."""
     url = _MCP_URLS.get(source)
     if not url:
         raise ValueError(f"Unknown source '{source}'. Valid: {', '.join(_MCP_URLS)}")
     if not query.strip():
         raise ValueError("A search query is required")
-
-    if source == "glean":
-        results = _glean_configured_results(query, limit, user_token)
-        if results is not None:
-            return results
-        # else: not configured for a live query — try the MCP server below.
 
     try:
         from mcp import ClientSession

@@ -250,6 +250,39 @@ def list_projects() -> str:
 
 
 @mcp.tool()
+def get_create_meta(project_key: str) -> str:
+    """Get create-screen metadata for a project (issue types + fields).
+
+    Args:
+        project_key: Jira project key (e.g. 'CWHE')
+
+    Returns the raw Jira createmeta payload (projects → issuetypes → fields),
+    enabling detection of custom-field ids such as Epic Link, Story Points, and
+    Acceptance Criteria, plus which standard fields are on the create screen.
+    """
+    with _get_client() as client:
+        meta = client.get_create_meta(project_key)
+        return json.dumps(meta, indent=2, default=str)
+
+
+@mcp.tool()
+def create_issue(fields: dict[str, Any]) -> str:
+    """Create a Jira issue from a fully-formed ``fields`` object.
+
+    Args:
+        fields: Jira issue ``fields`` dict — must include at least
+            ``project`` ({"key": ...}), ``summary``, and ``issuetype``
+            ({"name": ...}). May include labels, priority, assignee,
+            components, and custom-field ids (e.g. Epic Link, Story Points).
+
+    Returns ``{"key", "url"}`` for the created issue.
+    """
+    with _get_client() as client:
+        result = client.create_issue(fields)
+        return json.dumps(result, indent=2, default=str)
+
+
+@mcp.tool()
 def get_sprint_issues(
     board_id: int,
     sprint_id: int | None = None,

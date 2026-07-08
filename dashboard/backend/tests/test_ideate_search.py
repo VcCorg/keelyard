@@ -46,21 +46,12 @@ def test_parse_respects_limit():
     assert len(out) == 3
 
 
-def test_search_results_glean_configured(monkeypatch):
-    from agentic_cli.glean import GleanResult
-
-    class FakeCfg:
-        def unavailable_reason(self, tok):
-            return None
-
-    import agentic_cli.glean as glean
-    monkeypatch.setattr(glean.GleanConfig, "load", classmethod(lambda cls: FakeCfg()))
-    monkeypatch.setattr(
-        glean, "search",
-        lambda q, page_size=5, config=None, user_token=None: [
-            GleanResult(title="Doc", url="https://g/1", snippet="snip"),
-        ])
-    out = asyncio.run(svc.search_results("glean", "auth", limit=5))
+def test_glean_parses_mcp_json():
+    """Glean now routes through its MCP server; JSON hits map to SearchResults."""
+    payload = json.dumps({"results": [
+        {"title": "Doc", "url": "https://g/1", "snippet": "snip"},
+    ]})
+    out = svc._parse_mcp_results(_mcp_result(payload), limit=5)
     assert out[0].title == "Doc" and out[0].url == "https://g/1" and out[0].snippet == "snip"
 
 
