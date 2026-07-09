@@ -44,14 +44,21 @@ class MCPToolError(Exception):
 async def _call_tool_async(
     sse_url: str, tool_name: str, arguments: dict, timeout: float = 30.0,
 ) -> Any:
-    """Open an SSE session, initialize, call the tool, parse response."""
+    """Open an SSE session, initialize, call the tool, parse response.
+
+    The ``timeout`` applies to the entire lifecycle (connect + initialize + call)
+    so an unresponsive MCP server cannot hang the dashboard.
+    """
     from mcp import ClientSession
     from mcp.client.sse import sse_client
 
-    async with sse_client(sse_url) as (read, write):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
-            result = await session.call_tool(tool_name, arguments)
+    async def _session() -> Any:
+        async with sse_client(sse_url) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                return await session.call_tool(tool_name, arguments)
+
+    result = await asyncio.wait_for(_session(), timeout=timeout)
 
     if result.isError:
         texts = [c.text for c in result.content if hasattr(c, "text")]

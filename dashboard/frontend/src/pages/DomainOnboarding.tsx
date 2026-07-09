@@ -843,16 +843,39 @@ function ReposStep({
   const [filter, setFilter] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [savingSrc, setSavingSrc] = useState(false);
 
-  const loadCandidates = async () => {
+  // The filter input doubles as a repo-name substring, but users often paste a
+  // full Bitbucket project/repo URL here expecting it to scope the fetch. A URL
+  // is never a repo slug, so it silently matches nothing. Detect that case and
+  // offer to set it as the domain's Bitbucket source instead.
+  const filterIsUrl = /^https?:\/\//i.test(filter.trim());
+
+  const loadCandidates = async (q: string = filter) => {
     setLoading(true);
     setErr(null);
     try {
-      setCandidates(await api.getBitbucketCandidates(domain.name, filter || undefined));
+      setCandidates(await api.getBitbucketCandidates(domain.name, q || undefined));
     } catch (e) {
       setErr(String(e));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const useAsBitbucketSource = async () => {
+    setSavingSrc(true);
+    setErr(null);
+    try {
+      await api.updateDomain(domain.name, { bitbucket_url: filter.trim(), bitbucket_project: "" });
+      onChanged();
+      setFilter("");
+      setCandidates(null);
+      await loadCandidates("");
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setSavingSrc(false);
     }
   };
 
@@ -917,20 +940,45 @@ function ReposStep({
         <h2 className="font-semibold mb-3">Add repos from Bitbucket</h2>
         <div className="flex gap-2 mb-3">
           <Input
-            placeholder="Filter (optional)"
+            placeholder="Filter repo names, or paste a Bitbucket project/repo URL"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
+            aria-invalid={filterIsUrl}
           />
-          <Button variant="outline" onClick={loadCandidates} disabled={loading}>
+          <Button variant="outline" onClick={() => loadCandidates()} disabled={loading || filterIsUrl}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           </Button>
         </div>
+
+        {filterIsUrl && (
+          <div className="mt-2 mb-3 rounded-md border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3 space-y-2">
+            <div className="flex items-start gap-2 text-xs text-amber-700 dark:text-amber-300">
+              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>
+                That looks like a <strong>URL</strong>, not a repo name. Filtering by a
+                URL never matches, so no repos are found. Set it as this domain's
+                Bitbucket source to fetch repos from that project.
+              </span>
+            </div>
+            <Button size="sm" onClick={useAsBitbucketSource} disabled={savingSrc}>
+              {savingSrc ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-1" />
+              ) : (
+                <Check className="h-4 w-4 mr-1" />
+              )}
+              Set as Bitbucket source &amp; load
+            </Button>
+          </div>
+        )}
         {err && <p className="text-xs text-red-600 mb-2">{err}</p>}
         <div className="space-y-2 max-h-80 overflow-y-auto">
           {candidates === null && (
             <p className="text-sm text-gray-500">
               Click refresh to preview repos from the domain's Bitbucket project.
             </p>
+          )}
+          {candidates?.length === 0 && !filterIsUrl && (
+            <p className="text-sm text-gray-500">No repos found.</p>
           )}
           {candidates?.map((c) => (
             <div
