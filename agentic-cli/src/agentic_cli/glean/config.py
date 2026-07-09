@@ -45,14 +45,14 @@ class GleanConfig:
     @property
     def has_client_credentials(self) -> bool:
         """True if a service token can be minted without a per-user token."""
-        return bool(self.oauth_issuer and self.oauth_client_id and self.oauth_client_secret)
+        return bool(self.oauth_server_base and self.oauth_client_id and self.oauth_client_secret)
 
     def is_configured(self) -> bool:
         if not self.api_url:
             return False
         if self.is_token_mode:
             return bool(self.api_token)
-        return bool(self.oauth_issuer and self.oauth_client_id)
+        return bool(self.oauth_server_base and self.oauth_client_id)
 
     def unavailable_reason(self, user_token: Optional[str] = None) -> Optional[str]:
         """Human-readable reason Glean can't run a live query, or None if it can.
@@ -79,5 +79,21 @@ class GleanConfig:
         return f"{self.api_url}/rest/api/v1/search"
 
     @property
+    def oauth_server_base(self) -> str:
+        """OAuth Authorization Server base: explicit issuer, else the Glean domain.
+
+        Glean's own OAuth server lives under the API URL, so SSO can be
+        configured with just a client id/secret when no separate IdP issuer is
+        used.
+        """
+        return (self.oauth_issuer or self.api_url).rstrip("/")
+
+    @property
+    def oauth_metadata_url(self) -> str:
+        """Glean/OAuth 2.0 Authorization Server metadata endpoint."""
+        return f"{self.oauth_server_base}/.well-known/oauth-authorization-server"
+
+    @property
     def discovery_url(self) -> str:
-        return f"{self.oauth_issuer}/.well-known/openid-configuration"
+        """OIDC discovery endpoint (used as a fallback to OAuth metadata)."""
+        return f"{self.oauth_server_base}/.well-known/openid-configuration"

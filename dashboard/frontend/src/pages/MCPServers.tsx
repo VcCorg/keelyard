@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Server, Play, Square, Eye, Wrench } from "lucide-react";
+import { Server, Play, Square, Eye, Wrench, KeyRound, ShieldCheck, ShieldAlert } from "lucide-react";
 import { usePolling } from "@/hooks/usePolling";
 import { api, type MCPServerInfo } from "@/lib/api";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -31,6 +31,33 @@ export function MCPServers() {
     }
   };
 
+  const renderAuth = (server: MCPServerInfo) => {
+    const status = server.auth_status;
+    if (!status || status === "n/a" || status === "unknown") return null;
+    if (status === "ok") {
+      return (
+        <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+          <ShieldCheck className="h-3 w-3" /> token valid
+        </span>
+      );
+    }
+    const label =
+      status === "missing" ? "token missing"
+      : status === "invalid" ? "token expired/invalid"
+      : status === "unreachable" ? "upstream unreachable"
+      : status;
+    const Icon = status === "missing" ? KeyRound : ShieldAlert;
+    const tone =
+      status === "unreachable"
+        ? "text-amber-600 dark:text-amber-400"
+        : "text-red-600 dark:text-red-400";
+    return (
+      <span className={`inline-flex items-center gap-1 text-xs ${tone}`} title={server.auth_message || ""}>
+        <Icon className="h-3 w-3" /> {label}
+      </span>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -60,9 +87,10 @@ export function MCPServers() {
                   </div>
                   <div>
                     <h3 className="font-semibold text-sm">{server.name}</h3>
-                    <div className="flex items-center gap-2 mt-0.5">
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                       <StatusBadge status={server.health_status} />
                       <span className="text-xs text-gray-400">{server.type}</span>
+                      {renderAuth(server)}
                     </div>
                   </div>
                 </div>

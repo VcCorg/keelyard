@@ -11,6 +11,7 @@ const statusStyles: Record<string, string> = {
   success: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
   stopped: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
   unknown: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+  degraded: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
   unhealthy: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
   error: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
 };
@@ -30,6 +31,7 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
           (status === "running" || status === "healthy" || status === "success") && "bg-emerald-500",
           status === "stopped" && "bg-gray-400",
           status === "unknown" && "bg-yellow-500",
+          status === "degraded" && "bg-amber-500",
           (status === "unhealthy" || status === "error") && "bg-red-500"
         )}
       />

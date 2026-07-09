@@ -69,9 +69,9 @@ docker_compose() {
 }
 
 ensure_network() {
-    if ! docker network inspect agentic-network &>/dev/null; then
-        log_info "Creating agentic-network..."
-        docker network create agentic-network
+    if ! docker network inspect keel-network &>/dev/null; then
+        log_info "Creating keel-network..."
+        docker network create keel-network
     fi
 }
 

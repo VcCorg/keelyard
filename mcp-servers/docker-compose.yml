@@ -44,8 +44,15 @@ services:
     environment:
       - MCP_TRANSPORT=sse
       - MCP_PORT=8127
-      - GLEAN_API_TOKEN=${GLEAN_API_TOKEN}
+      - GLEAN_API_TOKEN=${GLEAN_API_TOKEN:-}
       - GLEAN_DOMAIN=${GLEAN_DOMAIN:-https://example-production-be.glean.com}
+      # SSO (OAuth client-credentials) mode — used when GLEAN_AUTH_MODE=sso.
+      - GLEAN_AUTH_MODE=${GLEAN_AUTH_MODE:-token}
+      - GLEAN_OAUTH_ISSUER=${GLEAN_OAUTH_ISSUER:-}
+      - GLEAN_OAUTH_CLIENT_ID=${GLEAN_OAUTH_CLIENT_ID:-}
+      - GLEAN_OAUTH_CLIENT_SECRET=${GLEAN_OAUTH_CLIENT_SECRET:-}
+      - GLEAN_OAUTH_SCOPE=${GLEAN_OAUTH_SCOPE:-}
+      - GLEAN_OAUTH_TOKEN_URL=${GLEAN_OAUTH_TOKEN_URL:-}
     healthcheck:
       test: ["CMD-SHELL", "curl --max-time 2 -s http://localhost:8127/sse > /dev/null 2>&1; test $$? -eq 28"]
       interval: 10s

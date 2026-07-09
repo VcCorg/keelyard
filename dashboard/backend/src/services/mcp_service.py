@@ -6,8 +6,11 @@ Enriches with CLI registry metadata when available.
 
 import json
 import logging
+import os
 import socket
 import subprocess
+import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional
 
@@ -37,10 +40,13 @@ class MCPServerInfo(BaseModel):
     port: Optional[int] = None
     description: Optional[str] = None
     tools: list[str] = []
-    health_status: str = "unknown"  # healthy, unhealthy, unknown
+    health_status: str = "unknown"  # healthy, degraded, unhealthy, unknown
     health_message: str = ""
     container_name: Optional[str] = None
     container_status: Optional[str] = None
+    # Auth/token status independent of port reachability.
+    auth_status: str = "unknown"  # ok, missing, invalid, unreachable, n/a, unknown
+    auth_message: str = ""
 
 
 class MCPHealthResult(BaseModel):
@@ -48,6 +54,8 @@ class MCPHealthResult(BaseModel):
     name: str
     healthy: bool
     message: str
+    auth_status: str = "unknown"  # ok, missing, invalid, unreachable, n/a, unknown
+    auth_message: str = ""
 
 
 def _check_port(host: str, port: int, timeout: float = 2.0) -> tuple[bool, str]:
@@ -57,6 +65,196 @@ def _check_port(host: str, port: int, timeout: float = 2.0) -> tuple[bool, str]:
             return True, f"Port {port} is open"
     except OSError as e:
         return False, f"Port {port} unreachable: {e}"
+
+
+# ── Auth / token verification ────────────────────────────────────────────────
+# A port being open only proves the container is up. It does NOT prove the
+# service can authenticate to its upstream (Glean/Jira/Bitbucket/Confluence).
+# The checks below read the SAME tokens the containers receive (docker
+# --env-file mcp-servers/.env, falling back to the loaded process env) and,
+# when a token is present, make one lightweight authenticated call to detect
+# expired/invalid tokens.
+
+# docker-compose service -> (token env var, base-url env var, auth probe path)
+_AUTH_SPEC: dict[str, tuple[str, str, str]] = {
+    "bitbucket-mcp": ("BITBUCKET_PERSONAL_ACCESS_TOKEN", "BITBUCKET_SERVER_URL", "/rest/api/1.0/users?limit=1"),
+    "jira-mcp": ("JIRA_PERSONAL_ACCESS_TOKEN", "JIRA_SERVER_URL", "/rest/api/2/myself"),
+    "confluence-mcp": ("CONFLUENCE_PERSONAL_ACCESS_TOKEN", "CONFLUENCE_SERVER_URL", "/rest/api/user/current"),
+    "glean-mcp": ("GLEAN_API_TOKEN", "GLEAN_DOMAIN", "/rest/api/v1/search"),
+}
+
+# Services with no upstream token to verify.
+_NO_AUTH = {"memory-mcp", "kg-mcp", "agentic-mcp", "mcp-gateway", "mcp-proxy"}
+
+_AUTH_TTL = 60.0  # seconds; avoid hammering upstreams on every 10s poll
+_auth_cache: dict[str, tuple[float, str, str, str]] = {}  # name -> (ts, token_fp, status, message)
+
+
+def _load_stack_env() -> dict[str, str]:
+    """Read the tokens the containers actually run with.
+
+    docker compose is launched with ``--env-file mcp-servers/.env`` (see mcp.sh),
+    so that file is ground truth. Process env (loaded from ~/.dva/.env) overrides
+    only when the stack file leaves a value blank.
+    """
+    env: dict[str, str] = {}
+    compose = _find_compose_file()
+    env_file = compose.parent / ".env" if compose else None
+    if env_file and env_file.exists():
+        try:
+            for raw in env_file.read_text().splitlines():
+                line = raw.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, val = line.partition("=")
+                env[key.strip()] = val.strip().strip('"').strip("'")
+        except Exception as e:  # noqa: BLE001
+            logger.debug("Could not parse stack .env: %s", e)
+    # Fill blanks from the process environment (dashboard loads the global .env).
+    backfill = set()
+    for spec in _AUTH_SPEC.values():
+        backfill.update((spec[0], spec[1]))
+    backfill.update((
+        "GLEAN_AUTH_MODE", "GLEAN_OAUTH_ISSUER", "GLEAN_OAUTH_CLIENT_ID",
+        "GLEAN_OAUTH_CLIENT_SECRET", "GLEAN_OAUTH_SCOPE", "GLEAN_OAUTH_TOKEN_URL",
+    ))
+    for var in backfill:
+        if not env.get(var) and os.environ.get(var):
+            env[var] = os.environ[var]
+    return env
+
+
+def _fingerprint(token: str) -> str:
+    import hashlib
+
+    return hashlib.sha256(token.encode()).hexdigest()[:12] if token else ""
+
+
+def _probe_auth(name: str, env: dict[str, str]) -> tuple[str, str]:
+    """Return (auth_status, auth_message) for one server. Cached for _AUTH_TTL."""
+    if name in _NO_AUTH:
+        return "n/a", "No upstream token required"
+    spec = _AUTH_SPEC.get(name)
+    if not spec:
+        return "unknown", ""
+
+    # Glean can authenticate via a static token OR SSO (OAuth client-credentials).
+    if name == "glean-mcp" and (env.get("GLEAN_AUTH_MODE") or "token").strip().lower() == "sso":
+        return _probe_glean_sso(env)
+
+    token_var, url_var, path = spec
+    token = (env.get(token_var) or "").strip()
+    base_url = (env.get(url_var) or "").strip()
+    fp = _fingerprint(token)
+
+    if not token:
+        return "missing", f"{token_var} is not set"
+
+    # Serve cached result if the token is unchanged and still fresh.
+    cached = _auth_cache.get(name)
+    now = time.time()
+    if cached and cached[1] == fp and (now - cached[0]) < _AUTH_TTL:
+        return cached[2], cached[3]
+
+    status, message = _live_auth_probe(name, token, base_url, path)
+    _auth_cache[name] = (now, fp, status, message)
+    return status, message
+
+
+def _live_auth_probe(name: str, token: str, base_url: str, path: str) -> tuple[str, str]:
+    """Make one short authenticated request to the upstream to validate the token."""
+    if not base_url:
+        return "unknown", "Upstream URL not configured"
+    try:
+        import httpx
+    except Exception:  # noqa: BLE001
+        return "unknown", "httpx unavailable; cannot verify token"
+
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+    url = base_url.rstrip("/") + path
+    try:
+        if name == "glean-mcp":
+            # Glean has no cheap ping; a minimal search validates the token.
+            headers["Content-Type"] = "application/json"
+            with httpx.Client(timeout=5.0) as c:
+                resp = c.post(url, json={"query": "ping", "pageSize": 1}, headers=headers)
+        else:
+            with httpx.Client(timeout=5.0, follow_redirects=True) as c:
+                resp = c.get(url, headers=headers)
+    except Exception as e:  # noqa: BLE001 - network/TLS/timeout
+        return "unreachable", f"Could not reach upstream: {str(e)[:120]}"
+
+    if resp.status_code in (401, 403):
+        return "invalid", f"Token rejected ({resp.status_code}) — likely expired or wrong scope"
+    if resp.status_code >= 500:
+        return "unreachable", f"Upstream error ({resp.status_code})"
+    if resp.status_code >= 400:
+        # e.g. 404 on the probe path — token itself was accepted (not 401/403).
+        return "ok", f"Token accepted (probe returned {resp.status_code})"
+    return "ok", "Token valid"
+
+
+def _probe_glean_sso(env: dict[str, str]) -> tuple[str, str]:
+    """Validate Glean SSO (OAuth client-credentials) by minting a service token.
+
+    Mirrors the MCP/CLI flow: discover (or use) the token endpoint and request a
+    client-credentials token. Cached for _AUTH_TTL keyed on the client id/secret.
+    """
+    client_id = (env.get("GLEAN_OAUTH_CLIENT_ID") or "").strip()
+    client_secret = (env.get("GLEAN_OAUTH_CLIENT_SECRET") or "").strip()
+    if not (client_id and client_secret):
+        return "missing", "SSO mode but GLEAN_OAUTH_CLIENT_ID/SECRET not set"
+
+    fp = _fingerprint(client_id + ":" + client_secret)
+    cached = _auth_cache.get("glean-mcp")
+    now = time.time()
+    if cached and cached[1] == fp and (now - cached[0]) < _AUTH_TTL:
+        return cached[2], cached[3]
+
+    try:
+        import httpx
+    except Exception:  # noqa: BLE001
+        return "unknown", "httpx unavailable; cannot verify token"
+
+    base = (env.get("GLEAN_OAUTH_ISSUER") or env.get("GLEAN_DOMAIN") or "").strip().rstrip("/")
+    token_url = (env.get("GLEAN_OAUTH_TOKEN_URL") or "").strip()
+    scope = (env.get("GLEAN_OAUTH_SCOPE") or "").strip()
+
+    try:
+        with httpx.Client(timeout=8.0) as c:
+            if not token_url:
+                if not base:
+                    return "unknown", "No GLEAN_DOMAIN/ISSUER to discover token endpoint"
+                disc = c.get(f"{base}/.well-known/oauth-authorization-server")
+                if disc.status_code >= 400:
+                    return "unreachable", f"OAuth discovery returned {disc.status_code}"
+                token_url = (disc.json() or {}).get("token_endpoint", "")
+                if not token_url:
+                    return "unknown", "OAuth metadata has no token_endpoint"
+            data = {
+                "grant_type": "client_credentials",
+                "client_id": client_id,
+                "client_secret": client_secret,
+            }
+            if scope:
+                data["scope"] = scope
+            resp = c.post(token_url, data=data)
+    except Exception as e:  # noqa: BLE001
+        status, message = "unreachable", f"Could not reach OAuth server: {str(e)[:120]}"
+        _auth_cache["glean-mcp"] = (now, fp, status, message)
+        return status, message
+
+    if resp.status_code in (400, 401):
+        status, message = "invalid", f"OAuth client rejected ({resp.status_code}) — check client id/secret/scope"
+    elif resp.status_code >= 400:
+        status, message = "unreachable", f"OAuth server error ({resp.status_code})"
+    elif not (resp.json() or {}).get("access_token"):
+        status, message = "invalid", "Token response had no access_token"
+    else:
+        status, message = "ok", "SSO token minted (client-credentials)"
+
+    _auth_cache["glean-mcp"] = (now, fp, status, message)
+    return status, message
 
 
 def _get_docker_status() -> dict[str, str]:
@@ -151,28 +349,53 @@ def list_mcp_servers() -> list[MCPServerInfo]:
     return list(servers.values())
 
 
-def check_health(name: Optional[str] = None) -> list[MCPHealthResult]:
-    """Check health of MCP servers via port check + Docker status."""
+def check_health(name: Optional[str] = None, verify_auth: bool = True) -> list[MCPHealthResult]:
+    """Check health of MCP servers.
+
+    Two independent dimensions are reported:
+    - ``healthy`` / ``message``: TCP port reachability + Docker container state.
+    - ``auth_status`` / ``auth_message``: whether the required upstream token is
+      present and (when ``verify_auth``) actually accepted. A port being open
+      does NOT mean the token is valid, so a server can be reachable yet have a
+      missing or expired token.
+    """
     servers = list_mcp_servers()
+    if name:
+        servers = [s for s in servers if s.name == name]
     docker_status = _get_docker_status()
+
+    # Probe upstream auth for reachable servers concurrently (short timeout, cached).
+    auth_map: dict[str, tuple[str, str]] = {}
+    if verify_auth:
+        stack_env = _load_stack_env()
+        to_probe = [s.name for s in servers]
+        if to_probe:
+            with ThreadPoolExecutor(max_workers=min(6, len(to_probe))) as pool:
+                for sname, res in zip(
+                    to_probe, pool.map(lambda n: _probe_auth(n, stack_env), to_probe)
+                ):
+                    auth_map[sname] = res
+
     results = []
-
     for srv in servers:
-        if name and srv.name != name:
-            continue
+        auth_status, auth_message = auth_map.get(srv.name, ("unknown", ""))
 
-        # Check port connectivity
         if srv.port:
             ok, msg = _check_port("localhost", srv.port)
-            # Append container status if available
             cname = srv.container_name or f"keel-{srv.name}"
             cstatus = docker_status.get(cname, "")
             if cstatus:
                 msg = f"{msg} ({cstatus})"
                 srv.container_status = cstatus
-            results.append(MCPHealthResult(name=srv.name, healthy=ok, message=msg))
+            results.append(MCPHealthResult(
+                name=srv.name, healthy=ok, message=msg,
+                auth_status=auth_status, auth_message=auth_message,
+            ))
         else:
-            results.append(MCPHealthResult(name=srv.name, healthy=False, message="No port configured"))
+            results.append(MCPHealthResult(
+                name=srv.name, healthy=False, message="No port configured",
+                auth_status=auth_status, auth_message=auth_message,
+            ))
 
     return results
 

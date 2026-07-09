@@ -25,18 +25,37 @@ class MCPActionResponse(BaseModel):
     message: str
 
 
+def _apply_health(server: MCPServerInfo, hr: MCPHealthResult) -> None:
+    """Merge a health result onto a server, deriving a combined status.
+
+    Port up + valid/absent token → healthy. Port up but the required token is
+    missing or rejected → degraded (so the UI never shows a misleading
+    'healthy' for a server that can't actually authenticate). Port down →
+    unhealthy.
+    """
+    server.auth_status = hr.auth_status
+    server.auth_message = hr.auth_message
+    if not hr.healthy:
+        server.health_status = "unhealthy"
+    elif hr.auth_status in ("missing", "invalid"):
+        server.health_status = "degraded"
+    else:
+        server.health_status = "healthy"
+    parts = [hr.message]
+    if hr.auth_message and hr.auth_status not in ("ok", "n/a"):
+        parts.append(hr.auth_message)
+    server.health_message = " — ".join(p for p in parts if p)
+
+
 @router.get("/servers", response_model=list[MCPServerInfo])
 async def api_list_servers():
     """List all configured MCP servers."""
     servers = list_mcp_servers()
-    # Enrich with health status
-    health_results = check_health()
-    health_map = {r.name: r for r in health_results}
+    # Enrich with health + auth status
+    health_map = {r.name: r for r in check_health()}
     for server in servers:
         if server.name in health_map:
-            hr = health_map[server.name]
-            server.health_status = "healthy" if hr.healthy else "unhealthy"
-            server.health_message = hr.message
+            _apply_health(server, health_map[server.name])
     return servers
 
 
@@ -48,8 +67,7 @@ async def api_get_server(name: str):
         if server.name == name:
             health = check_health(name=name)
             if health:
-                server.health_status = "healthy" if health[0].healthy else "unhealthy"
-                server.health_message = health[0].message
+                _apply_health(server, health[0])
             return server
     raise HTTPException(status_code=404, detail=f"MCP server '{name}' not found")
 

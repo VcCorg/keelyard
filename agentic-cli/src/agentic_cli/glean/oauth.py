@@ -49,13 +49,25 @@ def parse_token_response(data: Any) -> Tuple[str, float]:
 def _resolve_token_endpoint(cfg: GleanConfig, client) -> str:
     if cfg.oauth_token_url:
         return cfg.oauth_token_url
-    try:
-        resp = client.get(cfg.discovery_url)
-    except Exception as exc:  # noqa: BLE001
-        raise OAuthError(f"OIDC discovery failed at {cfg.discovery_url}: {exc}") from exc
-    if resp.status_code >= 400:
-        raise OAuthError(f"OIDC discovery returned {resp.status_code} at {cfg.discovery_url}.")
-    return parse_discovery(resp.json())
+    # Try OAuth 2.0 Authorization Server metadata first (Glean's own OAuth
+    # server publishes this), then fall back to OIDC discovery (IdP issuers).
+    candidates = [cfg.oauth_metadata_url, cfg.discovery_url]
+    last_err: Optional[str] = None
+    for url in candidates:
+        try:
+            resp = client.get(url)
+        except Exception as exc:  # noqa: BLE001
+            last_err = f"{url}: {exc}"
+            continue
+        if resp.status_code >= 400:
+            last_err = f"{url} returned {resp.status_code}"
+            continue
+        try:
+            return parse_discovery(resp.json())
+        except OAuthError as exc:
+            last_err = f"{url}: {exc}"
+            continue
+    raise OAuthError(f"Could not resolve token endpoint via discovery ({last_err}).")
 
 
 def fetch_client_credentials_token(cfg: GleanConfig) -> str:
@@ -63,7 +75,7 @@ def fetch_client_credentials_token(cfg: GleanConfig) -> str:
     if not cfg.has_client_credentials:
         raise OAuthError("Client-credentials not configured (need issuer, client id, secret).")
 
-    key = (cfg.oauth_issuer, cfg.oauth_client_id)
+    key = (cfg.oauth_server_base, cfg.oauth_client_id)
     now = time.time()
     with _LOCK:
         cached = _CACHE.get(key)
