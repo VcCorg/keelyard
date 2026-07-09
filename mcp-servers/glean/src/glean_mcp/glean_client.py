@@ -17,11 +17,19 @@ logger = logging.getLogger(__name__)
 class GleanClient:
     """Client for Glean REST API."""
 
-    def __init__(self, config: GleanConfig):
+    def __init__(self, config: GleanConfig, bearer_token: Optional[str] = None):
         self.config = config
+        # In SSO mode the bearer token is a minted OAuth service token; in token
+        # mode it defaults to the static API token.
+        token = bearer_token if bearer_token is not None else config.api_token
+        headers = config.headers_for(token)
+        if config.is_sso:
+            # Glean requires this to distinguish an OAuth token from a Glean API
+            # token (parity with the CLI's Glean client).
+            headers["X-Glean-Auth-Type"] = "OAUTH"
         self._client = httpx.AsyncClient(
             base_url=config.api_base_url,
-            headers=config.auth_headers,
+            headers=headers,
             timeout=30.0,
         )
 

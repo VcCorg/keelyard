@@ -648,6 +648,14 @@ _MCP_ENV_MAP: dict[str, list[tuple[str, str]]] = {
     "glean": [
         ("GLEAN_API_TOKEN", "GLEAN_API_TOKEN"),
         ("GLEAN_API_URL", "GLEAN_DOMAIN"),  # CLI base-URL var → MCP base-URL var
+        # SSO/OAuth client-credentials — the MCP now supports these too, so the
+        # CLI and the Dockerized MCP authenticate to Glean the same way.
+        ("GLEAN_AUTH_MODE", "GLEAN_AUTH_MODE"),
+        ("GLEAN_OAUTH_ISSUER", "GLEAN_OAUTH_ISSUER"),
+        ("GLEAN_OAUTH_CLIENT_ID", "GLEAN_OAUTH_CLIENT_ID"),
+        ("GLEAN_OAUTH_CLIENT_SECRET", "GLEAN_OAUTH_CLIENT_SECRET"),
+        ("GLEAN_OAUTH_SCOPE", "GLEAN_OAUTH_SCOPE"),
+        ("GLEAN_OAUTH_TOKEN_URL", "GLEAN_OAUTH_TOKEN_URL"),
     ],
 }
 
@@ -723,13 +731,22 @@ def sync_env(
             else:
                 skipped_empty.append(cli_key)
 
-    # Warn when Glean is SSO-only: there's no static token for the token-only MCP.
+    # Glean MCP now supports SSO (OAuth client-credentials) as well as a static
+    # token. Warn only if neither a token nor usable OAuth client-credentials are
+    # present, since then the MCP has nothing to authenticate with.
     if "glean" in groups:
         mode = (os.environ.get("GLEAN_AUTH_MODE", "token").strip() or "token").lower()
-        if mode == "sso" and not (os.environ.get("GLEAN_API_TOKEN") or "").strip():
-            console.print("[yellow]![/yellow] CLI Glean is in [bold]SSO[/bold] mode with no static "
-                          "GLEAN_API_TOKEN. The Glean MCP is token-only and cannot use SSO — "
-                          "set a token (keel init glean --token <>) or add SSO support to the MCP.")
+        has_token = bool((os.environ.get("GLEAN_API_TOKEN") or "").strip())
+        has_cc = bool((os.environ.get("GLEAN_OAUTH_CLIENT_ID") or "").strip()
+                      and (os.environ.get("GLEAN_OAUTH_CLIENT_SECRET") or "").strip())
+        if mode == "sso" and not has_cc:
+            console.print("[yellow]![/yellow] CLI Glean is in [bold]SSO[/bold] mode but "
+                          "GLEAN_OAUTH_CLIENT_ID/SECRET are not both set. The Glean MCP's SSO "
+                          "path needs a static OAuth client (keel init glean --sso --client-id <> "
+                          "--client-secret <>).")
+        elif mode != "sso" and not has_token:
+            console.print("[yellow]![/yellow] CLI Glean is in token mode but GLEAN_API_TOKEN is "
+                          "empty. Set a token (keel init glean --token <>) or switch to --sso.")
 
     if not updates:
         console.print("[yellow]Nothing to sync[/yellow] — no matching non-empty variables found in the CLI env.")

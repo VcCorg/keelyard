@@ -35,6 +35,8 @@ export interface MCPServerInfo {
   health_message: string;
   container_name?: string;
   container_status?: string;
+  auth_status?: string; // ok, missing, invalid, unreachable, n/a, unknown
+  auth_message?: string;
 }
 
 export interface ActivityEntry {
