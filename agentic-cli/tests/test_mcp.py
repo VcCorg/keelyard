@@ -579,7 +579,10 @@ class TestMCPSyncEnv:
             assert "GLEAN_DOMAIN=" in written
             assert "JIRA_" not in written  # filtered out
 
-    def test_sso_without_token_warns(self):
+    def test_sso_without_credentials_warns(self):
+        # SSO mode with neither a token nor an OAuth client id/secret: the Glean
+        # MCP now supports SSO client-credentials, so the warning points at the
+        # missing OAuth client (not the old "token-only" wording).
         with tempfile.TemporaryDirectory() as tmp:
             mcp_dir = self._mcp_dir(Path(tmp))
             env = self._env(GLEAN_AUTH_MODE="sso")
@@ -588,4 +591,17 @@ class TestMCPSyncEnv:
                  patch.dict("os.environ", env, clear=True):
                 r = runner.invoke(app, ["mcp", "sync-env", "--mcp-dir", str(mcp_dir), "--only", "glean"])
             assert r.exit_code == 0, r.output
-            assert "SSO" in r.output and "token-only" in r.output
+            assert "SSO" in r.output and "GLEAN_OAUTH_CLIENT_ID" in r.output
+
+    def test_sso_with_client_credentials_no_warning(self):
+        # SSO mode WITH a static OAuth client should not trigger the missing-creds warning.
+        with tempfile.TemporaryDirectory() as tmp:
+            mcp_dir = self._mcp_dir(Path(tmp))
+            env = self._env(GLEAN_AUTH_MODE="sso",
+                            GLEAN_OAUTH_CLIENT_ID="cid", GLEAN_OAUTH_CLIENT_SECRET="sek")
+            env.pop("GLEAN_API_TOKEN")
+            with patch("agentic_cli.env.load_env"), \
+                 patch.dict("os.environ", env, clear=True):
+                r = runner.invoke(app, ["mcp", "sync-env", "--mcp-dir", str(mcp_dir), "--only", "glean"])
+            assert r.exit_code == 0, r.output
+            assert "are not both set" not in r.output
