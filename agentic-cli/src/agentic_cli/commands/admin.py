@@ -17,10 +17,13 @@ admin_app = typer.Typer(help="Admin-controlled app settings (branding + nav visi
 @admin_app.command("show", help="Show current admin settings (branding + nav overrides).")
 def show() -> None:
     s = A.load_settings()
+    enf = s.skill_enforcement
+    enf_style = "green" if enf == "enforce" else "yellow"
     console.print(Panel.fit(
         f"[bold]App title:[/bold] {s.branding.app_title}\n"
-        f"[bold]App name:[/bold]  {s.branding.app_name}",
-        title="Branding", border_style="cyan"))
+        f"[bold]App name:[/bold]  {s.branding.app_name}\n"
+        f"[bold]Skill enforcement:[/bold] [{enf_style}]{enf}[/{enf_style}]",
+        title="Branding & Governance", border_style="cyan"))
     if s.nav_visibility:
         table = Table(show_header=True, header_style="bold magenta", title="Nav visibility overrides")
         table.add_column("Nav id", style="cyan")
@@ -43,6 +46,23 @@ def set_branding(
     s = A.set_branding(app_title=title, app_name=name)
     _audit("set_branding", {"app_title": s.branding.app_title, "app_name": s.branding.app_name})
     console.print(f"[green]✓[/green] Branding: [cyan]{s.branding.app_title}[/cyan] · {s.branding.app_name}")
+
+
+@admin_app.command("set-enforcement",
+                   help="Turn persona-scoped skill enforcement on ('enforce') or off ('off').")
+def set_enforcement(
+    mode: Annotated[str, typer.Argument(help="off | enforce")],
+) -> None:
+    if mode not in A.ENFORCEMENT_MODES:
+        console.print(f"[red]✗ Unknown mode '{mode}'. Use one of: {', '.join(A.ENFORCEMENT_MODES)}[/red]")
+        raise typer.Exit(1)
+    s = A.set_skill_enforcement(mode)
+    _audit("set_enforcement", {"skill_enforcement": s.skill_enforcement})
+    if s.skill_enforcement == "enforce":
+        console.print("[green]✓[/green] Hard skill enforcement [green]ON[/green] — "
+                      "onboard installs only persona-permitted skills.")
+    else:
+        console.print("[yellow]✓[/yellow] Skill enforcement [yellow]off[/yellow] — advisory reporting only.")
 
 
 @admin_app.command("set-nav", help="Set which roles can see a nav entry.")

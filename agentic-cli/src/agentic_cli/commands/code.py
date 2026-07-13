@@ -195,7 +195,7 @@ def _install_skill_from_registry(skill_name: str, registry_path: Path, target_pa
     return True
 
 
-def _save_onboard_manifest(project_path: Path, analysis: ProjectAnalysis, installed: list[str], suggested: list[str], code_assist_tool: str = "generic") -> None:
+def _save_onboard_manifest(project_path: Path, analysis: ProjectAnalysis, installed: list[str], suggested: list[str], code_assist_tool: str = "generic", enforcement: Optional[dict] = None) -> None:
     """Save onboard.json manifest for validate/skills commands."""
     skills_dir = _get_skills_dir(project_path, code_assist_tool)
     manifest = {
@@ -206,6 +206,8 @@ def _save_onboard_manifest(project_path: Path, analysis: ProjectAnalysis, instal
         "suggested_skills": suggested,
         "code_assist_tool": code_assist_tool,
     }
+    if enforcement is not None:
+        manifest["enforcement"] = enforcement
     skills_dir.mkdir(parents=True, exist_ok=True)
     (skills_dir / "onboard.json").write_text(json.dumps(manifest, indent=2))
 
@@ -476,6 +478,65 @@ def init_workspace(
     ))
 
 
+def _resolve_persona_policy(domain: Optional[str], project_path: Path):
+    """Best-effort load of the domain's persona policy; built-in default otherwise.
+
+    The policy lives in a domain meta-repo's ``.platform/config/skills.yaml``. We
+    probe a few conventional locations relative to the project and workspace; if
+    none is found the built-in least-privilege default policy is used so
+    enforcement always has a rule set.
+    """
+    from agentic_cli.meta_repo.skill_policy import default_policy, load_persona_policy
+
+    candidates = []
+    if domain:
+        candidates += [
+            project_path.parent / f"domain-{domain}-meta",
+            project_path / f"domain-{domain}-meta",
+            Path.home() / "workspace" / domain / f"domain-{domain}-meta",
+            Path.cwd() / f"domain-{domain}-meta",
+        ]
+    candidates.append(project_path)  # the repo may itself be a meta-repo
+    for c in candidates:
+        if (c / ".platform" / "config" / "skills.yaml").is_file():
+            return load_persona_policy(c)
+    return default_policy()
+
+
+def _resolve_enforcer(persona: Optional[str], enforce_skills: Optional[bool],
+                      domain: Optional[str], project_path: Path):
+    """Build an Enforcer when enforcement is on, else None.
+
+    Enforcement is on when ``--enforce-skills`` is passed, or (when the flag is
+    unset) when the admin ``skill_enforcement`` setting is ``enforce``. The
+    persona comes from ``--persona`` or is resolved from the acting profile.
+    """
+    if enforce_skills is None:
+        try:
+            from agentic_cli.admin import enforcement_enabled
+
+            enforcing = enforcement_enabled()
+        except Exception:  # noqa: BLE001
+            enforcing = False
+    else:
+        enforcing = bool(enforce_skills)
+    if not enforcing:
+        return None
+
+    resolved_persona = persona
+    if not resolved_persona:
+        try:
+            from agentic_cli.auth import current_principal, persona_for
+
+            resolved_persona = persona_for(current_principal())
+        except Exception:  # noqa: BLE001
+            resolved_persona = "dev"
+
+    from agentic_cli.meta_repo.skill_policy import Enforcer
+
+    return Enforcer(resolved_persona, _resolve_persona_policy(domain, project_path))
+
+
 @code_app.command("onboard")
 def onboard(
     repo: Annotated[
@@ -562,6 +623,15 @@ def onboard(
         bool,
         typer.Option("--okf-no-confluence", help="Skip the Confluence enrichment pass during OKF enrichment"),
     ] = False,
+    persona: Annotated[
+        Optional[str],
+        typer.Option("--persona", help="Persona to govern skill install (default: resolved from your profile)"),
+    ] = None,
+    enforce_skills: Annotated[
+        Optional[bool],
+        typer.Option("--enforce-skills/--no-enforce-skills",
+                     help="Hard-enforce persona skill policy (default: admin 'skill_enforcement' setting)"),
+    ] = None,
 ) -> None:
     """
     Onboard a repository for AI code assist.
@@ -724,6 +794,23 @@ def onboard(
     _generate_project_context_skill(project_path, analysis, code_assist_tool, domain, product_from_domain)
     installed_names = ["project-context"]
 
+    # Step 6a: Resolve persona-scoped skill enforcement. When enabled (admin
+    # setting or --enforce-skills), only skills the acting persona is permitted
+    # are installed; the rest are skipped and recorded. project-context is the
+    # root skill and is always installed.
+    enforcer = _resolve_enforcer(persona, enforce_skills, domain, project_path)
+    if enforcer is not None:
+        console.print(
+            f"[cyan]Skill enforcement ON[/cyan] — persona [bold]{enforcer.persona}[/bold] "
+            f"governs which skills are installed.")
+
+    def _permit(name: str, tier: str) -> bool:
+        """Gate an install through the enforcer (no-op when enforcement is off)."""
+        if enforcer is None or enforcer.allow(name, tier):
+            return True
+        console.print(f"  [yellow]⊘ blocked[/yellow] {name} [dim](persona policy: {tier})[/dim]")
+        return False
+
     # Step 6b: Install default skills (only if --all-skills)
     if all_skills:
         default_skills = [s for s in registry_data.get("skills", []) if s.get("default")]
@@ -732,6 +819,8 @@ def onboard(
             install_path = skill.get("install_path")
             source = skill.get("source")
 
+            if not _permit(skill_name, "agent-skill"):
+                continue
             if source == "system" and install_path:
                 # System skill - copy from system path
                 source_path = Path(install_path).expanduser()
@@ -752,6 +841,8 @@ def onboard(
     if all_skills:
         for match in matches:
             if match.name not in installed_names:  # Don't install if already installed as default
+                if not _permit(match.name, "agent-skill"):
+                    continue
                 if _install_skill_from_registry(match.name, registry_path, project_path, code_assist_tool):
                     installed_names.append(match.name)
 
@@ -788,6 +879,8 @@ def onboard(
 
                 for sname, sinfo in priority_order:
                     if sname not in installed_names:
+                        if not _permit(sname, "domain-validated"):
+                            continue
                         if install_domain_skill(sname, sinfo["path"], project_path):
                             installed_names.append(sname)
                             domain_skills_installed.append(sname)
@@ -809,8 +902,24 @@ def onboard(
     suggestions = get_suggested_skills(analysis, registry_data, installed_names, mcp_servers)
     suggested_names = [s.name for s in suggestions]
 
+    # Step 8b: Enforcement summary — what the persona policy blocked, if anything.
+    enforcement_info = None
+    if enforcer is not None:
+        enforcement_info = {"persona": enforcer.persona, "mode": "enforce",
+                            "blocked": enforcer.blocked}
+        if enforcer.blocked:
+            console.print(
+                f"[yellow]⊘ {len(enforcer.blocked)} skill(s) blocked by persona "
+                f"'{enforcer.persona}' policy:[/yellow] "
+                + ", ".join(b["name"] for b in enforcer.blocked))
+        else:
+            console.print(
+                f"[green]✓ No skills blocked — all installs permitted for persona "
+                f"'{enforcer.persona}'.[/green]")
+
     # Step 9: Save manifest
-    _save_onboard_manifest(project_path, analysis, installed_names, suggested_names, code_assist_tool)
+    _save_onboard_manifest(project_path, analysis, installed_names, suggested_names,
+                           code_assist_tool, enforcement=enforcement_info)
 
     # Step 9-bis: For Windsurf/Cascade, bridge the project's .skills into the
     # per-user dir Cascade actually scans so they're immediately invokable.

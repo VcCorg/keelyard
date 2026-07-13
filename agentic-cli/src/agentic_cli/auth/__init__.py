@@ -33,6 +33,17 @@ from agentic_cli.auth.assignments import (
     remove as remove_assignment,
     set_roles,
 )
+from agentic_cli.auth.persona import (
+    BUILTIN_PERSONAS,
+    DEFAULT_PERSONA,
+    ROLE_PERSONA_DEFAULT,
+    get_persona,
+    load_persona_assignments,
+    persona_for,
+    persona_map,
+    remove as remove_persona_assignment,
+    set_persona,
+)
 
 __all__ = [
     "ADMIN", "MAINTAINER", "DEVELOPER", "VIEWER", "ROLE_ORDER",
@@ -44,4 +55,7 @@ __all__ = [
     "resolve_provider", "current_principal",
     "VALID_ROLES", "load_assignments", "get_roles", "set_roles",
     "remove_assignment", "effective_roles",
+    "BUILTIN_PERSONAS", "DEFAULT_PERSONA", "ROLE_PERSONA_DEFAULT",
+    "persona_for", "persona_map", "get_persona", "set_persona",
+    "load_persona_assignments", "remove_persona_assignment",
 ]

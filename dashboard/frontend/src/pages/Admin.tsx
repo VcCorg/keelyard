@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ShieldCheck, Save, RotateCcw, Loader2, Palette, ListChecks, Lock, AlertTriangle, Trash2 } from "lucide-react";
+import { ShieldCheck, Save, RotateCcw, Loader2, Palette, ListChecks, Lock, AlertTriangle, Trash2, Scale } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useUser, type UserRole } from "@/context/UserContext";
@@ -37,6 +37,19 @@ export function Admin() {
       await updateSettings({ branding: { app_title: title.trim() || "Keel", app_name: name.trim() || "Agentic Product Development Platform" } });
     } finally {
       setSavingBrand(false);
+    }
+  };
+
+  // ── Skill governance (enforcement toggle) ───────────────────────────────
+  const enforcing = settings.skill_enforcement === "enforce";
+  const [savingEnf, setSavingEnf] = useState(false);
+  const setEnforcement = async (mode: "off" | "enforce") => {
+    if (mode === settings.skill_enforcement) return;
+    setSavingEnf(true);
+    try {
+      await updateSettings({ skill_enforcement: mode });
+    } finally {
+      setSavingEnf(false);
     }
   };
 
@@ -188,6 +201,61 @@ export function Admin() {
             <p className="text-[11px] text-gray-500">{name || "Agentic Product Development Platform"}</p>
           </div>
         </div>
+      </section>
+
+      {/* ── Skill governance ─────────────────────────────────────────────── */}
+      <section className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Scale className="h-5 w-5 text-blue-500" />
+          <h2 className="text-lg font-semibold">Skill governance</h2>
+          <span className="text-xs text-gray-400">persona-scoped skill enforcement</span>
+        </div>
+        <div className="flex items-start gap-4">
+          <div className="flex-1">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              When <strong>enforced</strong>, onboarding installs only the skills a user's
+              persona is permitted by each domain's <code className="font-mono text-xs">skills.yaml</code>
+              {" "}policy — denied and out-of-policy skills are skipped. When <strong>off</strong>,
+              policy is advisory only (reported by <code className="font-mono text-xs">make validate</code>),
+              and nothing is withheld.
+            </p>
+            <div
+              className={cn(
+                "mt-3 inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-xs font-medium",
+                enforcing
+                  ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300"
+                  : "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300"
+              )}
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+              {enforcing ? "Hard enforcement is ON" : "Advisory mode (enforcement off)"}
+            </div>
+          </div>
+          {/* Toggle */}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={enforcing}
+            disabled={!canEdit || savingEnf}
+            onClick={() => setEnforcement(enforcing ? "off" : "enforce")}
+            className={cn(
+              "relative mt-1 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50",
+              enforcing ? "bg-emerald-500" : "bg-gray-300 dark:bg-gray-700"
+            )}
+          >
+            <span
+              className={cn(
+                "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+                enforcing ? "translate-x-6" : "translate-x-1"
+              )}
+            />
+          </button>
+        </div>
+        {savingEnf && (
+          <p className="text-xs text-gray-400 flex items-center gap-1.5">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…
+          </p>
+        )}
       </section>
 
       {/* ── Nav visibility ───────────────────────────────────────────────── */}

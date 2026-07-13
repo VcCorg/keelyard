@@ -18,6 +18,7 @@ import { api, type AdminSettings, type AdminSettingsUpdate } from "@/lib/api";
 const DEFAULTS: AdminSettings = {
   branding: { app_title: "Keel", app_name: "Agentic Product Development Platform" },
   nav_visibility: {},
+  skill_enforcement: "off",
 };
 
 interface AdminSettingsValue {

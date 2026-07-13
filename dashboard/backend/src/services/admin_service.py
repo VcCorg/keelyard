@@ -20,12 +20,14 @@ class BrandingModel(BaseModel):
 class AdminSettingsModel(BaseModel):
     branding: BrandingModel = BrandingModel()
     nav_visibility: Dict[str, List[str]] = {}
+    skill_enforcement: str = "off"        # "off" (advisory) | "enforce" (hard)
 
 
 class AdminSettingsUpdate(BaseModel):
     branding: Optional[BrandingModel] = None
     nav_visibility: Optional[Dict[str, List[str]]] = None
     replace_nav: bool = False
+    skill_enforcement: Optional[str] = None
 
 
 def get_settings() -> AdminSettingsModel:
@@ -35,6 +37,7 @@ def get_settings() -> AdminSettingsModel:
     return AdminSettingsModel(
         branding=BrandingModel(app_title=s.branding.app_title, app_name=s.branding.app_name),
         nav_visibility=s.nav_visibility,
+        skill_enforcement=s.skill_enforcement,
     )
 
 
@@ -161,6 +164,7 @@ def update_settings(update: AdminSettingsUpdate, actor: str | None = None) -> Ad
         branding=update.branding.model_dump() if update.branding else None,
         nav_visibility=update.nav_visibility,
         replace_nav=update.replace_nav,
+        skill_enforcement=update.skill_enforcement,
     )
     try:
         from agentic_cli.tracker import record_action
@@ -168,10 +172,12 @@ def update_settings(update: AdminSettingsUpdate, actor: str | None = None) -> Ad
         record_action("admin", "update_settings", entity_type="app_settings", entity_id="app",
                       source="dashboard", actor=actor,
                       details={"branding": update.branding.model_dump() if update.branding else None,
-                               "nav_ids": sorted((update.nav_visibility or {}).keys())})
+                               "nav_ids": sorted((update.nav_visibility or {}).keys()),
+                               "skill_enforcement": update.skill_enforcement})
     except Exception:  # noqa: BLE001 - never break on audit
         pass
     return AdminSettingsModel(
         branding=BrandingModel(app_title=s.branding.app_title, app_name=s.branding.app_name),
         nav_visibility=s.nav_visibility,
+        skill_enforcement=s.skill_enforcement,
     )
