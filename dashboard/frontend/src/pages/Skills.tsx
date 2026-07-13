@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   ShieldAlert,
   ShieldX,
+  Trash2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -234,6 +235,34 @@ export function Skills() {
     [showToast]
   );
 
+  const removeSkill = useCallback(
+    async (name: string) => {
+      const project = targets.find((t) => t.id === "cwd") ?? targets[0];
+      const projectPath = project?.path || ".";
+      const label = project?.label || "current project";
+
+      if (!window.confirm(`Remove '${name}' from ${label}?`)) return;
+
+      try {
+        const res = await fetch("/api/skills/remove", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ skill_name: name, project_path: projectPath }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast({ type: "success", message: `Removed '${name}'` });
+          loadInstalled();
+        } else {
+          showToast({ type: "error", message: data.detail || "Failed to remove skill" });
+        }
+      } catch {
+        showToast({ type: "error", message: "Failed to remove skill" });
+      }
+    },
+    [targets, showToast, loadInstalled]
+  );
+
   useEffect(() => {
     loadSkills();
     loadRegistry();
@@ -403,12 +432,21 @@ export function Skills() {
                   >
                     <Eye className="h-3.5 w-3.5" /> View
                   </button>
-                  <button
-                    onClick={() => setIntegrateSkill(skill)}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700"
-                  >
-                    <Plug className="h-3.5 w-3.5" /> Integrate
-                  </button>
+                  {installed ? (
+                    <button
+                      onClick={() => removeSkill(skill.name)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg bg-red-600 text-white hover:bg-red-700"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Remove
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setIntegrateSkill(skill)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                    >
+                      <Plug className="h-3.5 w-3.5" /> Integrate
+                    </button>
+                  )}
                 </div>
               </div>
             );

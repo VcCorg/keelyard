@@ -52,6 +52,7 @@ export function Tasks() {
   const fetcher = useCallback(() => api.getMyJiraIssues(), []);
   const { data, loading, refresh } = usePolling<MyJiraIssuesResponse>(fetcher, 60000);
   const [startKey, setStartKey] = useState<string | null>(null);
+  const [selectedProject, setSelectedProject] = useState<string>("all");
 
   // Group issues by Jira project, then sort each group by priority (desc),
   // tie-broken by most-recently updated. Groups themselves are ordered by
@@ -65,7 +66,7 @@ export function Tasks() {
       list.push(it);
       byProject.set(key, list);
     }
-    const groups: ProjectGroup[] = Array.from(byProject.entries()).map(([project, items]) => ({
+    let groups: ProjectGroup[] = Array.from(byProject.entries()).map(([project, items]) => ({
       project,
       items: [...items].sort((a, b) => {
         const pr = priorityRank(a.priority) - priorityRank(b.priority);
@@ -77,8 +78,11 @@ export function Tasks() {
       const top = priorityRank(a.items[0]?.priority) - priorityRank(b.items[0]?.priority);
       return top !== 0 ? top : a.project.localeCompare(b.project);
     });
+    if (selectedProject !== "all") {
+      groups = groups.filter((g) => g.project === selectedProject);
+    }
     return groups;
-  }, [data]);
+  }, [data, selectedProject]);
 
   return (
     <div className="space-y-6">
@@ -92,6 +96,27 @@ export function Tasks() {
             Jira stories assigned to you across your onboarded domains.
           </p>
         </div>
+        {data && data.projects.length > 0 && (
+          <div className="flex items-center gap-2">
+            <label htmlFor="project-filter" className="text-sm text-gray-500">
+              Project:
+            </label>
+            <select
+              id="project-filter"
+              value={selectedProject}
+              onChange={(e) => setSelectedProject(e.target.value)}
+              className="px-3 py-2 rounded-lg text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All projects</option>
+              {data.projects.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <button
           onClick={refresh}
           className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition-colors"

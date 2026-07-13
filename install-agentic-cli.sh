@@ -41,6 +41,33 @@ log_warn()  { echo -e "${YELLOW}⚠${NC} $*"; }
 log_error() { echo -e "${RED}✗${NC} $*"; }
 log_header(){ echo -e "\n${BOLD}$*${NC}\n"; }
 
+# ── Skill security scanner (SkillSpector) ────────────────────────────────────
+# Optional scanner used by the dashboard and `keel skill scan`. Degrades
+# gracefully when missing, but installing it turns on the skill security UI.
+
+check_skillspector() {
+    if command -v skillspector &> /dev/null; then
+        log_ok "SkillSpector (skill security scanner) available: $(skillspector --version 2>/dev/null | head -n1)"
+        return 0
+    fi
+
+    if command -v uv &> /dev/null; then
+        log_info "SkillSpector not found; installing with uv tool install..."
+        if uv tool install --force git+https://github.com/NVIDIA/skillspector.git >/dev/null 2>&1; then
+            export PATH="$HOME/.local/bin:$PATH"
+            if command -v skillspector &> /dev/null; then
+                log_ok "SkillSpector available: $(skillspector --version 2>/dev/null | head -n1)"
+            else
+                log_ok "SkillSpector installed; restart your shell to make it available"
+            fi
+        else
+            log_warn "SkillSpector install failed; install manually with: uv tool install git+https://github.com/NVIDIA/skillspector.git"
+        fi
+    else
+        log_warn "SkillSpector not found; install manually with: uv tool install git+https://github.com/NVIDIA/skillspector.git"
+    fi
+}
+
 # ── Background service launch ────────────────────────────────────────────────
 # Delegates to the cross-platform launcher (scripts/dashboard.py) so macOS,
 # Linux, and Windows all share ONE implementation of the port-guard + start
@@ -75,6 +102,10 @@ start_dashboard_services() {
 # Configuration
 INSTALL_TYPE="project"  # project, local, or global
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Make uv-managed tools (e.g., skillspector, npm) available in this script.
+export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+
 SHELL_CONFIG_FILES=()
 ADDITIONAL_DEPS=""  # Additional dependencies for --with flag
 DEPENDENCY_GROUP=""  # Predefined dependency group
@@ -314,7 +345,26 @@ if [ -z "$SKIP_DASHBOARD" ]; then
     # Frontend (Node) — the Vite app needs its npm deps (@xyflow/react, elkjs, …).
     FRONTEND_DIR="$ROOT_DIR/dashboard/frontend"
     if [ -d "$FRONTEND_DIR" ]; then
+        # If nvm is installed, use Node 22 (and its npm) for the frontend.
+        if [ -s "$HOME/.nvm/nvm.sh" ]; then
+            export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+            . "$NVM_DIR/nvm.sh"
+            if nvm use 22 >/dev/null 2>&1; then
+                log_ok "Node 22 active via nvm"
+            else
+                log_warn "Node 22 not found in nvm; using system Node"
+            fi
+        fi
+
         if command -v npm &> /dev/null; then
+            # Force latest npm to avoid warnings and get current npx behavior.
+            log_info "Updating npm to latest..."
+            if npm install -g npm@latest >/dev/null 2>&1; then
+                log_ok "npm $(npm --version) is latest"
+            else
+                log_warn "npm update to latest failed (continuing with $(npm --version))"
+            fi
+
             log_info "Installing dashboard frontend deps (npm install)..."
             if ( cd "$FRONTEND_DIR" && npm install ); then
                 log_ok "Dashboard frontend installed"
@@ -497,6 +547,9 @@ else
         echo "  source $ROOT_DIR/agentic-cli/.venv/bin/activate"
     fi
 fi
+
+# Check/install the optional skill security scanner.
+check_skillspector
 
 # ─────────────────────────────────────────────────────────────────────────────
 
