@@ -20,8 +20,10 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 import threading
 from typing import Any, Optional
+from urllib.parse import parse_qs, urlparse
 
 from pydantic import BaseModel
 
@@ -95,6 +97,34 @@ def is_configured() -> bool:
     return bool(_server_url() and _token())
 
 
+def parse_jira_project_key(value: str) -> str:
+    """Extract a Jira project key from a URL or return the raw value.
+
+    Handles common Jira Server/Data Center URL patterns:
+      - plain key: CWHE
+      - browse URL: https://jira.example.com/browse/CWHE
+      - projects URL: https://jira.example.com/projects/CWHE
+      - board URL: https://jira.example.com/secure/RapidBoard.jspa?projectKey=CWHE
+    """
+    if not value:
+        return ""
+    value = value.strip()
+    if "/" not in value:
+        return value
+    try:
+        parsed = urlparse(value)
+        qs = parse_qs(parsed.query)
+        for key, vals in qs.items():
+            if key.lower() in {"projectkey", "project", "selectedprojectkey"} and vals:
+                return vals[0].strip()
+        path_parts = [p for p in parsed.path.split("/") if p]
+        if len(path_parts) >= 2 and path_parts[-2].lower() in {"projects", "browse"}:
+            return path_parts[-1].strip()
+    except Exception:
+        pass
+    return value
+
+
 def _domain_project_keys() -> list[str]:
     """Collect distinct Jira project keys from all onboarded domains."""
     try:
@@ -102,7 +132,7 @@ def _domain_project_keys() -> list[str]:
 
         keys: list[str] = []
         for d in list_domains():
-            key = (d.jira_project or "").strip().upper()
+            key = parse_jira_project_key((d.jira_project or "").strip()).upper()
             if key and key not in keys:
                 keys.append(key)
         return keys

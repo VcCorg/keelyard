@@ -31,6 +31,14 @@ import sys
 import time
 from pathlib import Path
 
+# Ensure uv-managed tools (skillspector, etc.) and npm are discoverable.
+_HOME = Path.home()
+for _bin_dir in (_HOME / ".local" / "bin", _HOME / ".cargo" / "bin"):
+    if _bin_dir.is_dir():
+        _current = os.environ.get("PATH", "")
+        if str(_bin_dir) not in _current:
+            os.environ["PATH"] = f"{_bin_dir}{os.pathsep}{_current}"
+
 IS_WINDOWS = os.name == "nt"
 ROOT = Path(__file__).resolve().parents[1]          # scripts/ -> repo root
 BACKEND_DIR = ROOT / "dashboard" / "backend"
@@ -170,12 +178,12 @@ def _venv_python() -> str:
     return sys.executable  # fall back to the interpreter running this script
 
 
-def _spawn(cmd: list[str], cwd: Path, log_path: Path, pidfile: Path) -> int:
+def _spawn(cmd: list[str], cwd: Path, log_path: Path, pidfile: Path, env: dict | None = None) -> int:
     """Start a detached background process, logging combined output to a file."""
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log = open(log_path, "ab")
     kwargs: dict = dict(cwd=str(cwd), stdout=log, stderr=subprocess.STDOUT,
-                        stdin=subprocess.DEVNULL)
+                        stdin=subprocess.DEVNULL, env=env)
     if IS_WINDOWS:
         # DETACHED_PROCESS + new group so it survives this launcher exiting.
         kwargs["creationflags"] = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
@@ -200,8 +208,15 @@ def start_backend(force: bool, port: int) -> None:
     cmd = [py, "-m", "uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", str(port),
            "--reload", "--reload-dir", str(BACKEND_DIR / "src"),
            "--reload-dir", str(ROOT / "agentic-cli" / "src")]
-    pid = _spawn(cmd, BACKEND_DIR, ROOT / "dashboard" / "backend.log",
-                 ROOT / "dashboard" / ".backend.pid")
+    # Run from the repo root so Path.cwd() in the backend points at the project.
+    # Ensure dashboard/backend/src is on PYTHONPATH as a fallback when the
+    # editable package hasn't been installed yet.
+    env = os.environ.copy()
+    pythonpath = env.get("PYTHONPATH", "")
+    backend_src = str(BACKEND_DIR)
+    env["PYTHONPATH"] = f"{backend_src}{os.pathsep}{pythonpath}" if pythonpath else backend_src
+    pid = _spawn(cmd, ROOT, ROOT / "dashboard" / "backend.log",
+                 ROOT / "dashboard" / ".backend.pid", env=env)
     ok(f"Backend started (PID {pid}); logs: dashboard/backend.log")
 
 

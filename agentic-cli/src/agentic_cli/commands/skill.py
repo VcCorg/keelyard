@@ -498,6 +498,85 @@ def uninstall_skill(
     ))
 
 
+@skill_app.command("remove", help="Remove a local skill from the project (alias for uninstall, local-only).")
+def remove_skill(
+    name: Annotated[
+        str,
+        typer.Argument(help="Skill name to remove"),
+    ],
+    path: Annotated[
+        Path,
+        typer.Option("--path", "-p", help="Project directory containing the skill"),
+    ] = Path("."),
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", "-y", help="Skip confirmation prompt"),
+    ] = False,
+) -> None:
+    """
+    Remove a local skill from the project.
+
+    Only removes skills installed in .skills/ or .claude/skills/; it will not
+    remove skills from a shared skills registry.
+
+    Examples:
+        {CLI_NAME} skill remove my-skill
+        {CLI_NAME} skill remove my-skill --yes
+        {CLI_NAME} skill remove my-skill --path ./my-project
+    """.format(CLI_NAME=CLI_NAME)
+
+    path = path.resolve()
+
+    # Find the skill locally only (.skills/ and .claude/skills/).
+    skill_dir = None
+    for search_dir in (path / ".skills", path / ".claude" / "skills"):
+        candidate = search_dir / name
+        if candidate.exists() and (candidate / "SKILL.md").exists():
+            skill_dir = candidate
+            break
+
+    if not skill_dir:
+        console.print(f"[red]✗ Local skill '{name}' not found in {path}[/red]")
+        console.print(f"[dim]Use {CLI_NAME} skill list to see available skills[/dim]")
+        raise typer.Exit(1)
+
+    # Confirm if needed
+    if not yes:
+        skill_desc = _parse_skill_description(skill_dir / "SKILL.md")
+        console.print(f"[bold]About to remove:[/bold] {name}")
+        if skill_desc != "No description":
+            console.print(f"  {skill_desc}")
+        console.print(f"  Location: {skill_dir}")
+        console.print()
+
+        if not Confirm.ask("Are you sure?", default=False):
+            console.print("[dim]Cancelled.[/dim]")
+            raise typer.Exit(0)
+
+    # Delete the skill
+    try:
+        shutil.rmtree(skill_dir)
+    except Exception as e:
+        console.print(f"[red]✗ Failed to remove skill: {e}[/red]")
+        raise typer.Exit(1)
+
+    # Record activity
+    record_activity(
+        command="skill",
+        subcommand="remove",
+        args={"name": name, "path": str(skill_dir)},
+        repo_path=str(path),
+    )
+
+    console.print()
+    console.print(Panel.fit(
+        f"[bold green]✓ Skill Removed[/bold green]\n\n"
+        f"[bold]Name:[/bold] {name}\n"
+        f"[bold]Location:[/bold] {skill_dir}",
+        border_style="green",
+    ))
+
+
 @skill_app.command("update", help="Update an Agent Skill to the latest version from source.")
 def update_skill(
     name: Annotated[

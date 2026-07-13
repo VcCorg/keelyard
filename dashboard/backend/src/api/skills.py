@@ -1,5 +1,6 @@
 """Skills API endpoints for KEEL Dashboard."""
 
+import shutil
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, HTTPException, Query
@@ -32,6 +33,20 @@ class SkillInstallRequest(BaseModel):
 
 class SkillInstallResponse(BaseModel):
     """Response model for skill installation."""
+    success: bool
+    message: str
+    skill_name: str
+    project_path: str
+
+
+class SkillRemoveRequest(BaseModel):
+    """Request model for removing a local skill."""
+    skill_name: str
+    project_path: str
+
+
+class SkillRemoveResponse(BaseModel):
+    """Response model for skill removal."""
     success: bool
     message: str
     skill_name: str
@@ -342,20 +357,20 @@ async def get_project_skills(project_name: str):
         except (ImportError, AttributeError):
             manifest = None
 
+        # If no manifest, treat it as empty so the .skills/ scan still works.
         if not manifest:
-            # Return empty response if no manifest
-            return ProjectSkillsResponse(
-                project_path=str(project_path),
-                project_name=project_path.name,
-                installed_skills=[],
-                suggested_skills=[],
-                total_installed=0,
-                total_suggested=0
-            )
+            manifest = {}
 
-        # Get installed skills
+        # Get installed skills from the manifest and by scanning .skills/.
+        installed_names: set[str] = set(manifest.get("installed_skills", []))
+        skills_dir = project_path / ".skills"
+        if skills_dir.exists() and skills_dir.is_dir():
+            for skill_dir in skills_dir.iterdir():
+                if skill_dir.is_dir() and (skill_dir / "SKILL.md").exists():
+                    installed_names.add(skill_dir.name)
+
         installed_skills = []
-        for skill_name in manifest.get("installed_skills", []):
+        for skill_name in sorted(installed_names):
             skill_path = project_path / ".skills" / skill_name / "SKILL.md"
             if skill_path.exists():
                 # Parse skill description from SKILL.md
@@ -443,6 +458,61 @@ async def install_skill(request: SkillInstallRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to install skill: {str(e)}")
+
+
+@router.post("/remove", response_model=SkillRemoveResponse)
+async def remove_skill(request: SkillRemoveRequest):
+    """Remove a locally installed skill from a project.
+
+    Only removes skills from the project's .skills/ or .claude/skills/
+    directories; it will not touch the shared skills registry.
+    """
+    try:
+        project_path = Path(request.project_path).resolve()
+        if not project_path.exists():
+            raise HTTPException(status_code=404, detail=f"Project not found at {request.project_path}")
+
+        # Local skill directories only.
+        skill_dir = None
+        for local_dir in (".skills", ".claude/skills"):
+            candidate = project_path / local_dir / request.skill_name
+            if candidate.exists() and (candidate / "SKILL.md").exists():
+                skill_dir = candidate
+                break
+
+        if not skill_dir:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Local skill '{request.skill_name}' not found in {project_path}"
+            )
+
+        # Security: ensure the resolved directory is still under the project.
+        try:
+            skill_dir.relative_to(project_path)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail="Invalid skill path") from e
+
+        shutil.rmtree(skill_dir)
+
+        # Update the onboard manifest, if one exists.
+        try:
+            from agentic_cli.commands.code import _update_manifest_removed
+            _update_manifest_removed(project_path, request.skill_name)
+        except Exception:
+            # Manifest update is best-effort; the skill directory is already gone.
+            pass
+
+        return SkillRemoveResponse(
+            success=True,
+            message=f"Skill '{request.skill_name}' removed from {project_path}",
+            skill_name=request.skill_name,
+            project_path=str(project_path),
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to remove skill: {str(e)}")
 
 
 @router.get("/show/{skill_name}")
