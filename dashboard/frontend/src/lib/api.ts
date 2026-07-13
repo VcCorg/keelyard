@@ -404,12 +404,14 @@ export interface AdminBranding {
 export interface AdminSettings {
   branding: AdminBranding;
   nav_visibility: Record<string, string[]>;
+  skill_enforcement: "off" | "enforce";
 }
 
 export interface AdminSettingsUpdate {
   branding?: AdminBranding;
   nav_visibility?: Record<string, string[]>;
   replace_nav?: boolean;
+  skill_enforcement?: "off" | "enforce";
 }
 
 export interface RoleAssignment {

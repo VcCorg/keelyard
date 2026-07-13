@@ -89,6 +89,10 @@ def scaffold_domain_meta_repo(
         common_dir.mkdir(exist_ok=True)
         created["common"] = common_dir
 
+        scripts_dir = platform_dir / "scripts"
+        scripts_dir.mkdir(exist_ok=True)
+        created["scripts"] = scripts_dir
+
         # Create .agents directory structure
         agents_dir = meta_repo_path / ".agents"
         agents_dir.mkdir(exist_ok=True)
@@ -130,6 +134,7 @@ def scaffold_domain_meta_repo(
 
         # Write platform common files
         _write_platform_common(common_dir)
+        _write_skills_profiler(scripts_dir)
         _write_platform_readme(platform_dir, domain)
 
         # Write documentation files
@@ -231,12 +236,64 @@ def _write_governance_config(config_dir: Path) -> None:
 
 
 def _write_skills_config(config_dir: Path) -> None:
-    """Write skills.yaml configuration file."""
-    skills = SkillsConfig()
+    """Write a documented skills.yaml with persona-scoped governance.
 
+    Authored as commented YAML (not a bare dump) so the ``personas`` policy is
+    self-explanatory. It round-trips through ``SkillsConfig.from_dict`` and the
+    stdlib profiler reads the ``personas`` block directly to enforce, per user
+    profile, which skills a persona may load/use.
+    """
     config_file = config_dir / "skills.yaml"
-    with open(config_file, "w") as f:
-        yaml.dump(skills.to_dict(), f, default_flow_style=False, sort_keys=False)
+    config_file.write_text(
+        """\
+# Domain skills policy.
+#
+# validation/priority govern how skills are sourced and ranked. The `personas`
+# block governs WHO may use WHICH skills — persona-scoped access control that
+# `make skills PERSONA=<id>` / `make validate PERSONA=<id>` report on, and that
+# `keel code onboard` enforces for a signed-in user (their SSO profile resolves
+# to a persona; see KEEL_PERSONA_MAP).
+validation_required: true
+auto_inject_superpowers: true
+allow_custom_skills: true
+skill_priority_order:
+  - validated
+  - customized
+  - injected
+
+# Persona -> skill governance.
+#   allow/deny tokens: tier names (persona, agent-skill, domain-validated,
+#   linked:<repo>, local), persona:self, persona:<id>, skill-name globs, or '*'.
+#   A specific (non-'*') deny always wins. `deny: ['*']` makes a persona
+#   allow-list only. `default` applies to any persona without an explicit rule
+#   and is least-privilege on purpose. Tune these per domain.
+personas:
+  # Everyone may read persona guidance + domain-validated skills.
+  default:
+    allow: [persona, domain-validated]
+    deny: []
+  # Builders get everything; add explicit denies to fence off anything a dev
+  # must never touch (a specific deny fails `make validate PERSONA=dev`).
+  dev:
+    allow: ['*']
+    deny: []
+  domain:
+    allow: ['*']
+    deny: []
+  # Non-builder personas are allow-list only. deny: ['*'] is the baseline, so
+  # unlisted skills are "out-of-policy" (not granted) rather than a violation.
+  qa:
+    allow: [persona, domain-validated, 'testing-*']
+    deny: ['*']
+  ba:
+    allow: [persona, domain-validated]
+    deny: ['*']
+  sm:
+    allow: [persona, domain-validated]
+    deny: ['*']
+""",
+        encoding="utf-8",
+    )
 
     logger.debug(f"Wrote skills config: {config_file}")
 
@@ -290,6 +347,378 @@ def load_config(config_dir: Path, filename: str) -> dict[str, Any]:
     logger.debug(f"Wrote platform common files to {common_dir}")
 
 
+def _write_skills_profiler(scripts_dir: Path) -> None:
+    """Write .platform/scripts/profile_skills.py — the skills loader/profiler.
+
+    Stdlib-only (no keel/PyYAML dependency) so it runs on any clone with just
+    ``python3``. ``make init`` calls it with ``--write`` to load/index every
+    skill across ``.agents/skills`` and the ``repos/*`` submodules into
+    ``.platform/skills-manifest.json``; ``make validate`` calls it with
+    ``--check`` to print the profile of what is loaded into the working repo.
+    """
+    script = scripts_dir / "profile_skills.py"
+    script.write_text(
+        '''#!/usr/bin/env python3
+"""Load and profile the skills present across this domain meta-repo.
+
+Skills live in several places once the repo is initialized:
+
+  * ``.agents/skills/personas/<id>/SKILL.md``  — role personas (baked in)
+  * ``.agents/skills/<name>/SKILL.md``          — domain/local agent skills
+  * ``repos/domain-context/**/SKILL.md``        — domain-validated skills
+  * ``repos/<linked>/**/SKILL.md``              — skills carried by linked repos
+
+This scans for every ``SKILL.md``, classifies it by source tier, and:
+
+  --write     refresh ``.platform/skills-manifest.json`` (the loaded index)
+  --summary   print a grouped, counted profile (default when no flag given)
+  --check     print the profile plus soft warnings (uninitialized submodules)
+  --json      print the raw manifest JSON to stdout
+
+Exit status is 0 in every mode; this is a profiler, not a gate. Missing skills
+are surfaced as warnings so ``make validate`` stays informative, not blocking.
+"""
+
+import fnmatch
+import json
+import sys
+from pathlib import Path
+
+# scripts/ -> .platform/ -> repo root
+ROOT = Path(__file__).resolve().parents[2]
+MANIFEST = ROOT / ".platform" / "skills-manifest.json"
+CONFIG = ROOT / ".platform" / "config" / "skills.yaml"
+
+# Fallback when a persona has no explicit rule and no `default` is defined.
+_BUILTIN_DEFAULT = {"allow": ["persona:self", "domain-validated"], "deny": []}
+
+# Directories that never hold first-class skills; pruned while walking.
+_PRUNE = {".git", "node_modules", "__pycache__", ".venv", "venv",
+          "dist", "build", ".mypy_cache", ".pytest_cache", ".ruff_cache"}
+
+
+def _parse_frontmatter(text):
+    """Minimal YAML-frontmatter reader: name/description without PyYAML."""
+    if not text.startswith("---"):
+        return {}
+    lines = text.splitlines()
+    end = None
+    for i in range(1, len(lines)):
+        if lines[i].strip() == "---":
+            end = i
+            break
+    if end is None:
+        return {}
+    fm, key, folded, buf = {}, None, False, []
+    for ln in lines[1:end]:
+        if folded:
+            if ln.strip() and (ln.startswith(" ") or ln.startswith("\\t")):
+                buf.append(ln.strip())
+                continue
+            fm[key] = " ".join(buf).strip()
+            folded, buf = False, []
+        if not ln.strip():
+            continue
+        if ":" in ln and not (ln.startswith(" ") or ln.startswith("\\t")):
+            k, _, v = ln.partition(":")
+            k, v = k.strip(), v.strip()
+            if v in (">-", ">", "|", "|-", ">+", "|+"):
+                key, folded, buf = k, True, []
+            else:
+                fm[k] = v.strip('"').strip("'")
+    if folded and buf:
+        fm[key] = " ".join(buf).strip()
+    return fm
+
+
+def _tier(rel):
+    """Classify a SKILL.md by its location relative to the repo root."""
+    parts = rel.parts
+    if parts[:1] == (".agents",) and "personas" in parts:
+        return "persona"
+    if parts[:2] == (".agents", "skills"):
+        return "agent-skill"
+    if parts[:2] == ("repos", "domain-context"):
+        return "domain-validated"
+    if parts[:1] == ("repos",) and len(parts) > 1:
+        return "linked:" + parts[1]
+    if parts[:1] == (".skills",):
+        return "local"
+    return "other"
+
+
+def _iter_skill_files():
+    """Yield every SKILL.md under the repo, skipping pruned directories."""
+    stack = [ROOT]
+    while stack:
+        d = stack.pop()
+        try:
+            entries = list(d.iterdir())
+        except OSError:
+            continue
+        for e in entries:
+            if e.is_dir():
+                if e.name not in _PRUNE:
+                    stack.append(e)
+            elif e.name == "SKILL.md":
+                yield e
+
+
+def build_manifest():
+    """Discover skills and return the manifest dict."""
+    skills = []
+    for f in _iter_skill_files():
+        rel = f.relative_to(ROOT)
+        try:
+            fm = _parse_frontmatter(f.read_text(encoding="utf-8", errors="replace"))
+        except OSError:
+            fm = {}
+        desc = " ".join((fm.get("description") or "").split())
+        if len(desc) > 100:
+            desc = desc[:97] + "..."
+        skills.append({
+            "name": fm.get("name") or f.parent.name,
+            "description": desc,
+            "tier": _tier(rel),
+            "path": str(rel),
+        })
+    skills.sort(key=lambda s: (s["tier"], s["name"]))
+    by_tier = {}
+    for s in skills:
+        by_tier[s["tier"]] = by_tier.get(s["tier"], 0) + 1
+    return {"total": len(skills), "by_tier": by_tier, "skills": skills}
+
+
+def uninitialized_submodules():
+    """Return repos/* submodule paths that are registered but not yet fetched."""
+    gm = ROOT / ".gitmodules"
+    if not gm.exists():
+        return []
+    paths = []
+    for ln in gm.read_text(encoding="utf-8", errors="replace").splitlines():
+        ln = ln.strip()
+        if ln.startswith("path"):
+            _, _, p = ln.partition("=")
+            paths.append(p.strip())
+    stale = []
+    for p in paths:
+        d = ROOT / p
+        # Present in .gitmodules but empty working tree => `make init` not run.
+        if not d.exists() or not any(d.iterdir()):
+            stale.append(p)
+    return stale
+
+
+def _unquote(s):
+    s = s.strip()
+    if len(s) >= 2 and s[0] in "'\\"" and s[-1] == s[0]:
+        return s[1:-1]
+    return s
+
+
+def _parse_scalar_list(val):
+    """Parse an inline flow list ``[a, b]``; return None if a block follows."""
+    val = val.strip()
+    if val.startswith("[") and val.endswith("]"):
+        inner = val[1:-1].strip()
+        return [_unquote(x) for x in inner.split(",") if x.strip()] if inner else []
+    return None
+
+
+def load_persona_policy():
+    """Read the ``personas:`` block of skills.yaml (stdlib YAML subset reader).
+
+    Handles both inline flow lists and block ``- item`` lists. Returns
+    ``{persona: {"allow": [...], "deny": [...]}}`` or ``{}`` when no policy is
+    defined (pre-governance repos — everything is then permitted).
+    """
+    if not CONFIG.exists():
+        return {}
+    try:
+        lines = CONFIG.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return {}
+    start = None
+    for i, ln in enumerate(lines):
+        if ln.startswith("personas:") and not ln[:1].isspace():
+            start = i + 1
+            break
+    if start is None:
+        return {}
+    policy, persona, curkey = {}, None, None
+    for ln in lines[start:]:
+        if not ln.strip() or ln.lstrip().startswith("#"):
+            continue
+        if not ln[:1].isspace():
+            break  # dedent to another top-level key
+        stripped = ln.strip()
+        if stripped.startswith("- ") and persona and curkey:
+            policy[persona][curkey].append(_unquote(stripped[2:]))
+            continue
+        indent = len(ln) - len(ln.lstrip(" "))
+        if indent == 2 and stripped.endswith(":"):
+            persona = stripped[:-1].strip()
+            policy[persona] = {"allow": [], "deny": []}
+            curkey = None
+        elif persona and ":" in stripped:
+            key, _, val = stripped.partition(":")
+            key = key.strip()
+            if key in ("allow", "deny"):
+                items = _parse_scalar_list(val)
+                if items is None:
+                    curkey = key  # a block list follows on the next lines
+                    policy[persona][key] = []
+                else:
+                    policy[persona][key], curkey = items, None
+    return policy
+
+
+def policy_for(policy, persona):
+    """Resolve the effective allow/deny rule for a persona (None => no policy)."""
+    if not policy:
+        return None
+    rule = policy.get(persona) or policy.get("default") or _BUILTIN_DEFAULT
+    return {"allow": list(rule.get("allow", [])), "deny": list(rule.get("deny", []))}
+
+
+def _match(token, skill, persona):
+    """True if a policy token matches a skill for the given persona."""
+    tier, name = skill["tier"], skill["name"]
+    if token == "*":
+        return True
+    if token == "persona:self":
+        return tier == "persona" and name == persona
+    if token.startswith("persona:"):
+        return tier == "persona" and name == token[len("persona:"):]
+    if token == "persona":
+        return tier == "persona"
+    if token == tier:
+        return True
+    if token == "linked" and tier.startswith("linked:"):
+        return True
+    if token.endswith(":*") and tier.startswith(token[:-1]):
+        return True
+    return fnmatch.fnmatch(name, token)
+
+
+def evaluate_persona(m, persona, policy):
+    """Annotate each skill with permitted / denied / out-of-policy for a persona.
+
+    deny is split: a specific (non-'*') deny always wins; a bare '*' deny only
+    sets the baseline, so an allow-list still grants matching skills.
+    """
+    rule = policy_for(policy, persona)
+    rows = []
+    for s in m["skills"]:
+        if rule is None:
+            status = "permitted"
+        else:
+            allow = any(_match(t, s, persona) for t in rule["allow"])
+            spec_deny = any(t != "*" and _match(t, s, persona) for t in rule["deny"])
+            status = "denied" if spec_deny else ("permitted" if allow else "out-of-policy")
+        rows.append(dict(s, status=status))
+    return rows, rule
+
+
+def print_persona(m, persona, check=False):
+    """Print the per-persona governance view; return the count of denied skills."""
+    rows, rule = evaluate_persona(m, persona, load_persona_policy())
+    print(f"Skills governance — persona '{persona}'")
+    print("=" * 44)
+    if rule is None:
+        print("  (no persona policy in skills.yaml — all skills permitted)")
+    order = ["permitted", "out-of-policy", "denied"]
+    icon = {"permitted": "✓", "out-of-policy": "·", "denied": "✗"}
+    counts = {}
+    for st in order:
+        names = [r["name"] for r in rows if r["status"] == st]
+        counts[st] = len(names)
+        if names:
+            shown = ", ".join(names[:6]) + (" ..." if len(names) > 6 else "")
+            print(f"  {icon[st]} {st:<14} ({len(names):>2})  {shown}")
+    print("-" * 44)
+    if rule is not None:
+        print(f"  allow: {rule['allow']}")
+        print(f"  deny:  {rule['deny']}")
+    denied = counts.get("denied", 0)
+    if check and denied:
+        print("")
+        print(f"  ✗ Governance violation: {denied} loaded skill(s) DENIED for "
+              f"persona '{persona}'.")
+    return denied
+
+
+def print_summary(m, check=False):
+    """Print a grouped, counted profile of loaded skills."""
+    print("Skills profile — loaded into working repo")
+    print("=" * 44)
+    if not m["skills"]:
+        print("  (no skills found yet — run `make init` to fetch submodules)")
+    else:
+        for tier in sorted(m["by_tier"]):
+            names = [s["name"] for s in m["skills"] if s["tier"] == tier]
+            shown = ", ".join(names[:6]) + (" ..." if len(names) > 6 else "")
+            print(f"  {tier:<20} ({m['by_tier'][tier]:>2})  {shown}")
+        print("-" * 44)
+        print(f"  Total: {m['total']} skills across {len(m['by_tier'])} source(s)")
+    if check:
+        stale = uninitialized_submodules()
+        if stale:
+            print("")
+            print("  ! Uninitialized submodules (skills not loaded):")
+            for p in stale:
+                print(f"      - {p}   (run `make init`)")
+    if MANIFEST.exists():
+        print(f"\\n  Manifest: {MANIFEST.relative_to(ROOT)}")
+
+
+def _persona_arg(argv):
+    """Extract --persona <id> / --persona=<id> from argv."""
+    for i, a in enumerate(argv):
+        if a == "--persona" and i + 1 < len(argv):
+            return argv[i + 1]
+        if a.startswith("--persona="):
+            return a.split("=", 1)[1]
+    return None
+
+
+def main(argv):
+    flags = {a for a in argv if a.startswith("--")}
+    persona = _persona_arg(argv)
+    m = build_manifest()
+    if "--write" in flags:
+        MANIFEST.parent.mkdir(parents=True, exist_ok=True)
+        MANIFEST.write_text(json.dumps(m, indent=2) + "\\n", encoding="utf-8")
+    if "--json" in flags:
+        print(json.dumps(m, indent=2))
+        return 0
+    rc = 0
+    # Default to a summary unless the caller only asked to write.
+    if "--write" not in flags or "--summary" in flags or "--check" in flags:
+        print_summary(m, check="--check" in flags)
+        if persona:
+            print("")
+            denied = print_persona(m, persona, check="--check" in flags)
+            # In validate mode a persona with DENIED loaded skills fails the gate.
+            if "--check" in flags and denied:
+                rc = 3
+    elif "--write" in flags:
+        print(f"Loaded {m['total']} skills -> {MANIFEST.relative_to(ROOT)}")
+    return rc
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))
+''',
+        encoding="utf-8",
+    )
+    try:
+        script.chmod(0o755)
+    except OSError:
+        pass
+    logger.debug(f"Wrote skills profiler to {scripts_dir}")
+
+
 def _write_docs(meta_repo_path: Path, domain: str, product: str, description: str) -> None:
     """Write documentation files."""
     docs_dir = meta_repo_path / "docs"
@@ -307,13 +736,16 @@ def _write_docs(meta_repo_path: Path, domain: str, product: str, description: st
 ## Quick Start
 
 ```bash
-# Initialize submodules
+# Configure hooks, initialize submodules, and load all skills
 make init
+
+# Show which skills are loaded into the working repo
+make skills
 
 # Update all submodules
 make update
 
-# Validate repo state
+# Validate repo state + print the skills profile
 make validate
 ```
 
@@ -522,12 +954,17 @@ def _write_makefile(meta_repo_path: Path) -> None:
     """Write Makefile with automation targets."""
     makefile_path = meta_repo_path / "Makefile"
     makefile_path.write_text(
-        """.PHONY: init update update-one validate setup-hooks help
+        """.PHONY: init update update-one validate setup-hooks load-skills skills help
+
+# Optional persona scope: `make skills PERSONA=qa` / `make validate PERSONA=qa`
+# report and gate the skills profile against that persona's policy in skills.yaml.
+PERSONA_FLAG := $(if $(PERSONA),--persona $(PERSONA))
 
 init: setup-hooks
 	@echo "Initializing domain meta-repo (shallow, parallel)..."
 	git -c protocol.file.allow=always submodule update --init --recursive --depth 1 --jobs 8
 	@echo "✓ Submodules initialized"
+	@$(MAKE) --no-print-directory load-skills
 
 update:
 	@echo "Updating all submodules..."
@@ -550,6 +987,14 @@ setup-hooks:
 		echo "✓ Git hooks configured (core.hooksPath=.githooks)"; \\
 	fi
 
+load-skills:
+	@echo "Loading skills across meta-repo (.agents + submodules)..."
+	@python3 .platform/scripts/profile_skills.py --write --summary
+	@echo "✓ Skills loaded → .platform/skills-manifest.json"
+
+skills:
+	@python3 .platform/scripts/profile_skills.py --summary $(PERSONA_FLAG)
+
 validate:
 	@echo "Validating repo state..."
 	@if [ -d ".platform/config" ]; then \\
@@ -564,15 +1009,24 @@ validate:
 		echo "✗ repos directory missing"; \\
 		exit 1; \\
 	fi
+	@echo ""
+	@if command -v python3 >/dev/null 2>&1; then \\
+		python3 .platform/scripts/profile_skills.py --check $(PERSONA_FLAG); \\
+	else \\
+		echo "  (skills profiler unavailable — needs python3)"; \\
+	fi
+	@echo ""
 	@echo "✓ Validation passed"
 
 help:
 	@echo "Domain Meta-Repo Targets:"
-	@echo "  make init        - Configure hooks + initialize submodules"
+	@echo "  make init        - Configure hooks, init submodules, load skills"
 	@echo "  make update      - Update all submodules"
 	@echo "  make update-one  - Update one submodule (REPO=repos/<name>)"
 	@echo "  make setup-hooks - Configure git hooks path"
-	@echo "  make validate    - Validate repo state"
+	@echo "  make load-skills - Index all skills into .platform/skills-manifest.json"
+	@echo "  make skills      - Print the loaded-skills profile (PERSONA=<id> to scope)"
+	@echo "  make validate    - Validate repo state + skills profile (PERSONA=<id> gates)"
 	@echo "  make help        - Show this help message"
 """,
         encoding="utf-8",
@@ -633,8 +1087,9 @@ def _write_root_readme(
 ## Quickstart
 
 ```bash
-make init        # Configure hooks + initialize submodules
-make validate    # Validate repo state
+make init        # Configure hooks, init submodules, load skills
+make skills      # Show which skills are loaded into the working repo
+make validate    # Validate repo state + skills profile
 make update      # Update all submodules
 ```
 
@@ -679,6 +1134,27 @@ how they integrate with the submodule workflow and governance.
   references and scripts.
 - Domain-validated skills are sourced from the `repos/domain-context` submodule
   and prioritized during `keel code onboard --use-domain-skills`.
+
+`make init` loads every skill it can find (across `.agents/skills` and the
+`repos/*` submodules) into `.platform/skills-manifest.json`. Run `make skills`
+to print the profile of what is loaded, or `make validate` to see it alongside
+the repo-state checks. The manifest is regenerated on every load — treat it as
+a derived index, not a hand-edited source.
+
+## Persona-Scoped Skill Governance
+
+`.platform/config/skills.yaml` carries a `personas:` policy that governs **which
+skills each persona may load/use** (allow/deny over tiers, `persona:<id>`, and
+skill-name globs; a specific deny always wins). Scope the profile to a persona:
+
+```bash
+make skills PERSONA=qa       # what a QA user is granted vs out-of-policy
+make validate PERSONA=dev    # gate: fails if a loaded skill is explicitly denied
+```
+
+A signed-in user's SSO profile resolves to a persona (role default, overridable
+via `KEEL_PERSONA_MAP='group:persona'` or a per-user assignment), so the same
+policy that reports here is what `keel code onboard` enforces for that user.
 
 ## Skill Priority Order
 
@@ -754,6 +1230,8 @@ def _write_gitignore(meta_repo_path: Path) -> None:
         """# Local development
 plans/
 *.local
+# Derived skills index (regenerated by `make init` / `make load-skills`)
+.platform/skills-manifest.json
 .DS_Store
 .vscode/
 .idea/

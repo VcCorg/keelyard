@@ -262,6 +262,32 @@ class ExceptionEntry:
         return ref <= self.expires_at
 
 
+def _default_persona_skill_policy() -> dict:
+    """Least-privilege persona→skill governance.
+
+    Maps a user's persona to the skills they may load/use. Each rule has an
+    ``allow`` and ``deny`` list; tokens are tier names (``persona``,
+    ``agent-skill``, ``domain-validated``, ``linked:<repo>``, ``local``),
+    ``persona:self`` / ``persona:<id>``, skill-name globs, or ``*``. A specific
+    (non-``*``) deny always wins; ``deny: ['*']`` makes a persona allow-list
+    only. ``default`` applies to any persona without an explicit rule and is
+    deliberately least-privilege: own persona skill + domain-validated only.
+    """
+    return {
+        # Everyone may read persona guidance + domain-validated skills.
+        "default": {"allow": ["persona", "domain-validated"], "deny": []},
+        # Builders get everything; tighten with explicit denies per domain.
+        "dev": {"allow": ["*"], "deny": []},
+        "domain": {"allow": ["*"], "deny": []},
+        # Non-builder personas are allow-list only (deny: ['*'] is the baseline):
+        # they see guidance + validated skills and, for QA, testing tools —
+        # everything else is out-of-policy (not granted), not a hard violation.
+        "qa": {"allow": ["persona", "domain-validated", "testing-*"], "deny": ["*"]},
+        "ba": {"allow": ["persona", "domain-validated"], "deny": ["*"]},
+        "sm": {"allow": ["persona", "domain-validated"], "deny": ["*"]},
+    }
+
+
 @dataclass
 class SkillsConfig:
     """Configuration for domain skills."""
@@ -272,6 +298,8 @@ class SkillsConfig:
     skill_priority_order: list[str] = field(
         default_factory=lambda: ["validated", "customized", "injected"]
     )
+    # Persona-scoped governance: {persona_id: {"allow": [...], "deny": [...]}}.
+    personas: dict = field(default_factory=_default_persona_skill_policy)
 
     @classmethod
     def from_dict(cls, data: dict) -> "SkillsConfig":
@@ -283,6 +311,7 @@ class SkillsConfig:
             skill_priority_order=data.get(
                 "skill_priority_order", ["validated", "customized", "injected"]
             ),
+            personas=data.get("personas") or _default_persona_skill_policy(),
         )
 
     def to_dict(self) -> dict:
@@ -292,7 +321,17 @@ class SkillsConfig:
             "auto_inject_superpowers": self.auto_inject_superpowers,
             "allow_custom_skills": self.allow_custom_skills,
             "skill_priority_order": self.skill_priority_order,
+            "personas": self.personas,
         }
+
+    def policy_for(self, persona: str) -> dict:
+        """Resolve the effective allow/deny policy for a persona id."""
+        rule = self.personas.get(persona)
+        if rule is None:
+            rule = self.personas.get("default",
+                                     {"allow": ["persona:self"], "deny": []})
+        return {"allow": list(rule.get("allow", [])),
+                "deny": list(rule.get("deny", []))}
 
 
 # Built-in persona ids shipped with the platform. Product teams toggle these

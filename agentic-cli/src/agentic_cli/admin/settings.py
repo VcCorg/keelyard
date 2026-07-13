@@ -25,6 +25,19 @@ SETTINGS_PATH = Path.home() / ".keel" / "admin-settings.json"
 DEFAULT_APP_TITLE = "Keel"
 DEFAULT_APP_NAME = "Agentic Product Development Platform"
 
+# Persona-scoped skill governance modes:
+#   "off"     — advisory only; the profiler/validate report, nothing is withheld.
+#   "enforce" — hard enforcement; `keel code onboard` installs only the skills a
+#               user's persona is permitted, skipping denied/out-of-policy ones.
+ENFORCEMENT_MODES = ["off", "enforce"]
+DEFAULT_ENFORCEMENT = "off"
+
+
+def _sanitize_enforcement(mode: object) -> str:
+    """Coerce to a known enforcement mode (defaults to 'off')."""
+    m = str(mode or "").strip().lower()
+    return m if m in ENFORCEMENT_MODES else DEFAULT_ENFORCEMENT
+
 
 @dataclass
 class Branding:
@@ -37,9 +50,13 @@ class AppSettings:
     branding: Branding = field(default_factory=Branding)
     # nav_id -> allowed UI roles. Absent id => frontend default (from minRole).
     nav_visibility: Dict[str, List[str]] = field(default_factory=dict)
+    # Persona-scoped skill governance: "off" (advisory) | "enforce" (hard-block).
+    skill_enforcement: str = DEFAULT_ENFORCEMENT
 
     def to_dict(self) -> dict:
-        return {"branding": asdict(self.branding), "nav_visibility": self.nav_visibility}
+        return {"branding": asdict(self.branding),
+                "nav_visibility": self.nav_visibility,
+                "skill_enforcement": self.skill_enforcement}
 
 
 def _sanitize_roles(roles: List[str]) -> List[str]:
@@ -66,7 +83,11 @@ def load_settings(path: Path = SETTINGS_PATH) -> AppSettings:
     for nav_id, roles in (raw.get("nav_visibility", {}) or {}).items():
         if isinstance(roles, list):
             nav[str(nav_id)] = _sanitize_roles([str(r) for r in roles])
-    return AppSettings(branding=branding, nav_visibility=nav)
+    return AppSettings(
+        branding=branding,
+        nav_visibility=nav,
+        skill_enforcement=_sanitize_enforcement(raw.get("skill_enforcement")),
+    )
 
 
 def save_settings(settings: AppSettings, path: Path = SETTINGS_PATH) -> Path:
@@ -102,9 +123,23 @@ def clear_nav_override(nav_id: str, path: Path = SETTINGS_PATH) -> AppSettings:
     return s
 
 
+def set_skill_enforcement(mode: str, path: Path = SETTINGS_PATH) -> AppSettings:
+    """Turn persona-scoped skill enforcement on ('enforce') or off ('off')."""
+    s = load_settings(path)
+    s.skill_enforcement = _sanitize_enforcement(mode)
+    save_settings(s, path)
+    return s
+
+
+def enforcement_enabled(path: Path = SETTINGS_PATH) -> bool:
+    """True when hard skill enforcement is active."""
+    return load_settings(path).skill_enforcement == "enforce"
+
+
 def update_settings(branding: Optional[dict] = None,
                     nav_visibility: Optional[Dict[str, List[str]]] = None,
                     replace_nav: bool = False,
+                    skill_enforcement: Optional[str] = None,
                     path: Path = SETTINGS_PATH) -> AppSettings:
     """Apply a partial update (used by the dashboard PUT)."""
     s = load_settings(path)
@@ -117,5 +152,7 @@ def update_settings(branding: Optional[dict] = None,
         cleaned = {str(k): _sanitize_roles([str(r) for r in v])
                    for k, v in nav_visibility.items() if isinstance(v, list)}
         s.nav_visibility = cleaned if replace_nav else {**s.nav_visibility, **cleaned}
+    if skill_enforcement is not None:
+        s.skill_enforcement = _sanitize_enforcement(skill_enforcement)
     save_settings(s, path)
     return s

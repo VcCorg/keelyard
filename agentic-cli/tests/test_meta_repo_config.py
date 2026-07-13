@@ -101,6 +101,27 @@ def test_skills_config_defaults():
     assert config.skill_priority_order == ["validated", "customized", "injected"]
 
 
+def test_skills_config_persona_policy_defaults():
+    """SkillsConfig ships a persona-scoped governance policy."""
+    config = SkillsConfig()
+    assert set(config.personas) >= {"default", "dev", "qa", "ba", "sm", "domain"}
+    # dev is unrestricted; qa is allow-list only.
+    assert config.policy_for("dev")["allow"] == ["*"]
+    assert config.policy_for("qa")["deny"] == ["*"]
+    # An unknown persona resolves to the least-privilege default rule.
+    assert config.policy_for("tech-lead") == config.personas["default"]
+
+
+def test_skills_config_persona_policy_round_trips():
+    """personas policy survives from_dict/to_dict."""
+    config = SkillsConfig.from_dict(SkillsConfig().to_dict())
+    assert config.personas["qa"]["allow"] == ["persona", "domain-validated", "testing-*"]
+
+    custom = SkillsConfig.from_dict(
+        {"personas": {"dev": {"allow": ["*"], "deny": ["prod-deploy"]}}})
+    assert custom.policy_for("dev")["deny"] == ["prod-deploy"]
+
+
 def test_meta_repo_config_load_domain_config():
     """Test loading domain.yaml configuration."""
     with tempfile.TemporaryDirectory() as tmpdir:
