@@ -7,6 +7,8 @@ Multi-repo workspace for the Agentic platform. Each component lives in its own G
 | Local Dir | Description |
 |-----------|-------------|
 | `agentic-cli/` | CLI tool — agent, skill, code onboard, kg, mcp, project commands |
+| `dashboard/` | Web app — React frontend + FastAPI backend (the lens over the CLI) |
+| `desktop/` | Electron desktop app — bundles the dashboard + backend for zero-setup distribution ([README](desktop/README.md)) |
 | `skills/` | Skills registry — skill definitions and AI evaluation framework |
 | `mcp-servers/` | MCP servers — multiple protocol implementations + docker-compose |
 | `kg-infrastructure/` | KG infra — knowledge graph server, Neo4j, LightRAG, sample data, docs |

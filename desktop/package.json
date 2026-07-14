@@ -1,0 +1,44 @@
+{
+  "name": "keel-desktop",
+  "productName": "Keel",
+  "version": "0.1.0",
+  "description": "Keel — Agentic Product Development Platform (desktop app)",
+  "private": true,
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "build:electron": "tsc -p tsconfig.json",
+    "build:frontend": "npm --prefix ../dashboard/frontend install && npm --prefix ../dashboard/frontend run build && node scripts/copy-frontend.mjs",
+    "build:backend": "pyinstaller --noconfirm --clean --distpath resources/backend --workpath .pyinstaller-build backend.spec",
+    "dev": "cross-env KEEL_DEV=1 npm run build:electron && electron .",
+    "package": "npm run build:electron && npm run build:frontend && npm run build:backend && electron-builder",
+    "package:mac": "npm run build:electron && npm run build:frontend && npm run build:backend && electron-builder --mac",
+    "package:win": "npm run build:electron && npm run build:frontend && npm run build:backend && electron-builder --win"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3",
+    "typescript": "^5.5.0"
+  },
+  "build": {
+    "appId": "com.keel.desktop",
+    "productName": "Keel",
+    "directories": { "output": "release", "buildResources": "build" },
+    "files": ["dist-electron/**/*"],
+    "extraResources": [
+      { "from": "resources/frontend", "to": "frontend" },
+      { "from": "resources/backend", "to": "backend" }
+    ],
+    "mac": {
+      "target": [{ "target": "dmg", "arch": ["arm64", "x64"] }],
+      "category": "public.app-category.developer-tools"
+    },
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
