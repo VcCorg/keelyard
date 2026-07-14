@@ -86,6 +86,12 @@ dist/
 build/
 .eslintcache
 
+# desktop/build/ is electron-builder buildResources (icons, entitlements), NOT a
+# Python/Vite build dir — must come after the unanchored build/ rules to win.
+# Transient desktop outputs are ignored via desktop/.gitignore instead.
+!desktop/build/
+!desktop/build/**
+
 # Docker
 docker-compose.override.yml
 

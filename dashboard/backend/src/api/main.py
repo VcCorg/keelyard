@@ -109,6 +109,49 @@ async def health():
     return {"status": "ok", "version": "0.1.0"}
 
 
+def _mount_frontend(app: FastAPI) -> None:
+    """Serve the built React SPA when packaged as a desktop app (opt-in).
+
+    Enabled by ``KEEL_SERVE_FRONTEND=/path/to/dist`` (the Vite build output). The
+    desktop launcher points the Electron window at ``http://127.0.0.1:<port>/`` and
+    this serves ``index.html`` + assets, with an SPA fallback so client-side routes
+    (``/kg``, ``/admin``, …) resolve to ``index.html`` instead of 404. API and
+    docs paths are never shadowed — the catch-all only handles non-``/api`` GETs.
+    In normal web dev the env is unset and this is a no-op (Vite proxies ``/api``).
+    """
+    dist = os.environ.get("KEEL_SERVE_FRONTEND")
+    if not dist:
+        return
+    dist_dir = Path(dist).expanduser()
+    index = dist_dir / "index.html"
+    if not index.is_file():
+        return
+
+    from fastapi.responses import FileResponse
+    from fastapi.staticfiles import StaticFiles
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+
+    # Hashed build assets (JS/CSS/img) under /assets, served with long cache.
+    assets_dir = dist_dir / "assets"
+    if assets_dir.is_dir():
+        app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
+
+    @app.get("/", include_in_schema=False)
+    async def _index():
+        return FileResponse(str(index))
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def _spa_fallback(full_path: str):
+        # Never intercept API/docs/openapi — let them 404 as real API errors.
+        if full_path.startswith(("api/", "docs", "redoc", "openapi.json")):
+            raise StarletteHTTPException(status_code=404)
+        # Serve a real file if it exists (favicon, manifest, …); else the SPA shell.
+        candidate = dist_dir / full_path
+        if candidate.is_file():
+            return FileResponse(str(candidate))
+        return FileResponse(str(index))
+
+
 @app.get("/api/overview")
 async def overview():
     """Quick overview for the dashboard home page."""
@@ -156,3 +199,9 @@ async def overview():
             "items": [p.model_dump() for p in projects],
         },
     }
+
+
+# Mount the SPA LAST so its catch-all never shadows the API routes above
+# (Starlette matches routes in registration order). No-op unless
+# KEEL_SERVE_FRONTEND is set (i.e. only in the packaged desktop app).
+_mount_frontend(app)
