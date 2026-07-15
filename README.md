@@ -47,6 +47,8 @@ agentic-project/              ← This workspace (not a repo itself)
 
 ## Quick Start
 
+### CLI / web dashboard
+
 **Prerequisites:** [`uv`](https://docs.astral.sh/uv/) (Python 3.12), and Docker (optional, for MCP/KG infrastructure).
 
 ```bash
@@ -70,6 +72,11 @@ keel doctor                 # add --probe to test host reachability
 # 6. Onboard any project
 keel code onboard --path ./some-project
 ```
+
+### Desktop app (no Python/uv needed)
+
+- **Install:** Download the macOS `.dmg` or Windows `.exe` from CI release artifacts and follow the install steps in [`desktop/README.md#install`](desktop/README.md#install).
+- **Build locally:** See [`desktop/README.md#prerequisites`](desktop/README.md#prerequisites) (Node 22 via nvm + PyInstaller) and then `npm run package:mac` / `npm run package:win`.
 
 ### Manual setup (if you prefer step-by-step)
 

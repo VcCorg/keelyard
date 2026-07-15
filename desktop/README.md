@@ -21,12 +21,21 @@ The backend serves the SPA itself (`KEEL_SERVE_FRONTEND`), so the UI's relative
 
 ## Prerequisites (build machine only)
 
-- Node 20+
-- Python 3.12 with the backend installed into the active environment:
+- Node 22+ (the project is validated on Node 22 via nvm; system Node 18 will fail
+  the frontend build with `SyntaxError: The requested module 'node:util' does not
+  provide an export named 'styleText'`):
   ```bash
-  pip install -e ../agentic-cli -e ../dashboard/backend pyinstaller
-  # Windows also: pip install pywinpty
+  nvm install 22
+  nvm use 22
   ```
+- Python 3.12 with the backend installed into the active environment. If the
+  repo was set up with `uv`/`install-agentic-cli.sh`, install PyInstaller the same
+  way:
+  ```bash
+  uv pip install --native-tls pyinstaller
+  # Windows also: uv pip install --native-tls pywinpty
+  ```
+  (If your venv has `pip`, you can use `pip install -e ../agentic-cli -e ../dashboard/backend pyinstaller` instead.)
 - **PyInstaller does not cross-compile** — build the macOS app on macOS and the
   Windows app on Windows.
 
@@ -59,6 +68,30 @@ cd desktop && npm run dev
 
 `KEEL_DEV=1` makes Electron load the Vite dev server (which proxies `/api`) instead
 of spawning the sidecar.
+
+## Install
+
+Installers are produced by CI and land in `desktop/release/` (or as workflow artifacts). Pick the one for your OS.
+
+### macOS
+
+1. Download the `Keel-x.x.x.dmg` (arm64 or x64).
+2. Open the `.dmg` and drag **Keel** into `/Applications`.
+3. Launch **Keel** from `/Applications`.
+4. On first run macOS warns the app is unsigned. Right-click the app → **Open** → **Open** to allow it.
+
+### Windows
+
+1. Download the `Keel-x.x.x.exe` installer.
+2. Run it and step through the NSIS wizard.
+3. Launch **Keel** from the Start menu or desktop shortcut.
+4. On first run Windows Defender / SmartScreen warns the app is unsigned. Click **More info** → **Run anyway**.
+
+### After install
+
+- Keel creates `~/.keel/` on first run for settings, env store, and role/persona data.
+- The tracker SQLite DB is created on first run.
+- Updating is just installing the newer build over the old one; your `~/.keel` data is preserved.
 
 ## Distribution (v1 = unsigned)
 
