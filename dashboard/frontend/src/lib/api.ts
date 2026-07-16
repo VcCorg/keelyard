@@ -37,6 +37,16 @@ export interface MCPServerInfo {
   container_status?: string;
   auth_status?: string; // ok, missing, invalid, unreachable, n/a, unknown
   auth_message?: string;
+  source?: "docker" | "registry"; // registry = user-registered, editable
+}
+
+export interface MCPServerUpsert {
+  name: string;
+  url: string;
+  type?: "sse" | "http";
+  description?: string;
+  enabled?: boolean;
+  tools?: string[];
 }
 
 export interface ActivityEntry {
@@ -1019,6 +1029,21 @@ class APIClient {
 
   async stopMCPServer(name: string): Promise<{ success: boolean; message: string }> {
     return this.request(`/mcp/servers/${encodeURIComponent(name)}/stop`, { method: "POST" });
+  }
+
+  async addMCPServer(body: MCPServerUpsert): Promise<MCPServerInfo> {
+    return this.request("/mcp/servers", { method: "POST", body: JSON.stringify(body) });
+  }
+
+  async updateMCPServer(name: string, body: MCPServerUpsert): Promise<MCPServerInfo> {
+    return this.request(`/mcp/servers/${encodeURIComponent(name)}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    });
+  }
+
+  async deleteMCPServer(name: string): Promise<{ success: boolean; message: string }> {
+    return this.request(`/mcp/servers/${encodeURIComponent(name)}`, { method: "DELETE" });
   }
 
   /* ---- Activity ---- */

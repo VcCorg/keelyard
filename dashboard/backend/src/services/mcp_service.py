@@ -47,6 +47,9 @@ class MCPServerInfo(BaseModel):
     # Auth/token status independent of port reachability.
     auth_status: str = "unknown"  # ok, missing, invalid, unreachable, n/a, unknown
     auth_message: str = ""
+    # Where this entry came from: "docker" (compose stack, start/stop/logs) or
+    # "registry" (user-registered in ~/.keel/mcp/registry.json — editable).
+    source: str = "docker"
 
 
 class MCPHealthResult(BaseModel):
@@ -342,11 +345,37 @@ def list_mcp_servers() -> list[MCPServerInfo]:
                     port=port,
                     description=srv.description or "",
                     tools=srv.tools,
+                    source="registry",
                 )
     except (ImportError, Exception) as e:
         logger.debug("CLI registry not available: %s", e)
 
     return list(servers.values())
+
+
+def _probe_target(srv: MCPServerInfo) -> tuple[str, Optional[int]]:
+    """Resolve (host, port) to health-check for a server.
+
+    Docker-compose entries expose localhost ports, but registry entries may
+    point at a REMOTE stack (the packaged desktop app has no local Docker) —
+    probing localhost for those reports false 'unreachable'. Prefer the host
+    embedded in the server URL; fall back to localhost + declared port.
+    """
+    host, port = "localhost", srv.port
+    if srv.url:
+        try:
+            from urllib.parse import urlparse
+
+            parsed = urlparse(srv.url)
+            if parsed.hostname:
+                host = parsed.hostname
+            if parsed.port:
+                port = parsed.port
+            elif port is None and parsed.scheme in ("http", "https", "ws", "wss"):
+                port = 443 if parsed.scheme in ("https", "wss") else 80
+        except Exception:  # noqa: BLE001 - fall back to localhost:port
+            pass
+    return host, port
 
 
 def check_health(name: Optional[str] = None, verify_auth: bool = True) -> list[MCPHealthResult]:
@@ -380,8 +409,9 @@ def check_health(name: Optional[str] = None, verify_auth: bool = True) -> list[M
     for srv in servers:
         auth_status, auth_message = auth_map.get(srv.name, ("unknown", ""))
 
-        if srv.port:
-            ok, msg = _check_port("localhost", srv.port)
+        host, port = _probe_target(srv)
+        if port:
+            ok, msg = _check_port(host, port)
             cname = srv.container_name or f"keel-{srv.name}"
             cstatus = docker_status.get(cname, "")
             if cstatus:
@@ -464,3 +494,127 @@ def _find_compose_file() -> Optional[Path]:
         if path.exists():
             return path
     return None
+
+
+# ── User-registered MCP servers (CRUD over the CLI registry) ────────────────
+# The CLI owns the store (~/.keel/mcp/registry.json, same one `keel mcp add`
+# writes); the dashboard is a lens over it. This is what lets a packaged
+# desktop install point at a REMOTE MCP stack with no local Docker at all.
+
+class MCPServerUpsert(BaseModel):
+    """Payload for registering/updating an MCP server from the dashboard."""
+    name: str
+    url: str
+    type: str = "sse"            # sse | http (stdio/docker stay CLI-managed)
+    description: str = ""
+    enabled: bool = True
+    tools: list[str] = []
+
+
+def _slug(name: str) -> str:
+    import re
+
+    s = re.sub(r"[^a-z0-9]+", "-", (name or "").strip().lower()).strip("-")
+    return s
+
+
+def _audit(action: str, key: str, actor: Optional[str], details: dict) -> None:
+    try:
+        from agentic_cli.tracker import record_action
+
+        record_action("mcp", action, entity_type="mcp_server", entity_id=key,
+                      source="dashboard", actor=actor, details=details)
+    except Exception:  # noqa: BLE001 - never break on audit
+        pass
+
+
+def add_mcp_server(req: MCPServerUpsert, actor: Optional[str] = None) -> MCPServerInfo:
+    """Register a new (remote) MCP server in the CLI registry."""
+    from agentic_cli.mcp.config import (
+        MCPServer, MCPServerType, MCPTransport, load_registry, save_registry,
+        validate_server_config,
+    )
+
+    key = _slug(req.name)
+    if not key:
+        raise ValueError("A server name is required")
+    if req.type not in ("sse", "http"):
+        raise ValueError("Only 'sse' or 'http' servers can be added here — "
+                         "use `keel mcp add` for stdio/docker servers")
+
+    registry = load_registry()
+    existing = {s.name for s in list_mcp_servers()} | set(registry.servers)
+    if key in existing:
+        raise ValueError(f"An MCP server named '{key}' already exists")
+
+    server = MCPServer(
+        name=key,
+        type=MCPServerType(req.type),
+        transport=MCPTransport(req.type),
+        url=req.url.strip(),
+        description=req.description.strip() or None,
+        enabled=req.enabled,
+        tools=req.tools,
+    )
+    ok, msg = validate_server_config(server)
+    if not ok:
+        raise ValueError(msg)
+
+    registry.servers[key] = server
+    save_registry(registry)
+    _audit("add_server", key, actor, {"url": server.url, "type": req.type})
+    for info in list_mcp_servers():
+        if info.name == key:
+            return info
+    return MCPServerInfo(name=key, type=req.type, url=server.url, source="registry")
+
+
+def update_mcp_server(name: str, req: MCPServerUpsert, actor: Optional[str] = None) -> MCPServerInfo:
+    """Update a registry-sourced MCP server (URL, description, enabled)."""
+    from agentic_cli.mcp.config import (
+        MCPServerType, MCPTransport, load_registry, save_registry,
+        validate_server_config,
+    )
+    from datetime import datetime, timezone
+
+    registry = load_registry()
+    server = registry.servers.get(name)
+    if server is None:
+        raise KeyError(f"'{name}' is not a registered MCP server "
+                       "(docker-compose servers are managed by the stack)")
+    if req.type not in ("sse", "http"):
+        raise ValueError("Only 'sse' or 'http' types are supported here")
+
+    server.url = req.url.strip()
+    server.type = MCPServerType(req.type)
+    server.transport = MCPTransport(req.type)
+    server.description = req.description.strip() or None
+    server.enabled = req.enabled
+    if req.tools:
+        server.tools = req.tools
+    server.updated_at = datetime.now(timezone.utc).isoformat()
+
+    ok, msg = validate_server_config(server)
+    if not ok:
+        raise ValueError(msg)
+
+    save_registry(registry)
+    _audit("update_server", name, actor, {"url": server.url, "enabled": server.enabled})
+    for info in list_mcp_servers():
+        if info.name == name:
+            return info
+    return MCPServerInfo(name=name, type=req.type, url=server.url, source="registry")
+
+
+def remove_mcp_server(name: str, actor: Optional[str] = None) -> bool:
+    """Remove a registry-sourced MCP server. Docker-compose servers can't be removed."""
+    from agentic_cli.mcp.config import load_registry, save_registry
+
+    registry = load_registry()
+    if name not in registry.servers:
+        raise KeyError(f"'{name}' is not a registered MCP server "
+                       "(docker-compose servers are managed by the stack)")
+    del registry.servers[name]
+    save_registry(registry)
+    _audit("remove_server", name, actor, {})
+    return True
