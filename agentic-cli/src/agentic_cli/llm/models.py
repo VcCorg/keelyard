@@ -20,6 +20,16 @@ class ModelRegistry:
         "gpt-",
     ]
 
+    # Locally hosted models (Ollama / LM Studio / llama.cpp / vLLM) — routed via
+    # an explicit prefix, e.g. "local:llama3.2" or "ollama:qwen2.5".
+    LOCAL_PREFIXES = [
+        "local:",
+        "ollama:",
+    ]
+
+    # The built-in deterministic fallback (no model at all).
+    TEST_MODE_NAMES = ("test-mode", "test", "builtin")
+
     @classmethod
     def detect_provider(cls, model_name: str) -> Optional[str]:
         """Infer provider from model name.
@@ -31,6 +41,13 @@ class ModelRegistry:
             Provider type ("vertex-ai", "anthropic", "openai") or None if unknown
         """
         model_lower = model_name.lower()
+
+        if model_lower in cls.TEST_MODE_NAMES:
+            return "test-mode"
+
+        for prefix in cls.LOCAL_PREFIXES:
+            if model_lower.startswith(prefix):
+                return "local"
 
         for prefix in cls.ANTHROPIC_PREFIXES:
             if model_lower.startswith(prefix):
