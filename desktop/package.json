@@ -9,10 +9,13 @@
     "build:electron": "tsc -p tsconfig.json",
     "build:frontend": "npm --prefix ../dashboard/frontend install && npm --prefix ../dashboard/frontend run build && node scripts/copy-frontend.mjs",
     "build:backend": "pyinstaller --noconfirm --clean --distpath resources/backend --workpath .pyinstaller-build backend.spec",
+    "smoke:backend": "node scripts/smoke.mjs resources/backend/keel-backend",
     "dev": "cross-env KEEL_DEV=1 npm run build:electron && electron .",
-    "package": "npm run build:electron && npm run build:frontend && npm run build:backend && electron-builder",
-    "package:mac": "npm run build:electron && npm run build:frontend && npm run build:backend && electron-builder --mac",
-    "package:win": "npm run build:electron && npm run build:frontend && npm run build:backend && electron-builder --win"
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win",
+    "package": "npm run build:electron && npm run build:frontend && npm run build:backend && npm run smoke:backend && electron-builder",
+    "package:mac": "npm run build:electron && npm run build:frontend && npm run build:backend && npm run smoke:backend && electron-builder --mac",
+    "package:win": "npm run build:electron && npm run build:frontend && npm run build:backend && npm run smoke:backend && electron-builder --win"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",

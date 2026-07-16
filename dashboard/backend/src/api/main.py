@@ -10,7 +10,26 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.api.agents import router as agents_router
 from src.api.mcp import router as mcp_router
 from src.api.activity import router as activity_router
-from src.api.chat import router as chat_router
+
+# Chat rides on the optional [chat] extra (google-adk). Without it the whole
+# app must still boot — chat endpoints degrade to 503 instead of crashing the
+# process at import time (which read as "can't initialize keel" in the
+# packaged desktop app).
+try:
+    from src.api.chat import router as chat_router
+except ImportError as _chat_err:  # pragma: no cover - depends on extras
+    from fastapi import APIRouter, HTTPException
+
+    chat_router = APIRouter(prefix="/api/chat", tags=["chat"])
+    _chat_reason = str(_chat_err)
+
+    @chat_router.api_route("/{path:path}", methods=["GET", "POST", "DELETE", "PUT"])
+    async def _chat_unavailable(path: str):
+        raise HTTPException(
+            status_code=503,
+            detail=f"Chat is unavailable: optional dependency missing ({_chat_reason}). "
+                   "Install the backend's [chat] extra (google-adk) to enable it.",
+        )
 from src.api.terminal import router as terminal_router
 from src.api.skills import router as skills_router
 from src.api.deployments import router as deployments_router
