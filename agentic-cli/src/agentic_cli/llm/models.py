@@ -28,7 +28,10 @@ class ModelRegistry:
     ]
 
     # The built-in deterministic fallback (no model at all).
-    TEST_MODE_NAMES = ("test-mode", "test", "builtin")
+    TEST_MODE_NAMES = ("test-mode", "test")
+
+    # The downloadable built-in tiny model (in-process llama.cpp).
+    BUILTIN_NAMES = ("builtin", "builtin-model")
 
     @classmethod
     def detect_provider(cls, model_name: str) -> Optional[str]:
@@ -44,6 +47,9 @@ class ModelRegistry:
 
         if model_lower in cls.TEST_MODE_NAMES:
             return "test-mode"
+
+        if model_lower in cls.BUILTIN_NAMES:
+            return "builtin"
 
         for prefix in cls.LOCAL_PREFIXES:
             if model_lower.startswith(prefix):

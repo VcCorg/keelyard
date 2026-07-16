@@ -92,6 +92,9 @@ _COLLECT = [
     # Optional [chat] extra — chat degrades to 503 when absent, but desktop
     # builds install it so the packaged app keeps the chat feature.
     "google.adk", "google.genai",
+    # Built-in tiny model runtime (weights download on first use, never
+    # bundled). Optional: absence degrades to the test-mode provider.
+    "llama_cpp",
 ]
 for pkg in _COLLECT:
     try:

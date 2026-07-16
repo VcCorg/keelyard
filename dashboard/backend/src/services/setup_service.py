@@ -147,6 +147,15 @@ def get_setup_status() -> SetupStatus:
     local_url = os.environ.get("KEEL_LOCAL_LLM_URL", "").strip() or "http://localhost:11434/v1"
     local_ok = bool(local_model)
 
+    try:
+        from agentic_cli.llm import builtin_model as _bm
+
+        builtin_downloaded = _bm.is_downloaded()
+        builtin_sdk = _bm.sdk_available()
+        builtin_label = _bm.DEFAULT_MODEL_LABEL
+    except Exception:  # noqa: BLE001
+        builtin_downloaded, builtin_sdk, builtin_label = False, False, "built-in model"
+
     glean_url = os.environ.get("GLEAN_API_URL", "").strip()
     glean_mode = (os.environ.get("GLEAN_AUTH_MODE", "token").strip() or "token").lower()
     if glean_mode == "sso":
@@ -177,6 +186,16 @@ def get_setup_status() -> SetupStatus:
                     "No local model — the built-in test-mode provider answers when "
                     "no model is configured (deterministic, clearly labeled)"),
             fix_hint="keel init local-model --model llama3.2",
+        ),
+        SetupItem(
+            key="builtin_model", label="Built-in model (download on first use)",
+            configured=builtin_downloaded and builtin_sdk, required=False,
+            detail=(f"{builtin_label} — downloaded, serves when no other model is configured"
+                    if builtin_downloaded and builtin_sdk else
+                    ("downloaded, but llama-cpp-python is unavailable in this install"
+                     if builtin_downloaded else
+                     f"Not downloaded — one-time ~400MB pull of {builtin_label}")),
+            fix_hint="keel init builtin-model",
         ),
         SetupItem(
             key="neo4j", label="Knowledge Graph (Neo4j)", configured=neo4j_ok, required=False,
@@ -217,6 +236,13 @@ def get_setup_status() -> SetupStatus:
 
 def init_workspace_args(code: str, docs: str) -> list[str]:
     return ["init", "workspace", "--code", code, "--docs", docs]
+
+
+def init_builtin_model_args(force: bool = False) -> list[str]:
+    args = ["init", "builtin-model"]
+    if force:
+        args.append("--force")
+    return args
 
 
 def init_vertex_args(project_id: str, location: str = "us-central1", model: str = "") -> list[str]:

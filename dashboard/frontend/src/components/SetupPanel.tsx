@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 const FORM_CONFIGURABLE = new Set([
   "workspaces",
   "vertex_ai",
+  "builtin_model",
   "neo4j",
   "devin",
   "glean",
@@ -199,6 +200,21 @@ export function SetupPanel({ onClose }: { onClose: () => void }) {
                     <input className={fieldCls} type="password" placeholder="Password" value={neoPwd} onChange={(e) => setNeoPwd(e.target.value)} />
                     <Button size="sm" disabled={!neoPwd.trim()} onClick={() => setStreamUrl(api.setupNeo4jStreamUrl({ uri: neoUri.trim(), username: neoUser.trim(), password: neoPwd }))}>
                       Run kg init (neo4j)
+                    </Button>
+                  </>
+                )}
+                {item.key === "builtin_model" && (
+                  <>
+                    <p className="text-[11px] text-gray-400">
+                      One-time ~400MB download (Qwen2.5-0.5B, Apache-2.0) into{" "}
+                      <code>~/.keel/models</code>. Serves real local inference whenever
+                      no cloud or local-runtime model is configured.
+                    </p>
+                    <Button
+                      size="sm"
+                      onClick={() => setStreamUrl(api.setupBuiltinModelStreamUrl(item.configured))}
+                    >
+                      {item.configured ? "Re-download model" : "Download built-in model"}
                     </Button>
                   </>
                 )}

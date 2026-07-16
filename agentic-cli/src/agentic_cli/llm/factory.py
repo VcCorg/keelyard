@@ -65,6 +65,12 @@ def get_llm_provider(
         return TestModeProvider(model_name=model_name,
                                 system_instruction=system_instruction)
 
+    if detected_provider == "builtin":
+        from agentic_cli.llm.builtin_model import BuiltinProvider
+
+        return BuiltinProvider(model_name=model_name,
+                               system_instruction=system_instruction)
+
     if detected_provider == "local":
         return LocalProvider(model_name=model_name,
                              system_instruction=system_instruction)
@@ -85,7 +91,7 @@ def get_llm_provider(
         # Vertex is the implicit default. When the caller did NOT pin a
         # provider and Vertex isn't configured, fall back down the chain so a
         # fresh install (e.g. the packaged desktop app) still works:
-        #   vertex → local model (if configured) → built-in test-mode.
+        #   vertex → local model → downloaded built-in model → test-mode.
         try:
             from agentic_cli.kg.config import KGConfig
             config = KGConfig.load()
@@ -107,6 +113,12 @@ def get_llm_provider(
             if local_is_configured():
                 return LocalProvider(model_name=None,
                                      system_instruction=system_instruction)
+            # Downloaded built-in tiny model (real inference, no config).
+            from agentic_cli.llm import builtin_model
+
+            if builtin_model.is_ready():
+                return builtin_model.BuiltinProvider(
+                    system_instruction=system_instruction)
             if not os.getenv(ENV_DISABLE_TEST_MODE):
                 return TestModeProvider(system_instruction=system_instruction)
             raise ProviderNotConfigured(
