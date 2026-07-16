@@ -112,10 +112,39 @@ entitlements note in `build/`).
 Updating in v1 = install the newer build over the old one; your `~/.keel` data
 is preserved.
 
+## Validate the distributable (smoke test)
+
+After `npm run build:backend`, prove the frozen bundle works in a clean sandbox
+before packaging (this also runs automatically inside `npm run package:*` and CI):
+
+```bash
+npm run smoke:backend
+```
+
+It boots the bundle with a throwaway `HOME` and no Python env vars, then checks:
+all core API endpoints return 200, a terminal session does a real PTY round-trip
+over WebSocket, and the bundled `keel` CLI works end to end (`--help`,
+`admin show`, `project create` + `agent add` generating real files).
+
+## keel CLI inside the desktop app
+
+The frozen backend is a multi-call binary: `keel-backend cli <args>` runs the
+real `keel` CLI. On every boot it writes a `keel` wrapper into `~/.keel/bin` and
+prepends it to `PATH`, so terminals opened inside the app can run `keel …` even
+on machines with no Python installed.
+
 ## Troubleshooting
 
-- **"Keel could not start"** — the backend failed its health check; open the log
-  from the dialog. Most first-run failures are a missing PyInstaller hidden import
-  (see `backend.spec`).
+- **"Keel could not start" / can't initialize the keel package** — the backend
+  failed to boot. The classic cause: building against **editable installs**
+  (`uv pip install -e …`, which `setup.sh`/`install-agentic-cli.sh` use) —
+  PyInstaller cannot collect PEP 660 editable packages. The spec now collects
+  first-party code by walking the filesystem, so this is fixed regardless of
+  install mode; run `npm run smoke:backend` to verify a build, and check the log
+  from the error dialog for anything else.
+- **Chat page says unavailable (503)** — chat needs the backend's `[chat]` extra
+  (`google-adk`), which currently conflicts with `agentic-cli`'s `click==8.1.7`
+  pin (google-adk needs `click>=8.1.8`). Everything else works; relax the pin to
+  enable chat.
 - **Orphan process / port in use** — the sidecar is killed on quit; if a build was
   force-terminated, quit Keel fully and relaunch (a free port is chosen each time).
