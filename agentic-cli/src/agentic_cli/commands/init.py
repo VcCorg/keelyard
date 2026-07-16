@@ -852,6 +852,84 @@ def init_local_model(
     )
 
 
+@init_app.command("builtin-model")
+def init_builtin_model(
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Re-download even if the model already exists"),
+    ] = False,
+    remove: Annotated[
+        bool,
+        typer.Option("--remove", help="Delete the downloaded model instead"),
+    ] = False,
+) -> None:
+    """Download the built-in tiny model (first-use, ~400MB, Apache-2.0).
+
+    Nothing ships in the installer — this pulls a small GGUF
+    (Qwen2.5-0.5B-Instruct Q4) into ``~/.keel/models`` once. After that, the
+    platform serves REAL local inference in-process (llama.cpp) whenever no
+    cloud or local-runtime model is configured, replacing the deterministic
+    test-mode fallback. Override the source with KEEL_BUILTIN_MODEL_URL.
+    """
+    from agentic_cli.llm import builtin_model as bm
+
+    if remove:
+        if bm.remove():
+            console.print(f"[green]✓[/green] Removed {bm.model_path()}")
+        else:
+            console.print("[dim]No downloaded model to remove.[/dim]")
+        return
+
+    if bm.is_downloaded() and not force:
+        console.print(f"[green]✓ Built-in model already downloaded:[/green] {bm.model_path()}")
+        if not bm.sdk_available():
+            console.print("[yellow]⚠ llama-cpp-python is not available in this install — "
+                          "the model can't serve until it is (desktop builds bundle it).[/yellow]")
+        return
+
+    console.print(f"Downloading {bm.DEFAULT_MODEL_LABEL}")
+    console.print(f"[dim]{bm.model_url()}[/dim]")
+
+    # Coarse-grained progress lines (~5%) so the Setup panel's streamed console
+    # shows movement without flooding it.
+    state = {"last": -1}
+
+    def progress(done: int, total: int) -> None:
+        if total:
+            pct = int(done * 100 / total)
+            if pct >= state["last"] + 5:
+                state["last"] = pct
+                console.print(f"  {pct:3d}%  ({done // (1024 * 1024)} / {total // (1024 * 1024)} MB)")
+        else:
+            mb = done // (1024 * 1024)
+            if mb >= state["last"] + 25:
+                state["last"] = mb
+                console.print(f"  {mb} MB downloaded…")
+
+    try:
+        path = bm.download(progress=progress, force=force)
+    except Exception as e:  # noqa: BLE001
+        console.print(f"[red]✗ Download failed:[/red] {e}")
+        raise typer.Exit(1)
+
+    record_activity(command="init", subcommand="builtin-model",
+                    args={"file": bm.model_file(), "force": force})
+
+    sdk_note = ("" if bm.sdk_available() else
+                "\n[yellow]⚠ llama-cpp-python missing in this install — desktop builds "
+                "bundle it; for dev: pip install llama-cpp-python[/yellow]")
+    console.print(
+        Panel.fit(
+            f"[bold green]✓ Built-in model ready[/bold green]\n\n"
+            f"  File: {path}\n"
+            f"  Served in-process whenever no other model is configured\n"
+            f"  (fallback chain: vertex → local → builtin → test-mode){sdk_note}",
+            title="Built-in Model",
+            border_style="green",
+        )
+    )
+
+
 @init_app.command("glean")
 def init_glean(
     url: Annotated[str, typer.Option("--url", help="Glean instance URL, e.g. https://company-be.glean.com")] = "",

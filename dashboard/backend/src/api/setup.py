@@ -87,6 +87,14 @@ async def init_integration_stream(
     return _stream(f"init {kind}", args)
 
 
+@router.get("/init/builtin-model/stream")
+async def init_builtin_model_stream(
+    force: bool = Query(False, description="Re-download even if present"),
+):
+    """Run `keel init builtin-model` — one-time ~400MB download with progress."""
+    return _stream("init builtin-model", svc.init_builtin_model_args(force=force))
+
+
 @router.get("/init/devin/stream")
 async def init_devin_stream(
     api_key: str = Query(..., description="Devin API key"),

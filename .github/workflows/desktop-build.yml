@@ -49,6 +49,13 @@ jobs:
           pip install ../dashboard/backend
           pip install pyinstaller
           if [ "${{ runner.os }}" = "Windows" ]; then pip install pywinpty; fi
+          # Built-in tiny-model runtime (weights download on first use, never
+          # bundled). Prebuilt CPU wheels first; source build as fallback.
+          # Best-effort: without it the app degrades to the test-mode provider.
+          pip install llama-cpp-python \
+            --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu \
+            || pip install llama-cpp-python \
+            || echo "WARN: llama-cpp-python unavailable; builtin model disabled in this build"
 
       - name: Install desktop deps
         run: npm install

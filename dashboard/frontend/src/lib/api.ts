@@ -1305,6 +1305,11 @@ class APIClient {
     return this.streamUrl(`/setup/init/devin/stream?${q.toString()}`);
   }
 
+  setupBuiltinModelStreamUrl(force = false): string {
+    const q = new URLSearchParams(force ? { force: "true" } : {});
+    return this.streamUrl(`/setup/init/builtin-model/stream?${q.toString()}`);
+  }
+
   setupGleanStreamUrl(params: {
     url: string;
     mode: "token" | "sso";

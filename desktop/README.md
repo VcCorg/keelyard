@@ -140,16 +140,23 @@ The provider chain means the app is usable the moment it's installed:
    keel init local-model --model llama3.2 --default  # route ALL LLM calls locally
    ```
    Use `local:<name>` anywhere a model is accepted (e.g. `local:llama3.2`).
-3. **Built-in test mode (no config at all)** — when nothing above is
+3. **Built-in tiny model (download on first use)** — nothing ships in the
+   installer; a one-time ~400MB pull of Qwen2.5-0.5B-Instruct (Apache-2.0)
+   into `~/.keel/models` gives real local inference in-process (llama.cpp),
+   with no Ollama and no keys:
+   ```bash
+   keel init builtin-model          # or the Setup panel's Download button
+   keel init builtin-model --remove # reclaim the disk space
+   ```
+4. **Built-in test mode (no config at all)** — when nothing above is
    configured, a deterministic, clearly-labeled provider answers (story
    drafts, enrichment skeletons), so every workflow is demoable straight from
    the package. Output carries a `test-mode` marker and is never mistaken for
    a real model. Strict environments can disable it with
    `KEEL_DISABLE_TEST_MODE=1`.
 
-Planned follow-up: an optional "Enable built-in model" that downloads a small
-Apache-2.0 GGUF (e.g. Qwen2.5-0.5B) into `~/.keel/models` and serves it
-in-process via llama.cpp — real local inference with a lean installer.
+Fallback chain when no provider is pinned: **vertex → local runtime →
+downloaded built-in model → test mode.**
 
 ## keel CLI inside the desktop app
 
