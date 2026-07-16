@@ -7,13 +7,19 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
+from fastapi import Request
+
 from src.services.mcp_service import (
     MCPServerInfo,
     MCPHealthResult,
+    MCPServerUpsert,
+    add_mcp_server,
     list_mcp_servers,
     check_health,
+    remove_mcp_server,
     start_mcp_server,
     stop_mcp_server,
+    update_mcp_server,
     get_mcp_logs,
 )
 
@@ -57,6 +63,42 @@ async def api_list_servers():
         if server.name in health_map:
             _apply_health(server, health_map[server.name])
     return servers
+
+
+@router.post("/servers", response_model=MCPServerInfo)
+async def api_add_server(req: MCPServerUpsert, request: Request):
+    """Register a remote MCP server (SSE/HTTP) in the CLI registry."""
+    from src.services.auth_service import actor_of
+
+    try:
+        return add_mcp_server(req, actor=actor_of(request))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.put("/servers/{name}", response_model=MCPServerInfo)
+async def api_update_server(name: str, req: MCPServerUpsert, request: Request):
+    """Update a registry-sourced MCP server (URL, description, enabled)."""
+    from src.services.auth_service import actor_of
+
+    try:
+        return update_mcp_server(name, req, actor=actor_of(request))
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e.args[0] if e.args else e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/servers/{name}", response_model=MCPActionResponse)
+async def api_remove_server(name: str, request: Request):
+    """Remove a registry-sourced MCP server."""
+    from src.services.auth_service import actor_of
+
+    try:
+        remove_mcp_server(name, actor=actor_of(request))
+        return MCPActionResponse(success=True, message=f"Removed '{name}'")
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e.args[0] if e.args else e))
 
 
 @router.get("/servers/{name}", response_model=MCPServerInfo)

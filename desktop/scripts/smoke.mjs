@@ -101,6 +101,29 @@ async function sweepEndpoints() {
   }
 }
 
+async function mcpRegistrationRoundTrip() {
+  // The packaged app must let users register a REMOTE MCP server (no Docker).
+  const add = await fetch(`${BASE}/api/mcp/servers`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name: "smoke-remote", url: "https://mcp.example.com:8128/sse",
+                           type: "sse", description: "smoke test entry" }),
+  });
+  if (add.status !== 200) return fail("MCP register", `status ${add.status}`);
+  const added = await add.json();
+  added.source === "registry"
+    ? ok(`MCP server registered (${added.name}, source=registry)`)
+    : fail("MCP register", `unexpected source ${added.source}`);
+
+  const list = await (await fetch(`${BASE}/api/mcp/servers`)).json();
+  list.some((s) => s.name === "smoke-remote")
+    ? ok("registered MCP appears in list")
+    : fail("MCP list", "registered server missing");
+
+  const del = await fetch(`${BASE}/api/mcp/servers/smoke-remote`, { method: "DELETE" });
+  del.status === 200 ? ok("MCP server removed") : fail("MCP remove", `status ${del.status}`);
+}
+
 async function terminalRoundTrip() {
   const create = await fetch(`${BASE}/api/terminal/sessions`, {
     method: "POST",
@@ -183,6 +206,8 @@ try {
     : fail("keel CLI wrapper", `missing ${wrapper}`);
   console.log("\n— endpoint sweep —");
   await sweepEndpoints();
+  console.log("\n— MCP registration e2e —");
+  await mcpRegistrationRoundTrip();
   console.log("\n— terminal e2e —");
   await terminalRoundTrip();
   console.log("\n— keel CLI e2e (bundled, multi-call) —");
