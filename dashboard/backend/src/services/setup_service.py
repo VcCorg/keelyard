@@ -143,6 +143,10 @@ def get_setup_status() -> SetupStatus:
 
     devin_ok = bool(os.environ.get("DEVIN_API_KEY"))
 
+    local_model = os.environ.get("KEEL_LOCAL_LLM_MODEL", "").strip()
+    local_url = os.environ.get("KEEL_LOCAL_LLM_URL", "").strip() or "http://localhost:11434/v1"
+    local_ok = bool(local_model)
+
     glean_url = os.environ.get("GLEAN_API_URL", "").strip()
     glean_mode = (os.environ.get("GLEAN_AUTH_MODE", "token").strip() or "token").lower()
     if glean_mode == "sso":
@@ -165,6 +169,14 @@ def get_setup_status() -> SetupStatus:
             key="vertex_ai", label="Vertex AI (LLM)", configured=vertex_ok, required=True,
             detail=(f"project: {google.get('project_id')}" if vertex_ok else "Google Cloud project not set"),
             fix_hint="keel init vertex-ai --project-id <id> --location <region>",
+        ),
+        SetupItem(
+            key="local_model", label="Local model (Ollama / LM Studio)", configured=local_ok,
+            required=False,
+            detail=(f"{local_model} @ {local_url}" if local_ok else
+                    "No local model — the built-in test-mode provider answers when "
+                    "no model is configured (deterministic, clearly labeled)"),
+            fix_hint="keel init local-model --model llama3.2",
         ),
         SetupItem(
             key="neo4j", label="Knowledge Graph (Neo4j)", configured=neo4j_ok, required=False,

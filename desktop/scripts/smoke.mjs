@@ -124,6 +124,26 @@ async function mcpRegistrationRoundTrip() {
   del.status === 200 ? ok("MCP server removed") : fail("MCP remove", `status ${del.status}`);
 }
 
+async function modelFallbackDraft() {
+  // With NO model configured, the built-in test-mode provider must still
+  // produce schema-compliant story drafts — "testable from the package".
+  const r = await fetch(`${BASE}/api/ideate/draft`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      context: "Users need offline exports and audit logging for compliance reviews.",
+      count: 2,
+    }),
+    signal: AbortSignal.timeout(30000),
+  });
+  if (r.status !== 200) return fail("ideate draft (no model)", `status ${r.status}`);
+  const data = await r.json();
+  const stories = data.stories ?? [];
+  stories.length > 0 && stories[0].title
+    ? ok(`ideate draft works with no model configured (${stories.length} stories, source=${data.source})`)
+    : fail("ideate draft (no model)", "no stories returned");
+}
+
 async function terminalRoundTrip() {
   const create = await fetch(`${BASE}/api/terminal/sessions`, {
     method: "POST",
@@ -208,6 +228,8 @@ try {
   await sweepEndpoints();
   console.log("\n— MCP registration e2e —");
   await mcpRegistrationRoundTrip();
+  console.log("\n— model fallback e2e (test-mode) —");
+  await modelFallbackDraft();
   console.log("\n— terminal e2e —");
   await terminalRoundTrip();
   console.log("\n— keel CLI e2e (bundled, multi-call) —");

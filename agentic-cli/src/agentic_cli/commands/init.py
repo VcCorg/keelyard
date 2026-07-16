@@ -772,6 +772,86 @@ def init_devin(
     )
 
 
+@init_app.command("local-model")
+def init_local_model(
+    model: Annotated[
+        str,
+        typer.Option("--model", help="Model name the local runtime serves (e.g. llama3.2, qwen2.5)"),
+    ] = "",
+    url: Annotated[
+        str,
+        typer.Option("--url", help="OpenAI-compatible base URL (default: Ollama http://localhost:11434/v1)"),
+    ] = "",
+    api_key: Annotated[
+        str,
+        typer.Option("--api-key", help="Optional bearer token (vLLM/LocalAI deployments)"),
+    ] = "",
+    default: Annotated[
+        bool,
+        typer.Option("--default/--no-default", help="Make the local model the default LLM provider"),
+    ] = False,
+) -> None:
+    """Initialize a local model runtime (Ollama / LM Studio / llama.cpp / vLLM).
+
+    Anything that speaks the OpenAI chat-completions API works. Settings are
+    persisted to ``~/.keel/.env`` — the same store as the other integrations —
+    and the runtime is probed so you get instant feedback. Use models with
+    ``local:<name>`` (e.g. ``local:llama3.2``) anywhere a model is accepted,
+    or pass ``--default`` to route everything through the local runtime.
+    """
+    from agentic_cli.env import set_env_vars
+    from agentic_cli.llm.providers.local import DEFAULT_BASE_URL
+
+    if not model:
+        model = Prompt.ask("Local model name (as served by your runtime)", default="llama3.2")
+    base = (url or DEFAULT_BASE_URL).rstrip("/")
+
+    values = {"KEEL_LOCAL_LLM_MODEL": model.strip(), "KEEL_LOCAL_LLM_URL": base}
+    if api_key:
+        values["KEEL_LOCAL_LLM_API_KEY"] = api_key.strip()
+    if default:
+        values["KEEL_LLM_PROVIDER"] = "local"
+    path = set_env_vars(values)
+
+    # Probe the runtime for instant feedback (best-effort, never fails the init).
+    status = "[yellow]not reachable — start your runtime (e.g. `ollama serve`)[/yellow]"
+    try:
+        import httpx
+
+        r = httpx.get(f"{base}/models", timeout=3.0)
+        if r.status_code < 500:
+            names = []
+            try:
+                names = [m.get("id", "") for m in r.json().get("data", [])]
+            except Exception:  # noqa: BLE001
+                pass
+            listed = "✓ serving" if not names else (
+                "✓ model available" if model in names
+                else f"[yellow]⚠ '{model}' not in served models ({', '.join(names[:5])})[/yellow]")
+            status = f"[green]reachable[/green] — {listed}"
+    except Exception:  # noqa: BLE001
+        pass
+
+    record_activity(command="init", subcommand="local-model",
+                    args={"model": model, "url": base, "default": default})
+
+    console.print(
+        Panel.fit(
+            f"[bold green]✓ Local model configured[/bold green]\n\n"
+            f"  Runtime: {base}\n"
+            f"  Model:   {model}\n"
+            f"  Status:  {status}\n"
+            f"  Default provider: {'local' if default else 'unchanged'}\n\n"
+            f"[dim]Saved to: {path}[/dim]\n\n"
+            f"[bold]Usage:[/bold]\n"
+            f"  Use [cyan]local:{model}[/cyan] wherever a model name is accepted,\n"
+            f"  or rerun with --default to route all LLM calls locally.",
+            title="Local Model",
+            border_style="green",
+        )
+    )
+
+
 @init_app.command("glean")
 def init_glean(
     url: Annotated[str, typer.Option("--url", help="Glean instance URL, e.g. https://company-be.glean.com")] = "",

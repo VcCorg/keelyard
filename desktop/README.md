@@ -126,6 +126,31 @@ all core API endpoints return 200, a terminal session does a real PTY round-trip
 over WebSocket, and the bundled `keel` CLI works end to end (`--help`,
 `admin show`, `project create` + `agent add` generating real files).
 
+## Models: cloud, local, and the built-in fallback
+
+The provider chain means the app is usable the moment it's installed:
+
+1. **Cloud** — Vertex AI (`keel init vertex-ai`), Anthropic, or OpenAI keys.
+2. **Local models** — anything with an OpenAI-compatible API: **Ollama**
+   (default, `http://localhost:11434/v1`), **LM Studio**, **llama.cpp server**,
+   **vLLM**. Configure once:
+   ```bash
+   keel init local-model --model llama3.2            # Ollama default URL
+   keel init local-model --model qwen2.5 --url http://localhost:1234/v1  # LM Studio
+   keel init local-model --model llama3.2 --default  # route ALL LLM calls locally
+   ```
+   Use `local:<name>` anywhere a model is accepted (e.g. `local:llama3.2`).
+3. **Built-in test mode (no config at all)** — when nothing above is
+   configured, a deterministic, clearly-labeled provider answers (story
+   drafts, enrichment skeletons), so every workflow is demoable straight from
+   the package. Output carries a `test-mode` marker and is never mistaken for
+   a real model. Strict environments can disable it with
+   `KEEL_DISABLE_TEST_MODE=1`.
+
+Planned follow-up: an optional "Enable built-in model" that downloads a small
+Apache-2.0 GGUF (e.g. Qwen2.5-0.5B) into `~/.keel/models` and serves it
+in-process via llama.cpp — real local inference with a lean installer.
+
 ## keel CLI inside the desktop app
 
 The frozen backend is a multi-call binary: `keel-backend cli <args>` runs the

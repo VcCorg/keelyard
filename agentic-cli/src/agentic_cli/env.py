@@ -69,6 +69,16 @@ RECOGNIZED_VARS: List[EnvVar] = [
            description="Google/Gemini API key (alternative to Vertex project)"),
     EnvVar("GEMINI_API_KEY", "AI", required=False, secret=True,
            description="Gemini API key (alias of GOOGLE_API_KEY)"),
+    # --- Local models (Ollama / LM Studio / llama.cpp / vLLM) -------------
+    EnvVar("KEEL_LOCAL_LLM_URL", "AI", required=False,
+           default="http://localhost:11434/v1",
+           description="OpenAI-compatible base URL of the local model runtime"),
+    EnvVar("KEEL_LOCAL_LLM_MODEL", "AI", required=False,
+           description="Local model name (e.g. llama3.2, qwen2.5)"),
+    EnvVar("KEEL_LOCAL_LLM_API_KEY", "AI", required=False, secret=True,
+           description="Optional bearer token for the local runtime"),
+    EnvVar("KEEL_LLM_PROVIDER", "AI", required=False,
+           description="Default LLM provider (vertex-ai|anthropic|openai|local|test-mode)"),
     # --- MCP endpoints ----------------------------------------------------
     EnvVar("MCP_GATEWAY_URL", "MCP", required=False,
            description="MCP gateway URL (optional)"),
