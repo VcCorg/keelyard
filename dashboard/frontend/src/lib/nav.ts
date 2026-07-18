@@ -100,6 +100,7 @@ export function roleCanSee(
 }
 
 export const navGroups: NavGroup[] = [
+  // Lifecycle reading order: govern → know → ideate → build → track.
   {
     label: "Overview",
     items: [
@@ -107,45 +108,15 @@ export const navGroups: NavGroup[] = [
       { to: "/activity", icon: Activity, label: "Activity" },
     ],
   },
+  // Governance right after the dashboard: guardrails frame everything below.
   {
-    label: "Ideate",
-    items: [{ to: "/ideate", icon: Lightbulb, label: "Requirements" }],
-  },
-  {
-    label: "Work",
+    label: "Governance",
+    minRole: "lead",
     items: [
-      { to: "/tasks", icon: ListTodo, label: "Tasks" },
-      { to: "/assignments", icon: ClipboardList, label: "Assignments", minRole: "lead" },
-    ],
-  },
-  // Code — the flagship journey: governed code delivery. Governance leads
-  // (guardrails come before construction), Build follows right after, so the
-  // "code build" and "code build with governance" flows read top-to-bottom.
-  {
-    label: "Code",
-    items: [],
-    subgroups: [
-      {
-        label: "Governance",
-        icon: ShieldCheck,
-        minRole: "lead",
-        items: [
-          { to: "/onboarding", icon: Boxes, label: "Domain", minRole: "lead" },
-          { to: "/workspaces", icon: FolderOpen, label: "Workspaces" },
-          { to: "/skills/personas", icon: Sparkles, label: "Persona Skills" },
-          { to: "/marketplace", icon: Store, label: "Marketplace" },
-        ],
-      },
-      {
-        label: "Build",
-        icon: FolderGit2,
-        items: [
-          { to: "/code-onboard", icon: FolderGit2, label: "Repository" },
-          { to: "/skills", icon: Package, label: "Skills" },
-          { to: "/devin", icon: DevinBot, label: "Devin Sessions" },
-          { to: "/snapshots", icon: Camera, label: "Snapshots", minRole: "lead" },
-        ],
-      },
+      { to: "/onboarding", icon: Boxes, label: "Domain", minRole: "lead" },
+      { to: "/workspaces", icon: FolderOpen, label: "Workspaces" },
+      { to: "/skills/personas", icon: Sparkles, label: "Persona Skills" },
+      { to: "/marketplace", icon: Store, label: "Marketplace" },
     ],
   },
   {
@@ -156,6 +127,27 @@ export const navGroups: NavGroup[] = [
       { to: "/kg/ingest", icon: DatabaseZap, label: "KG Ingest" },
       { to: "/kg/okf", icon: FileStack, label: "OKF Generation", minRole: "admin" },
       { to: "/data", icon: Database, label: "Data Sources" },
+    ],
+  },
+  {
+    label: "Ideate",
+    items: [{ to: "/ideate", icon: Lightbulb, label: "Requirements" }],
+  },
+  // Build directly after Ideate: requirements flow straight into construction.
+  {
+    label: "Build",
+    items: [
+      { to: "/code-onboard", icon: FolderGit2, label: "Repository" },
+      { to: "/skills", icon: Package, label: "Skills" },
+      { to: "/devin", icon: DevinBot, label: "Devin Sessions" },
+      { to: "/snapshots", icon: Camera, label: "Snapshots", minRole: "lead" },
+    ],
+  },
+  {
+    label: "Work",
+    items: [
+      { to: "/tasks", icon: ListTodo, label: "Tasks" },
+      { to: "/assignments", icon: ClipboardList, label: "Assignments", minRole: "lead" },
     ],
   },
   // Agent Builder sits directly above Platform: agent construction is a
