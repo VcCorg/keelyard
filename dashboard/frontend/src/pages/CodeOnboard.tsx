@@ -6,6 +6,12 @@ import { StreamConsole } from "@/components/StreamConsole";
 import { RunHistory } from "@/components/RunHistory";
 import { SetupRequiredBanner } from "@/components/SetupRequiredBanner";
 import { api, type DomainInfo, type OnboardParams } from "@/lib/api";
+import {
+  GovernanceBadge,
+  GovernanceBanner,
+  governanceBlocks,
+  useBuildGovernance,
+} from "@/components/GovernanceBanner";
 
 type SourceMode = "repo" | "path";
 
@@ -62,6 +68,20 @@ export function CodeOnboard() {
     api.listDomains().then(setDomains).catch(() => setDomains([]));
   }, []);
 
+  // Governance guidance: effective level for the chosen domain (or the
+  // domain-less default) + the domain's registered repos for guided pick.
+  const governance = useBuildGovernance(domain);
+  const registered = governance?.registered_repos ?? [];
+  const [repoPick, setRepoPick] = useState("");   // registered slug or "" = custom
+  useEffect(() => setRepoPick(""), [domain]);      // reset pick on domain change
+  const pickRepo = (slug: string) => {
+    setRepoPick(slug);
+    const hit = registered.find((r) => r.slug === slug);
+    if (hit?.clone_url) setRepo(hit.clone_url);
+  };
+  const unregisteredCustom =
+    mode === "repo" && !!domain && registered.length > 0 && !repoPick && !!repo.trim();
+
   const start = () => {
     const params: OnboardParams = {
       domain: domain || undefined,
@@ -79,7 +99,8 @@ export function CodeOnboard() {
     setStreamUrl(api.codeOnboardStreamUrl(params));
   };
 
-  const canRun = mode === "repo" ? !!repo.trim() : !!path.trim();
+  const blocked = governanceBlocks(governance, domain);
+  const canRun = (mode === "repo" ? !!repo.trim() : !!path.trim()) && !blocked;
 
   return (
     <div className="space-y-6">
@@ -114,7 +135,37 @@ export function CodeOnboard() {
             ))}
           </div>
           {mode === "repo" ? (
-            <Input placeholder="https://github.com/org/repo.git" value={repo} onChange={(e) => setRepo(e.target.value)} />
+            <div className="space-y-2">
+              {domain && registered.length > 0 && (
+                <select
+                  value={repoPick}
+                  onChange={(e) => pickRepo(e.target.value)}
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="">— custom URL (unregistered) —</option>
+                  {registered.map((r) => (
+                    <option key={r.slug} value={r.slug}>
+                      {r.slug} (registered)
+                    </option>
+                  ))}
+                </select>
+              )}
+              {(!repoPick || !domain || registered.length === 0) && (
+                <Input placeholder="https://github.com/org/repo.git" value={repo} onChange={(e) => setRepo(e.target.value)} />
+              )}
+              {unregisteredCustom && governance?.level === "enforce" && (
+                <p className="text-[11px] text-red-600 dark:text-red-400">
+                  Governance is enforced for '{domain}' — repos not registered in its
+                  repos.yaml will be refused. Pick a registered repo above.
+                </p>
+              )}
+              {unregisteredCustom && governance?.level === "warn" && (
+                <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                  This repo isn't registered in '{domain}' — the onboard will run but be
+                  tagged UNGOVERNED in the audit trail.
+                </p>
+              )}
+            </div>
           ) : (
             <Input placeholder="/abs/path/to/project" value={path} onChange={(e) => setPath(e.target.value)} />
           )}
@@ -123,19 +174,24 @@ export function CodeOnboard() {
         {/* Domain + tool */}
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
-            <label className="text-xs text-gray-500 block mb-1">Domain (optional)</label>
+            <label className="text-xs text-gray-500 mb-1 flex items-center gap-2">
+              Domain <GovernanceBadge info={governance} />
+            </label>
             <select
               value={domain}
               onChange={(e) => setDomain(e.target.value)}
               className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
             >
-              <option value="">None</option>
+              <option value="">None (ungoverned)</option>
               {domains.map((d) => (
                 <option key={d.name} value={d.name}>
                   {d.name}
                 </option>
               ))}
             </select>
+            <div className="mt-1">
+              <GovernanceBanner info={governance} domain={domain} />
+            </div>
           </div>
           <div>
             <label className="text-xs text-gray-500 block mb-1">Code assist tool</label>

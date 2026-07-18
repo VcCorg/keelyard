@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  GovernanceBadge,
+  GovernanceBanner,
+  governanceBlocks,
+  useBuildGovernance,
+} from "@/components/GovernanceBanner";
+import {
   Bot,
   Plus,
   RefreshCw,
@@ -253,8 +259,12 @@ function CreateSessionModal({
   const [result, setResult] = useState<CreateDevinSessionResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Build-governance guidance: what the execution seam will do with this domain.
+  const governance = useBuildGovernance(form.domain ?? "");
+  const blocked = governanceBlocks(governance, form.domain ?? "");
+
   const submit = async () => {
-    if (!form.prompt.trim()) return;
+    if (!form.prompt.trim() || blocked) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -305,12 +315,18 @@ function CreateSessionModal({
             </Field>
           </div>
           <Field label="Domain">
-            <input
-              value={form.domain ?? ""}
-              onChange={(e) => setForm({ ...form, domain: e.target.value })}
-              placeholder="cwow-facility"
-              className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent"
-            />
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <input
+                  value={form.domain ?? ""}
+                  onChange={(e) => setForm({ ...form, domain: e.target.value })}
+                  placeholder="cwow-facility"
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent"
+                />
+                <GovernanceBadge info={governance} />
+              </div>
+              <GovernanceBanner info={governance} domain={form.domain ?? ""} />
+            </div>
           </Field>
           <div className="flex flex-wrap gap-4 text-sm">
             <label className="flex items-center gap-2">
@@ -369,7 +385,7 @@ function CreateSessionModal({
           </button>
           <button
             onClick={submit}
-            disabled={submitting || !form.prompt.trim()}
+            disabled={submitting || !form.prompt.trim() || blocked}
             className="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
           >
             {submitting ? "Working…" : form.dry_run ? "Preview" : "Create Session"}

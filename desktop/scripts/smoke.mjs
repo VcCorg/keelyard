@@ -90,6 +90,7 @@ async function sweepEndpoints() {
     "/api/mcp/servers",
     "/api/setup/status",
     "/api/terminal/sessions",
+    "/api/execution/governance",
   ];
   for (const ep of endpoints) {
     try {

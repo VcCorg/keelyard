@@ -120,15 +120,22 @@ def resolve(domain: str = "", cwd: Optional[Path] = None) -> BuildPolicy:
                        domain=domain, meta_repo=meta)
 
 
-def _domain_repo_slugs(meta_repo: Path) -> list[str]:
+def registered_repos(meta_repo: Path) -> list[dict]:
+    """The repos a domain registers in repos.yaml: [{slug, clone_url}]."""
     try:
         import yaml
 
         cfg = meta_repo / ".platform" / "config" / "repos.yaml"
         data = yaml.safe_load(cfg.read_text(encoding="utf-8")) or {}
-        return [str(r.get("slug", "")) for r in (data.get("repos") or []) if r.get("slug")]
+        return [{"slug": str(r.get("slug", "")),
+                 "clone_url": str(r.get("clone_url", ""))}
+                for r in (data.get("repos") or []) if r.get("slug")]
     except Exception:  # noqa: BLE001
         return []
+
+
+def _domain_repo_slugs(meta_repo: Path) -> list[str]:
+    return [r["slug"] for r in registered_repos(meta_repo)]
 
 
 def check_session(domain: str = "", cwd: Optional[Path] = None) -> BuildPolicy:

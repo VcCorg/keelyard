@@ -418,6 +418,14 @@ export interface AdminSettings {
   build_governance_default: "off" | "warn" | "enforce";
 }
 
+export interface BuildGovernanceInfo {
+  domain: string;
+  level: "off" | "warn" | "enforce";
+  source: string;
+  meta_repo_found: boolean;
+  registered_repos: { slug: string; clone_url: string }[];
+}
+
 export interface AdminSettingsUpdate {
   branding?: AdminBranding;
   nav_visibility?: Record<string, string[]>;
@@ -1743,6 +1751,11 @@ class APIClient {
   }
 
   /* ---- Admin (branding + nav visibility) ---- */
+  async getBuildGovernance(domain?: string): Promise<BuildGovernanceInfo> {
+    const q = domain ? `?domain=${encodeURIComponent(domain)}` : "";
+    return this.request(`/execution/governance${q}`);
+  }
+
   async getAdminSettings(): Promise<AdminSettings> {
     return this.request("/admin/settings");
   }
