@@ -34,7 +34,11 @@ async def post_context_preview(
 
     Requires the ``context:build`` permission.
     """
+    from agentic_cli.meta_repo.build_governance import GovernanceViolation
+
     try:
         return preview_portable_context(req, actor=actor_of(request))
+    except GovernanceViolation as e:
+        raise HTTPException(status_code=403, detail=str(e))
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))

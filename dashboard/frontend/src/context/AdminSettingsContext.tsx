@@ -19,6 +19,7 @@ const DEFAULTS: AdminSettings = {
   branding: { app_title: "Keel", app_name: "Agentic Product Development Platform" },
   nav_visibility: {},
   skill_enforcement: "off",
+  build_governance_default: "warn",
 };
 
 interface AdminSettingsValue {

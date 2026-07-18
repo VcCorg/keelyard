@@ -57,8 +57,14 @@ async def api_create_session(
     _principal=Depends(require(PERM_SESSION_CREATE)),
 ):
     """Create (trigger) a Devin session. Requires the ``session:create`` permission."""
+    from agentic_cli.meta_repo.build_governance import GovernanceViolation
+
     try:
         return create_session(req, actor=actor_of(request))
+    except GovernanceViolation as exc:
+        # The domain's build-governance dial (or the admin default) refused
+        # an ungoverned session — a policy decision, not a bad request.
+        raise HTTPException(status_code=403, detail=str(exc))
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=str(exc))
 

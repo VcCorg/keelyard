@@ -44,12 +44,32 @@ def list_engines() -> List[EngineInfo]:
 
 def create_session(spec: ExecutionSpec, engine: Optional[str] = None, *,
                    source: str = "cli", actor: Optional[str] = None) -> ExecutionResult:
-    """Launch a session on the selected engine and audit it (engine-neutral)."""
+    """Launch a session on the selected engine and audit it (engine-neutral).
+
+    This is the single build-governance seam for EVERY engine (Devin, local,
+    future adapters): the domain's ``build_governance`` dial (or the admin
+    default for domain-less specs) decides whether ungoverned sessions run
+    silently (off), run tagged (warn), or are refused (enforce).
+    """
+    from agentic_cli.meta_repo.build_governance import check_session, enforce_or_raise
+
+    policy = check_session(spec.domain)
+    enforce_or_raise(policy, "create_session")  # raises GovernanceViolation
+
     eng = get_engine(engine)
     result = eng.create_session(spec)
     try:
         from agentic_cli.tracker import record_action
 
+        details = {
+            "engine": eng.name,
+            "jira": spec.jira,
+            "domain": spec.domain,
+            "dry_run": result.dry_run,
+            "url": result.url,
+        }
+        if policy.tagged:
+            details.update(policy.audit_details())
         record_action(
             "execution", "create_session",
             entity_type="session",
@@ -57,13 +77,7 @@ def create_session(spec: ExecutionSpec, engine: Optional[str] = None, *,
             source=source,
             actor=actor,
             status="success" if not result.dry_run else "success",
-            details={
-                "engine": eng.name,
-                "jira": spec.jira,
-                "domain": spec.domain,
-                "dry_run": result.dry_run,
-                "url": result.url,
-            },
+            details=details,
         )
     except Exception:  # noqa: BLE001 - never break on audit
         pass

@@ -53,6 +53,19 @@ export function Admin() {
     }
   };
 
+  // ── Build governance default (domain-less work) ─────────────────────────
+  const buildGov = settings.build_governance_default;
+  const [savingGov, setSavingGov] = useState(false);
+  const setBuildGov = async (level: "off" | "warn" | "enforce") => {
+    if (level === buildGov) return;
+    setSavingGov(true);
+    try {
+      await updateSettings({ build_governance_default: level });
+    } finally {
+      setSavingGov(false);
+    }
+  };
+
   // ── Nav visibility draft ────────────────────────────────────────────────
   const effective = (n: NavCatalogNode): UserRole[] => {
     const ov = settings.nav_visibility[n.id];
@@ -256,6 +269,45 @@ export function Admin() {
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…
           </p>
         )}
+
+        {/* Build governance default (domain-less work) */}
+        <div className="pt-4 border-t border-gray-100 dark:border-gray-800 space-y-2">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold">Build governance — domain-less default</h3>
+            {savingGov && <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-400" />}
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            Applies to onboards and engine sessions with <strong>no domain</strong>. Work inside a
+            domain follows that domain's own <code className="font-mono text-xs">governance.yaml</code>
+            {" "}(<code className="font-mono text-xs">build_governance: off | warn | enforce</code>) —
+            a domain set to <code className="font-mono text-xs">off</code> acts as a sandbox.
+          </p>
+          <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            {(["off", "warn", "enforce"] as const).map((level) => (
+              <button
+                key={level}
+                onClick={() => setBuildGov(level)}
+                disabled={!canEdit || savingGov}
+                className={cn(
+                  "px-3.5 py-1.5 text-xs font-medium transition-colors disabled:opacity-50",
+                  buildGov === level
+                    ? level === "enforce"
+                      ? "bg-emerald-500 text-white"
+                      : level === "warn"
+                        ? "bg-amber-500 text-white"
+                        : "bg-gray-400 text-white"
+                    : "bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                )}
+              >
+                {level}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-gray-400">
+            off: ungoverned work runs silently · warn: runs but is tagged in the audit trail ·
+            enforce: refused at the seams (onboard &amp; session create)
+          </p>
+        </div>
       </section>
 
       {/* ── Nav visibility ───────────────────────────────────────────────── */}

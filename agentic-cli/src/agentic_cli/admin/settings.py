@@ -32,11 +32,25 @@ DEFAULT_APP_NAME = "Agentic Product Development Platform"
 ENFORCEMENT_MODES = ["off", "enforce"]
 DEFAULT_ENFORCEMENT = "off"
 
+# Build governance PLATFORM DEFAULT — applies only to work with no domain
+# (domain-scoped work reads build_governance from the domain's governance.yaml).
+#   off     — domain-less builds/sessions run silently
+#   warn    — they run but are tagged "ungoverned" in the audit + UI (default)
+#   enforce — they are refused at the seams
+BUILD_GOVERNANCE_LEVELS = ["off", "warn", "enforce"]
+DEFAULT_BUILD_GOVERNANCE = "warn"
+
 
 def _sanitize_enforcement(mode: object) -> str:
     """Coerce to a known enforcement mode (defaults to 'off')."""
     m = str(mode or "").strip().lower()
     return m if m in ENFORCEMENT_MODES else DEFAULT_ENFORCEMENT
+
+
+def _sanitize_build_governance(level: object) -> str:
+    """Coerce to a known build-governance level (defaults to 'warn')."""
+    lv = str(level or "").strip().lower()
+    return lv if lv in BUILD_GOVERNANCE_LEVELS else DEFAULT_BUILD_GOVERNANCE
 
 
 @dataclass
@@ -52,11 +66,14 @@ class AppSettings:
     nav_visibility: Dict[str, List[str]] = field(default_factory=dict)
     # Persona-scoped skill governance: "off" (advisory) | "enforce" (hard-block).
     skill_enforcement: str = DEFAULT_ENFORCEMENT
+    # Build-governance default for DOMAIN-LESS work: "off" | "warn" | "enforce".
+    build_governance_default: str = DEFAULT_BUILD_GOVERNANCE
 
     def to_dict(self) -> dict:
         return {"branding": asdict(self.branding),
                 "nav_visibility": self.nav_visibility,
-                "skill_enforcement": self.skill_enforcement}
+                "skill_enforcement": self.skill_enforcement,
+                "build_governance_default": self.build_governance_default}
 
 
 def _sanitize_roles(roles: List[str]) -> List[str]:
@@ -87,6 +104,8 @@ def load_settings(path: Path = SETTINGS_PATH) -> AppSettings:
         branding=branding,
         nav_visibility=nav,
         skill_enforcement=_sanitize_enforcement(raw.get("skill_enforcement")),
+        build_governance_default=_sanitize_build_governance(
+            raw.get("build_governance_default")),
     )
 
 
@@ -136,10 +155,19 @@ def enforcement_enabled(path: Path = SETTINGS_PATH) -> bool:
     return load_settings(path).skill_enforcement == "enforce"
 
 
+def set_build_governance_default(level: str, path: Path = SETTINGS_PATH) -> AppSettings:
+    """Set the build-governance default applied to domain-less work."""
+    s = load_settings(path)
+    s.build_governance_default = _sanitize_build_governance(level)
+    save_settings(s, path)
+    return s
+
+
 def update_settings(branding: Optional[dict] = None,
                     nav_visibility: Optional[Dict[str, List[str]]] = None,
                     replace_nav: bool = False,
                     skill_enforcement: Optional[str] = None,
+                    build_governance_default: Optional[str] = None,
                     path: Path = SETTINGS_PATH) -> AppSettings:
     """Apply a partial update (used by the dashboard PUT)."""
     s = load_settings(path)
@@ -154,5 +182,7 @@ def update_settings(branding: Optional[dict] = None,
         s.nav_visibility = cleaned if replace_nav else {**s.nav_visibility, **cleaned}
     if skill_enforcement is not None:
         s.skill_enforcement = _sanitize_enforcement(skill_enforcement)
+    if build_governance_default is not None:
+        s.build_governance_default = _sanitize_build_governance(build_governance_default)
     save_settings(s, path)
     return s

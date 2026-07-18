@@ -144,6 +144,34 @@ async function modelFallbackDraft() {
     : fail("ideate draft (no model)", "no stories returned");
 }
 
+async function buildGovernanceGate() {
+  // Fresh install default is "warn": a domain-less session bundle still works.
+  const preview = (body) => fetch(`${BASE}/api/execution/context/preview`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(30000),
+  });
+  const warnR = await preview({ prompt: "smoke governance", title: "smoke" });
+  warnR.status === 200
+    ? ok("domain-less session allowed under default 'warn'")
+    : fail("governance warn path", `status ${warnR.status}`);
+
+  // Flip the admin default to enforce -> the same request must be refused (403).
+  const put = (level) => fetch(`${BASE}/api/admin/settings`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ build_governance_default: level }),
+  });
+  const enf = await put("enforce");
+  if (enf.status !== 200) return fail("governance set enforce", `status ${enf.status}`);
+  const blocked = await preview({ prompt: "smoke governance", title: "smoke" });
+  blocked.status === 403
+    ? ok("domain-less session refused under 'enforce' (403)")
+    : fail("governance enforce path", `expected 403, got ${blocked.status}`);
+  await put("warn"); // restore the adoption-friendly default
+}
+
 async function terminalRoundTrip() {
   const create = await fetch(`${BASE}/api/terminal/sessions`, {
     method: "POST",
@@ -230,6 +258,8 @@ try {
   await mcpRegistrationRoundTrip();
   console.log("\n— model fallback e2e (test-mode) —");
   await modelFallbackDraft();
+  console.log("\n— build governance e2e —");
+  await buildGovernanceGate();
   console.log("\n— terminal e2e —");
   await terminalRoundTrip();
   console.log("\n— keel CLI e2e (bundled, multi-call) —");

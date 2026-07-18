@@ -755,6 +755,27 @@ def onboard(
             console.print(f"[red]✗ Path does not exist: {project_path}[/red]")
             raise typer.Exit(1)
 
+    # Step 1b: Build governance — the domain's dial (or the admin default for
+    # domain-less onboards) decides whether ungoverned onboarding runs silently,
+    # runs tagged, or is refused. Governed = --domain with a meta-repo, and the
+    # repo registered in that domain's repos.yaml.
+    from agentic_cli.meta_repo.build_governance import (
+        GovernanceViolation, check_onboard, enforce_or_raise,
+    )
+
+    governance_policy = check_onboard(
+        domain or "", repo_slug=repo_slug or "", project_name=project_path.name)
+    try:
+        enforce_or_raise(governance_policy, "code onboard")
+    except GovernanceViolation as e:
+        console.print(f"[red]✗ {e}[/red]")
+        raise typer.Exit(1)
+    if governance_policy.tagged:
+        console.print("[yellow]⚠ Ungoverned onboard "
+                      f"({governance_policy.source}, level=warn):[/yellow]")
+        for v in governance_policy.violations:
+            console.print(f"  [yellow]- {v}[/yellow]")
+
     # Step 2: Ensure registry
     registry_path = _ensure_registry(registry)
 
@@ -1311,6 +1332,7 @@ def onboard(
             "languages": analysis.languages,
             "frameworks": analysis.frameworks,
             "skills_installed": installed_names,
+            **(governance_policy.audit_details() if governance_policy.tagged else {}),
             "dependencies": len(analysis.dependencies),
             "kg": kg,
             "kg_ingested": bool(kg_result and kg_result.get("ingested")),

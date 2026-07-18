@@ -19,10 +19,13 @@ def show() -> None:
     s = A.load_settings()
     enf = s.skill_enforcement
     enf_style = "green" if enf == "enforce" else "yellow"
+    bg = s.build_governance_default
+    bg_style = {"off": "yellow", "warn": "cyan", "enforce": "green"}.get(bg, "cyan")
     console.print(Panel.fit(
         f"[bold]App title:[/bold] {s.branding.app_title}\n"
         f"[bold]App name:[/bold]  {s.branding.app_name}\n"
-        f"[bold]Skill enforcement:[/bold] [{enf_style}]{enf}[/{enf_style}]",
+        f"[bold]Skill enforcement:[/bold] [{enf_style}]{enf}[/{enf_style}]\n"
+        f"[bold]Build governance (domain-less default):[/bold] [{bg_style}]{bg}[/{bg_style}]",
         title="Branding & Governance", border_style="cyan"))
     if s.nav_visibility:
         table = Table(show_header=True, header_style="bold magenta", title="Nav visibility overrides")
@@ -63,6 +66,24 @@ def set_enforcement(
                       "onboard installs only persona-permitted skills.")
     else:
         console.print("[yellow]✓[/yellow] Skill enforcement [yellow]off[/yellow] — advisory reporting only.")
+
+
+@admin_app.command("set-build-governance",
+                   help="Default governance for DOMAIN-LESS builds/sessions (off|warn|enforce). "
+                        "Domain-scoped work reads build_governance from its governance.yaml.")
+def set_build_governance(
+    level: Annotated[str, typer.Argument(help="off | warn | enforce")],
+) -> None:
+    if level not in A.BUILD_GOVERNANCE_LEVELS:
+        console.print(f"[red]✗ Unknown level '{level}'. Use one of: "
+                      f"{', '.join(A.BUILD_GOVERNANCE_LEVELS)}[/red]")
+        raise typer.Exit(1)
+    s = A.set_build_governance_default(level)
+    _audit("set_build_governance", {"build_governance_default": s.build_governance_default})
+    tone = {"off": "yellow", "warn": "cyan", "enforce": "green"}[s.build_governance_default]
+    console.print(f"[{tone}]✓[/{tone}] Domain-less build governance default: "
+                  f"[bold]{s.build_governance_default}[/bold] "
+                  "(per-domain dials live in each domain's governance.yaml)")
 
 
 @admin_app.command("set-nav", help="Set which roles can see a nav entry.")

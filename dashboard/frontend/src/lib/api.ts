@@ -415,6 +415,7 @@ export interface AdminSettings {
   branding: AdminBranding;
   nav_visibility: Record<string, string[]>;
   skill_enforcement: "off" | "enforce";
+  build_governance_default: "off" | "warn" | "enforce";
 }
 
 export interface AdminSettingsUpdate {
@@ -422,6 +423,7 @@ export interface AdminSettingsUpdate {
   nav_visibility?: Record<string, string[]>;
   replace_nav?: boolean;
   skill_enforcement?: "off" | "enforce";
+  build_governance_default?: "off" | "warn" | "enforce";
 }
 
 export interface RoleAssignment {

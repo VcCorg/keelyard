@@ -137,6 +137,12 @@ class GovernanceConfig:
     inner_loop_floor: list[str] = field(
         default_factory=lambda: ["spec-first", "tdd", "two-stage-review"]
     )
+    # Per-domain build-governance dial: how strictly this domain's builds
+    # (code onboard + engine sessions) are held to the governed workflow.
+    #   off     — sandbox: anything goes, still audited/attributed
+    #   warn    — ungoverned actions proceed but are tagged in audit + UI
+    #   enforce — ungoverned actions are refused at the seams
+    build_governance: str = "warn"
 
     @classmethod
     def from_dict(cls, data: dict) -> "GovernanceConfig":
@@ -153,6 +159,9 @@ class GovernanceConfig:
             checkpoint_gate_map=data.get(
                 "checkpoint_gate_map", _default_checkpoint_gate_map()
             ),
+            build_governance=(str(data.get("build_governance", "warn")).strip().lower()
+                              if str(data.get("build_governance", "warn")).strip().lower()
+                              in ("off", "warn", "enforce") else "warn"),
             inner_loop_floor=data.get(
                 "inner_loop_floor", ["spec-first", "tdd", "two-stage-review"]
             ),
@@ -171,6 +180,7 @@ class GovernanceConfig:
             "promotion_path": self.promotion_path,
             "checkpoint_gate_map": self.checkpoint_gate_map,
             "inner_loop_floor": self.inner_loop_floor,
+            "build_governance": self.build_governance,
         }
 
 

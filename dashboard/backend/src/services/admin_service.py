@@ -21,6 +21,9 @@ class AdminSettingsModel(BaseModel):
     branding: BrandingModel = BrandingModel()
     nav_visibility: Dict[str, List[str]] = {}
     skill_enforcement: str = "off"        # "off" (advisory) | "enforce" (hard)
+    # Default for DOMAIN-LESS builds/sessions; domains carry their own dial
+    # in governance.yaml. "off" | "warn" | "enforce".
+    build_governance_default: str = "warn"
 
 
 class AdminSettingsUpdate(BaseModel):
@@ -28,6 +31,7 @@ class AdminSettingsUpdate(BaseModel):
     nav_visibility: Optional[Dict[str, List[str]]] = None
     replace_nav: bool = False
     skill_enforcement: Optional[str] = None
+    build_governance_default: Optional[str] = None
 
 
 def get_settings() -> AdminSettingsModel:
@@ -38,6 +42,7 @@ def get_settings() -> AdminSettingsModel:
         branding=BrandingModel(app_title=s.branding.app_title, app_name=s.branding.app_name),
         nav_visibility=s.nav_visibility,
         skill_enforcement=s.skill_enforcement,
+        build_governance_default=s.build_governance_default,
     )
 
 
@@ -165,6 +170,7 @@ def update_settings(update: AdminSettingsUpdate, actor: str | None = None) -> Ad
         nav_visibility=update.nav_visibility,
         replace_nav=update.replace_nav,
         skill_enforcement=update.skill_enforcement,
+        build_governance_default=update.build_governance_default,
     )
     try:
         from agentic_cli.tracker import record_action
@@ -173,11 +179,13 @@ def update_settings(update: AdminSettingsUpdate, actor: str | None = None) -> Ad
                       source="dashboard", actor=actor,
                       details={"branding": update.branding.model_dump() if update.branding else None,
                                "nav_ids": sorted((update.nav_visibility or {}).keys()),
-                               "skill_enforcement": update.skill_enforcement})
+                               "skill_enforcement": update.skill_enforcement,
+                               "build_governance_default": update.build_governance_default})
     except Exception:  # noqa: BLE001 - never break on audit
         pass
     return AdminSettingsModel(
         branding=BrandingModel(app_title=s.branding.app_title, app_name=s.branding.app_name),
         nav_visibility=s.nav_visibility,
         skill_enforcement=s.skill_enforcement,
+        build_governance_default=s.build_governance_default,
     )
