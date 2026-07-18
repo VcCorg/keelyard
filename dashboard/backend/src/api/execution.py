@@ -24,6 +24,30 @@ async def get_engines():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/governance")
+async def get_build_governance(domain: str = ""):
+    """Build-governance guidance for the UI's domain-first flows.
+
+    Returns the effective level for ``domain`` (or the domain-less admin
+    default when empty), plus the domain's registered repos so forms can offer
+    a pick-from-registry experience instead of free-typed, ungoverned input.
+    """
+    from agentic_cli.meta_repo.build_governance import registered_repos, resolve
+
+    try:
+        policy = resolve(domain or "")
+        repos = registered_repos(policy.meta_repo) if policy.meta_repo else []
+        return {
+            "domain": policy.domain,
+            "level": policy.level,
+            "source": policy.source,
+            "meta_repo_found": policy.meta_repo is not None,
+            "registered_repos": repos,
+        }
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/context/preview", response_model=PortableContextResult)
 async def post_context_preview(
     req: PortableContextRequest,
