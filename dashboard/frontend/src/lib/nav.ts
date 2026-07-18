@@ -118,23 +118,48 @@ export const navGroups: NavGroup[] = [
       { to: "/assignments", icon: ClipboardList, label: "Assignments", minRole: "lead" },
     ],
   },
+  // Code — the flagship journey: governed code delivery. Governance leads
+  // (guardrails come before construction), Build follows right after, so the
+  // "code build" and "code build with governance" flows read top-to-bottom.
   {
-    label: "Build",
-    items: [
-      { to: "/code-onboard", icon: FolderGit2, label: "Repository" },
-      { to: "/skills", icon: Package, label: "Skills" },
-    ],
+    label: "Code",
+    items: [],
     subgroups: [
       {
-        label: "Devin",
-        icon: DevinBot,
+        label: "Governance",
+        icon: ShieldCheck,
+        minRole: "lead",
         items: [
+          { to: "/onboarding", icon: Boxes, label: "Domain", minRole: "lead" },
+          { to: "/workspaces", icon: FolderOpen, label: "Workspaces" },
+          { to: "/skills/personas", icon: Sparkles, label: "Persona Skills" },
+          { to: "/marketplace", icon: Store, label: "Marketplace" },
+        ],
+      },
+      {
+        label: "Build",
+        icon: FolderGit2,
+        items: [
+          { to: "/code-onboard", icon: FolderGit2, label: "Repository" },
+          { to: "/skills", icon: Package, label: "Skills" },
           { to: "/devin", icon: DevinBot, label: "Devin Sessions" },
           { to: "/snapshots", icon: Camera, label: "Snapshots", minRole: "lead" },
         ],
       },
     ],
   },
+  {
+    label: "Knowledge",
+    minRole: "lead",
+    items: [
+      { to: "/kg", icon: GitBranch, label: "KG Context" },
+      { to: "/kg/ingest", icon: DatabaseZap, label: "KG Ingest" },
+      { to: "/kg/okf", icon: FileStack, label: "OKF Generation", minRole: "admin" },
+      { to: "/data", icon: Database, label: "Data Sources" },
+    ],
+  },
+  // Agent Builder sits directly above Platform: agent construction is a
+  // platform-adjacent capability, not part of the core code journey.
   {
     label: "Agent Builder",
     minRole: "lead",
@@ -159,39 +184,6 @@ export const navGroups: NavGroup[] = [
           { to: "/skills", icon: Package, label: "Skills" },
         ],
       },
-    ],
-  },
-  {
-    label: "Governance",
-    minRole: "lead",
-    items: [],
-    subgroups: [
-      {
-        label: "Onboarding",
-        icon: Boxes,
-        items: [
-          { to: "/onboarding", icon: Boxes, label: "Domain", minRole: "lead" },
-          { to: "/workspaces", icon: FolderOpen, label: "Workspaces" },
-        ],
-      },
-      {
-        label: "Registry",
-        icon: Package,
-        items: [
-          { to: "/skills/personas", icon: Sparkles, label: "Persona Skills" },
-          { to: "/marketplace", icon: Store, label: "Marketplace" },
-        ],
-      },
-    ],
-  },
-  {
-    label: "Knowledge",
-    minRole: "lead",
-    items: [
-      { to: "/kg", icon: GitBranch, label: "KG Context" },
-      { to: "/kg/ingest", icon: DatabaseZap, label: "KG Ingest" },
-      { to: "/kg/okf", icon: FileStack, label: "OKF Generation", minRole: "admin" },
-      { to: "/data", icon: Database, label: "Data Sources" },
     ],
   },
   {
