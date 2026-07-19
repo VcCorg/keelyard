@@ -27,6 +27,7 @@ import {
   groupId,
   subgroupId,
   itemId,
+  personaCanSee,
   roleCanSee,
   type NavItem,
   type NavSubgroup,
@@ -164,10 +165,13 @@ export function Layout() {
   const { settings } = useAdminSettings();
   const overrides = settings.nav_visibility;
   const role = user.role;
+  const persona = auth.persona;
 
   const canGroup = (g: NavGroup) => roleCanSee(role, groupId(g.label), g.minRole, overrides);
   const canSub = (sg: NavSubgroup) => roleCanSee(role, subgroupId(sg.label), sg.minRole, overrides);
-  const canItem = (it: NavItem) => roleCanSee(role, itemId(it.to), it.minRole, overrides);
+  const canItem = (it: NavItem) =>
+    roleCanSee(role, itemId(it.to), it.minRole, overrides) &&
+    personaCanSee(role, persona, it.personas);
 
   const visibleGroups = navGroups
     .filter(canGroup)

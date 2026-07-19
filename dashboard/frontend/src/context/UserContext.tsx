@@ -99,6 +99,7 @@ interface AuthInfo {
   authenticated: boolean;
   roles: string[];
   permissions: string[];
+  persona: string;    // dev | qa | ba | sm | domain (persona-aware nav + skills)
 }
 
 const DEFAULT_AUTH: AuthInfo = {
@@ -107,6 +108,7 @@ const DEFAULT_AUTH: AuthInfo = {
   authenticated: true,
   roles: ["admin"],
   permissions: ["admin:*"], // optimistic local-admin default (matches dev provider)
+  persona: "dev",
 };
 
 interface UserContextValue {
@@ -149,6 +151,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           authenticated: me.authenticated,
           roles: me.roles,
           permissions: me.permissions,
+          persona: (me as { persona?: string }).persona ?? "dev",
         });
         setUser((prev) => ({
           ...prev,

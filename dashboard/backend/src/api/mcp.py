@@ -3,7 +3,7 @@
 import asyncio
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
@@ -65,8 +65,17 @@ async def api_list_servers():
     return servers
 
 
+def _require_configure():
+    """Platform-config writes need the platform:configure permission."""
+    from agentic_cli.auth import PERM_PLATFORM_CONFIGURE
+    from src.services.auth_service import require
+
+    return require(PERM_PLATFORM_CONFIGURE)
+
+
 @router.post("/servers", response_model=MCPServerInfo)
-async def api_add_server(req: MCPServerUpsert, request: Request):
+async def api_add_server(req: MCPServerUpsert, request: Request,
+                         _principal=Depends(_require_configure())):
     """Register a remote MCP server (SSE/HTTP) in the CLI registry."""
     from src.services.auth_service import actor_of
 
@@ -77,7 +86,8 @@ async def api_add_server(req: MCPServerUpsert, request: Request):
 
 
 @router.put("/servers/{name}", response_model=MCPServerInfo)
-async def api_update_server(name: str, req: MCPServerUpsert, request: Request):
+async def api_update_server(name: str, req: MCPServerUpsert, request: Request,
+                            _principal=Depends(_require_configure())):
     """Update a registry-sourced MCP server (URL, description, enabled)."""
     from src.services.auth_service import actor_of
 
@@ -90,7 +100,8 @@ async def api_update_server(name: str, req: MCPServerUpsert, request: Request):
 
 
 @router.delete("/servers/{name}", response_model=MCPActionResponse)
-async def api_remove_server(name: str, request: Request):
+async def api_remove_server(name: str, request: Request,
+                            _principal=Depends(_require_configure())):
     """Remove a registry-sourced MCP server."""
     from src.services.auth_service import actor_of
 
