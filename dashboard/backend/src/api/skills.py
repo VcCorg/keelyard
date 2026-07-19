@@ -825,3 +825,64 @@ def _load_onboard_manifest(project_path: Path) -> Optional[Dict]:
         return json.loads(manifest_file.read_text())
     except (json.JSONDecodeError, OSError):
         return None
+
+
+# ── Skill trials: evaluate against a domain, then promote (lead) ─────────────
+
+from fastapi import Depends, Request  # noqa: E402
+
+from src.services.skill_trial_service import (  # noqa: E402
+    PromoteResult,
+    TrialScorecard,
+    evaluate_trial,
+    promote_trial,
+)
+
+
+class TrialRequest(BaseModel):
+    skill_name: str
+    domain: str = ""
+
+
+def _require_promote():
+    """Promotion writes to the domain's validated tier — knowledge:project (lead)."""
+    from agentic_cli.auth import PERM_KNOWLEDGE_PROJECT
+    from src.services.auth_service import require
+
+    return require(PERM_KNOWLEDGE_PROJECT)
+
+
+@router.post("/trial/evaluate", response_model=TrialScorecard)
+async def api_trial_evaluate(req: TrialRequest, request: Request):
+    """Run the trial scorecard for a skill against a domain (any role)."""
+    from src.services.auth_service import actor_of, principal_from_request
+
+    try:
+        from agentic_cli.auth import persona_for
+
+        persona = persona_for(principal_from_request(request))
+    except Exception:  # noqa: BLE001
+        persona = "dev"
+    try:
+        return evaluate_trial(req.skill_name, req.domain, persona,
+                              actor=actor_of(request))
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/trial/promote", response_model=PromoteResult)
+async def api_trial_promote(req: TrialRequest, request: Request,
+                            _principal=Depends(_require_promote())):
+    """Promote a trialed skill into the domain's validated tier (lead action)."""
+    from src.services.auth_service import actor_of
+
+    if not req.domain.strip():
+        raise HTTPException(status_code=400, detail="A domain is required to promote")
+    try:
+        return promote_trial(req.skill_name, req.domain.strip(), actor=actor_of(request))
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))

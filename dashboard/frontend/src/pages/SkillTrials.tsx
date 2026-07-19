@@ -1,0 +1,307 @@
+import { useEffect, useMemo, useState } from "react";
+import {
+  FlaskConical, Package, Boxes, ChevronRight, ChevronLeft, Play, Loader2,
+  CheckCircle2, AlertTriangle, XCircle, MinusCircle, ArrowUpToLine, ShieldCheck,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useUser } from "@/context/UserContext";
+import { api, type IngestableDomain } from "@/lib/api";
+
+/**
+ * Skill Trials — test a registry skill against a specific domain BEFORE it
+ * reaches the domain's validated tier or the master skills repo.
+ *
+ * Any role runs the trial (structure, security scan, persona policy, AI
+ * review); a lead promotes passing skills into the domain-context repo's
+ * validated tier — the same tier `keel code onboard --use-domain-skills`
+ * installs first.
+ */
+
+type Step = "skill" | "domain" | "scorecard";
+
+interface RegistrySkill {
+  name: string;
+  description?: string;
+}
+
+interface TrialCheck {
+  name: string;
+  status: "pass" | "warn" | "fail" | "skipped";
+  detail: string;
+}
+
+interface Scorecard {
+  skill: string;
+  domain: string;
+  persona: string;
+  verdict: "pass" | "warn" | "fail";
+  checks: TrialCheck[];
+  ai_provider: string;
+  promotable: boolean;
+}
+
+const STATUS_ICON = {
+  pass: { Icon: CheckCircle2, cls: "text-emerald-500" },
+  warn: { Icon: AlertTriangle, cls: "text-amber-500" },
+  fail: { Icon: XCircle, cls: "text-red-500" },
+  skipped: { Icon: MinusCircle, cls: "text-gray-400" },
+} as const;
+
+export function SkillTrials() {
+  const { user, auth } = useUser();
+  const isLead = user.role === "lead" || user.role === "admin";
+
+  const [step, setStep] = useState<Step>("skill");
+  const [skills, setSkills] = useState<RegistrySkill[]>([]);
+  const [skill, setSkill] = useState("");
+  const [filter, setFilter] = useState("");
+  const [domains, setDomains] = useState<IngestableDomain[]>([]);
+  const [domain, setDomain] = useState("");
+
+  const [running, setRunning] = useState(false);
+  const [card, setCard] = useState<Scorecard | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [promoting, setPromoting] = useState(false);
+  const [promoted, setPromoted] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/skills/list")
+      .then((r) => r.json())
+      .then((d) => setSkills(d.skills ?? []))
+      .catch(() => setSkills([]));
+    api.listIngestableDomains().then(setDomains).catch(() => setDomains([]));
+  }, []);
+
+  const filtered = useMemo(
+    () => skills.filter((s) => !filter || s.name.toLowerCase().includes(filter.toLowerCase())),
+    [skills, filter]
+  );
+
+  const runTrial = async () => {
+    setRunning(true);
+    setError(null);
+    setCard(null);
+    setPromoted(null);
+    try {
+      const r = await fetch("/api/skills/trial/evaluate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ skill_name: skill, domain }),
+      });
+      if (!r.ok) throw new Error((await r.json()).detail ?? `status ${r.status}`);
+      setCard(await r.json());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const promote = async () => {
+    setPromoting(true);
+    setError(null);
+    try {
+      const r = await fetch("/api/skills/trial/promote", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ skill_name: skill, domain }),
+      });
+      if (!r.ok) throw new Error((await r.json()).detail ?? `status ${r.status}`);
+      const res = await r.json();
+      setPromoted(res.promoted_to);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPromoting(false);
+    }
+  };
+
+  const steps: Step[] = ["skill", "domain", "scorecard"];
+  const stepIndex = steps.indexOf(step);
+  const canNext = step === "skill" ? !!skill : step === "domain" ? !!domain : false;
+
+  return (
+    <div className="space-y-6 max-w-3xl">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-3">
+          <FlaskConical className="h-7 w-7 text-blue-500" /> Skill Trials
+        </h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          Test a skill against a domain before it joins the validated tier — any role can
+          trial; leads promote
+        </p>
+      </div>
+
+      {/* Stepper */}
+      <div className="flex items-center gap-2 text-xs">
+        {steps.map((s, i) => (
+          <div key={s} className="flex items-center gap-2">
+            <span
+              className={`px-2.5 py-1 rounded-full font-medium ${
+                i === stepIndex
+                  ? "bg-blue-600 text-white"
+                  : i < stepIndex
+                    ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                    : "bg-gray-100 text-gray-500 dark:bg-gray-800"
+              }`}
+            >
+              {i + 1}. {s === "skill" ? "Pick skill" : s === "domain" ? "Pick domain" : "Trial scorecard"}
+            </span>
+            {i < steps.length - 1 && <ChevronRight className="h-3.5 w-3.5 text-gray-300" />}
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 space-y-5">
+        {step === "skill" && (
+          <div className="space-y-3">
+            <h2 className="text-sm font-semibold flex items-center gap-2">
+              <Package className="h-4 w-4 text-blue-500" /> Which skill do you want to trial?
+            </h2>
+            <input
+              placeholder="Filter skills…"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+            />
+            <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1">
+              {filtered.map((s) => (
+                <button
+                  key={s.name}
+                  onClick={() => setSkill(s.name)}
+                  className={`w-full text-left rounded-lg border px-3 py-2 text-sm transition-colors ${
+                    skill === s.name
+                      ? "border-blue-500 bg-blue-50/60 dark:bg-blue-900/10"
+                      : "border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700"
+                  }`}
+                >
+                  <span className="font-medium">{s.name}</span>
+                  {s.description && (
+                    <span className="block text-xs text-gray-500 truncate">{s.description}</span>
+                  )}
+                </button>
+              ))}
+              {filtered.length === 0 && (
+                <p className="text-xs text-gray-400 p-2">No skills in the registry match.</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {step === "domain" && (
+          <div className="space-y-3">
+            <h2 className="text-sm font-semibold flex items-center gap-2">
+              <Boxes className="h-4 w-4 text-blue-500" /> Trial against which domain?
+            </h2>
+            <select
+              value={domain}
+              onChange={(e) => setDomain(e.target.value)}
+              className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">Select a domain…</option>
+              {domains.map((d) => (
+                <option key={d.slug} value={d.slug}>{d.slug}</option>
+              ))}
+            </select>
+            <p className="text-[11px] text-gray-400">
+              The trial checks the domain's persona skill policy for <strong>your</strong>{" "}
+              persona (<code className="font-mono">{auth.persona}</code>) — exactly what
+              enforcement would apply at onboard time.
+            </p>
+          </div>
+        )}
+
+        {step === "scorecard" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold">
+                Trial: <code className="font-mono">{skill}</code> → <code className="font-mono">{domain}</code>
+              </h2>
+              {!card && (
+                <Button onClick={runTrial} disabled={running}>
+                  {running ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Play className="h-4 w-4 mr-1.5" />}
+                  Run trial
+                </Button>
+              )}
+            </div>
+
+            {error && (
+              <div className="text-sm text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg p-3">{error}</div>
+            )}
+
+            {card && (
+              <>
+                <div className="space-y-2">
+                  {card.checks.map((c) => {
+                    const { Icon, cls } = STATUS_ICON[c.status];
+                    return (
+                      <div key={c.name} className="flex items-start gap-3 rounded-lg border border-gray-100 dark:border-gray-800 p-3">
+                        <Icon className={`h-4 w-4 mt-0.5 shrink-0 ${cls}`} />
+                        <div>
+                          <p className="text-sm font-medium">{c.name}</p>
+                          <p className="text-xs text-gray-500">{c.detail}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div
+                  className={`rounded-lg p-4 text-sm flex items-center gap-2 ${
+                    card.verdict === "pass"
+                      ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-900/10 dark:text-emerald-300"
+                      : card.verdict === "warn"
+                        ? "bg-amber-50 text-amber-800 dark:bg-amber-900/10 dark:text-amber-300"
+                        : "bg-red-50 text-red-800 dark:bg-red-900/10 dark:text-red-300"
+                  }`}
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  Verdict: <strong className="uppercase">{card.verdict}</strong>
+                  {card.verdict === "warn" && " — a lead can still promote (judgement call)"}
+                  {card.verdict === "fail" && " — fix the failing checks before promotion"}
+                </div>
+
+                {promoted ? (
+                  <div className="rounded-lg border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/60 dark:bg-emerald-900/10 p-4 text-sm text-emerald-800 dark:text-emerald-300">
+                    <p className="font-medium">Promoted to the domain's validated tier.</p>
+                    <p className="text-xs font-mono mt-1">{promoted}</p>
+                    <p className="text-xs mt-1">
+                      Commit + push the domain-context repo to share it; it now installs first
+                      via <code className="font-mono">keel code onboard --use-domain-skills</code>.
+                    </p>
+                  </div>
+                ) : isLead ? (
+                  <Button onClick={promote} disabled={!card.promotable || promoting} variant={card.promotable ? "default" : "outline"}>
+                    {promoting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <ArrowUpToLine className="h-4 w-4 mr-1.5" />}
+                    Promote to '{domain}' validated skills
+                  </Button>
+                ) : (
+                  <p className="text-xs text-gray-500">
+                    Promotion into the domain's validated tier is a lead action — share this
+                    scorecard with your tech lead (the trial is already in the audit trail).
+                  </p>
+                )}
+
+                <Button variant="outline" size="sm" onClick={() => { setCard(null); setPromoted(null); }}>
+                  Re-run trial
+                </Button>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Nav */}
+        <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800">
+          <Button variant="outline" size="sm" disabled={stepIndex === 0 || running} onClick={() => setStep(steps[stepIndex - 1])}>
+            <ChevronLeft className="h-4 w-4 mr-1" /> Back
+          </Button>
+          {step !== "scorecard" && (
+            <Button size="sm" disabled={!canNext} onClick={() => setStep(steps[stepIndex + 1])}>
+              Next <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

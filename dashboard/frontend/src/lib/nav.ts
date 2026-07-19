@@ -178,6 +178,7 @@ export const navGroups: NavGroup[] = [
   {
     label: "Quality",
     items: [
+      { to: "/skills/trials", icon: FlaskConical, label: "Skill Trials" },
       { to: "/eval", icon: FlaskConical, label: "Evaluation", personas: ["qa"] },
     ],
   },
