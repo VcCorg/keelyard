@@ -20,6 +20,7 @@ import { Deployments } from "@/pages/Deployments";
 import { KGContext } from "@/pages/KGContext";
 import { KGDomain } from "@/pages/KGDomain";
 import { KGIngest } from "@/pages/KGIngest";
+import { KGOnboard } from "@/pages/KGOnboard";
 import { OKFGeneration } from "@/pages/OKFGeneration";
 import { DataSources } from "@/pages/DataSources";
 import { CodeOnboard } from "@/pages/CodeOnboard";
@@ -80,6 +81,7 @@ function App() {
             <Route path="/terminal" element={<Terminal />} />
             <Route path="/kg" element={<KGContext />} />
             <Route path="/kg/ingest" element={<KGIngest />} />
+            <Route path="/kg/onboard" element={<KGOnboard />} />
             <Route path="/kg/okf" element={<OKFGeneration />} />
             <Route path="/kg/:domain" element={<KGDomain />} />
             <Route path="/data" element={<DataSources />} />

@@ -146,6 +146,7 @@ export const navGroups: NavGroup[] = [
     label: "Knowledge",
     items: [
       { to: "/kg", icon: GitBranch, label: "KG Context" },
+      { to: "/kg/onboard", icon: Wand2, label: "KG Onboarding" },
       { to: "/kg/ingest", icon: DatabaseZap, label: "KG Ingest", minRole: "lead" },
       { to: "/kg/okf", icon: FileStack, label: "OKF Generation", minRole: "admin" },
       { to: "/data", icon: Database, label: "Data Sources" },
