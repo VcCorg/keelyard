@@ -146,6 +146,7 @@ export const navGroups: NavGroup[] = [
     label: "Knowledge",
     items: [
       { to: "/kg", icon: GitBranch, label: "KG Context" },
+      { to: "/kg/graph", icon: Share2, label: "KG Graph" },
       { to: "/kg/onboard", icon: Wand2, label: "KG Onboarding" },
       { to: "/kg/ingest", icon: DatabaseZap, label: "KG Ingest", minRole: "lead" },
       { to: "/kg/okf", icon: FileStack, label: "OKF Generation", minRole: "admin" },
@@ -161,6 +162,7 @@ export const navGroups: NavGroup[] = [
     label: "Build",
     items: [
       { to: "/code-onboard", icon: FolderGit2, label: "Repository" },
+      { to: "/code-graph", icon: Share2, label: "Code Graph" },
       { to: "/skills", icon: Package, label: "Skills" },
       { to: "/devin", icon: DevinBot, label: "Devin Sessions" },
       { to: "/snapshots", icon: Camera, label: "Snapshots", minRole: "lead" },

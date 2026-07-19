@@ -61,3 +61,27 @@ async def onboard_stream(
             yield event
 
     return EventSourceResponse(gen())
+
+
+# ── Code graph (graphify) viewer ────────────────────────────────────────────
+
+from src.services.code_graph_service import (  # noqa: E402
+    CodeGraph, CodeRepo, list_code_repos, load_code_graph,
+)
+
+
+@router.get("/graphs", response_model=list[CodeRepo])
+async def api_list_code_graphs():
+    """Onboarded repos flagged with whether a graphify code graph exists."""
+    return list_code_repos()
+
+
+@router.get("/graph", response_model=CodeGraph)
+async def api_code_graph(path: str = Query(..., description="Onboarded repo path")):
+    """The repo's graphify structural code graph, normalized for the viewer."""
+    try:
+        return load_code_graph(path)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))

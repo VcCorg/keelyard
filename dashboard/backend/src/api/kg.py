@@ -18,6 +18,7 @@ from src.services.kg_service import (
     get_domain_links,
     get_domain_gaps,
     get_node_neighborhood,
+    get_domain_graph,
     ProductKGSummary,
     KGLinkRow,
     KGGapRow,
@@ -350,3 +351,12 @@ async def node_graph(domain: str, node_id: str):
     if not result.nodes:
         raise HTTPException(status_code=404, detail=f"Node '{node_id}' not found in domain '{domain}'")
     return result
+
+
+@router.get("/graph", response_model=KGNeighborhood)
+async def api_domain_graph(domain: str = "", limit: int = Query(400, ge=10, le=2000)):
+    """Whole-domain KG graph (frontend equivalent of `keel kg visualize`)."""
+    try:
+        return get_domain_graph(domain, limit=limit)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))

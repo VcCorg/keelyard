@@ -913,3 +913,17 @@ async def api_trial_judge(req: JudgeRequest, request: Request):
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/audit")
+async def api_skill_audit(limit: int = Query(50, ge=1, le=500)):
+    """Recent skill trial/judge/promote actions from the central audit trail."""
+    try:
+        from agentic_cli.tracker import get_activity
+
+        rows = get_activity(command="skill", limit=limit)
+    except Exception:  # noqa: BLE001
+        rows = []
+    trial_actions = {"trial_evaluate", "trial_judge", "trial_promote", "scan"}
+    filtered = [r for r in rows if (r.get("subcommand") or r.get("action")) in trial_actions]
+    return {"actions": filtered}
