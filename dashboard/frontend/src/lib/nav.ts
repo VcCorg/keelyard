@@ -47,6 +47,12 @@ export type NavItem = {
   action?: "setup";
   /** Default gate: only shown to this role or higher (admin may override). */
   minRole?: UserRole;
+  /**
+   * Persona focus: for MEMBER users, only these personas see the entry by
+   * default (leads/admins always see everything their role allows). Lets
+   * qa/ba/sm personas get role-appropriate homes without new UI roles.
+   */
+  personas?: string[];
 };
 export type NavSubgroup = {
   label: string;
@@ -99,6 +105,21 @@ export function roleCanSee(
   return allowedRoles(id, minRole, overrides).includes(role);
 }
 
+/**
+ * Persona focus filter: applies ONLY to member users. Untagged entries are
+ * visible to every persona; tagged entries show to the listed personas.
+ * Leads/admins always pass (oversight must never be persona-narrowed).
+ */
+export function personaCanSee(
+  role: UserRole,
+  persona: string,
+  personas?: string[]
+): boolean {
+  if (role !== "member") return true;
+  if (!personas || personas.length === 0) return true;
+  return personas.includes(persona);
+}
+
 export const navGroups: NavGroup[] = [
   // Lifecycle reading order: govern → know → ideate → build → track.
   {
@@ -119,12 +140,13 @@ export const navGroups: NavGroup[] = [
       { to: "/marketplace", icon: Store, label: "Marketplace" },
     ],
   },
+  // Knowledge READS are for everyone (devs consume KG context while building);
+  // WRITES stay gated at the item level (ingest: lead, OKF: admin).
   {
     label: "Knowledge",
-    minRole: "lead",
     items: [
       { to: "/kg", icon: GitBranch, label: "KG Context" },
-      { to: "/kg/ingest", icon: DatabaseZap, label: "KG Ingest" },
+      { to: "/kg/ingest", icon: DatabaseZap, label: "KG Ingest", minRole: "lead" },
       { to: "/kg/okf", icon: FileStack, label: "OKF Generation", minRole: "admin" },
       { to: "/data", icon: Database, label: "Data Sources" },
     ],
@@ -148,6 +170,14 @@ export const navGroups: NavGroup[] = [
     items: [
       { to: "/tasks", icon: ListTodo, label: "Tasks" },
       { to: "/assignments", icon: ClipboardList, label: "Assignments", minRole: "lead" },
+    ],
+  },
+  // Quality — QA persona's home. Evaluation also stays in Agent Builder for
+  // leads; this entry gives member-level QA users direct access.
+  {
+    label: "Quality",
+    items: [
+      { to: "/eval", icon: FlaskConical, label: "Evaluation", personas: ["qa"] },
     ],
   },
   // Agent Builder sits directly above Platform: agent construction is a

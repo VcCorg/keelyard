@@ -2,13 +2,21 @@
 
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import Depends, APIRouter, HTTPException, Query
 from sse_starlette.sse import EventSourceResponse
 
 from src.services import setup_service as svc
 from src.services.run_registry import registry
 
 router = APIRouter(prefix="/api/setup", tags=["setup"])
+
+
+def _require_configure():
+    """Setup/init streams mutate platform config — require platform:configure."""
+    from agentic_cli.auth import PERM_PLATFORM_CONFIGURE
+    from src.services.auth_service import require
+
+    return require(PERM_PLATFORM_CONFIGURE)
 
 
 @router.get("/status", response_model=svc.SetupStatus)
@@ -32,6 +40,7 @@ def _stream(label: str, args: list[str]) -> EventSourceResponse:
 async def init_workspace_stream(
     code: str = Query(..., description="Code workspace directory"),
     docs: str = Query(..., description="Docs workspace directory"),
+    _principal=Depends(_require_configure()),
 ):
     """Run `keel init workspace --code <> --docs <>` (non-interactive)."""
     if not code.strip() or not docs.strip():
@@ -44,6 +53,7 @@ async def init_vertex_stream(
     project_id: str = Query(..., description="Google Cloud project ID"),
     location: str = Query("us-central1", description="Google Cloud region"),
     model: Optional[str] = Query(None, description="Default model"),
+    _principal=Depends(_require_configure()),
 ):
     """Run `keel init vertex-ai --project-id <> --skip-auth` (non-interactive).
 
@@ -60,6 +70,7 @@ async def init_neo4j_stream(
     uri: str = Query("bolt://localhost:7687", description="Neo4j connection URI"),
     username: str = Query("neo4j", description="Neo4j username"),
     password: str = Query(..., description="Neo4j password"),
+    _principal=Depends(_require_configure()),
 ):
     """Run `keel kg init --provider neo4j ...` (non-interactive)."""
     if not password.strip():
@@ -72,6 +83,7 @@ async def init_integration_stream(
     kind: str,
     url: str = Query(..., description="Integration server URL"),
     token: str = Query(..., description="Personal access token"),
+    _principal=Depends(_require_configure()),
 ):
     """Run `keel init <jira|bitbucket|confluence> --url <> --token <>`.
 
@@ -90,6 +102,7 @@ async def init_integration_stream(
 @router.get("/init/builtin-model/stream")
 async def init_builtin_model_stream(
     force: bool = Query(False, description="Re-download even if present"),
+    _principal=Depends(_require_configure()),
 ):
     """Run `keel init builtin-model` — one-time ~400MB download with progress."""
     return _stream("init builtin-model", svc.init_builtin_model_args(force=force))
@@ -98,6 +111,7 @@ async def init_builtin_model_stream(
 @router.get("/init/devin/stream")
 async def init_devin_stream(
     api_key: str = Query(..., description="Devin API key"),
+    _principal=Depends(_require_configure()),
 ):
     """Run `keel init devin --api-key <>` — persists DEVIN_API_KEY to ~/.keel/.env."""
     if not api_key.strip():
@@ -114,6 +128,7 @@ async def init_glean_stream(
     client_id: str = Query("", description="OAuth client id (sso mode)"),
     client_secret: str = Query("", description="OAuth client secret (sso service token)"),
     scope: str = Query("", description="OAuth scope (sso mode, optional)"),
+    _principal=Depends(_require_configure()),
 ):
     """Run `keel init glean ...` — configure Glean via API token or SSO/OAuth."""
     if not url.strip():

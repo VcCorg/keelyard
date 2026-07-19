@@ -30,6 +30,9 @@ class MeResponse(BaseModel):
     provider: str = "dev"
     authenticated: bool = True
     mode: str = "dev"
+    # Resolved persona (dev/qa/ba/sm/domain) — drives persona-scoped skill
+    # governance and persona-aware navigation.
+    persona: str = "dev"
 
 
 def principal_from_request(request: Request) -> Principal:
@@ -39,10 +42,17 @@ def principal_from_request(request: Request) -> Principal:
 
 def me(request: Request) -> MeResponse:
     p = principal_from_request(request)
+    try:
+        from agentic_cli.auth import persona_for
+
+        persona = persona_for(p)
+    except Exception:  # noqa: BLE001 - never break /me on persona resolution
+        persona = "dev"
     return MeResponse(
         subject=p.subject, display_name=p.display_name, roles=p.roles,
         permissions=sorted(p.permissions), groups=p.groups, provider=p.provider,
         authenticated=p.authenticated, mode=os.environ.get("KEEL_AUTH_MODE", "dev"),
+        persona=persona,
     )
 
 

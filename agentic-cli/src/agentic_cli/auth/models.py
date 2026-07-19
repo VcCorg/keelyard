@@ -25,19 +25,23 @@ PERM_CONTEXT_BUILD = "context:build"        # render a portable context bundle
 PERM_SESSION_CREATE = "session:create"      # launch an execution engine session
 PERM_KNOWLEDGE_PROJECT = "knowledge:project"  # project canonical knowledge to a vendor
 PERM_KNOWLEDGE_DELETE = "knowledge:delete"  # delete/prune vendor knowledge
+PERM_REQUIREMENTS_PUSH = "requirements:push"  # push approved stories to Jira (BA/SM)
+PERM_PLATFORM_CONFIGURE = "platform:configure"  # MCP servers, integrations, setup
 PERM_ADMIN = "admin:*"                       # administrative operations
 
 ALL_PERMISSIONS = [
     PERM_CONTEXT_BUILD, PERM_SESSION_CREATE, PERM_KNOWLEDGE_PROJECT,
-    PERM_KNOWLEDGE_DELETE, PERM_ADMIN,
+    PERM_KNOWLEDGE_DELETE, PERM_REQUIREMENTS_PUSH, PERM_PLATFORM_CONFIGURE,
+    PERM_ADMIN,
 ]
 
 # Each role grants its own permissions plus everything below it.
 ROLE_PERMISSIONS: dict[str, set[str]] = {
     VIEWER: set(),
-    DEVELOPER: {PERM_CONTEXT_BUILD, PERM_SESSION_CREATE},
-    MAINTAINER: {PERM_CONTEXT_BUILD, PERM_SESSION_CREATE, PERM_KNOWLEDGE_PROJECT,
-                 PERM_KNOWLEDGE_DELETE},
+    DEVELOPER: {PERM_CONTEXT_BUILD, PERM_SESSION_CREATE, PERM_REQUIREMENTS_PUSH},
+    MAINTAINER: {PERM_CONTEXT_BUILD, PERM_SESSION_CREATE, PERM_REQUIREMENTS_PUSH,
+                 PERM_KNOWLEDGE_PROJECT, PERM_KNOWLEDGE_DELETE,
+                 PERM_PLATFORM_CONFIGURE},
     ADMIN: set(ALL_PERMISSIONS),
 }
 

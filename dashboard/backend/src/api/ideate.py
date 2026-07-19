@@ -8,7 +8,7 @@ confirmed step (added alongside the source connectors).
 import json
 from typing import List, Optional
 
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
@@ -40,6 +40,14 @@ def _forwarded_user_email(request: Request) -> Optional[str]:
     h = request.headers
     email = h.get("x-auth-request-email") or h.get("x-forwarded-email")
     return email.strip() if email else None
+
+
+def _require_push():
+    """Lazy dependency: gate story push on the requirements:push permission."""
+    from agentic_cli.auth import PERM_REQUIREMENTS_PUSH
+    from src.services.auth_service import require
+
+    return require(PERM_REQUIREMENTS_PUSH)
 
 
 def _get_activity(command: str, limit: int):
@@ -133,8 +141,12 @@ async def jira_status():
 
 
 @router.post("/push")
-async def push(req: PushRequest, request: Request):
-    """Create approved stories as Jira issues with real field mapping + audit."""
+async def push(req: PushRequest, request: Request, _principal=Depends(_require_push())):
+    """Create approved stories as Jira issues with real field mapping + audit.
+
+    Writes to an external system — requires the ``requirements:push``
+    permission (developer+; grant to BA/SM users via role assignment).
+    """
     if not req.stories:
         raise HTTPException(status_code=400, detail="No stories to push")
     if not req.project_key:
