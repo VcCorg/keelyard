@@ -30,6 +30,24 @@ interface TrialCheck {
   detail: string;
 }
 
+interface JudgeScenario {
+  scenario: string;
+  with_skill_score: number;
+  baseline_score: number;
+  winner: "with_skill" | "baseline" | "tie";
+  rationale: string;
+}
+
+interface JudgeReport {
+  judge: string;
+  avg_with_skill: number;
+  avg_baseline: number;
+  delta: number;
+  verdict: "positive" | "neutral" | "negative";
+  authoritative: boolean;
+  scenarios: JudgeScenario[];
+}
+
 interface Scorecard {
   skill: string;
   domain: string;
@@ -63,6 +81,8 @@ export function SkillTrials() {
   const [error, setError] = useState<string | null>(null);
   const [promoting, setPromoting] = useState(false);
   const [promoted, setPromoted] = useState<string | null>(null);
+  const [judging, setJudging] = useState(false);
+  const [judge, setJudge] = useState<JudgeReport | null>(null);
 
   useEffect(() => {
     fetch("/api/skills/list")
@@ -94,6 +114,25 @@ export function SkillTrials() {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setRunning(false);
+    }
+  };
+
+  const runJudge = async () => {
+    setJudging(true);
+    setError(null);
+    setJudge(null);
+    try {
+      const r = await fetch("/api/skills/trial/judge", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ skill_name: skill, domain, scenarios: 3 }),
+      });
+      if (!r.ok) throw new Error((await r.json()).detail ?? `status ${r.status}`);
+      setJudge(await r.json());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setJudging(false);
     }
   };
 
@@ -261,6 +300,64 @@ export function SkillTrials() {
                   {card.verdict === "fail" && " — fix the failing checks before promotion"}
                 </div>
 
+                {/* LLM-as-judge impact evaluation (deep, on demand) */}
+                <div className="rounded-lg border border-gray-100 dark:border-gray-800 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium flex items-center gap-1.5">
+                        <FlaskConical className="h-4 w-4 text-violet-500" /> LLM-as-judge impact
+                      </p>
+                      <p className="text-[11px] text-gray-400">
+                        Answers 3 scenarios with and without the skill; a blind judge scores both.
+                      </p>
+                    </div>
+                    {!judge && (
+                      <Button size="sm" variant="outline" onClick={runJudge} disabled={judging}>
+                        {judging ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Play className="h-4 w-4 mr-1.5" />}
+                        {judging ? "Judging…" : "Run evaluation"}
+                      </Button>
+                    )}
+                  </div>
+                  {judge && (
+                    <>
+                      {!judge.authoritative && (
+                        <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                          Judged by the test-mode provider — configure a real model for an
+                          authoritative result.
+                        </p>
+                      )}
+                      <div className="flex items-center gap-4 text-sm">
+                        <span>With skill: <strong>{judge.avg_with_skill}</strong></span>
+                        <span>Baseline: <strong>{judge.avg_baseline}</strong></span>
+                        <span className={
+                          judge.verdict === "positive" ? "text-emerald-600 dark:text-emerald-400"
+                          : judge.verdict === "negative" ? "text-red-600 dark:text-red-400"
+                          : "text-gray-500"
+                        }>
+                          Δ {judge.delta > 0 ? "+" : ""}{judge.delta} — <strong className="uppercase">{judge.verdict}</strong> impact
+                        </span>
+                        <span className="text-[11px] text-gray-400 ml-auto font-mono">{judge.judge}</span>
+                      </div>
+                      <div className="space-y-1.5">
+                        {judge.scenarios.map((sc, i) => (
+                          <div key={i} className="text-xs rounded border border-gray-100 dark:border-gray-800 p-2">
+                            <p className="font-medium truncate">{sc.scenario}</p>
+                            <p className="text-gray-500">
+                              with {sc.with_skill_score} vs base {sc.baseline_score} — winner:{" "}
+                              <span className={
+                                sc.winner === "with_skill" ? "text-emerald-600 dark:text-emerald-400"
+                                : sc.winner === "baseline" ? "text-red-600 dark:text-red-400"
+                                : "text-gray-500"
+                              }>{sc.winner.replace("_", " ")}</span>
+                              {sc.rationale && <span className="text-gray-400"> · {sc.rationale}</span>}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+
                 {promoted ? (
                   <div className="rounded-lg border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/60 dark:bg-emerald-900/10 p-4 text-sm text-emerald-800 dark:text-emerald-300">
                     <p className="font-medium">Promoted to the domain's validated tier.</p>
@@ -282,7 +379,7 @@ export function SkillTrials() {
                   </p>
                 )}
 
-                <Button variant="outline" size="sm" onClick={() => { setCard(null); setPromoted(null); }}>
+                <Button variant="outline" size="sm" onClick={() => { setCard(null); setPromoted(null); setJudge(null); }}>
                   Re-run trial
                 </Button>
               </>

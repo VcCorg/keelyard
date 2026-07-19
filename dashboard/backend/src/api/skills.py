@@ -886,3 +886,30 @@ async def api_trial_promote(req: TrialRequest, request: Request,
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
+
+
+class JudgeRequest(BaseModel):
+    skill_name: str
+    domain: str = ""
+    scenarios: int = 3
+    model: Optional[str] = None
+
+
+@router.post("/trial/judge")
+async def api_trial_judge(req: JudgeRequest, request: Request):
+    """LLM-as-judge impact evaluation: skill vs baseline over N scenarios."""
+    from src.services.auth_service import actor_of
+    from src.services.skill_trial_service import judge_trial
+
+    if req.scenarios < 1 or req.scenarios > 5:
+        raise HTTPException(status_code=400, detail="scenarios must be 1-5")
+    try:
+        import asyncio
+
+        return await asyncio.to_thread(
+            judge_trial, req.skill_name, req.domain, req.scenarios, req.model,
+            actor_of(request))
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))

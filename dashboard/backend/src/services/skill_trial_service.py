@@ -233,3 +233,34 @@ def promote_trial(skill_name: str, domain: str, actor: Optional[str] = None) -> 
         pass
 
     return PromoteResult(skill=skill_name, domain=domain, promoted_to=str(dest))
+
+
+# ── LLM-as-judge impact evaluation (deep, on-demand) ─────────────────────────
+
+def judge_trial(skill_name: str, domain: str, scenarios: int = 3,
+                model: Optional[str] = None, actor: Optional[str] = None) -> Dict[str, Any]:
+    """Run the LLM-as-judge impact evaluation for a trialed skill.
+
+    Slower than the scorecard (2N answers + N judgements), so it runs on
+    demand from the trial page. Works on any provider-chain rung; a test-mode
+    judge is flagged non-authoritative rather than pretending.
+    """
+    from agentic_cli.evaluation.skill_judge import judge_skill
+
+    skill_dir = _skill_dir(skill_name)
+    text = (skill_dir / "SKILL.md").read_text(encoding="utf-8", errors="replace")
+    report = judge_skill(skill_name, text, domain=domain, scenarios=scenarios,
+                         model=model)
+
+    try:
+        from agentic_cli.tracker import record_action
+
+        record_action("skill", "trial_judge", entity_type="skill",
+                      entity_id=skill_name, source="dashboard", actor=actor,
+                      details={"domain": domain, "judge": report.judge,
+                               "delta": report.delta, "verdict": report.verdict,
+                               "authoritative": report.authoritative})
+    except Exception:  # noqa: BLE001 - never break on audit
+        pass
+
+    return report.to_dict()
