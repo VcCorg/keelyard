@@ -370,3 +370,43 @@ def get_node_neighborhood(node_id: str, domain: str) -> KGNeighborhood:
         client.close()
 
     return KGNeighborhood(nodes=list(nodes.values()), edges=edges, center_id=node_id)
+
+
+def get_domain_graph(domain: str, limit: int = 400) -> KGNeighborhood:
+    """Whole-domain KG graph for the frontend viewer (the neo4j-only `kg
+    visualize` equivalent, served as data instead of a generated HTML file)."""
+    client = _get_neo4j_client()
+    nodes: dict[str, KGGraphNode] = {}
+    edges: list[KGGraphEdge] = []
+    if not client:
+        return KGNeighborhood(nodes=[], edges=[], center_id="")
+    try:
+        rows = client.execute_cypher(
+            """
+            MATCH (a)-[r]->(b)
+            WHERE ($domain = '' OR a.domain = $domain OR b.domain = $domain)
+            RETURN a.id AS a_id, a.name AS a_name, labels(a) AS a_labels,
+                   b.id AS b_id, b.name AS b_name, labels(b) AS b_labels,
+                   type(r) AS rel, r.confidence AS conf
+            LIMIT $limit
+            """,
+            {"domain": domain or "", "limit": int(limit)})
+        for r in rows:
+            for pfx in ("a", "b"):
+                nid = r.get(f"{pfx}_id")
+                if nid and nid not in nodes:
+                    labels = r.get(f"{pfx}_labels") or []
+                    nodes[nid] = KGGraphNode(
+                        id=nid, label=r.get(f"{pfx}_name") or nid,
+                        node_type="document" if "Document" in labels else "code",
+                        domain=domain)
+            if r.get("a_id") and r.get("b_id"):
+                edges.append(KGGraphEdge(
+                    source=r["a_id"], target=r["b_id"],
+                    relationship=r.get("rel") or "RELATES_TO",
+                    confidence=float(r.get("conf") or 0.0)))
+    except Exception:  # noqa: BLE001
+        pass
+    finally:
+        client.close()
+    return KGNeighborhood(nodes=list(nodes.values()), edges=edges, center_id="")

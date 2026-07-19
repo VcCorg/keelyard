@@ -48,6 +48,16 @@ interface JudgeReport {
   scenarios: JudgeScenario[];
 }
 
+interface AuditRow {
+  subcommand?: string;
+  action?: string;
+  entity_id?: string;
+  status?: string;
+  timestamp?: string;
+  actor?: string;
+  details?: Record<string, unknown>;
+}
+
 interface Scorecard {
   skill: string;
   domain: string;
@@ -83,6 +93,13 @@ export function SkillTrials() {
   const [promoted, setPromoted] = useState<string | null>(null);
   const [judging, setJudging] = useState(false);
   const [judge, setJudge] = useState<JudgeReport | null>(null);
+  const [history, setHistory] = useState<AuditRow[]>([]);
+
+  const loadHistory = () =>
+    fetch("/api/skills/audit?limit=25")
+      .then((r) => r.json())
+      .then((d) => setHistory(d.actions ?? []))
+      .catch(() => setHistory([]));
 
   useEffect(() => {
     fetch("/api/skills/list")
@@ -90,6 +107,7 @@ export function SkillTrials() {
       .then((d) => setSkills(d.skills ?? []))
       .catch(() => setSkills([]));
     api.listIngestableDomains().then(setDomains).catch(() => setDomains([]));
+    loadHistory();
   }, []);
 
   const filtered = useMemo(
@@ -110,6 +128,7 @@ export function SkillTrials() {
       });
       if (!r.ok) throw new Error((await r.json()).detail ?? `status ${r.status}`);
       setCard(await r.json());
+      loadHistory();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -129,6 +148,7 @@ export function SkillTrials() {
       });
       if (!r.ok) throw new Error((await r.json()).detail ?? `status ${r.status}`);
       setJudge(await r.json());
+      loadHistory();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -148,6 +168,7 @@ export function SkillTrials() {
       if (!r.ok) throw new Error((await r.json()).detail ?? `status ${r.status}`);
       const res = await r.json();
       setPromoted(res.promoted_to);
+      loadHistory();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -399,6 +420,37 @@ export function SkillTrials() {
           )}
         </div>
       </div>
+
+      {/* Trial audit history */}
+      {history.length > 0 && (
+        <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
+          <h2 className="text-sm font-semibold mb-3">Recent trial activity</h2>
+          <div className="space-y-1.5 max-h-64 overflow-y-auto">
+            {history.map((h, i) => {
+              const act = (h.subcommand || h.action || "").replace("trial_", "");
+              const d = (h.details || {}) as Record<string, unknown>;
+              const meta =
+                act === "judge" ? `Δ ${d.delta ?? "?"} · ${d.verdict ?? ""}`
+                : act === "evaluate" ? `${d.verdict ?? ""}`
+                : act === "promote" ? `→ ${d.domain ?? ""}`
+                : "";
+              return (
+                <div key={i} className="flex items-center gap-2 text-xs border-b border-gray-50 dark:border-gray-800/50 py-1.5">
+                  <span className={`px-1.5 py-0.5 rounded font-medium ${
+                    act === "promote" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                    : act === "judge" ? "bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300"
+                    : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                  }`}>{act}</span>
+                  <span className="font-mono truncate max-w-[10rem]">{h.entity_id}</span>
+                  <span className="text-gray-400">{meta}</span>
+                  <span className="text-gray-400 ml-auto">{h.actor || ""}</span>
+                  {h.timestamp && <span className="text-gray-300 dark:text-gray-600">{new Date(h.timestamp).toLocaleString()}</span>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

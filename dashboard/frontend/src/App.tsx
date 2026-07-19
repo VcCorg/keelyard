@@ -22,6 +22,8 @@ import { KGDomain } from "@/pages/KGDomain";
 import { KGIngest } from "@/pages/KGIngest";
 import { KGOnboard } from "@/pages/KGOnboard";
 import { SkillTrials } from "@/pages/SkillTrials";
+import { CodeGraph } from "@/pages/CodeGraph";
+import { KGGraph } from "@/pages/KGGraph";
 import { OKFGeneration } from "@/pages/OKFGeneration";
 import { DataSources } from "@/pages/DataSources";
 import { CodeOnboard } from "@/pages/CodeOnboard";
@@ -84,6 +86,8 @@ function App() {
             <Route path="/kg/ingest" element={<KGIngest />} />
             <Route path="/kg/onboard" element={<KGOnboard />} />
             <Route path="/skills/trials" element={<SkillTrials />} />
+            <Route path="/code-graph" element={<CodeGraph />} />
+            <Route path="/kg/graph" element={<KGGraph />} />
             <Route path="/kg/okf" element={<OKFGeneration />} />
             <Route path="/kg/:domain" element={<KGDomain />} />
             <Route path="/data" element={<DataSources />} />
