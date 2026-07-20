@@ -138,6 +138,14 @@ export const HELP: Record<string, HelpEntry> = {
     prerequisites: ["A repo onboarded with the Graphify option"],
     cli: ["keel code onboard --graphify"],
   },
+  "/execution": {
+    title: "Execution & Context",
+    what: "The vendor-neutral execution engines (Devin today, swappable) and their status, plus a preview of the portable, engine-neutral context bundle a build receives. Mirrors `keel execution` and `keel context`.",
+    persona: "Developer (Build)",
+    prerequisites: ["context:build permission (developer+) to render a bundle"],
+    cli: ["keel execution list", "keel context build"],
+    tips: ["The preview writes nothing; `keel context build` writes the bundle to disk."],
+  },
   "/skills": {
     title: "Skills",
     what: "Browse and manage the skills available to agents and builds.",

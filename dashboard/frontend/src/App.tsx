@@ -44,6 +44,7 @@ import { Admin } from "@/pages/Admin";
 import { SetupWizard } from "@/pages/SetupWizard";
 import { AuditHistory } from "@/pages/AuditHistory";
 import { IdentityAccess } from "@/pages/IdentityAccess";
+import { ExecutionContext } from "@/pages/ExecutionContext";
 import { TerminalProvider } from "@/context/TerminalContext";
 import { UserProvider } from "@/context/UserContext";
 import { SetupProvider } from "@/context/SetupContext";
@@ -100,6 +101,7 @@ function App() {
             <Route path="/code-onboard" element={<CodeOnboard />} />
             <Route path="/eval" element={<Eval />} />
             <Route path="/devin" element={<Devin />} />
+            <Route path="/execution" element={<ExecutionContext />} />
             <Route path="/snapshots" element={<Snapshots />} />
             <Route path="/cli" element={<CLIRunner />} />
           </Route>
