@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   ChevronDown,
   ChevronRight,
@@ -10,6 +10,8 @@ import {
   AlertTriangle,
   Users,
   FolderOpen,
+  Rocket,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -159,6 +161,47 @@ function NavGroupSection({ group }: { group: NavGroup }) {
 }
 
 
+/**
+ * First-run nudge: when required CLI setup is still pending, surface a banner
+ * that routes to the guided setup wizard. Dismissible for the session so it
+ * never blocks; the wizard remains reachable from here anytime.
+ */
+function FirstRunBanner() {
+  const { status, loading } = useSetup();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [dismissed, setDismissed] = useState(false);
+
+  if (loading || !status || dismissed) return null;
+  if (location.pathname === "/setup") return null;
+  // Only nudge when the CLI is available but required steps are incomplete.
+  if (!status.cli_available || status.ready) return null;
+
+  const pending = status.items.filter((i) => i.required && !i.configured).length;
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-blue-200 dark:border-blue-900/50 bg-blue-50 dark:bg-blue-900/20 px-4 py-3 mb-5">
+      <Rocket className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+      <div className="flex-1 text-sm text-blue-800 dark:text-blue-200">
+        <span className="font-medium">Welcome to Keel.</span> Finish the guided setup
+        {pending > 0 && ` — ${pending} required step${pending === 1 ? "" : "s"} left`}.
+      </div>
+      <button
+        onClick={() => navigate("/setup")}
+        className="shrink-0 inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+      >
+        <Rocket className="h-3.5 w-3.5" /> Start setup
+      </button>
+      <button
+        onClick={() => setDismissed(true)}
+        aria-label="Dismiss"
+        className="shrink-0 p-1 rounded text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
 export function Layout() {
   const { user, theme, toggleTheme, updateUser, auth } = useUser();
   const { panelOpen, closePanel } = useSetup();
@@ -265,6 +308,7 @@ export function Layout() {
           <IntegrationStatusBar />
         </header>
         <div className="flex-1 max-w-7xl w-full mx-auto px-6 py-6">
+          <FirstRunBanner />
           <Outlet />
         </div>
       </main>

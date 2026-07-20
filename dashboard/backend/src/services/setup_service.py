@@ -232,6 +232,69 @@ def get_setup_status() -> SetupStatus:
     return SetupStatus(cli_available=cli_available, cli_version=cli_version, ready=ready, items=items)
 
 
+# ── Diagnostics (keel doctor, structured for the frontend) ───────────────────
+
+
+class DoctorCheck(BaseModel):
+    group: str
+    name: str
+    status: str              # ok | warn | fail | skip
+    detail: str = ""
+    fix: str = ""
+
+
+class DoctorSection(BaseModel):
+    name: str
+    required: bool = False
+    results: list[DoctorCheck] = []
+
+
+class DoctorSummary(BaseModel):
+    ok: int = 0
+    warn: int = 0
+    fail: int = 0
+    skip: int = 0
+    total: int = 0
+
+
+class DoctorReport(BaseModel):
+    healthy: bool = True
+    sections: list[DoctorSection] = []
+    summary: DoctorSummary = DoctorSummary()
+
+
+def get_doctor_report(probe: bool = False) -> DoctorReport:
+    """Run `keel doctor` in-process and return structured diagnostics.
+
+    Reuses the CLI's check collector so the wizard's health panel and the CLI
+    stay in lockstep. ``probe`` also tests integration host reachability
+    (slower — off by default).
+    """
+    try:
+        from agentic_cli.doctor import collect_sections, sections_to_dict
+
+        # Reflect tokens written via the setup panel without a restart.
+        try:
+            from agentic_cli.env import load_env
+            load_env(force=True)
+        except Exception:
+            pass
+
+        data = sections_to_dict(collect_sections(probe=probe))
+        return DoctorReport(**data)
+    except Exception as e:  # noqa: BLE001 — diagnostics must never 500
+        return DoctorReport(
+            healthy=False,
+            sections=[DoctorSection(
+                name="Diagnostics", required=True,
+                results=[DoctorCheck(
+                    group="Diagnostics", name="doctor", status="fail",
+                    detail=f"Could not run diagnostics: {e}",
+                    fix="Ensure agentic_cli is importable in the backend environment.")])],
+            summary=DoctorSummary(fail=1, total=1),
+        )
+
+
 # ── Init arg builders (non-interactive: every value passed as a flag) ────────
 
 def init_workspace_args(code: str, docs: str) -> list[str]:

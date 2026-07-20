@@ -41,6 +41,7 @@ import { People } from "@/pages/People";
 import { SharedAgents } from "@/pages/SharedAgents";
 import { SharedKG } from "@/pages/SharedKG";
 import { Admin } from "@/pages/Admin";
+import { SetupWizard } from "@/pages/SetupWizard";
 import { TerminalProvider } from "@/context/TerminalContext";
 import { UserProvider } from "@/context/UserContext";
 import { SetupProvider } from "@/context/SetupContext";
@@ -56,6 +57,7 @@ function App() {
         <Routes>
           <Route element={<Layout />}>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/setup" element={<SetupWizard />} />
             <Route path="/tasks" element={<Tasks />} />
             <Route path="/assignments" element={<Assignments />} />
             <Route path="/sessions" element={<Sessions />} />
