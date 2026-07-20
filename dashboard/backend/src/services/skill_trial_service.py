@@ -16,12 +16,21 @@ Every trial and promotion is recorded in the central audit trail.
 """
 from __future__ import annotations
 
+import json
 import re
 import shutil
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel
+
+_SAFE = re.compile(r"[^A-Za-z0-9._-]+")
+
+
+class UploadResult(BaseModel):
+    skill: str
+    files: int
+    registry: str
 
 
 class TrialCheck(BaseModel):
@@ -150,12 +159,20 @@ def _check_ai_review(skill_dir: Path, domain: str) -> tuple[TrialCheck, str]:
 
 
 def evaluate_trial(skill_name: str, domain: str, persona: str,
-                   actor: Optional[str] = None) -> TrialScorecard:
-    """Run the trial scorecard for a skill against a domain."""
+                   actor: Optional[str] = None,
+                   run_security: bool = True) -> TrialScorecard:
+    """Run the trial scorecard for a skill against a domain.
+
+    ``run_security`` toggles the SkillSpector scan — leads can skip it when the
+    scanner isn't installed or a skill is trusted (the check reports as skipped).
+    """
     skill_dir = _skill_dir(skill_name)
+    security = (_check_security(skill_dir) if run_security else
+                TrialCheck(name="Security scan", status="skipped",
+                           detail="Disabled for this trial"))
     checks = [
         _check_structure(skill_dir),
-        _check_security(skill_dir),
+        security,
         _check_persona_policy(skill_name, domain, persona),
     ]
     ai_check, ai_provider = _check_ai_review(skill_dir, domain)
@@ -233,6 +250,112 @@ def promote_trial(skill_name: str, domain: str, actor: Optional[str] = None) -> 
         pass
 
     return PromoteResult(skill=skill_name, domain=domain, promoted_to=str(dest))
+
+
+# ── Upload a candidate skill into the registry for trialing ──────────────────
+
+def _safe_component(name: str) -> str:
+    return _SAFE.sub("-", (name or "").strip()).strip("-.") or ""
+
+
+def _registry_root() -> Path:
+    """The skills registry dir, creating a local one if none exists yet.
+
+    Uploading a candidate skill is the "test before you push to master" path,
+    so a fresh install gets a local registry to stage into.
+    """
+    from agentic_cli.commands.code import _get_registry_path
+
+    reg = _get_registry_path()
+    reg.mkdir(parents=True, exist_ok=True)
+    rj = reg / "registry.json"
+    if not rj.exists():
+        rj.write_text(json.dumps({"skills": []}, indent=2), encoding="utf-8")
+    (reg / "skills").mkdir(parents=True, exist_ok=True)
+    return reg
+
+
+def stage_uploaded_skill(skill_name: str, files: List[Tuple[str, str]],
+                         actor: Optional[str] = None) -> UploadResult:
+    """Write an uploaded skill (a folder of files, or a single file) into the
+    registry so it can be trialed. ``files`` is a list of (relative_path, text).
+
+    A single ``.md`` file with no folder is treated as the skill's SKILL.md.
+    Requires (or synthesizes) a SKILL.md; upserts the registry.json entry.
+    """
+    if not files:
+        raise ValueError("No files were uploaded")
+
+    # Normalize paths, dropping traversal segments and empty entries.
+    norm: List[Tuple[List[str], str]] = []
+    for rel, content in files:
+        parts = [p for p in (rel or "").replace("\\", "/").split("/")
+                 if p not in ("", ".", "..")]
+        if parts:
+            norm.append((parts, content or ""))
+    if not norm:
+        raise ValueError("No valid files were uploaded")
+
+    # A single shared top-level folder is the natural skill root/name.
+    tops = {p[0] for p, _ in norm}
+    common = tops.pop() if len(tops) == 1 and len(norm) > 1 else None
+    name = _safe_component(skill_name) or _safe_component(common or "")
+    staged = [(p[1:] if (common and len(p) > 1) else p, c) for p, c in norm]
+
+    # A single markdown file becomes the skill's SKILL.md (flattened to root).
+    if len(staged) == 1 and staged[0][0][-1].lower().endswith(".md"):
+        orig = staged[0][0]
+        if not name:
+            name = _safe_component(orig[0] if len(orig) > 1 else Path(orig[-1]).stem)
+        staged = [(["SKILL.md"], staged[0][1])]
+    if not name:
+        raise ValueError("Could not determine a skill name — provide one")
+
+    reg = _registry_root()
+    dest = reg / "skills" / name
+    if dest.exists():
+        shutil.rmtree(dest)
+    dest.mkdir(parents=True)
+    dest_resolved = dest.resolve()
+
+    for parts, content in staged:
+        target = dest.joinpath(*parts)
+        # Guard against path traversal outside the skill dir.
+        try:
+            target.resolve().relative_to(dest_resolved)
+        except ValueError:
+            shutil.rmtree(dest, ignore_errors=True)
+            raise ValueError(f"Illegal path in upload: {'/'.join(parts)}")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+
+    if not (dest / "SKILL.md").is_file():
+        shutil.rmtree(dest, ignore_errors=True)
+        raise ValueError("Upload must include a SKILL.md (or a single .md file)")
+
+    # Upsert the registry.json entry so it shows in the picker + can be trialed.
+    rj = reg / "registry.json"
+    try:
+        data = json.loads(rj.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        data = {"skills": []}
+    md = (dest / "SKILL.md").read_text(encoding="utf-8", errors="replace")
+    m = re.search(r"^description:\s*(.+)$", md, re.MULTILINE)
+    desc = (m.group(1).strip().strip("\"'")[:300] if m else "")
+    skills = [s for s in data.get("skills", []) if s.get("name") != name]
+    skills.append({"name": name, "description": desc, "tags": ["uploaded"]})
+    data["skills"] = skills
+    rj.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+    try:
+        from agentic_cli.tracker import record_action
+
+        record_action("skill", "trial_upload", entity_type="skill", entity_id=name,
+                      source="dashboard", actor=actor, details={"files": len(staged)})
+    except Exception:  # noqa: BLE001
+        pass
+
+    return UploadResult(skill=name, files=len(staged), registry=str(reg))
 
 
 # ── LLM-as-judge impact evaluation (deep, on-demand) ─────────────────────────

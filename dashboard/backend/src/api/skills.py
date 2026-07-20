@@ -834,14 +834,27 @@ from fastapi import Depends, Request  # noqa: E402
 from src.services.skill_trial_service import (  # noqa: E402
     PromoteResult,
     TrialScorecard,
+    UploadResult,
     evaluate_trial,
     promote_trial,
+    stage_uploaded_skill,
 )
 
 
 class TrialRequest(BaseModel):
     skill_name: str
     domain: str = ""
+    run_security: bool = True
+
+
+class UploadedSkillFile(BaseModel):
+    path: str
+    content: str
+
+
+class UploadSkillRequest(BaseModel):
+    skill_name: str = ""
+    files: List[UploadedSkillFile]
 
 
 def _require_promote():
@@ -865,11 +878,51 @@ async def api_trial_evaluate(req: TrialRequest, request: Request):
         persona = "dev"
     try:
         return evaluate_trial(req.skill_name, req.domain, persona,
-                              actor=actor_of(request))
+                              actor=actor_of(request), run_security=req.run_security)
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/trial/upload", response_model=UploadResult)
+async def api_trial_upload(req: UploadSkillRequest, request: Request):
+    """Stage an uploaded candidate skill (file or folder) into the registry.
+
+    Sent as JSON ({skill_name, files:[{path, content}]}) so it works in the
+    packaged app without a multipart dependency. Any role can load a skill to
+    trial it; promotion into a domain's validated tier stays a lead action.
+    """
+    from src.services.auth_service import actor_of
+
+    files = [(f.path, f.content) for f in req.files]
+    try:
+        return stage_uploaded_skill(req.skill_name, files, actor=actor_of(request))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/security/install/stream")
+async def security_install_stream():
+    """Install the SkillSpector security scanner, streaming progress (SSE).
+
+    Runs `uv tool install git+…/skillspector`. If `uv` isn't on the backend's
+    PATH the stream surfaces the error with the manual command.
+    """
+    from sse_starlette.sse import EventSourceResponse
+    from src.services.run_registry import registry
+
+    cmd = ["uv", "tool", "install",
+           "git+https://github.com/NVIDIA/skillspector.git"]
+    rec = registry.create(kind="cli", label="install skillspector", cmd=cmd)
+
+    async def gen():
+        async for event in registry.stream(rec, cmd):
+            yield event
+
+    return EventSourceResponse(gen())
 
 
 @router.post("/trial/promote", response_model=PromoteResult)

@@ -97,6 +97,7 @@ async function sweepEndpoints() {
     "/api/execution/engines",
     "/api/code/graphs",
     "/api/skills/audit",
+    "/api/skills/security/status",
   ];
   for (const ep of endpoints) {
     try {

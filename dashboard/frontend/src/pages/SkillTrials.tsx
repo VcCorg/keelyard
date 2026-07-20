@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   FlaskConical, Package, Boxes, ChevronRight, ChevronLeft, Play, Loader2,
   CheckCircle2, AlertTriangle, XCircle, MinusCircle, ArrowUpToLine, ShieldCheck,
+  Upload, FolderUp, FileUp, Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { StreamConsole } from "@/components/StreamConsole";
 import { useUser } from "@/context/UserContext";
 import { api, type IngestableDomain } from "@/lib/api";
 
@@ -95,6 +97,31 @@ export function SkillTrials() {
   const [judge, setJudge] = useState<JudgeReport | null>(null);
   const [history, setHistory] = useState<AuditRow[]>([]);
 
+  // Security scanner (SkillSpector) availability + per-trial toggle.
+  const [scanner, setScanner] = useState<{ available: boolean; version?: string } | null>(null);
+  const [runSecurity, setRunSecurity] = useState(true);
+  const [installUrl, setInstallUrl] = useState<string | null>(null);
+
+  // Upload a candidate skill (file or folder) into the registry.
+  const [uploadName, setUploadName] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadErr, setUploadErr] = useState<string | null>(null);
+  const [uploadMsg, setUploadMsg] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const folderRef = useRef<HTMLInputElement>(null);
+
+  const loadSkills = () =>
+    fetch("/api/skills/list")
+      .then((r) => r.json())
+      .then((d) => setSkills(d.skills ?? []))
+      .catch(() => setSkills([]));
+
+  const loadScanner = () =>
+    fetch("/api/skills/security/status")
+      .then((r) => r.json())
+      .then((d) => { setScanner(d); setRunSecurity(!!d.available); })
+      .catch(() => setScanner({ available: false }));
+
   const loadHistory = () =>
     fetch("/api/skills/audit?limit=25")
       .then((r) => r.json())
@@ -102,13 +129,43 @@ export function SkillTrials() {
       .catch(() => setHistory([]));
 
   useEffect(() => {
-    fetch("/api/skills/list")
-      .then((r) => r.json())
-      .then((d) => setSkills(d.skills ?? []))
-      .catch(() => setSkills([]));
+    loadSkills();
     api.listIngestableDomains().then(setDomains).catch(() => setDomains([]));
+    loadScanner();
     loadHistory();
   }, []);
+
+  const handleUpload = async (list: FileList | null) => {
+    if (!list || list.length === 0) return;
+    setUploading(true);
+    setUploadErr(null);
+    setUploadMsg(null);
+    try {
+      const files = await Promise.all(
+        Array.from(list).map(async (f) => ({
+          path: (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name,
+          content: await f.text(),
+        }))
+      );
+      const r = await fetch("/api/skills/trial/upload", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ skill_name: uploadName.trim(), files }),
+      });
+      if (!r.ok) throw new Error((await r.json()).detail ?? `status ${r.status}`);
+      const res = await r.json();
+      await loadSkills();
+      setSkill(res.skill);
+      setUploadName("");
+      setUploadMsg(`Loaded '${res.skill}' (${res.files} file${res.files === 1 ? "" : "s"}) — select it below to trial.`);
+    } catch (e) {
+      setUploadErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+      if (folderRef.current) folderRef.current.value = "";
+    }
+  };
 
   const filtered = useMemo(
     () => skills.filter((s) => !filter || s.name.toLowerCase().includes(filter.toLowerCase())),
@@ -124,7 +181,7 @@ export function SkillTrials() {
       const r = await fetch("/api/skills/trial/evaluate", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ skill_name: skill, domain }),
+        body: JSON.stringify({ skill_name: skill, domain, run_security: runSecurity }),
       });
       if (!r.ok) throw new Error((await r.json()).detail ?? `status ${r.status}`);
       setCard(await r.json());
@@ -218,6 +275,43 @@ export function SkillTrials() {
             <h2 className="text-sm font-semibold flex items-center gap-2">
               <Package className="h-4 w-4 text-blue-500" /> Which skill do you want to trial?
             </h2>
+
+            {/* Load a new candidate skill (file or folder) into the registry. */}
+            <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 p-3 space-y-2">
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                <Upload className="h-3.5 w-3.5" /> Load a new skill to trial — a folder of files
+                (preferred) or a single SKILL.md.
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  placeholder="Skill name (optional for folders)"
+                  value={uploadName}
+                  onChange={(e) => setUploadName(e.target.value)}
+                  className="h-8 flex-1 min-w-[10rem] rounded-md border border-input bg-background px-2.5 text-sm"
+                />
+                <Button size="sm" variant="outline" disabled={uploading} onClick={() => folderRef.current?.click()}>
+                  {uploading ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <FolderUp className="h-3.5 w-3.5 mr-1.5" />}
+                  Folder
+                </Button>
+                <Button size="sm" variant="outline" disabled={uploading} onClick={() => fileRef.current?.click()}>
+                  <FileUp className="h-3.5 w-3.5 mr-1.5" /> File(s)
+                </Button>
+                <input ref={fileRef} type="file" multiple hidden onChange={(e) => handleUpload(e.target.files)} />
+                <input
+                  ref={(el) => {
+                    if (el) { el.setAttribute("webkitdirectory", ""); el.setAttribute("directory", ""); }
+                    folderRef.current = el;
+                  }}
+                  type="file"
+                  multiple
+                  hidden
+                  onChange={(e) => handleUpload(e.target.files)}
+                />
+              </div>
+              {uploadErr && <p className="text-xs text-red-600 dark:text-red-400">{uploadErr}</p>}
+              {uploadMsg && <p className="text-xs text-emerald-600 dark:text-emerald-400">{uploadMsg}</p>}
+            </div>
+
             <input
               placeholder="Filter skills…"
               value={filter}
@@ -284,6 +378,50 @@ export function SkillTrials() {
                 </Button>
               )}
             </div>
+
+            {/* Security scanner control — toggle the scan, or install the
+                scanner (SkillSpector) if it isn't on the backend. */}
+            {!card && (
+              scanner?.available ? (
+                <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={runSecurity}
+                    onChange={(e) => setRunSecurity(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <ShieldCheck className="h-4 w-4 text-emerald-500" />
+                  Run security scan
+                  <span className="text-xs text-gray-400 font-mono">
+                    SkillSpector{scanner.version ? ` ${scanner.version}` : ""}
+                  </span>
+                </label>
+              ) : (
+                <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 space-y-2">
+                  <p className="text-xs text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    Security scanner (SkillSpector) isn't installed — the trial's security check
+                    will be skipped.
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setInstallUrl("/api/skills/security/install/stream")}
+                  >
+                    <Download className="h-3.5 w-3.5 mr-1.5" /> Install scanner
+                  </Button>
+                  <StreamConsole
+                    url={installUrl}
+                    title="install skillspector"
+                    onDone={() => { loadScanner(); }}
+                  />
+                  <p className="text-[11px] text-amber-700/80 dark:text-amber-400/80">
+                    Runs <code className="font-mono">uv tool install …/skillspector</code> on the
+                    backend host (needs <code className="font-mono">uv</code> on PATH).
+                  </p>
+                </div>
+              )
+            )}
 
             {error && (
               <div className="text-sm text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg p-3">{error}</div>
