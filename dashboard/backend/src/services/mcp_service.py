@@ -61,6 +61,31 @@ class MCPHealthResult(BaseModel):
     auth_message: str = ""
 
 
+class DockerServiceStatus(BaseModel):
+    """One MCP service in the bundled Docker stack + its container state."""
+    name: str
+    description: str = ""
+    container_name: str = ""
+    port: Optional[int] = None
+    running: bool = False
+    status: str = "absent"  # running | exited | absent | <raw docker status>
+
+
+class DockerMcpStatus(BaseModel):
+    """Whether Docker + the bundled MCP compose stack are available/running.
+
+    The bundled MCP servers (Jira, Confluence, Bitbucket, KG, …) require Docker.
+    This surfaces, at a glance, whether Docker is up and which MCP containers are
+    running — so a user knows why an MCP-dependent feature (e.g. Work Items) is
+    unavailable, and whether to start the stack or register a remote server.
+    """
+    docker_available: bool = False
+    docker_message: str = ""
+    compose_found: bool = False
+    compose_path: Optional[str] = None
+    services: list[DockerServiceStatus] = []
+
+
 def _check_port(host: str, port: int, timeout: float = 2.0) -> tuple[bool, str]:
     """Quick TCP port check."""
     try:
@@ -277,6 +302,85 @@ def _get_docker_status() -> dict[str, str]:
         return mapping
     except Exception:
         return {}
+
+
+def _docker_available() -> tuple[bool, str]:
+    """Whether the Docker daemon is reachable (reuses the CLI's doctor check)."""
+    try:
+        from agentic_cli.kg.validation import check_docker_running
+
+        return check_docker_running()
+    except Exception:  # noqa: BLE001 - fall back to a direct probe
+        try:
+            r = subprocess.run(["docker", "info"], capture_output=True, text=True, timeout=5)
+            return (r.returncode == 0,
+                    "Docker daemon is running" if r.returncode == 0
+                    else "Docker daemon is not running")
+        except FileNotFoundError:
+            return False, "Docker is not installed"
+        except Exception as e:  # noqa: BLE001
+            return False, str(e)[:200]
+
+
+def get_docker_mcp_status() -> DockerMcpStatus:
+    """Report Docker availability + the bundled MCP stack's container status.
+
+    Uses the compose file's service list when discoverable; otherwise falls back
+    to the canonical MCP service set, so the panel is informative even in a
+    standalone install where no compose file is bundled. Container state comes
+    from ``docker ps -a`` regardless.
+    """
+    available, message = _docker_available()
+    compose_path = _find_compose_file()
+    compose_found = bool(compose_path and compose_path.exists())
+
+    # Canonical service set: compose services if found, else known descriptions.
+    known: dict[str, tuple[str, Optional[int]]] = {}  # svc -> (container, port)
+    if compose_found:
+        try:
+            import yaml  # type: ignore
+
+            with open(compose_path) as f:
+                data = yaml.safe_load(f) or {}
+            for svc, sd in (data.get("services") or {}).items():
+                ports = sd.get("ports") or []
+                port = None
+                if ports:
+                    try:
+                        port = int(str(ports[0]).split(":")[0])
+                    except ValueError:
+                        port = None
+                container = sd.get("container_name", f"keel-{svc}")
+                known[svc] = (container, port)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Failed to parse compose for docker status: %s", e)
+    if not known:
+        known = {svc: (f"keel-{svc}", None) for svc in _DESCRIPTIONS}
+
+    docker_status = _get_docker_status() if available else {}
+
+    services: list[DockerServiceStatus] = []
+    for svc, (container, port) in known.items():
+        raw = docker_status.get(container, "")
+        low = raw.lower()
+        if low.startswith("up"):
+            status, running = "running", True
+        elif "exited" in low or "created" in low or "restarting" in low:
+            status, running = ("exited" if "exited" in low else low.split()[0]), False
+        elif raw:
+            status, running = raw, False
+        else:
+            status, running = "absent", False
+        services.append(DockerServiceStatus(
+            name=svc, description=_DESCRIPTIONS.get(svc, ""),
+            container_name=container, port=port, running=running, status=status))
+
+    services.sort(key=lambda s: s.name)
+    return DockerMcpStatus(
+        docker_available=available, docker_message=message,
+        compose_found=compose_found,
+        compose_path=str(compose_path) if compose_path else None,
+        services=services)
 
 
 def list_mcp_servers() -> list[MCPServerInfo]:

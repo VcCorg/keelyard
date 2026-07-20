@@ -89,6 +89,7 @@ async function sweepEndpoints() {
     "/api/activity",
     "/api/activity/stats",
     "/api/mcp/servers",
+    "/api/mcp/docker",
     "/api/setup/status",
     "/api/setup/doctor",
     "/api/terminal/sessions",
