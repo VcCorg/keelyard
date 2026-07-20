@@ -24,6 +24,7 @@ import { useSetup } from "@/context/SetupContext";
 import { useAdminSettings } from "@/context/AdminSettingsContext";
 import { SetupPanel } from "@/components/SetupPanel";
 import { IntegrationStatusBar } from "@/components/IntegrationStatusBar";
+import { HelpButton } from "@/components/HelpButton";
 import {
   navGroups,
   groupId,
@@ -306,6 +307,7 @@ export function Layout() {
       <main className="flex-1 overflow-y-auto flex flex-col">
         <header className="sticky top-0 z-30 flex items-center justify-end gap-3 px-6 py-2.5 border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-950/80 backdrop-blur">
           <IntegrationStatusBar />
+          <HelpButton />
         </header>
         <div className="flex-1 max-w-7xl w-full mx-auto px-6 py-6">
           <FirstRunBanner />
