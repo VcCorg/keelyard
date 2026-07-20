@@ -93,6 +93,7 @@ async function sweepEndpoints() {
     "/api/setup/doctor",
     "/api/terminal/sessions",
     "/api/execution/governance",
+    "/api/execution/engines",
     "/api/code/graphs",
     "/api/skills/audit",
   ];

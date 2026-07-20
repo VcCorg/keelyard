@@ -168,6 +168,7 @@ export const navGroups: NavGroup[] = [
       { to: "/code-graph", icon: Share2, label: "Code Graph" },
       { to: "/skills", icon: Package, label: "Skills" },
       { to: "/devin", icon: DevinBot, label: "Devin Sessions" },
+      { to: "/execution", icon: Cpu, label: "Execution & Context" },
       { to: "/snapshots", icon: Camera, label: "Snapshots", minRole: "lead" },
     ],
   },
