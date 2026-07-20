@@ -7,6 +7,7 @@ import { usePolling } from "@/hooks/usePolling";
 import { api, type MCPServerInfo, type MCPServerUpsert } from "@/lib/api";
 import { StatusBadge } from "@/components/StatusBadge";
 import { LogViewer } from "@/components/LogViewer";
+import { DockerMcpPanel } from "@/components/DockerMcpPanel";
 
 /** Blank draft for the add/edit form. */
 const emptyDraft: MCPServerUpsert = { name: "", url: "", type: "sse", description: "", enabled: true };
@@ -152,6 +153,9 @@ export function MCPServers() {
           <Plus className="h-4 w-4" /> Add server
         </button>
       </div>
+
+      {/* Docker MCP stack status — the bundled MCP servers require Docker. */}
+      <DockerMcpPanel />
 
       {/* Add / edit form — registers remote SSE/HTTP MCP servers in the CLI
           registry (~/.keel/mcp/registry.json), same store `keel mcp add` uses.

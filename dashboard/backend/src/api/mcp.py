@@ -10,10 +10,12 @@ from sse_starlette.sse import EventSourceResponse
 from fastapi import Request
 
 from src.services.mcp_service import (
+    DockerMcpStatus,
     MCPServerInfo,
     MCPHealthResult,
     MCPServerUpsert,
     add_mcp_server,
+    get_docker_mcp_status,
     list_mcp_servers,
     check_health,
     remove_mcp_server,
@@ -51,6 +53,17 @@ def _apply_health(server: MCPServerInfo, hr: MCPHealthResult) -> None:
     if hr.auth_message and hr.auth_status not in ("ok", "n/a"):
         parts.append(hr.auth_message)
     server.health_message = " — ".join(p for p in parts if p)
+
+
+@router.get("/docker", response_model=DockerMcpStatus)
+async def api_docker_status():
+    """Docker availability + the bundled MCP stack's per-service container status.
+
+    The bundled MCP servers require Docker; this tells the UI whether Docker is
+    up and which MCP containers are running, so the page can explain why an
+    MCP-dependent feature is unavailable.
+    """
+    return get_docker_mcp_status()
 
 
 @router.get("/servers", response_model=list[MCPServerInfo])

@@ -40,6 +40,23 @@ export interface MCPServerInfo {
   source?: "docker" | "registry"; // registry = user-registered, editable
 }
 
+export interface DockerServiceStatus {
+  name: string;
+  description: string;
+  container_name: string;
+  port?: number | null;
+  running: boolean;
+  status: string; // running | exited | absent | <raw>
+}
+
+export interface DockerMcpStatus {
+  docker_available: boolean;
+  docker_message: string;
+  compose_found: boolean;
+  compose_path?: string | null;
+  services: DockerServiceStatus[];
+}
+
 export interface MCPServerUpsert {
   name: string;
   url: string;
@@ -1082,6 +1099,11 @@ class APIClient {
   /* ---- MCP Servers ---- */
   async listMCPServers(): Promise<MCPServerInfo[]> {
     return this.request("/mcp/servers");
+  }
+
+  /** Docker availability + the bundled MCP stack's per-service container status. */
+  async getDockerMcpStatus(): Promise<DockerMcpStatus> {
+    return this.request("/mcp/docker");
   }
 
   async startMCPServer(name: string): Promise<{ success: boolean; message: string }> {
