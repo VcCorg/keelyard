@@ -38,9 +38,16 @@ export const HELP: Record<string, HelpEntry> = {
   },
   "/activity": {
     title: "Activity",
-    what: "The central audit feed — every governed action across onboarding, KG, skills and build, with actor and source.",
+    what: "A live feed of recent CLI/agent commands — quick pulse of what's happening.",
+    persona: "Everyone",
+    cli: ["keel history log"],
+  },
+  "/audit": {
+    title: "Audit History",
+    what: "The central audit trail — every governed action sliced by who acted (actor), from where (source: cli/dashboard), and on which entity. The frontend for `keel history`.",
     persona: "Leads / admins for oversight",
-    cli: ["keel history"],
+    cli: ["keel history log", "keel history summary"],
+    tips: ["Filter by actor to see one principal's actions, or by source to separate CLI vs dashboard activity."],
   },
   "/onboarding": {
     title: "Domain onboarding",

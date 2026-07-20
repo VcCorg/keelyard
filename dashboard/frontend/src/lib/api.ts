@@ -57,6 +57,12 @@ export interface ActivityEntry {
   timestamp: string;
   duration_ms?: number;
   repo_path?: string;
+  details?: Record<string, unknown> | null;
+  source?: string | null;
+  actor?: string | null;
+  entity_type?: string | null;
+  entity_id?: string | null;
+  correlation_id?: string | null;
 }
 
 export interface OverviewData {
@@ -1078,10 +1084,20 @@ class APIClient {
   /* ---- Activity ---- */
   async listActivity(params?: {
     command?: string;
+    subcommand?: string;
+    status?: string;
+    source?: string;
+    actor?: string;
+    entity_type?: string;
     limit?: number;
   }): Promise<ActivityEntry[]> {
     const query = new URLSearchParams();
     if (params?.command) query.append("command", params.command);
+    if (params?.subcommand) query.append("subcommand", params.subcommand);
+    if (params?.status) query.append("status", params.status);
+    if (params?.source) query.append("source", params.source);
+    if (params?.actor) query.append("actor", params.actor);
+    if (params?.entity_type) query.append("entity_type", params.entity_type);
     if (params?.limit) query.append("limit", params.limit.toString());
     return this.request(`/activity${query.toString() ? "?" + query.toString() : ""}`);
   }

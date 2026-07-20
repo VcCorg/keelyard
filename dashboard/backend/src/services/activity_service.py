@@ -10,7 +10,12 @@ from pydantic import BaseModel
 
 
 class ActivityEntry(BaseModel):
-    """Single activity log entry."""
+    """Single activity log entry.
+
+    The ``action``/``source``/``actor``/``entity_*`` fields are the central
+    audit-trail dimensions (who did what, from where, on which entity) that
+    `keel history` records; they surface in the Audit History view.
+    """
     id: int
     timestamp: str
     command: str
@@ -20,6 +25,11 @@ class ActivityEntry(BaseModel):
     args: Optional[dict] = None
     details: Optional[dict] = None
     repo_path: Optional[str] = None
+    source: Optional[str] = None
+    actor: Optional[str] = None
+    entity_type: Optional[str] = None
+    entity_id: Optional[str] = None
+    correlation_id: Optional[str] = None
 
 
 class ActivityStats(BaseModel):
@@ -36,8 +46,11 @@ def get_activity(
     status: Optional[str] = None,
     limit: int = 50,
     since: Optional[str] = None,
+    source: Optional[str] = None,
+    actor: Optional[str] = None,
+    entity_type: Optional[str] = None,
 ) -> list[ActivityEntry]:
-    """Query the activity log."""
+    """Query the activity log (with audit-trail filters: source/actor/entity)."""
     try:
         from agentic_cli.tracker import get_activity as _get_activity
         rows = _get_activity(
@@ -46,6 +59,9 @@ def get_activity(
             status=status,
             limit=limit,
             since=since,
+            source=source,
+            actor=actor,
+            entity_type=entity_type,
         )
         entries = []
         for row in rows:
@@ -73,6 +89,11 @@ def get_activity(
                 args=args,
                 details=details,
                 repo_path=row.get("repo_path"),
+                source=row.get("source"),
+                actor=row.get("actor"),
+                entity_type=row.get("entity_type"),
+                entity_id=row.get("entity_id"),
+                correlation_id=row.get("correlation_id"),
             ))
         return entries
     except ImportError:

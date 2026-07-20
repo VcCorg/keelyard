@@ -21,14 +21,20 @@ async def api_get_activity(
     status: Optional[str] = Query(None, description="Filter by status (success, error)"),
     limit: int = Query(50, ge=1, le=500),
     since: Optional[str] = Query(None, description="ISO 8601 timestamp to filter from"),
+    source: Optional[str] = Query(None, description="Filter by origin (cli, dashboard, …)"),
+    actor: Optional[str] = Query(None, description="Filter by authenticated principal"),
+    entity_type: Optional[str] = Query(None, description="Filter by entity kind (project, skill, story, …)"),
 ):
-    """Get recent activity log entries."""
+    """Get recent activity log entries (with audit-trail filters)."""
     return get_activity(
         command=command,
         subcommand=subcommand,
         status=status,
         limit=limit,
         since=since,
+        source=source,
+        actor=actor,
+        entity_type=entity_type,
     )
 
 

@@ -542,8 +542,16 @@ def get_activity(
     status: str = None,
     limit: int = 50,
     since: str = None,
+    source: str = None,
+    actor: str = None,
+    entity_type: str = None,
 ) -> list[dict]:
-    """Query the activity log with optional filters."""
+    """Query the activity log with optional filters.
+
+    ``source`` (cli|dashboard|…), ``actor`` (authenticated principal) and
+    ``entity_type`` filter the central audit trail so callers can slice it by
+    who acted, from where, and on what.
+    """
     clauses = []
     params = []
 
@@ -559,6 +567,15 @@ def get_activity(
     if since:
         clauses.append("timestamp >= ?")
         params.append(since)
+    if source:
+        clauses.append("source = ?")
+        params.append(source)
+    if actor:
+        clauses.append("actor = ?")
+        params.append(actor)
+    if entity_type:
+        clauses.append("entity_type = ?")
+        params.append(entity_type)
 
     where = " AND ".join(clauses)
     sql = "SELECT * FROM activity_log"

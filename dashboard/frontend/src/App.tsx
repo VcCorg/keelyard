@@ -42,6 +42,7 @@ import { SharedAgents } from "@/pages/SharedAgents";
 import { SharedKG } from "@/pages/SharedKG";
 import { Admin } from "@/pages/Admin";
 import { SetupWizard } from "@/pages/SetupWizard";
+import { AuditHistory } from "@/pages/AuditHistory";
 import { TerminalProvider } from "@/context/TerminalContext";
 import { UserProvider } from "@/context/UserContext";
 import { SetupProvider } from "@/context/SetupContext";
@@ -81,6 +82,7 @@ function App() {
             <Route path="/deployments" element={<Deployments />} />
             <Route path="/mcp" element={<MCPServers />} />
             <Route path="/activity" element={<ActivityFeed />} />
+            <Route path="/audit" element={<AuditHistory />} />
             <Route path="/chat" element={<Chat />} />
             <Route path="/onboarding" element={<DomainOnboarding />} />
             <Route path="/terminal" element={<Terminal />} />

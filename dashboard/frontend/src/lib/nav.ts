@@ -36,6 +36,7 @@ import {
   Blocks,
   Lightbulb,
   ShieldCheck,
+  ScrollText,
 } from "lucide-react";
 import type { UserRole } from "@/context/UserContext";
 
@@ -127,6 +128,7 @@ export const navGroups: NavGroup[] = [
     items: [
       { to: "/", icon: LayoutDashboard, label: "Dashboard" },
       { to: "/activity", icon: Activity, label: "Activity" },
+      { to: "/audit", icon: ScrollText, label: "Audit History", minRole: "lead" },
     ],
   },
   // Governance right after the dashboard: guardrails frame everything below.
