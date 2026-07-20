@@ -260,6 +260,13 @@ export const HELP: Record<string, HelpEntry> = {
     persona: "Admin",
     cli: ["keel admin"],
   },
+  "/identity": {
+    title: "Identity & Access",
+    what: "Who you are (subject, roles, persona, permissions), the RBAC model as a role × permission matrix, personas, and a live permission checker. The frontend for `keel auth`.",
+    persona: "Admin / leads",
+    cli: ["keel auth whoami", "keel auth roles", "keel auth check <permission>"],
+    tips: ["Roles are cumulative — each grants everything below it; viewer is read-only."],
+  },
   "/people": {
     title: "People",
     what: "Manage users, roles and persona assignments.",

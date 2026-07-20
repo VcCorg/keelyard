@@ -37,6 +37,7 @@ import {
   Lightbulb,
   ShieldCheck,
   ScrollText,
+  Fingerprint,
 } from "lucide-react";
 import type { UserRole } from "@/context/UserContext";
 
@@ -242,6 +243,7 @@ export const navGroups: NavGroup[] = [
     minRole: "admin",
     items: [
       { to: "/admin", icon: ShieldCheck, label: "Administration" },
+      { to: "/identity", icon: Fingerprint, label: "Identity & Access" },
       { to: "/people", icon: Users, label: "People" },
       { to: "/shared/agents", icon: Share2, label: "Shared Agents" },
       { to: "/shared/kg", icon: BrainCircuit, label: "Shared KG" },
