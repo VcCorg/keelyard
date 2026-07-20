@@ -26,8 +26,25 @@ _DESCRIPTIONS = {
     "confluence-mcp": "Confluence Server — pages, spaces, search",
     "memory-mcp": "Neo4j Agent Memory — short/long-term + reasoning",
     "kg-mcp": "Knowledge Graph — business context & requirements",
+    "agentic-mcp": "Agentic tools — code onboarding & context",
     "mcp-gateway": "Unified gateway aggregating all MCP tools",
     "mcp-proxy": "Named-server proxy (Bitbucket + Jira stdio)",
+}
+
+# Canonical host ports for the bundled MCP services (from mcp-servers/
+# docker-compose.yml). Used to TCP-probe reachability when the compose file
+# isn't bundled (e.g. a standalone install), so status doesn't depend on the
+# backend being able to shell out to the `docker` CLI.
+_MCP_PORTS = {
+    "bitbucket-mcp": 8126,
+    "glean-mcp": 8127,
+    "jira-mcp": 8128,
+    "confluence-mcp": 8129,
+    "memory-mcp": 8130,
+    "kg-mcp": 8131,
+    "agentic-mcp": 8132,
+    "mcp-gateway": 9090,
+    "mcp-proxy": 9091,
 }
 
 
@@ -68,19 +85,23 @@ class DockerServiceStatus(BaseModel):
     container_name: str = ""
     port: Optional[int] = None
     running: bool = False
+    reachable: bool = False  # TCP port responds (independent of the docker CLI)
     status: str = "absent"  # running | exited | absent | <raw docker status>
 
 
 class DockerMcpStatus(BaseModel):
-    """Whether Docker + the bundled MCP compose stack are available/running.
+    """Whether the bundled MCP compose stack is up and reachable.
 
-    The bundled MCP servers (Jira, Confluence, Bitbucket, KG, …) require Docker.
-    This surfaces, at a glance, whether Docker is up and which MCP containers are
-    running — so a user knows why an MCP-dependent feature (e.g. Work Items) is
-    unavailable, and whether to start the stack or register a remote server.
+    Running state is derived from **TCP port reachability** (the same probe the
+    per-server health checks use), so it's accurate even when the backend can't
+    shell out to the ``docker`` CLI (frozen desktop sidecar, containerized
+    backend without the docker socket). ``docker_cli_available`` reports only
+    whether the backend can *control* the stack (start/stop/logs need the CLI).
     """
-    docker_available: bool = False
+    docker_available: bool = False        # docker CLI reachable from the backend
     docker_message: str = ""
+    stack_reachable: bool = False         # at least one MCP service port responds
+    running_count: int = 0
     compose_found: bool = False
     compose_path: Optional[str] = None
     services: list[DockerServiceStatus] = []
@@ -335,6 +356,7 @@ def get_docker_mcp_status() -> DockerMcpStatus:
     compose_found = bool(compose_path and compose_path.exists())
 
     # Canonical service set: compose services if found, else known descriptions.
+    # Ports come from compose or the canonical map so we can probe reachability.
     known: dict[str, tuple[str, Optional[int]]] = {}  # svc -> (container, port)
     if compose_found:
         try:
@@ -344,40 +366,53 @@ def get_docker_mcp_status() -> DockerMcpStatus:
                 data = yaml.safe_load(f) or {}
             for svc, sd in (data.get("services") or {}).items():
                 ports = sd.get("ports") or []
-                port = None
+                port = _MCP_PORTS.get(svc)
                 if ports:
                     try:
                         port = int(str(ports[0]).split(":")[0])
                     except ValueError:
-                        port = None
+                        pass
                 container = sd.get("container_name", f"keel-{svc}")
                 known[svc] = (container, port)
         except Exception as e:  # noqa: BLE001
             logger.warning("Failed to parse compose for docker status: %s", e)
     if not known:
-        known = {svc: (f"keel-{svc}", None) for svc in _DESCRIPTIONS}
+        known = {svc: (f"keel-{svc}", _MCP_PORTS.get(svc)) for svc in _DESCRIPTIONS}
 
+    # `docker ps` gives container names/state IF the CLI is reachable; the TCP
+    # port probe is the authoritative "is it actually up" signal regardless.
     docker_status = _get_docker_status() if available else {}
 
     services: list[DockerServiceStatus] = []
+    running_count = 0
     for svc, (container, port) in known.items():
         raw = docker_status.get(container, "")
         low = raw.lower()
-        if low.startswith("up"):
-            status, running = "running", True
-        elif "exited" in low or "created" in low or "restarting" in low:
-            status, running = ("exited" if "exited" in low else low.split()[0]), False
+        reachable = bool(port) and _check_port("localhost", port, timeout=0.6)[0]
+        docker_up = low.startswith("up")
+        running = reachable or docker_up
+
+        if running:
+            status = "running"
+            running_count += 1
+        elif "exited" in low:
+            status = "exited"
+        elif "created" in low or "restarting" in low:
+            status = low.split()[0]
         elif raw:
-            status, running = raw, False
+            status = raw
         else:
-            status, running = "absent", False
+            status = "absent"
+
         services.append(DockerServiceStatus(
             name=svc, description=_DESCRIPTIONS.get(svc, ""),
-            container_name=container, port=port, running=running, status=status))
+            container_name=container, port=port,
+            running=running, reachable=reachable, status=status))
 
     services.sort(key=lambda s: s.name)
     return DockerMcpStatus(
         docker_available=available, docker_message=message,
+        stack_reachable=running_count > 0, running_count=running_count,
         compose_found=compose_found,
         compose_path=str(compose_path) if compose_path else None,
         services=services)

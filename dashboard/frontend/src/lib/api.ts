@@ -46,12 +46,15 @@ export interface DockerServiceStatus {
   container_name: string;
   port?: number | null;
   running: boolean;
+  reachable: boolean;
   status: string; // running | exited | absent | <raw>
 }
 
 export interface DockerMcpStatus {
-  docker_available: boolean;
+  docker_available: boolean; // docker CLI reachable from the backend (for start/stop)
   docker_message: string;
+  stack_reachable: boolean;  // at least one MCP service port responds
+  running_count: number;
   compose_found: boolean;
   compose_path?: string | null;
   services: DockerServiceStatus[];
