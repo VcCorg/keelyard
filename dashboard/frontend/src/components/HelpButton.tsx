@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useLocation } from "react-router-dom";
 import { HelpCircle, X, User, ListChecks, TerminalSquare, Lightbulb } from "lucide-react";
 import { helpFor } from "@/lib/help";
@@ -38,8 +39,8 @@ export function HelpButton() {
         <span className="hidden sm:inline">Help</span>
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-50 flex justify-end" onClick={() => setOpen(false)}>
+      {open && createPortal(
+        <div className="fixed inset-0 z-[100] flex justify-end" onClick={() => setOpen(false)}>
           <div className="absolute inset-0 bg-black/30" />
           <div
             className="relative w-full max-w-sm h-full overflow-y-auto bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 shadow-xl"
@@ -106,7 +107,8 @@ export function HelpButton() {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

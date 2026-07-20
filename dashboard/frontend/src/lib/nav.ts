@@ -156,6 +156,15 @@ export const navGroups: NavGroup[] = [
       { to: "/data", icon: Database, label: "Data Sources" },
     ],
   },
+  // Work Items sit before Ideate: load the Jira task you're working on first —
+  // ideation itself is work — then flow into ideate → build → quality.
+  {
+    label: "Work Items",
+    items: [
+      { to: "/tasks", icon: ListTodo, label: "Work Items" },
+      { to: "/assignments", icon: ClipboardList, label: "Assignments", minRole: "lead" },
+    ],
+  },
   {
     label: "Ideate",
     items: [{ to: "/ideate", icon: Lightbulb, label: "Requirements" }],
@@ -170,13 +179,6 @@ export const navGroups: NavGroup[] = [
       { to: "/devin", icon: DevinBot, label: "Devin Sessions" },
       { to: "/execution", icon: Cpu, label: "Execution & Context" },
       { to: "/snapshots", icon: Camera, label: "Snapshots", minRole: "lead" },
-    ],
-  },
-  {
-    label: "Work",
-    items: [
-      { to: "/tasks", icon: ListTodo, label: "Tasks" },
-      { to: "/assignments", icon: ClipboardList, label: "Assignments", minRole: "lead" },
     ],
   },
   // Quality — QA persona's home. Evaluation also stays in Agent Builder for
