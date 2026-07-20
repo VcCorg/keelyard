@@ -181,15 +181,6 @@ export const navGroups: NavGroup[] = [
       { to: "/snapshots", icon: Camera, label: "Snapshots", minRole: "lead" },
     ],
   },
-  // Quality — QA persona's home. Evaluation also stays in Agent Builder for
-  // leads; this entry gives member-level QA users direct access.
-  {
-    label: "Quality",
-    items: [
-      { to: "/skills/trials", icon: FlaskConical, label: "Skill Trials" },
-      { to: "/eval", icon: FlaskConical, label: "Evaluation", personas: ["qa"] },
-    ],
-  },
   // Agent Builder sits directly above Platform: agent construction is a
   // platform-adjacent capability, not part of the core code journey.
   {
@@ -200,7 +191,6 @@ export const navGroups: NavGroup[] = [
       { to: "/projects", icon: FolderKanban, label: "Agent Projects" },
       { to: "/canvas", icon: Workflow, label: "Project Canvas" },
       { to: "/agents", icon: Bot, label: "Agents" },
-      { to: "/eval", icon: FlaskConical, label: "Evaluation" },
     ],
     subgroups: [
       {
@@ -216,6 +206,16 @@ export const navGroups: NavGroup[] = [
           { to: "/skills", icon: Package, label: "Skills" },
         ],
       },
+    ],
+  },
+  // Quality — QA persona's home — sits after Agent Builder. Evaluation lives
+  // here only (no longer duplicated in Agent Builder); the `qa` persona tag
+  // gives member-level QA users a direct home while leads/admins always see it.
+  {
+    label: "Quality",
+    items: [
+      { to: "/skills/trials", icon: FlaskConical, label: "Skill Trials" },
+      { to: "/eval", icon: FlaskConical, label: "Evaluation", personas: ["qa"] },
     ],
   },
   {
