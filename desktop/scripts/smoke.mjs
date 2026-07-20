@@ -84,6 +84,7 @@ async function sweepEndpoints() {
     "/api/agents",
     "/api/agents/projects",
     "/api/auth/me",
+    "/api/auth/roles",
     "/api/admin/settings",
     "/api/activity",
     "/api/activity/stats",

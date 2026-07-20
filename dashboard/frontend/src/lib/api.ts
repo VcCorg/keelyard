@@ -479,6 +479,32 @@ export interface AuthMe {
   provider: string;
   authenticated: boolean;
   mode: string;
+  persona?: string;
+}
+
+export interface RbacRole {
+  role: string;
+  permissions: string[];
+  read_only: boolean;
+}
+export interface RbacPermission {
+  permission: string;
+  description: string;
+}
+export interface RbacPersona {
+  persona: string;
+  description: string;
+}
+export interface RbacModel {
+  roles: RbacRole[];
+  permissions: RbacPermission[];
+  personas: RbacPersona[];
+}
+export interface PermissionCheck {
+  subject: string;
+  permission: string;
+  allowed: boolean;
+  roles: string[];
 }
 
 export interface ExecutionEngineInfo {
@@ -1788,6 +1814,16 @@ class APIClient {
   /* ---- Auth (identity resolved by the configured provider) ---- */
   async getMe(): Promise<AuthMe> {
     return this.request("/auth/me");
+  }
+
+  /** The RBAC model — roles, permissions, personas (mirrors `keel auth roles`). */
+  async getRbacModel(): Promise<RbacModel> {
+    return this.request("/auth/roles");
+  }
+
+  /** Whether the current principal has a permission (mirrors `keel auth check`). */
+  async checkPermission(permission: string): Promise<PermissionCheck> {
+    return this.request(`/auth/check?permission=${encodeURIComponent(permission)}`);
   }
 
   /* ---- Admin (branding + nav visibility) ---- */

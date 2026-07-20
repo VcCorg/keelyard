@@ -43,6 +43,7 @@ import { SharedKG } from "@/pages/SharedKG";
 import { Admin } from "@/pages/Admin";
 import { SetupWizard } from "@/pages/SetupWizard";
 import { AuditHistory } from "@/pages/AuditHistory";
+import { IdentityAccess } from "@/pages/IdentityAccess";
 import { TerminalProvider } from "@/context/TerminalContext";
 import { UserProvider } from "@/context/UserContext";
 import { SetupProvider } from "@/context/SetupContext";
@@ -64,6 +65,7 @@ function App() {
             <Route path="/sessions" element={<Sessions />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/people" element={<People />} />
+            <Route path="/identity" element={<IdentityAccess />} />
             <Route path="/shared/agents" element={<SharedAgents />} />
             <Route path="/shared/kg" element={<SharedKG />} />
             <Route path="/agents" element={<Agents />} />
