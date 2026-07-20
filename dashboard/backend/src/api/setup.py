@@ -25,6 +25,16 @@ async def setup_status():
     return svc.get_setup_status()
 
 
+@router.get("/doctor", response_model=svc.DoctorReport)
+async def setup_doctor(probe: bool = Query(False, description="Also probe integration host reachability")):
+    """Structured `keel doctor` diagnostics — powers the wizard's health panel.
+
+    Read-only, like /status: reports which dependencies are healthy so a
+    first-run user can self-diagnose provider/KG/integration problems from the UI.
+    """
+    return svc.get_doctor_report(probe=probe)
+
+
 def _stream(label: str, args: list[str]) -> EventSourceResponse:
     cmd = svc.resolve_cli_command() + args
     rec = registry.create(kind="cli", label=label, cmd=cmd)

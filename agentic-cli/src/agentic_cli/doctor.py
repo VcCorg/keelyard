@@ -367,6 +367,48 @@ def _check_optional() -> Section:
 # Orchestration
 # ---------------------------------------------------------------------------
 
+def collect_sections(probe: bool = False, require_integrations: bool = False) -> List[Section]:
+    """Run every check group and return the structured results.
+
+    This is the single source of truth for the diagnostics: the CLI renders
+    it to tables and the dashboard serializes it for the setup wizard's health
+    panel, so both stay in lockstep.
+    """
+    return [
+        _check_runtime(),
+        _check_registry(),
+        _check_integrations(probe, require=require_integrations),
+        _check_mcp(),
+        _check_kg(),
+        _check_optional(),
+    ]
+
+
+def sections_to_dict(sections: List[Section]) -> dict:
+    """Serialize doctor sections into a JSON-friendly report with a summary."""
+    results = [r for s in sections for r in s.results]
+    return {
+        "sections": [
+            {
+                "name": s.name,
+                "required": s.required,
+                "results": [r.__dict__ for r in s.results],
+            }
+            for s in sections
+        ],
+        "summary": {
+            "ok": sum(1 for r in results if r.status == OK),
+            "warn": sum(1 for r in results if r.status == WARN),
+            "fail": sum(1 for r in results if r.status == FAIL),
+            "skip": sum(1 for r in results if r.status == SKIP),
+            "total": len(results),
+        },
+        "healthy": not any(
+            s.required and any(r.status == FAIL for r in s.results) for s in sections
+        ),
+    }
+
+
 def run_doctor(probe: bool = False, as_json: bool = False, strict: bool = False,
                require_integrations: bool = False) -> int:
     """Run all checks. Returns a process exit code (0 = healthy).
@@ -375,14 +417,7 @@ def run_doctor(probe: bool = False, as_json: bool = False, strict: bool = False,
     as required, so missing Bitbucket/Jira/Confluence credentials cause a
     non-zero exit (useful for installers / CI gates).
     """
-    sections = [
-        _check_runtime(),
-        _check_registry(),
-        _check_integrations(probe, require=require_integrations),
-        _check_mcp(),
-        _check_kg(),
-        _check_optional(),
-    ]
+    sections = collect_sections(probe, require_integrations=require_integrations)
 
     if as_json:
         payload = {

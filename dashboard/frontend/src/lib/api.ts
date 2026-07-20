@@ -955,6 +955,25 @@ export interface SetupStatus {
   items: SetupItem[];
 }
 
+export type DoctorStatus = "ok" | "warn" | "fail" | "skip";
+export interface DoctorCheck {
+  group: string;
+  name: string;
+  status: DoctorStatus;
+  detail: string;
+  fix: string;
+}
+export interface DoctorSection {
+  name: string;
+  required: boolean;
+  results: DoctorCheck[];
+}
+export interface DoctorReport {
+  healthy: boolean;
+  sections: DoctorSection[];
+  summary: { ok: number; warn: number; fail: number; skip: number; total: number };
+}
+
 /* ============ API Client ============ */
 
 class APIClient {
@@ -1279,6 +1298,11 @@ class APIClient {
   /** Report which `keel init` steps are done (drives sidebar + banners). */
   async getSetupStatus(): Promise<SetupStatus> {
     return this.request("/setup/status");
+  }
+
+  /** Structured `keel doctor` diagnostics — powers the setup wizard health panel. */
+  async getDoctorReport(probe = false): Promise<DoctorReport> {
+    return this.request(`/setup/doctor${probe ? "?probe=true" : ""}`);
   }
 
   setupWorkspaceStreamUrl(code: string, docs: string): string {
