@@ -154,10 +154,14 @@ export const HELP: Record<string, HelpEntry> = {
   },
   "/skills/trials": {
     title: "Skill Trials",
-    what: "Test a candidate skill for a domain (structure, security, persona policy, AI review, LLM-as-judge) before promoting it to the master skills repo.",
+    what: "Load and test a candidate skill for a domain (structure, security scan, persona policy, AI review, LLM-as-judge) before promoting it to the master skills repo.",
     persona: "QA (Quality) — any role can trial",
-    cli: ["keel skill"],
-    tips: ["Promote copies the skill into the domain's validated skills; QA out-of-policy warns, it doesn't block."],
+    cli: ["keel skill", "keel skill scan"],
+    tips: [
+      "Load a new skill from a folder (preferred) or a single SKILL.md — it's staged into the registry for trialing.",
+      "The security scan (NVIDIA SkillSpector) can be toggled per trial; if it isn't installed, use 'Install scanner'.",
+      "Promote copies the skill into the domain's validated skills; QA out-of-policy warns, it doesn't block.",
+    ],
   },
   "/devin": {
     title: "Devin Sessions",
