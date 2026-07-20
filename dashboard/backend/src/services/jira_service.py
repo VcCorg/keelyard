@@ -281,6 +281,41 @@ def _call_tool(tool: str, args: dict) -> Any:
     return _run(_acall_tool(tool, args))
 
 
+def _root_exception(exc: BaseException) -> BaseException:
+    """Unwrap an ExceptionGroup/TaskGroup to its first leaf cause.
+
+    The MCP SSE client runs inside an anyio task group, so transport failures
+    surface as ``ExceptionGroup`` ("unhandled errors in a TaskGroup") — an
+    opaque message for users. Drill down to the underlying error.
+    """
+    seen = 0
+    while getattr(exc, "exceptions", None) and seen < 10:
+        exc = exc.exceptions[0]  # type: ignore[attr-defined]
+        seen += 1
+    return exc
+
+
+def _friendly_mcp_error(exc: BaseException) -> str:
+    """Turn a Jira MCP transport failure into an actionable message."""
+    root = _root_exception(exc)
+    msg = str(root) or root.__class__.__name__
+    low = msg.lower()
+    connection_like = (
+        isinstance(root, (ConnectionError, OSError, TimeoutError))
+        or any(s in low for s in (
+            "connect", "refused", "timed out", "timeout", "unreachable",
+            "all connection attempts failed", "name or service not known",
+        ))
+    )
+    if connection_like:
+        return (
+            f"Couldn't reach the Jira service. The Jira MCP server "
+            f"({_jira_mcp_url()}) isn't responding — start it (or check "
+            f"JIRA_MCP_URL), then refresh."
+        )
+    return msg[:300]
+
+
 def get_create_meta(project_key: str) -> CreateMeta:
     """Fetch+parse create screen metadata via MCP; empty CreateMeta on any error."""
     if not is_configured() or not project_key:
@@ -389,7 +424,8 @@ def list_my_domain_issues(
         data = _call_tool("search_issues", {"jql": jql, "max_results": max_results}) or {}
     except Exception as e:  # noqa: BLE001 - surface any transport error to the UI
         return MyIssuesResponse(
-            configured=True, projects=projects, jql=jql, error=str(e)[:300]
+            configured=True, projects=projects, jql=jql,
+            error=_friendly_mcp_error(e),
         )
 
     issues: list[JiraIssue] = []
