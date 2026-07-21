@@ -200,6 +200,16 @@ EDITOR_TOOL = {
 # Preference order when no editor is explicitly chosen.
 _EDITOR_ORDER = ["devin", "windsurf", "cursor", "code"]
 
+# Execution-engine name (admin code_assist) → local editor-launcher key. The
+# admin config is the single source of truth for which IDE tools are offered;
+# `local` maps to nothing (it renders a bundle, it isn't an editor to open).
+ENGINE_TO_EDITOR = {
+    "vscode-copilot": "code",
+    "devin": "devin",
+    "cursor": "cursor",
+    "windsurf": "windsurf",
+}
+
 _DEVIN_APP = Path("/Applications/Devin.app")
 
 
@@ -224,6 +234,38 @@ def _editor_available(editor: str) -> bool:
 def detect_editors() -> list[str]:
     """Return available editor keys, in preference order (devin first)."""
     return [e for e in _EDITOR_ORDER if _editor_available(e)]
+
+
+def _code_assist():
+    """The admin code-assist config, or None if unavailable."""
+    try:
+        from agentic_cli.admin import load_settings
+
+        return load_settings().code_assist
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def enabled_editors() -> list[str]:
+    """Installed editor launchers permitted by the admin code-assist config,
+    org default first.
+
+    This makes the admin ``code_assist`` config the single source of truth for
+    which IDE tools the "Open in IDE" flows offer — no ad-hoc dropdown of every
+    detected editor. Falls back to raw detection only if the admin config can't
+    be read, so the feature never silently breaks.
+    """
+    installed = detect_editors()
+    ca = _code_assist()
+    if not ca:
+        return installed
+    order = [ca.default] + [e for e in ca.enabled if e != ca.default]
+    out: list[str] = []
+    for eng in order:
+        ed = ENGINE_TO_EDITOR.get(eng)
+        if ed and ed in installed and ed not in out:
+            out.append(ed)
+    return out
 
 
 def _editor_command(editor: str, target: Path) -> Optional[list[str]]:
@@ -255,7 +297,9 @@ def open_in_ide(path: str, editor: Optional[str] = None) -> OpenIdeResult:
     if not target.exists():
         raise ValueError(f"Path does not exist: {target}")
 
-    available = detect_editors()
+    # Admin-permitted editors first; fall back to raw detection so a review
+    # never breaks when the org hasn't configured an IDE tool.
+    available = enabled_editors() or detect_editors()
     chosen = (editor or "").lower() if (editor and (editor or "").lower() in available) else (
         available[0] if available else None
     )

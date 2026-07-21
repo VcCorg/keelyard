@@ -282,10 +282,11 @@ export function StartWorkDialog({ issueKey, onClose }: { issueKey: string; onClo
                   </div>
                   <p className="text-xs text-gray-500 flex-1">{contract.local_workspace.hint || "Tech-Lead domain workspace."}</p>
                   <div className="mt-2 space-y-2">
-                    {editors.length > 0 && (
+                    {editors.length > 1 && (
                       <select
                         value={editor}
                         onChange={(e) => setEditor(e.target.value)}
+                        title="Editor / agent (from Admin → Code assist tools)"
                         className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-transparent px-2 py-1.5 text-xs"
                       >
                         {editors.map((ed) => (
