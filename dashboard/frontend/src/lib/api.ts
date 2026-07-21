@@ -537,9 +537,39 @@ export interface PermissionCheck {
 export interface ExecutionEngineInfo {
   name: string;
   available: boolean;
-  kind: string; // "cloud" | "local"
+  kind: string; // "cloud" | "local" | "ide"
   description: string;
   detail: string;
+  supports_ask?: boolean;
+}
+
+export interface SessionLaunchRequest {
+  prompt: string;
+  title?: string;
+  jira?: string;
+  domain?: string | null;
+  tags?: string[];
+  refs?: string[];
+  engine?: string | null;
+  dry_run?: boolean;
+}
+
+export interface SessionLaunchResult {
+  engine: string;
+  session_id?: string | null;
+  url?: string | null;
+  status?: string | null;
+  is_new: boolean;
+  dry_run: boolean;
+  detail: Record<string, unknown>;
+}
+
+export interface EngineAskResult {
+  engine: string;
+  answer: string;
+  authoritative: boolean;
+  session_id?: string | null;
+  url?: string | null;
 }
 
 export interface PortableContextRequest {
@@ -1899,6 +1929,16 @@ class APIClient {
       method: "POST",
       body: JSON.stringify(body),
     });
+  }
+
+  /** Launch a build session on the selected (or org-default) engine. */
+  async launchSession(body: SessionLaunchRequest): Promise<SessionLaunchResult> {
+    return this.request("/execution/session", { method: "POST", body: JSON.stringify(body) });
+  }
+
+  /** Ask the selected (or org-default) engine about the codebase/domain. */
+  async askEngine(body: { prompt: string; domain?: string | null; refs?: string[]; engine?: string | null }): Promise<EngineAskResult> {
+    return this.request("/execution/ask", { method: "POST", body: JSON.stringify(body) });
   }
 
   async getDevinSession(sessionId: string): Promise<DevinSessionDetail> {
