@@ -10,7 +10,9 @@ from __future__ import annotations
 import os
 from typing import Callable, Dict, List, Optional
 
-from agentic_cli.execution.base import EngineInfo, ExecutionEngine, ExecutionResult, ExecutionSpec
+from agentic_cli.execution.base import (
+    AskResult, EngineInfo, ExecutionEngine, ExecutionResult, ExecutionSpec,
+)
 
 _FACTORIES: Dict[str, Callable[[], ExecutionEngine]] = {}
 
@@ -84,12 +86,46 @@ def create_session(spec: ExecutionSpec, engine: Optional[str] = None, *,
     return result
 
 
+def ask(spec: ExecutionSpec, engine: Optional[str] = None, *,
+        source: str = "cli", actor: Optional[str] = None) -> AskResult:
+    """Ask the selected engine a question about the codebase/domain (neutral).
+
+    Read-only: unlike ``create_session`` this does not run under the build
+    governance gate (it changes nothing), but it IS audited. Engines that can't
+    answer headlessly (e.g. IDE handoff) are reported as unsupported rather than
+    faked.
+    """
+    eng = get_engine(engine)
+    fn = getattr(eng, "ask", None)
+    if not callable(fn):
+        return AskResult(
+            engine=eng.name, authoritative=False,
+            answer=f"The '{eng.name}' engine can't answer questions directly — "
+                   "open it and ask there.")
+    result: AskResult = fn(spec)
+    try:
+        from agentic_cli.tracker import record_action
+
+        record_action(
+            "execution", "ask",
+            entity_type="session", entity_id=result.session_id or spec.jira or "",
+            source=source, actor=actor,
+            details={"engine": eng.name, "domain": spec.domain,
+                     "authoritative": result.authoritative},
+        )
+    except Exception:  # noqa: BLE001 - never break on audit
+        pass
+    return result
+
+
 def _register_builtins() -> None:
     from agentic_cli.execution.devin_adapter import DevinEngine
+    from agentic_cli.execution.ide_adapter import VSCodeCopilotEngine
     from agentic_cli.execution.local_adapter import LocalContextEngine
 
     register("devin", DevinEngine)
     register("local", LocalContextEngine)
+    register("vscode-copilot", VSCodeCopilotEngine)
 
 
 _register_builtins()
