@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ShieldCheck, Save, RotateCcw, Loader2, Palette, ListChecks, Lock, AlertTriangle, Trash2, Scale } from "lucide-react";
+import { ShieldCheck, Save, RotateCcw, Loader2, Palette, ListChecks, Lock, AlertTriangle, Trash2, Scale, Cpu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useUser, type UserRole } from "@/context/UserContext";
@@ -64,6 +64,38 @@ export function Admin() {
     } finally {
       setSavingGov(false);
     }
+  };
+
+  // ── Code assist tools (vendor-neutral engines) ──────────────────────────
+  const [engines, setEngines] = useState<
+    { name: string; kind: string; available: boolean; description: string; detail: string }[]
+  >([]);
+  const [savingCA, setSavingCA] = useState(false);
+  const ca = settings.code_assist;
+
+  useEffect(() => {
+    fetch("/api/execution/engines").then((r) => r.json()).then(setEngines).catch(() => setEngines([]));
+  }, []);
+
+  const saveCodeAssist = async (enabled: string[], def: string) => {
+    setSavingCA(true);
+    try {
+      await updateSettings({ code_assist: { enabled, default: def } });
+    } finally {
+      setSavingCA(false);
+    }
+  };
+  const toggleEngine = (name: string) => {
+    const on = ca.enabled.includes(name);
+    const enabled = on ? ca.enabled.filter((e) => e !== name) : [...ca.enabled, name];
+    if (enabled.length === 0) return; // keep at least one enabled
+    const def = enabled.includes(ca.default) ? ca.default : enabled[0];
+    saveCodeAssist(enabled, def);
+  };
+  const setDefaultEngine = (name: string) => {
+    if (name === ca.default) return;
+    const enabled = ca.enabled.includes(name) ? ca.enabled : [...ca.enabled, name];
+    saveCodeAssist(enabled, name);
   };
 
   // ── Nav visibility draft ────────────────────────────────────────────────
@@ -308,6 +340,74 @@ export function Admin() {
             enforce: refused at the seams (onboard &amp; session create)
           </p>
         </div>
+      </section>
+
+      {/* ── Code assist tools (vendor-neutral build engines) ─────────────── */}
+      <section className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Cpu className="h-5 w-5 text-blue-500" />
+          <h2 className="text-lg font-semibold">Code assist tools</h2>
+          <span className="text-xs text-gray-400">which engines Build may use, and the org default</span>
+          {savingCA && <Loader2 className="ml-auto h-4 w-4 animate-spin text-blue-400" />}
+        </div>
+        <p className="text-sm text-gray-600 dark:text-gray-300">
+          Enable the code-assist engines your team may pick, and set the default. Build sessions
+          default to this engine — swapping vendors is a toggle here, and governance + audit apply
+          to every engine identically.
+        </p>
+        <div className="space-y-2">
+          {engines.length === 0 && (
+            <p className="text-sm text-gray-400">No execution engines registered.</p>
+          )}
+          {engines.map((e) => {
+            const on = ca.enabled.includes(e.name);
+            const isDefault = ca.default === e.name;
+            return (
+              <div
+                key={e.name}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg border p-3",
+                  isDefault ? "border-blue-300 dark:border-blue-800 bg-blue-50/40 dark:bg-blue-900/10"
+                    : "border-gray-200 dark:border-gray-800"
+                )}
+              >
+                <input
+                  type="checkbox"
+                  checked={on}
+                  disabled={!canEdit || savingCA}
+                  onChange={() => toggleEngine(e.name)}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">{e.name}</span>
+                    <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">{e.kind}</span>
+                    {!e.available && (
+                      <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">unavailable</span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-gray-400 truncate">{e.detail || e.description}</p>
+                </div>
+                <button
+                  onClick={() => setDefaultEngine(e.name)}
+                  disabled={!canEdit || savingCA || !on}
+                  className={cn(
+                    "text-xs px-2.5 py-1 rounded-md border transition-colors disabled:opacity-40",
+                    isDefault
+                      ? "border-blue-300 bg-blue-100 text-blue-700 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                      : "border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  )}
+                >
+                  {isDefault ? "default" : "make default"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-[11px] text-gray-400">
+          IDE engines (kind <code className="font-mono">ide</code>) hand off a governed context bundle
+          to your editor; cloud engines run a remote session. At least one engine stays enabled.
+        </p>
       </section>
 
       {/* ── Nav visibility ───────────────────────────────────────────────── */}
