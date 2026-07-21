@@ -15,9 +15,65 @@ from pydantic import BaseModel
 class EngineInfoModel(BaseModel):
     name: str
     available: bool
-    kind: str = "cloud"          # cloud | local
+    kind: str = "cloud"          # cloud | local | ide
     description: str = ""
     detail: str = ""
+    supports_ask: bool = False
+
+
+class SessionLaunchRequest(BaseModel):
+    prompt: str
+    title: str = ""
+    jira: str = ""
+    domain: Optional[str] = None
+    tags: list[str] = []
+    refs: list[str] = []
+    engine: Optional[str] = None   # None → the org default (admin code_assist)
+    dry_run: bool = True           # safe default; caller opts into a real launch
+
+
+class SessionLaunchResult(BaseModel):
+    engine: str
+    session_id: Optional[str] = None
+    url: Optional[str] = None
+    status: Optional[str] = None
+    is_new: bool = True
+    dry_run: bool = False
+    detail: dict = {}              # engine raw (handoff instructions, bundle path, …)
+
+
+class AskRequest(BaseModel):
+    prompt: str
+    domain: Optional[str] = None
+    refs: list[str] = []
+    engine: Optional[str] = None   # None → the org default
+
+
+class AskResultModel(BaseModel):
+    engine: str
+    answer: str = ""
+    authoritative: bool = True
+    session_id: Optional[str] = None
+    url: Optional[str] = None
+
+
+def default_engine() -> str:
+    """The org's default code-assist engine (admin setting)."""
+    try:
+        from agentic_cli.admin import load_settings
+
+        return load_settings().code_assist.default or "local"
+    except Exception:  # noqa: BLE001
+        return "local"
+
+
+def enabled_engines() -> list[str]:
+    try:
+        from agentic_cli.admin import load_settings
+
+        return list(load_settings().code_assist.enabled)
+    except Exception:  # noqa: BLE001
+        return ["devin", "local"]
 
 
 class PortableContextRequest(BaseModel):
@@ -43,9 +99,45 @@ def list_engines() -> list[EngineInfoModel]:
 
     return [
         EngineInfoModel(name=i.name, available=i.available, kind=i.kind,
-                        description=i.description, detail=i.detail)
+                        description=i.description, detail=i.detail,
+                        supports_ask=getattr(i, "supports_ask", False))
         for i in cli_list_engines()
     ]
+
+
+def launch_session(req: SessionLaunchRequest, actor: str | None = None) -> SessionLaunchResult:
+    """Launch a build session on the selected (or org-default) engine.
+
+    Vendor-neutral: routes through the same governed seam as every engine, so
+    build governance + audit apply identically. Raises GovernanceViolation
+    (→ 403 at the route) when a domain-less session is refused under 'enforce'.
+    """
+    from agentic_cli.execution import ExecutionSpec, create_session
+
+    engine = req.engine or default_engine()
+    tags = ["keel"] + ([req.domain] if req.domain else []) + list(req.tags)
+    spec = ExecutionSpec(
+        prompt=req.prompt,
+        title=req.title or (f"{req.jira}: {req.prompt}" if req.jira else req.prompt)[:120],
+        jira=req.jira, domain=req.domain or "", tags=sorted(set(tags)),
+        context=list(req.refs), dry_run=req.dry_run,
+    )
+    res = create_session(spec, engine=engine, source="dashboard", actor=actor)
+    return SessionLaunchResult(
+        engine=res.engine, session_id=res.session_id, url=res.url, status=res.status,
+        is_new=res.is_new, dry_run=res.dry_run, detail=res.raw or {})
+
+
+def ask_engine(req: AskRequest, actor: str | None = None) -> AskResultModel:
+    """Ask the selected (or org-default) engine about the codebase/domain."""
+    from agentic_cli.execution import ExecutionSpec, ask
+
+    engine = req.engine or default_engine()
+    spec = ExecutionSpec(prompt=req.prompt, domain=req.domain or "", context=list(req.refs))
+    res = ask(spec, engine=engine, source="dashboard", actor=actor)
+    return AskResultModel(
+        engine=res.engine, answer=res.answer, authoritative=res.authoritative,
+        session_id=res.session_id, url=res.url)
 
 
 def preview_portable_context(req: PortableContextRequest, actor: str | None = None) -> PortableContextResult:

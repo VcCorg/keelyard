@@ -2,12 +2,18 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from agentic_cli.auth import PERM_CONTEXT_BUILD
+from agentic_cli.auth import PERM_CONTEXT_BUILD, PERM_SESSION_CREATE
 from src.services.auth_service import actor_of, require
 from src.services.execution_service import (
+    AskRequest,
+    AskResultModel,
     EngineInfoModel,
     PortableContextRequest,
     PortableContextResult,
+    SessionLaunchRequest,
+    SessionLaunchResult,
+    ask_engine,
+    launch_session,
     list_engines,
     preview_portable_context,
 )
@@ -64,5 +70,51 @@ async def post_context_preview(
         return preview_portable_context(req, actor=actor_of(request))
     except GovernanceViolation as e:
         raise HTTPException(status_code=403, detail=str(e))
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/session", response_model=SessionLaunchResult)
+async def post_launch_session(
+    req: SessionLaunchRequest,
+    request: Request,
+    _principal=Depends(require(PERM_SESSION_CREATE)),
+):
+    """Launch a build session on the selected (or org-default) code-assist engine.
+
+    Vendor-neutral: the same governed seam every engine runs through. Requires
+    ``session:create``; a domain-less session under 'enforce' is refused (403).
+    """
+    from agentic_cli.meta_repo.build_governance import GovernanceViolation
+
+    if not req.prompt.strip():
+        raise HTTPException(status_code=400, detail="A prompt is required")
+    try:
+        return launch_session(req, actor=actor_of(request))
+    except GovernanceViolation as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/ask", response_model=AskResultModel)
+async def post_ask(
+    req: AskRequest,
+    request: Request,
+    _principal=Depends(require(PERM_SESSION_CREATE)),
+):
+    """Ask the selected (or org-default) engine about the codebase/domain.
+
+    Gated by ``session:create`` because a cloud engine (Devin) answers by
+    starting a session; the local engine answers inline with no vendor.
+    """
+    if not req.prompt.strip():
+        raise HTTPException(status_code=400, detail="A question is required")
+    try:
+        return ask_engine(req, actor=actor_of(request))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))

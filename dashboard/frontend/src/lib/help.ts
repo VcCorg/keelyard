@@ -165,12 +165,12 @@ export const HELP: Record<string, HelpEntry> = {
     ],
   },
   "/devin": {
-    title: "Devin Sessions",
-    what: "Launch and track Devin cloud sessions for governed development.",
+    title: "Build Sessions",
+    what: "Launch coding work on your configured code-assist engine (Devin, local bundle, or VS Code + Copilot). Vendor-neutral — the engine set + default come from Admin → Code assist tools, and governance/audit apply to every engine. You can also ask the engine a question. Devin's session/snapshot management appears when Devin is selected.",
     persona: "Developer (Build)",
-    prerequisites: ["Devin API key configured", "A governed domain"],
-    cli: ["keel devin", "keel execution"],
-    tips: ["Devin sessions follow the same domain governance as local builds."],
+    prerequisites: ["An enabled engine (Admin → Code assist tools)", "For Devin: DEVIN_API_KEY"],
+    cli: ["keel execution create", "keel execution ask", "keel devin"],
+    tips: ["Swap the org default engine in Admin → Code assist tools — no build page names a vendor."],
   },
   "/snapshots": {
     title: "Snapshots",
