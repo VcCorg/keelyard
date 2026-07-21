@@ -18,6 +18,9 @@ const KIND_BADGE: Record<NavCatalogNode["kind"], string> = {
 const sameRoles = (a: UserRole[], b: UserRole[]) =>
   a.length === b.length && UI_ROLES.every((r) => a.includes(r) === b.includes(r));
 
+// Engines shown as a sub-option of a parent (e.g. Devin CLI under Devin).
+const ENGINE_PARENT: Record<string, string> = { "devin-cli": "devin" };
+
 export function Admin() {
   const { can } = useUser();
   const canEdit = can("admin:*");
@@ -87,7 +90,9 @@ export function Admin() {
   };
   const toggleEngine = (name: string) => {
     const on = ca.enabled.includes(name);
-    const enabled = on ? ca.enabled.filter((e) => e !== name) : [...ca.enabled, name];
+    let enabled = on ? ca.enabled.filter((e) => e !== name) : [...ca.enabled, name];
+    // Disabling a parent drops its sub-options (a child can't outlive its parent).
+    if (on) enabled = enabled.filter((e) => ENGINE_PARENT[e] !== name);
     if (enabled.length === 0) return; // keep at least one enabled
     const def = enabled.includes(ca.default) ? ca.default : enabled[0];
     saveCodeAssist(enabled, def);
@@ -96,6 +101,60 @@ export function Admin() {
     if (name === ca.default) return;
     const enabled = ca.enabled.includes(name) ? ca.enabled : [...ca.enabled, name];
     saveCodeAssist(enabled, name);
+  };
+
+  const renderEngineRow = (
+    e: { name: string; kind: string; available: boolean; description: string; detail: string },
+    isChild: boolean,
+    parentEnabled: boolean
+  ) => {
+    const on = ca.enabled.includes(e.name);
+    const isDefault = ca.default === e.name;
+    const lockedChild = isChild && !parentEnabled; // sub-option needs its parent enabled
+    return (
+      <div
+        key={e.name}
+        className={cn(
+          "flex items-center gap-3 rounded-lg border p-3",
+          isChild && "ml-6",
+          lockedChild && "opacity-60",
+          isDefault ? "border-blue-300 dark:border-blue-800 bg-blue-50/40 dark:bg-blue-900/10"
+            : "border-gray-200 dark:border-gray-800"
+        )}
+      >
+        <input
+          type="checkbox"
+          checked={on}
+          disabled={!canEdit || savingCA || lockedChild}
+          onChange={() => toggleEngine(e.name)}
+          className="h-4 w-4 rounded border-gray-300"
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">{e.name}</span>
+            <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">{e.kind}</span>
+            {!e.available && (
+              <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">unavailable</span>
+            )}
+          </div>
+          <p className="text-[11px] text-gray-400 truncate">
+            {lockedChild ? "Enable the parent engine to use this option" : (e.detail || e.description)}
+          </p>
+        </div>
+        <button
+          onClick={() => setDefaultEngine(e.name)}
+          disabled={!canEdit || savingCA || !on}
+          className={cn(
+            "text-xs px-2.5 py-1 rounded-md border transition-colors disabled:opacity-40",
+            isDefault
+              ? "border-blue-300 bg-blue-100 text-blue-700 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+              : "border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800"
+          )}
+        >
+          {isDefault ? "default" : "make default"}
+        </button>
+      </div>
+    );
   };
 
   // ── Nav visibility draft ────────────────────────────────────────────────
@@ -359,54 +418,22 @@ export function Admin() {
           {engines.length === 0 && (
             <p className="text-sm text-gray-400">No execution engines registered.</p>
           )}
-          {engines.map((e) => {
-            const on = ca.enabled.includes(e.name);
-            const isDefault = ca.default === e.name;
+          {engines.filter((e) => !ENGINE_PARENT[e.name]).map((e) => {
+            const parentOn = ca.enabled.includes(e.name);
+            const children = engines.filter((c) => ENGINE_PARENT[c.name] === e.name);
             return (
-              <div
-                key={e.name}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg border p-3",
-                  isDefault ? "border-blue-300 dark:border-blue-800 bg-blue-50/40 dark:bg-blue-900/10"
-                    : "border-gray-200 dark:border-gray-800"
-                )}
-              >
-                <input
-                  type="checkbox"
-                  checked={on}
-                  disabled={!canEdit || savingCA}
-                  onChange={() => toggleEngine(e.name)}
-                  className="h-4 w-4 rounded border-gray-300"
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">{e.name}</span>
-                    <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">{e.kind}</span>
-                    {!e.available && (
-                      <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">unavailable</span>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-gray-400 truncate">{e.detail || e.description}</p>
-                </div>
-                <button
-                  onClick={() => setDefaultEngine(e.name)}
-                  disabled={!canEdit || savingCA || !on}
-                  className={cn(
-                    "text-xs px-2.5 py-1 rounded-md border transition-colors disabled:opacity-40",
-                    isDefault
-                      ? "border-blue-300 bg-blue-100 text-blue-700 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-                      : "border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800"
-                  )}
-                >
-                  {isDefault ? "default" : "make default"}
-                </button>
+              <div key={e.name} className="space-y-2">
+                {renderEngineRow(e, false, true)}
+                {children.map((c) => renderEngineRow(c, true, parentOn))}
               </div>
             );
           })}
         </div>
         <p className="text-[11px] text-gray-400">
           IDE engines (kind <code className="font-mono">ide</code>) hand off a governed context bundle
-          to your editor; cloud engines run a remote session. At least one engine stays enabled.
+          to your editor; cloud engines run a remote session; <code className="font-mono">cli</code>{" "}
+          engines run headless with no IDE. Sub-options (e.g. Devin CLI) require their parent enabled.
+          At least one engine stays enabled.
         </p>
       </section>
 

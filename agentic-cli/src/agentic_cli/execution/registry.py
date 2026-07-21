@@ -120,10 +120,12 @@ def ask(spec: ExecutionSpec, engine: Optional[str] = None, *,
 
 def _register_builtins() -> None:
     from agentic_cli.execution.devin_adapter import DevinEngine
+    from agentic_cli.execution.devin_cli_adapter import DevinCliEngine
     from agentic_cli.execution.ide_adapter import VSCodeCopilotEngine
     from agentic_cli.execution.local_adapter import LocalContextEngine
 
     register("devin", DevinEngine)
+    register("devin-cli", DevinCliEngine)
     register("local", LocalContextEngine)
     register("vscode-copilot", VSCodeCopilotEngine)
 
