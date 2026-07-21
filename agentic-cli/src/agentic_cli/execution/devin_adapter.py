@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from agentic_cli.execution.base import EngineInfo, ExecutionResult, ExecutionSpec
+from agentic_cli.execution.base import AskResult, EngineInfo, ExecutionResult, ExecutionSpec
 
 
 class DevinEngine:
@@ -28,12 +28,34 @@ class DevinEngine:
                 kind="cloud",
                 description="Devin Cloud — autonomous coding sessions (Sessions API)",
                 detail=cfg.base_url if available else "DEVIN_API_KEY not configured",
+                supports_ask=available,
             )
         except Exception as exc:  # noqa: BLE001 - engine optional
             return EngineInfo(
                 name=self.name, available=False, kind="cloud",
                 description="Devin Cloud", detail=f"unavailable: {exc}",
             )
+
+    def ask(self, spec: ExecutionSpec) -> AskResult:
+        """Ask Devin about the codebase, using its cloud provisioning (its
+        knowledge/snapshots). Devin answers asynchronously, so we launch a
+        read-only-framed session and return its link; the answer lands there.
+        """
+        question = spec.prompt
+        ask_spec = ExecutionSpec(
+            prompt=("Answer this question about the codebase. Do NOT make changes "
+                    "unless explicitly asked.\n\n" + question),
+            title=spec.title or f"Ask: {question[:60]}",
+            jira=spec.jira, domain=spec.domain,
+            tags=list(spec.tags) + ["ask"], context=list(spec.context),
+            engine_options=spec.engine_options, dry_run=spec.dry_run,
+        )
+        res = self.create_session(ask_spec)
+        answer = ("(dry-run — no Devin session created)" if res.dry_run
+                  else f"Devin is answering in session {res.session_id or ''}. "
+                       "Open the session for the response.")
+        return AskResult(engine=self.name, answer=answer, authoritative=True,
+                         session_id=res.session_id, url=res.url, raw=res.raw)
 
     def create_session(self, spec: ExecutionSpec) -> ExecutionResult:
         from agentic_cli.devin import SessionSpec, create_session as core_create

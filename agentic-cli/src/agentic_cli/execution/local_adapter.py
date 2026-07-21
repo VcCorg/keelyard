@@ -12,7 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
-from agentic_cli.execution.base import EngineInfo, ExecutionResult, ExecutionSpec
+from agentic_cli.execution.base import AskResult, EngineInfo, ExecutionResult, ExecutionSpec
 
 # Default workspace for rendered bundles.
 CONTEXT_ROOT = Path.home() / ".keel" / "context"
@@ -28,7 +28,34 @@ class LocalContextEngine:
             kind="local",
             description="Portable context bundle — engine-neutral, any coding agent",
             detail=f"writes bundles under {CONTEXT_ROOT}",
+            supports_ask=True,                   # answers via the local LLM over context
         )
+
+    def ask(self, spec: ExecutionSpec) -> AskResult:
+        """Answer a question locally: our LLM over the resolved portable context.
+
+        No vendor — the org's own knowledge answers. Degrades honestly to the
+        test-mode provider (authoritative=False) when no model is configured.
+        """
+        from agentic_cli.context import (
+            PortableContextSpec, load_governance, render_context_markdown, resolve_refs,
+        )
+        from agentic_cli.llm.factory import get_llm_provider
+
+        items = resolve_refs(spec.context, default_domain=spec.domain)
+        pspec = PortableContextSpec(
+            prompt=spec.prompt, title=spec.title, jira=spec.jira, domain=spec.domain,
+            tags=list(spec.tags), items=items, governance=load_governance(spec.domain))
+        context_md = render_context_markdown(pspec)[:8000]
+
+        provider = get_llm_provider(
+            system_instruction="You answer questions about a codebase/domain using the "
+                               "provided context. Be concise; ground your answer in the context.")
+        answer = provider.generate(f"Question: {spec.prompt}\n\nContext:\n{context_md}")
+        name = provider.get_name()
+        return AskResult(engine=self.name, answer=answer,
+                         authoritative=not name.startswith("test-mode"),
+                         raw={"provider": name, "item_count": len(items)})
 
     def create_session(self, spec: ExecutionSpec) -> ExecutionResult:
         from agentic_cli.context import (
