@@ -177,7 +177,7 @@ export const navGroups: NavGroup[] = [
     items: [
       { to: "/code-onboard", icon: FolderGit2, label: "Repository" },
       { to: "/skills", icon: Package, label: "Skills" },
-      { to: "/devin", icon: DevinBot, label: "Devin Sessions" },
+      { to: "/devin", icon: DevinBot, label: "Build Sessions" },
       { to: "/execution", icon: Cpu, label: "Execution & Context" },
       { to: "/snapshots", icon: Camera, label: "Snapshots", minRole: "lead" },
     ],

@@ -45,17 +45,40 @@ class ExecutionResult:
 
 
 @dataclass
+class AskResult:
+    """Engine-neutral answer to a question about the codebase/domain.
+
+    ``authoritative`` is False when the answer is degraded (e.g. the local
+    engine fell back to the deterministic test-mode provider, or the engine
+    can't be queried headlessly), so callers never present a placeholder as
+    a real answer.
+    """
+    engine: str
+    answer: str = ""
+    authoritative: bool = True
+    session_id: Optional[str] = None
+    url: Optional[str] = None
+    raw: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
 class EngineInfo:
     name: str
     available: bool
-    kind: str = "cloud"          # cloud | local
+    kind: str = "cloud"          # cloud | local | ide
     description: str = ""
     detail: str = ""             # e.g. why unavailable / base url
+    supports_ask: bool = False   # engine can answer questions via ask()
 
 
 @runtime_checkable
 class ExecutionEngine(Protocol):
-    """A coding-execution provider behind the neutral seam."""
+    """A coding-execution provider behind the neutral seam.
+
+    ``ask`` is an optional capability (advertised via ``EngineInfo.supports_ask``)
+    — an engine that can't answer questions headlessly simply omits it, and the
+    registry reports the query as unsupported.
+    """
 
     name: str
 

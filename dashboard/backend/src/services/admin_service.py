@@ -17,6 +17,12 @@ class BrandingModel(BaseModel):
     app_name: str = "Agentic Product Development Platform"
 
 
+class CodeAssistModel(BaseModel):
+    """Which code-assist engines users may pick, and the org default."""
+    enabled: List[str] = ["devin", "local"]
+    default: str = "devin"
+
+
 class AdminSettingsModel(BaseModel):
     branding: BrandingModel = BrandingModel()
     nav_visibility: Dict[str, List[str]] = {}
@@ -24,6 +30,8 @@ class AdminSettingsModel(BaseModel):
     # Default for DOMAIN-LESS builds/sessions; domains carry their own dial
     # in governance.yaml. "off" | "warn" | "enforce".
     build_governance_default: str = "warn"
+    # Vendor-neutral code-assist tools + org default engine.
+    code_assist: CodeAssistModel = CodeAssistModel()
 
 
 class AdminSettingsUpdate(BaseModel):
@@ -32,18 +40,23 @@ class AdminSettingsUpdate(BaseModel):
     replace_nav: bool = False
     skill_enforcement: Optional[str] = None
     build_governance_default: Optional[str] = None
+    code_assist: Optional[CodeAssistModel] = None
 
 
-def get_settings() -> AdminSettingsModel:
-    from agentic_cli.admin import load_settings
-
-    s = load_settings()
+def _to_model(s) -> AdminSettingsModel:
     return AdminSettingsModel(
         branding=BrandingModel(app_title=s.branding.app_title, app_name=s.branding.app_name),
         nav_visibility=s.nav_visibility,
         skill_enforcement=s.skill_enforcement,
         build_governance_default=s.build_governance_default,
+        code_assist=CodeAssistModel(enabled=s.code_assist.enabled, default=s.code_assist.default),
     )
+
+
+def get_settings() -> AdminSettingsModel:
+    from agentic_cli.admin import load_settings
+
+    return _to_model(load_settings())
 
 
 # ── Role assignments ─────────────────────────────────────────────────────────
@@ -171,6 +184,7 @@ def update_settings(update: AdminSettingsUpdate, actor: str | None = None) -> Ad
         replace_nav=update.replace_nav,
         skill_enforcement=update.skill_enforcement,
         build_governance_default=update.build_governance_default,
+        code_assist=update.code_assist.model_dump() if update.code_assist else None,
     )
     try:
         from agentic_cli.tracker import record_action
@@ -180,12 +194,8 @@ def update_settings(update: AdminSettingsUpdate, actor: str | None = None) -> Ad
                       details={"branding": update.branding.model_dump() if update.branding else None,
                                "nav_ids": sorted((update.nav_visibility or {}).keys()),
                                "skill_enforcement": update.skill_enforcement,
-                               "build_governance_default": update.build_governance_default})
+                               "build_governance_default": update.build_governance_default,
+                               "code_assist": update.code_assist.model_dump() if update.code_assist else None})
     except Exception:  # noqa: BLE001 - never break on audit
         pass
-    return AdminSettingsModel(
-        branding=BrandingModel(app_title=s.branding.app_title, app_name=s.branding.app_name),
-        nav_visibility=s.nav_visibility,
-        skill_enforcement=s.skill_enforcement,
-        build_governance_default=s.build_governance_default,
-    )
+    return _to_model(s)

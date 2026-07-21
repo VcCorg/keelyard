@@ -24,15 +24,42 @@ def list_engines() -> None:
     table.add_column("Engine", style="cyan")
     table.add_column("Kind")
     table.add_column("Available")
+    table.add_column("Ask")
     table.add_column("Detail", style="dim")
     for i in infos:
         table.add_row(
             i.name, i.kind,
             "[green]yes[/green]" if i.available else "[red]no[/red]",
+            "[green]yes[/green]" if getattr(i, "supports_ask", False) else "[dim]—[/dim]",
             i.detail or i.description,
         )
     console.print(table)
     console.print("[dim]Default engine: set KEEL_EXECUTION_ENGINE (defaults to 'devin').[/dim]")
+
+
+@execution_app.command("ask", help="Ask the configured code-assist engine about the codebase/domain.")
+def ask(
+    question: Annotated[str, typer.Argument(help="Question to ask")],
+    domain: Annotated[str, typer.Option("--domain", "-d", help="Domain slug for context")] = "",
+    engine: Annotated[Optional[str], typer.Option("--engine", "-e", help="Engine (default: configured)")] = None,
+    ref: Annotated[Optional[List[str]], typer.Option("--ref", help="Context ref (repeatable)")] = None,
+) -> None:
+    spec = ex.ExecutionSpec(prompt=question, domain=domain, context=list(ref or []))
+    try:
+        result = ex.ask(spec, engine=engine)
+    except ValueError as e:
+        console.print(f"[red]✗ {e}[/red]")
+        raise typer.Exit(1)
+    except Exception as e:  # noqa: BLE001
+        console.print(f"[red]✗ Ask failed: {e}[/red]")
+        raise typer.Exit(1)
+
+    suffix = "" if result.authoritative else "  [yellow](non-authoritative)[/yellow]"
+    console.print(Panel.fit(
+        f"[bold]engine[/bold] {result.engine}{suffix}\n\n{result.answer}"
+        + (f"\n\n[dim]{result.url}[/dim]" if result.url else ""),
+        border_style="cyan" if result.authoritative else "yellow",
+    ))
 
 
 @execution_app.command("create", help="Launch a session on an execution engine (dry-run by default).")
