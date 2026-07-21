@@ -9,7 +9,7 @@ import { api, type IngestableDomain, type KGNeighborhood } from "@/lib/api";
  * code entities linked to requirement docs.
  */
 
-export function KGGraph() {
+export function KGGraph({ embedded = false }: { embedded?: boolean } = {}) {
   const [domains, setDomains] = useState<IngestableDomain[]>([]);
   const [domain, setDomain] = useState("");
   const [data, setData] = useState<KGNeighborhood | null>(null);
@@ -47,14 +47,16 @@ export function KGGraph() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-3">
-          <GitBranch className="h-7 w-7 text-blue-500" /> KG Graph
-        </h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Visualize the domain knowledge graph — code entities linked to requirements
-        </p>
-      </div>
+      {!embedded && (
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-3">
+            <GitBranch className="h-7 w-7 text-blue-500" /> KG Graph
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Visualize the domain knowledge graph — code entities linked to requirements
+          </p>
+        </div>
+      )}
 
       <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 space-y-4">
         <div>

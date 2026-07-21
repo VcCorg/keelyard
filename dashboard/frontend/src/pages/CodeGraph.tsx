@@ -25,7 +25,7 @@ interface CodeGraphData {
   edge_total: number;
 }
 
-export function CodeGraph() {
+export function CodeGraph({ embedded = false }: { embedded?: boolean } = {}) {
   const [repos, setRepos] = useState<CodeRepo[]>([]);
   const [path, setPath] = useState("");
   const [graph, setGraph] = useState<CodeGraphData | null>(null);
@@ -65,15 +65,17 @@ export function CodeGraph() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-3">
-            <FolderGit2 className="h-7 w-7 text-blue-500" /> Code Graph
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Review the graphify structural graph captured during code onboarding
-          </p>
-        </div>
+      <div className="flex items-start justify-end gap-3">
+        {!embedded && (
+          <div className="mr-auto">
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-3">
+              <FolderGit2 className="h-7 w-7 text-blue-500" /> Code Graph
+            </h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Review the graphify structural graph captured during code onboarding
+            </p>
+          </div>
+        )}
         <button onClick={loadRepos} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800">
           <RefreshCw className="h-4 w-4" /> Refresh
         </button>
