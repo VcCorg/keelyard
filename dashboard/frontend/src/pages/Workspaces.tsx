@@ -272,7 +272,8 @@ export function Workspaces() {
             </Field>
           )}
 
-          {editors.length > 0 && (
+          {/* Picker only when the admin enabled more than one IDE tool. */}
+          {editors.length > 1 && (
             <Field label="Editor / Agent">
               <Select
                 value={editor}

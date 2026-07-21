@@ -67,11 +67,12 @@ export function OpenInIdeButton({
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      {editors.length > 0 && (
+      {/* Only offer a picker when the admin has enabled more than one IDE tool. */}
+      {editors.length > 1 && (
         <select
           value={editor}
           onChange={(e) => setEditor(e.target.value)}
-          title="Editor / agent"
+          title="Editor / agent (from Admin → Code assist tools)"
           className="h-9 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 text-sm"
         >
           {editors.map((ed) => (

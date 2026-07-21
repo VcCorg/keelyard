@@ -26,8 +26,8 @@ class LocalContextEngine:
             name=self.name,
             available=True,                      # no credentials required
             kind="local",
-            description="Portable context bundle — engine-neutral, any coding agent",
-            detail=f"writes bundles under {CONTEXT_ROOT}",
+            description="Portable context bundle — no vendor, any coding agent/IDE",
+            detail="renders a governed CONTEXT.md any agent or IDE can load (no API key)",
             supports_ask=True,                   # answers via the local LLM over context
         )
 
