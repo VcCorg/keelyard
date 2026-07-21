@@ -25,7 +25,9 @@ def show() -> None:
         f"[bold]App title:[/bold] {s.branding.app_title}\n"
         f"[bold]App name:[/bold]  {s.branding.app_name}\n"
         f"[bold]Skill enforcement:[/bold] [{enf_style}]{enf}[/{enf_style}]\n"
-        f"[bold]Build governance (domain-less default):[/bold] [{bg_style}]{bg}[/{bg_style}]",
+        f"[bold]Build governance (domain-less default):[/bold] [{bg_style}]{bg}[/{bg_style}]\n"
+        f"[bold]Code assist — default:[/bold] [cyan]{s.code_assist.default}[/cyan]  "
+        f"[bold]enabled:[/bold] {', '.join(s.code_assist.enabled)}",
         title="Branding & Governance", border_style="cyan"))
     if s.nav_visibility:
         table = Table(show_header=True, header_style="bold magenta", title="Nav visibility overrides")
@@ -84,6 +86,33 @@ def set_build_governance(
     console.print(f"[{tone}]✓[/{tone}] Domain-less build governance default: "
                   f"[bold]{s.build_governance_default}[/bold] "
                   "(per-domain dials live in each domain's governance.yaml)")
+
+
+@admin_app.command("set-code-assist",
+                   help="Set the enabled code-assist engines and/or the org default.")
+def set_code_assist(
+    default: Annotated[Optional[str], typer.Option("--default", "-d", help="Default engine name")] = None,
+    enable: Annotated[Optional[List[str]], typer.Option("--enable", "-e", help="Enabled engine (repeatable); replaces the set")] = None,
+) -> None:
+    known = {i.name for i in _list_engines_safe()}
+    if enable:
+        unknown = [e for e in enable if e not in known]
+        if unknown:
+            console.print(f"[yellow]⚠ Unknown engine(s): {', '.join(unknown)} "
+                          f"(known: {', '.join(sorted(known)) or 'none'})[/yellow]")
+    s = A.set_code_assist(enabled=enable, default=default)
+    _audit("set_code_assist", {"code_assist": {"enabled": s.code_assist.enabled,
+                                               "default": s.code_assist.default}})
+    console.print(f"[green]✓[/green] Code assist default [cyan]{s.code_assist.default}[/cyan]; "
+                  f"enabled: {', '.join(s.code_assist.enabled)}")
+
+
+def _list_engines_safe() -> list:
+    try:
+        from agentic_cli.execution import list_engines
+        return list_engines()
+    except Exception:  # noqa: BLE001
+        return []
 
 
 @admin_app.command("set-nav", help="Set which roles can see a nav entry.")

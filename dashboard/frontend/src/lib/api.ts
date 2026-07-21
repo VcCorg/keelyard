@@ -437,11 +437,17 @@ export interface AdminBranding {
   app_name: string;
 }
 
+export interface CodeAssistConfig {
+  enabled: string[];
+  default: string;
+}
+
 export interface AdminSettings {
   branding: AdminBranding;
   nav_visibility: Record<string, string[]>;
   skill_enforcement: "off" | "enforce";
   build_governance_default: "off" | "warn" | "enforce";
+  code_assist: CodeAssistConfig;
 }
 
 export interface BuildGovernanceInfo {
@@ -458,6 +464,7 @@ export interface AdminSettingsUpdate {
   replace_nav?: boolean;
   skill_enforcement?: "off" | "enforce";
   build_governance_default?: "off" | "warn" | "enforce";
+  code_assist?: CodeAssistConfig;
 }
 
 export interface RoleAssignment {
