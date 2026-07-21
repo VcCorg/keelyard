@@ -180,6 +180,21 @@ async function buildGovernanceGate() {
   await put("warn"); // restore the adoption-friendly default
 }
 
+async function neutralBuildSessions() {
+  const post = (path, body) => fetch(`${BASE}${path}`, {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify(body), signal: AbortSignal.timeout(30000),
+  });
+  // Launch on the vendor-neutral 'local' engine (dry-run) through the seam.
+  const s = await post("/api/execution/session", { prompt: "smoke build", engine: "local", dry_run: true });
+  if (s.status === 200 && (await s.json()).engine === "local")
+    ok("neutral session launch (local, dry-run)");
+  else fail("execution/session", `status ${s.status}`);
+  // Ask the local engine (answers inline; test-mode → non-authoritative).
+  const a = await post("/api/execution/ask", { prompt: "what is this?", engine: "local" });
+  a.status === 200 ? ok("engine ask (local)") : fail("execution/ask", `status ${a.status}`);
+}
+
 async function terminalRoundTrip() {
   const create = await fetch(`${BASE}/api/terminal/sessions`, {
     method: "POST",
@@ -268,6 +283,8 @@ try {
   await modelFallbackDraft();
   console.log("\n— build governance e2e —");
   await buildGovernanceGate();
+  console.log("\n— vendor-neutral build sessions e2e —");
+  await neutralBuildSessions();
   console.log("\n— terminal e2e —");
   await terminalRoundTrip();
   console.log("\n— keel CLI e2e (bundled, multi-call) —");

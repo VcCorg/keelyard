@@ -40,6 +40,13 @@ DEFAULT_ENFORCEMENT = "off"
 BUILD_GOVERNANCE_LEVELS = ["off", "warn", "enforce"]
 DEFAULT_BUILD_GOVERNANCE = "warn"
 
+# Code-assist tools (execution engines) users may pick for builds, and the
+# org default. Engine names are validated against the registry by callers; the
+# store just persists the admin's choice. Seeded with the always-available
+# engines so a fresh install has a working, vendor-neutral default.
+DEFAULT_CODE_ASSIST_ENABLED = ["devin", "local"]
+DEFAULT_CODE_ASSIST_DEFAULT = "devin"
+
 
 def _sanitize_enforcement(mode: object) -> str:
     """Coerce to a known enforcement mode (defaults to 'off')."""
@@ -51,6 +58,32 @@ def _sanitize_build_governance(level: object) -> str:
     """Coerce to a known build-governance level (defaults to 'warn')."""
     lv = str(level or "").strip().lower()
     return lv if lv in BUILD_GOVERNANCE_LEVELS else DEFAULT_BUILD_GOVERNANCE
+
+
+@dataclass
+class CodeAssist:
+    """Which code-assist engines users may pick, and the org default."""
+    enabled: List[str] = field(default_factory=lambda: list(DEFAULT_CODE_ASSIST_ENABLED))
+    default: str = DEFAULT_CODE_ASSIST_DEFAULT
+
+
+def _sanitize_code_assist(raw: object) -> CodeAssist:
+    """Coerce persisted code-assist config; ensure default ∈ enabled."""
+    if not isinstance(raw, dict):
+        return CodeAssist()
+    seen: set = set()
+    enabled: List[str] = []
+    for x in raw.get("enabled") or []:
+        name = str(x).strip().lower()
+        if name and name not in seen:
+            seen.add(name)
+            enabled.append(name)
+    if not enabled:
+        enabled = list(DEFAULT_CODE_ASSIST_ENABLED)
+    default = str(raw.get("default") or "").strip().lower()
+    if default not in enabled:
+        default = enabled[0]
+    return CodeAssist(enabled=enabled, default=default)
 
 
 @dataclass
@@ -68,12 +101,15 @@ class AppSettings:
     skill_enforcement: str = DEFAULT_ENFORCEMENT
     # Build-governance default for DOMAIN-LESS work: "off" | "warn" | "enforce".
     build_governance_default: str = DEFAULT_BUILD_GOVERNANCE
+    # Vendor-neutral code-assist tools users may pick + the org default engine.
+    code_assist: CodeAssist = field(default_factory=CodeAssist)
 
     def to_dict(self) -> dict:
         return {"branding": asdict(self.branding),
                 "nav_visibility": self.nav_visibility,
                 "skill_enforcement": self.skill_enforcement,
-                "build_governance_default": self.build_governance_default}
+                "build_governance_default": self.build_governance_default,
+                "code_assist": asdict(self.code_assist)}
 
 
 def _sanitize_roles(roles: List[str]) -> List[str]:
@@ -83,8 +119,9 @@ def _sanitize_roles(roles: List[str]) -> List[str]:
     return [r for r in UI_ROLES if r in seen]
 
 
-def load_settings(path: Path = SETTINGS_PATH) -> AppSettings:
+def load_settings(path: Optional[Path] = None) -> AppSettings:
     """Load settings, tolerating a missing/corrupt file (returns defaults)."""
+    path = path or SETTINGS_PATH   # resolve at call time so tests can monkeypatch
     if not path.is_file():
         return AppSettings()
     try:
@@ -106,10 +143,12 @@ def load_settings(path: Path = SETTINGS_PATH) -> AppSettings:
         skill_enforcement=_sanitize_enforcement(raw.get("skill_enforcement")),
         build_governance_default=_sanitize_build_governance(
             raw.get("build_governance_default")),
+        code_assist=_sanitize_code_assist(raw.get("code_assist")),
     )
 
 
-def save_settings(settings: AppSettings, path: Path = SETTINGS_PATH) -> Path:
+def save_settings(settings: AppSettings, path: Optional[Path] = None) -> Path:
+    path = path or SETTINGS_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(settings.to_dict(), indent=2, sort_keys=True) + "\n",
                     encoding="utf-8")
@@ -117,7 +156,7 @@ def save_settings(settings: AppSettings, path: Path = SETTINGS_PATH) -> Path:
 
 
 def set_branding(app_title: Optional[str] = None, app_name: Optional[str] = None,
-                 path: Path = SETTINGS_PATH) -> AppSettings:
+                 path: Optional[Path] = None) -> AppSettings:
     s = load_settings(path)
     if app_title is not None and app_title.strip():
         s.branding.app_title = app_title.strip()
@@ -127,14 +166,14 @@ def set_branding(app_title: Optional[str] = None, app_name: Optional[str] = None
     return s
 
 
-def set_nav_visibility(nav_id: str, roles: List[str], path: Path = SETTINGS_PATH) -> AppSettings:
+def set_nav_visibility(nav_id: str, roles: List[str], path: Optional[Path] = None) -> AppSettings:
     s = load_settings(path)
     s.nav_visibility[nav_id] = _sanitize_roles(roles)
     save_settings(s, path)
     return s
 
 
-def clear_nav_override(nav_id: str, path: Path = SETTINGS_PATH) -> AppSettings:
+def clear_nav_override(nav_id: str, path: Optional[Path] = None) -> AppSettings:
     """Remove an override so the frontend default (minRole) applies again."""
     s = load_settings(path)
     s.nav_visibility.pop(nav_id, None)
@@ -142,7 +181,7 @@ def clear_nav_override(nav_id: str, path: Path = SETTINGS_PATH) -> AppSettings:
     return s
 
 
-def set_skill_enforcement(mode: str, path: Path = SETTINGS_PATH) -> AppSettings:
+def set_skill_enforcement(mode: str, path: Optional[Path] = None) -> AppSettings:
     """Turn persona-scoped skill enforcement on ('enforce') or off ('off')."""
     s = load_settings(path)
     s.skill_enforcement = _sanitize_enforcement(mode)
@@ -150,15 +189,26 @@ def set_skill_enforcement(mode: str, path: Path = SETTINGS_PATH) -> AppSettings:
     return s
 
 
-def enforcement_enabled(path: Path = SETTINGS_PATH) -> bool:
+def enforcement_enabled(path: Optional[Path] = None) -> bool:
     """True when hard skill enforcement is active."""
     return load_settings(path).skill_enforcement == "enforce"
 
 
-def set_build_governance_default(level: str, path: Path = SETTINGS_PATH) -> AppSettings:
+def set_build_governance_default(level: str, path: Optional[Path] = None) -> AppSettings:
     """Set the build-governance default applied to domain-less work."""
     s = load_settings(path)
     s.build_governance_default = _sanitize_build_governance(level)
+    save_settings(s, path)
+    return s
+
+
+def set_code_assist(enabled: Optional[List[str]] = None, default: Optional[str] = None,
+                    path: Optional[Path] = None) -> AppSettings:
+    """Set the enabled code-assist engines and/or the org default engine."""
+    s = load_settings(path)
+    raw = {"enabled": enabled if enabled is not None else s.code_assist.enabled,
+           "default": default if default is not None else s.code_assist.default}
+    s.code_assist = _sanitize_code_assist(raw)
     save_settings(s, path)
     return s
 
@@ -168,7 +218,8 @@ def update_settings(branding: Optional[dict] = None,
                     replace_nav: bool = False,
                     skill_enforcement: Optional[str] = None,
                     build_governance_default: Optional[str] = None,
-                    path: Path = SETTINGS_PATH) -> AppSettings:
+                    code_assist: Optional[dict] = None,
+                    path: Optional[Path] = None) -> AppSettings:
     """Apply a partial update (used by the dashboard PUT)."""
     s = load_settings(path)
     if branding:
@@ -184,5 +235,10 @@ def update_settings(branding: Optional[dict] = None,
         s.skill_enforcement = _sanitize_enforcement(skill_enforcement)
     if build_governance_default is not None:
         s.build_governance_default = _sanitize_build_governance(build_governance_default)
+    if code_assist is not None:
+        # Merge with current so a partial {default} or {enabled} update works.
+        merged = {"enabled": code_assist.get("enabled", s.code_assist.enabled),
+                  "default": code_assist.get("default", s.code_assist.default)}
+        s.code_assist = _sanitize_code_assist(merged)
     save_settings(s, path)
     return s

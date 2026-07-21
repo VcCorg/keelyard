@@ -43,7 +43,7 @@ function statusClass(status?: string | null): string {
   return STATUS_COLORS[status.toLowerCase()] ?? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
 }
 
-export function Devin() {
+export function Devin({ embedded = false }: { embedded?: boolean } = {}) {
   const statusFetcher = useCallback(() => api.getDevinStatus(), []);
   const { data: status } = usePolling<DevinStatus>(statusFetcher, 30000);
 
@@ -93,11 +93,15 @@ export function Devin() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/30">
-            <Bot className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-          </div>
+          {!embedded && (
+            <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/30">
+              <Bot className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+            </div>
+          )}
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Devin Sessions</h1>
+            <h1 className={embedded ? "text-lg font-semibold" : "text-2xl font-bold tracking-tight"}>
+              {embedded ? "Devin — sessions & snapshots" : "Devin Sessions"}
+            </h1>
             <p className="text-sm text-gray-500">Trigger and track autonomous coding sessions.</p>
           </div>
         </div>

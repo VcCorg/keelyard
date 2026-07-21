@@ -28,7 +28,7 @@ import { DataSources } from "@/pages/DataSources";
 import { CodeOnboard } from "@/pages/CodeOnboard";
 import { Eval } from "@/pages/Eval";
 import { CLIRunner } from "@/pages/CLIRunner";
-import { Devin } from "@/pages/Devin";
+import { BuildSessions } from "@/pages/BuildSessions";
 import { Snapshots } from "@/pages/Snapshots";
 import { DomainOnboarding } from "@/pages/DomainOnboarding";
 import { PersonaSkills } from "@/pages/PersonaSkills";
@@ -100,7 +100,7 @@ function App() {
             <Route path="/data" element={<DataSources />} />
             <Route path="/code-onboard" element={<CodeOnboard />} />
             <Route path="/eval" element={<Eval />} />
-            <Route path="/devin" element={<Devin />} />
+            <Route path="/devin" element={<BuildSessions />} />
             <Route path="/execution" element={<ExecutionContext />} />
             <Route path="/snapshots" element={<Snapshots />} />
             <Route path="/cli" element={<CLIRunner />} />
