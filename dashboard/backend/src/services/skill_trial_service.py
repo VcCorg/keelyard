@@ -82,6 +82,130 @@ def _check_structure(skill_dir: Path) -> TrialCheck:
                       detail=f"Valid SKILL.md ({body} chars)")
 
 
+_SKIP_DIRS = {"__pycache__", ".git", "node_modules"}
+
+
+def _discover_scripts(skill_dir: Path) -> tuple[list[Path], list[Path]]:
+    """Return (python, shell) script files in a skill folder (recursively)."""
+    py: list[Path] = []
+    sh: list[Path] = []
+    for p in skill_dir.rglob("*"):
+        if not p.is_file():
+            continue
+        rel_parts = p.relative_to(skill_dir).parts
+        if any(part in _SKIP_DIRS or part.startswith(".") for part in rel_parts):
+            continue
+        if p.suffix == ".py":
+            py.append(p)
+        elif p.suffix == ".sh":
+            sh.append(p)
+    return sorted(py), sorted(sh)
+
+
+def _check_scripts(skill_dir: Path) -> TrialCheck:
+    """Static validation of a skill's scripts: compile Python, verify referenced
+    files exist, and surface (possibly undeclared) dependencies.
+
+    Runtime behaviour is out of scope here — that's the 'Validate with Devin'
+    path; this catches syntax errors, missing scripts and undeclared deps
+    locally with no execution.
+    """
+    import sys
+
+    py_files, sh_files = _discover_scripts(skill_dir)
+    if not py_files and not sh_files:
+        return TrialCheck(name="Scripts", status="skipped",
+                          detail="No scripts in this skill (doc-only)")
+
+    problems: list[str] = []
+
+    # Compile Python (syntax only — never executes the code).
+    import py_compile
+
+    compiled = 0
+    for p in py_files:
+        try:
+            py_compile.compile(str(p), doraise=True)
+            compiled += 1
+        except py_compile.PyCompileError as e:
+            rel = p.relative_to(skill_dir)
+            msg = (str(e).splitlines() or ["syntax error"])[-1][:90]
+            problems.append(f"syntax error in {rel}: {msg}")
+        except Exception:  # noqa: BLE001
+            problems.append(f"could not compile {p.relative_to(skill_dir)}")
+
+    # Scripts referenced in SKILL.md that don't exist in the folder.
+    referenced_missing: list[str] = []
+    md_path = skill_dir / "SKILL.md"
+    if md_path.is_file():
+        md = md_path.read_text(encoding="utf-8", errors="replace")
+        present_names = {p.name for p in (*py_files, *sh_files)}
+        for ref in sorted(set(re.findall(r"[\w./-]+\.(?:py|sh)", md))):
+            name = Path(ref).name
+            cand = skill_dir / ref
+            if not cand.is_file() and name not in present_names:
+                referenced_missing.append(ref)
+
+    # Dependency surfacing: top-level third-party imports vs a declared manifest.
+    has_manifest = any((skill_dir / f).is_file()
+                       for f in ("requirements.txt", "pyproject.toml", "setup.py", "Pipfile"))
+    imports: set[str] = set()
+    for p in py_files:
+        try:
+            txt = p.read_text(encoding="utf-8", errors="replace")
+        except Exception:  # noqa: BLE001
+            continue
+        for m in re.finditer(r"^\s*(?:import|from)\s+([a-zA-Z_][\w]*)", txt, re.MULTILINE):
+            imports.add(m.group(1))
+    stdlib = getattr(sys, "stdlib_module_names", set())
+    local_names = {p.stem for p in py_files}
+    third_party = sorted(n for n in imports if n not in stdlib and n not in local_names)
+
+    counts = f"{len(py_files)} py" + (f", {len(sh_files)} sh" if sh_files else "")
+    if problems or referenced_missing:
+        issues = problems + [f"missing referenced script: {r}" for r in referenced_missing]
+        return TrialCheck(name="Scripts", status="fail",
+                          detail=f"{counts} — " + "; ".join(issues[:4]))
+
+    if third_party and not has_manifest:
+        return TrialCheck(
+            name="Scripts", status="warn",
+            detail=f"{counts}, all compiled — imports {', '.join(third_party[:6])} "
+                   "but no requirements.txt/pyproject.toml (deps may be undeclared)")
+
+    dep_note = ("deps declared" if has_manifest else
+                ("no third-party imports" if not third_party else "deps ok"))
+    return TrialCheck(name="Scripts", status="pass",
+                      detail=f"{counts}, all compiled; {dep_note}")
+
+
+def _scripts_context(skill_dir: Path, total_budget: int = 5000, per_file: int = 1500) -> str:
+    """A compact inventory + excerpts of a skill's scripts for the AI review."""
+    py_files, sh_files = _discover_scripts(skill_dir)
+    files = [*py_files, *sh_files]
+    if not files:
+        return ""
+    out: list[str] = []
+    used = 0
+    for p in files[:8]:
+        try:
+            body = p.read_text(encoding="utf-8", errors="replace")
+        except Exception:  # noqa: BLE001
+            continue
+        snippet = body[:per_file]
+        rel = p.relative_to(skill_dir)
+        block = f"\n--- {rel} ---\n{snippet}"
+        if used + len(block) > total_budget:
+            break
+        out.append(block)
+        used += len(block)
+    remaining = len(files) - len(out)
+    header = f"\n\nScripts in this skill ({len(files)} file(s)):"
+    if remaining > 0:
+        header += f" [showing {len(out)}]"
+    return header + "".join(out)
+
+
 def _check_security(skill_dir: Path) -> TrialCheck:
     try:
         from agentic_cli.skill_security import scan_path
@@ -132,13 +256,17 @@ def _check_ai_review(skill_dir: Path, domain: str) -> tuple[TrialCheck, str]:
         from agentic_cli.llm.factory import get_llm_provider
 
         text = (skill_dir / "SKILL.md").read_text(encoding="utf-8", errors="replace")[:6000]
+        scripts = _scripts_context(skill_dir)
         provider = get_llm_provider(
-            system_instruction="You review AI agent skills for quality. Answer strict JSON.")
+            system_instruction="You review AI agent skills (docs + code) for quality. "
+                               "Answer strict JSON.")
         raw = provider.generate(
             "Review this agent skill for use in the domain "
-            f"'{domain or 'general'}'. Return ONLY a JSON object with keys: "
+            f"'{domain or 'general'}'. Consider both the SKILL.md and any scripts — "
+            "whether the scripts match what the doc claims, look correct, and are safe. "
+            "Return ONLY a JSON object with keys: "
             '"verdict" ("good"|"acceptable"|"poor"), "summary" (one sentence), '
-            '"risks" (array of short strings).\n\nSKILL.md:\n' + text)
+            '"risks" (array of short strings).\n\nSKILL.md:\n' + text + scripts)
         import json as _json
 
         m = re.search(r"\{.*\}", raw, re.DOTALL)
@@ -172,6 +300,7 @@ def evaluate_trial(skill_name: str, domain: str, persona: str,
                            detail="Disabled for this trial"))
     checks = [
         _check_structure(skill_dir),
+        _check_scripts(skill_dir),
         security,
         _check_persona_policy(skill_name, domain, persona),
     ]
