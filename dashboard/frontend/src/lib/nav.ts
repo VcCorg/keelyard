@@ -144,16 +144,18 @@ export const navGroups: NavGroup[] = [
     ],
   },
   // Knowledge READS are for everyone (devs consume KG context while building);
-  // WRITES stay gated at the item level (ingest: lead, OKF: admin).
+  // WRITES stay gated at the item level (ingest: lead, OKF: admin). Ordered as
+  // a lifecycle: overview → connect sources → onboard → ingest → export →
+  // visualize.
   {
     label: "Knowledge",
     items: [
-      { to: "/kg", icon: GitBranch, label: "KG Context" },
-      { to: "/kg/graph", icon: Share2, label: "KG Graph" },
+      { to: "/kg", icon: GitBranch, label: "Dashboard" },
+      { to: "/data", icon: Database, label: "Data Sources" },
       { to: "/kg/onboard", icon: Wand2, label: "KG Onboarding" },
       { to: "/kg/ingest", icon: DatabaseZap, label: "KG Ingest", minRole: "lead" },
       { to: "/kg/okf", icon: FileStack, label: "OKF Generation", minRole: "admin" },
-      { to: "/data", icon: Database, label: "Data Sources" },
+      { to: "/kg/graph", icon: Share2, label: "Graph" },
     ],
   },
   // Work Items sit before Ideate: load the Jira task you're working on first —
@@ -174,7 +176,6 @@ export const navGroups: NavGroup[] = [
     label: "Build",
     items: [
       { to: "/code-onboard", icon: FolderGit2, label: "Repository" },
-      { to: "/code-graph", icon: Share2, label: "Code Graph" },
       { to: "/skills", icon: Package, label: "Skills" },
       { to: "/devin", icon: DevinBot, label: "Devin Sessions" },
       { to: "/execution", icon: Cpu, label: "Execution & Context" },
