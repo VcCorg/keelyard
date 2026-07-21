@@ -65,7 +65,7 @@ class AskResult:
 class EngineInfo:
     name: str
     available: bool
-    kind: str = "cloud"          # cloud | local | ide
+    kind: str = "cloud"          # cloud | local | ide | cli
     description: str = ""
     detail: str = ""             # e.g. why unavailable / base url
     supports_ask: bool = False   # engine can answer questions via ask()
