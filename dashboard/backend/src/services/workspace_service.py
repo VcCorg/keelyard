@@ -213,6 +213,24 @@ ENGINE_TO_EDITOR = {
 
 _DEVIN_APP = Path("/Applications/Devin.app")
 
+# macOS `.app` fallbacks — an editor is often installed as a bundle without the
+# shell shim on PATH (VS Code needs a manual "Install 'code' command in PATH"
+# step). We treat the app as sufficient and launch via `open -a "<Name>"`, so a
+# user's admin default doesn't silently get substituted just because the CLI
+# shim is missing.
+_EDITOR_APP: dict[str, tuple[str, Path]] = {
+    "code":     ("Visual Studio Code", Path("/Applications/Visual Studio Code.app")),
+    "cursor":   ("Cursor",             Path("/Applications/Cursor.app")),
+    "windsurf": ("Windsurf",           Path("/Applications/Windsurf.app")),
+}
+
+
+def _editor_app_available(editor: str) -> bool:
+    if sys.platform != "darwin":
+        return False
+    info = _EDITOR_APP.get(editor)
+    return bool(info and info[1].exists())
+
 
 def tool_for_editor(editor: Optional[str]) -> str:
     """Map a launcher/editor key to its `keel --code-assist-tool` value."""
@@ -229,7 +247,7 @@ def _devin_available() -> bool:
 def _editor_available(editor: str) -> bool:
     if editor == "devin":
         return _devin_available()
-    return bool(shutil.which(editor))
+    return bool(shutil.which(editor)) or _editor_app_available(editor)
 
 
 def detect_editors() -> list[str]:
@@ -272,9 +290,10 @@ def enabled_editors() -> list[str]:
 def _editor_command(editor: str, target: Path) -> Optional[list[str]]:
     """Build the launch command for an editor, or None if unavailable.
 
-    Devin is a terminal/cloud agent (no `devin <path>` GUI open), so on macOS we
-    open its desktop app at the folder via `open -a Devin <path>`; otherwise we
-    fall back to launching the `devin` CLI in that directory.
+    Prefers the editor's shell CLI on PATH (`code <path>`, `cursor <path>`, …);
+    on macOS, falls back to `open -a "<App Name>" <path>` when only the desktop
+    app is installed — so a user's admin default (e.g. VS Code) is honored even
+    if they haven't set up the CLI shim.
     """
     p = str(target)
     if editor == "devin":
@@ -285,37 +304,57 @@ def _editor_command(editor: str, target: Path) -> Optional[list[str]]:
         return None
     if shutil.which(editor):
         return [editor, p]
+    if _editor_app_available(editor):
+        app_name = _EDITOR_APP[editor][0]
+        return ["open", "-a", app_name, p]
     return None
+
+
+_LAUNCHER_LABEL = {"devin": "Devin", "code": "VS Code", "cursor": "Cursor", "windsurf": "Windsurf"}
+
+
+def _org_default_editor() -> Optional[str]:
+    ca = _code_assist()
+    if not ca:
+        return None
+    return ENGINE_TO_EDITOR.get(ca.default)
 
 
 def open_in_ide(path: str, editor: Optional[str] = None) -> OpenIdeResult:
     """Launch a local editor/agent at ``path``.
 
-    Picks the requested editor if available, else the first detected one
-    (Devin preferred). Falls back to the OS opener on macOS.
+    Uses the requested editor when provided, else the admin org default; refuses
+    to silently substitute a different vendor when the target editor isn't
+    installed (e.g. VS Code default with no `code` CLI + no VS Code.app) — the
+    caller gets a clear error so the admin choice isn't quietly ignored.
     """
     target = Path(path).expanduser()
     if not target.exists():
         raise ValueError(f"Path does not exist: {target}")
 
-    # Admin-permitted editors first; fall back to raw detection so a review
-    # never breaks when the org hasn't configured an IDE tool.
-    available = enabled_editors() or detect_editors()
-    chosen = (editor or "").lower() if (editor and (editor or "").lower() in available) else (
-        available[0] if available else None
-    )
+    requested = (editor or "").lower() or _org_default_editor()
+    if not requested:
+        # No admin config and no explicit pick — fall back to whatever is
+        # installed (preserves behavior on a fresh install).
+        installed = detect_editors()
+        requested = installed[0] if installed else None
 
-    cmd = _editor_command(chosen, target) if chosen else None
+    cmd = _editor_command(requested, target) if requested else None
     if cmd is None:
-        if sys.platform == "darwin":
-            # No editor CLI/app resolved — fall back to Finder/default app.
-            chosen = "open"
-            cmd = ["open", str(target)]
-        else:
+        # Never silently swap vendors: if the org default isn't installed, tell
+        # the user rather than opening a different tool.
+        if requested and requested in _LAUNCHER_LABEL:
+            label = _LAUNCHER_LABEL[requested]
             raise ValueError(
-                "No supported editor found (devin/windsurf/cursor/code). "
-                "Install the editor's shell command, or open the path manually."
+                f"{label} is not installed here — no `{requested}` command on PATH"
+                + (f" and no {label}.app in /Applications" if sys.platform == "darwin" else "")
+                + f". Install {label}, or set another default in Admin → Code assist tools."
             )
+        raise ValueError(
+            "No supported editor found (devin/windsurf/cursor/code). "
+            "Install the editor's shell command, or set an admin default."
+        )
+    chosen = requested
 
     try:
         subprocess.Popen(

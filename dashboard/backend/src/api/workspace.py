@@ -45,8 +45,14 @@ async def api_list_workspaces(tier: Optional[str] = Query(None)):
 @router.get("/editors")
 async def api_list_editors():
     """Editor tools offered for 'Open in IDE' — the admin-enabled code-assist
-    tools that are also installed (org default first)."""
-    return {"editors": svc.enabled_editors()}
+    tools that are also installed (org default first), plus the org default's
+    editor key so the UI can flag it as missing when it isn't installed
+    (rather than silently opening a different vendor).
+    """
+    return {
+        "editors": svc.enabled_editors(),
+        "default": svc._org_default_editor(),
+    }
 
 
 @router.get("/target", response_model=svc.WorkspaceTarget)
