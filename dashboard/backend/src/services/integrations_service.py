@@ -134,30 +134,6 @@ def _gcloud_status() -> IntegrationStatus:
     return IntegrationStatus(key="gcloud", label="gcloud", status="ok", detail=detail)
 
 
-def _gemini_status() -> IntegrationStatus:
-    """Gemini key used by Chat (falls back to Vertex/ADC when absent)."""
-    key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
-    use_vertex = os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "").lower() in {"1", "true"}
-    if key:
-        return IntegrationStatus(
-            key="gemini", label="Gemini", status="ok", detail="API key present"
-        )
-    if use_vertex:
-        return IntegrationStatus(
-            key="gemini",
-            label="Gemini",
-            status="ok",
-            detail="Via Vertex AI (ADC)",
-        )
-    return IntegrationStatus(
-        key="gemini",
-        label="Gemini",
-        status="warn",
-        detail="No API key — using ADC if available",
-        hint="Set GOOGLE_API_KEY or configure Vertex AI for Chat.",
-    )
-
-
 def _mcp_status() -> IntegrationStatus:
     try:
         from src.services.mcp_service import check_health
@@ -191,11 +167,11 @@ def _mcp_status() -> IntegrationStatus:
 
 
 def get_integrations() -> IntegrationsResponse:
+    """gcloud covers Gemini/Vertex (ADC), so no separate Gemini chip."""
     return IntegrationsResponse(
         integrations=[
             _backend_status(),
             _gcloud_status(),
-            _gemini_status(),
             _devin_status(),
             _mcp_status(),
         ]

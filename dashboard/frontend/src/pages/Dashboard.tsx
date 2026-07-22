@@ -1,6 +1,6 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
-import { Bot, Server, Activity, ArrowRight, FolderKanban, ListTodo, Lightbulb } from "lucide-react";
+import { Bot, Server, Activity, ArrowRight, FolderKanban, ListTodo, Lightbulb, ChevronDown, ChevronRight } from "lucide-react";
 import { usePolling } from "@/hooks/usePolling";
 import { api, type OverviewData } from "@/lib/api";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -11,6 +11,7 @@ export function Dashboard() {
   const { data, loading, error } = usePolling<OverviewData>(fetcher, 10000);
   const { user } = useUser();
   const isLead = user.role === "lead" || user.role === "admin";
+  const [recentOpen, setRecentOpen] = useState(false);
 
   if (loading) {
     return (
@@ -194,37 +195,53 @@ export function Dashboard() {
       {/* Recent Activity */}
       <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
         <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white">Recent Activity</h2>
+          <button
+            onClick={() => setRecentOpen((v) => !v)}
+            className="flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            aria-expanded={recentOpen}
+          >
+            {recentOpen ? (
+              <ChevronDown className="h-4 w-4 text-gray-400" />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-gray-400" />
+            )}
+            Recent Activity
+            <span className="text-xs font-normal text-gray-500 dark:text-gray-400">
+              ({d.activity.recent.length})
+            </span>
+          </button>
           <Link to="/activity" className="text-sm font-medium text-blue-600 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">
             View all →
           </Link>
         </div>
-        <div className="divide-y divide-gray-100 dark:divide-gray-800">
-          {d.activity.recent.length === 0 && (
-            <div className="px-6 py-12 text-center">
-              <p className="text-sm text-gray-500 dark:text-gray-400">No activity recorded yet.</p>
-              <p className="text-xs text-gray-400 mt-2">Use <code className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-xs font-mono">agent</code> CLI to generate activity.</p>
-            </div>
-          )}
-          {d.activity.recent.map((entry) => (
-            <div key={entry.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-              <div className="flex items-center gap-3 flex-1">
-                <StatusBadge status={entry.status} />
-                <div>
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">
-                    {entry.command}
-                    {entry.subcommand && <span className="text-gray-500 dark:text-gray-400"> / {entry.subcommand}</span>}
-                  </span>
+        {recentOpen && (
+          <div className="divide-y divide-gray-100 dark:divide-gray-800">
+            {d.activity.recent.length === 0 && (
+              <div className="px-6 py-12 text-center">
+                <p className="text-sm text-gray-500 dark:text-gray-400">No activity recorded yet.</p>
+                <p className="text-xs text-gray-400 mt-2">Use <code className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-xs font-mono">agent</code> CLI to generate activity.</p>
+              </div>
+            )}
+            {d.activity.recent.map((entry) => (
+              <div key={entry.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                <div className="flex items-center gap-3 flex-1">
+                  <StatusBadge status={entry.status} />
+                  <div>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                      {entry.command}
+                      {entry.subcommand && <span className="text-gray-500 dark:text-gray-400"> / {entry.subcommand}</span>}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap ml-4">
+                  {entry.duration_ms && <span>{entry.duration_ms}ms</span>}
+                  {entry.duration_ms && " · "}
+                  {new Date(entry.timestamp).toLocaleTimeString()}
                 </div>
               </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap ml-4">
-                {entry.duration_ms && <span>{entry.duration_ms}ms</span>}
-                {entry.duration_ms && " · "}
-                {new Date(entry.timestamp).toLocaleTimeString()}
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

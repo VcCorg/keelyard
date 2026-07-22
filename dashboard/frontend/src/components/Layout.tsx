@@ -101,8 +101,8 @@ function NavItemLink({ item }: { item: NavItem }) {
   );
 }
 
-function NavSubgroupSection({ subgroup }: { subgroup: NavSubgroup }) {
-  const [open, setOpen] = useState(true);
+function NavSubgroupSection({ subgroup, defaultOpen = false }: { subgroup: NavSubgroup; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
   const Icon = subgroup.icon;
   return (
     <div className="mt-1 ml-2 pl-2 border-l border-gray-200 dark:border-gray-800">
@@ -129,8 +129,16 @@ function NavSubgroupSection({ subgroup }: { subgroup: NavSubgroup }) {
   );
 }
 
-function NavGroupSection({ group }: { group: NavGroup }) {
-  const [open, setOpen] = useState(true);
+function NavGroupSection({
+  group,
+  defaultOpen = false,
+  currentPath,
+}: {
+  group: NavGroup;
+  defaultOpen?: boolean;
+  currentPath: string;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <div>
       <button
@@ -150,7 +158,11 @@ function NavGroupSection({ group }: { group: NavGroup }) {
             <NavItemLink key={item.to} item={item} />
           ))}
           {group.subgroups?.map((sg) => (
-            <NavSubgroupSection key={sg.label} subgroup={sg} />
+            <NavSubgroupSection
+              key={sg.label}
+              subgroup={sg}
+              defaultOpen={subgroupContainsPath(sg, currentPath)}
+            />
           ))}
           {group.footerItems?.map((item) => (
             <NavItemLink key={item.to} item={item} />
@@ -159,6 +171,22 @@ function NavGroupSection({ group }: { group: NavGroup }) {
       )}
     </div>
   );
+}
+
+const pathMatches = (to: string, path: string) =>
+  to === "/" ? path === "/" : path === to || path.startsWith(`${to}/`);
+
+/** True when this nav group contains the current route (any items or subgroup items). */
+function groupContainsPath(group: NavGroup, path: string): boolean {
+  if (group.items.some((it) => !it.action && pathMatches(it.to, path))) return true;
+  for (const sg of group.subgroups ?? []) {
+    if (sg.items.some((it) => !it.action && pathMatches(it.to, path))) return true;
+  }
+  return (group.footerItems ?? []).some((it) => !it.action && pathMatches(it.to, path));
+}
+
+function subgroupContainsPath(subgroup: NavSubgroup, path: string): boolean {
+  return subgroup.items.some((it) => !it.action && pathMatches(it.to, path));
 }
 
 
@@ -207,6 +235,7 @@ export function Layout() {
   const { user, theme, toggleTheme, updateUser, auth } = useUser();
   const { panelOpen, closePanel } = useSetup();
   const { settings } = useAdminSettings();
+  const location = useLocation();
   const overrides = settings.nav_visibility;
   const role = user.role;
   const persona = auth.persona;
@@ -244,7 +273,12 @@ export function Layout() {
 
         <nav className="flex-1 px-3 py-4 space-y-3 overflow-y-auto">
           {visibleGroups.map((g) => (
-            <NavGroupSection key={g.label} group={g} />
+            <NavGroupSection
+              key={g.label}
+              group={g}
+              defaultOpen={groupContainsPath(g, location.pathname)}
+              currentPath={location.pathname}
+            />
           ))}
         </nav>
 

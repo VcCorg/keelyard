@@ -2,7 +2,6 @@ import { useCallback, type ComponentType } from "react";
 import {
   Server,
   Cloud,
-  Sparkles,
   Bot,
   Boxes,
   RefreshCw,
@@ -17,7 +16,6 @@ import { api, type IntegrationsResponse, type IntegrationState, type Integration
 const ICONS: Record<string, ComponentType<{ className?: string }>> = {
   backend: Server,
   gcloud: Cloud,
-  gemini: Sparkles,
   devin: Bot,
   mcp: Boxes,
 };
@@ -80,7 +78,9 @@ function StatusChip({ item }: { item: IntegrationStatus }) {
 
 export function IntegrationStatusBar() {
   const fetcher = useCallback(() => api.getIntegrations(), []);
-  const { data, loading, error, refresh } = usePolling<IntegrationsResponse>(fetcher, 30000);
+  // Poll every 10s so backend/MCP/devin/gcloud status reflect current state
+  // without waiting up to half a minute for it to catch up.
+  const { data, loading, error, refresh } = usePolling<IntegrationsResponse>(fetcher, 10000);
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
