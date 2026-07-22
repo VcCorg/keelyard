@@ -34,7 +34,7 @@ class Neo4jClient:
         
         if not self.config.is_neo4j_configured():
             raise ValueError(
-                "Neo4j is not properly configured. fRun '{CLI_NAME} kg init' first."
+                f"Neo4j is not properly configured. Run `{CLI_NAME} kg init` first."
             )
     
     def connect(self):

@@ -90,6 +90,7 @@ async function sweepEndpoints() {
     "/api/activity/stats",
     "/api/mcp/servers",
     "/api/mcp/docker",
+    "/api/kg/neo4j/preflight",
     "/api/setup/status",
     "/api/setup/doctor",
     "/api/terminal/sessions",

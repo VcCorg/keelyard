@@ -152,10 +152,11 @@ export const navGroups: NavGroup[] = [
     items: [
       { to: "/kg", icon: GitBranch, label: "Dashboard" },
       { to: "/data", icon: Database, label: "Data Sources" },
-      { to: "/kg/onboard", icon: Wand2, label: "KG Onboarding" },
       { to: "/kg/ingest", icon: DatabaseZap, label: "KG Ingest", minRole: "lead" },
       { to: "/kg/okf", icon: FileStack, label: "OKF Generation", minRole: "admin" },
       { to: "/kg/graph", icon: Share2, label: "Graph" },
+      // Wizard (one-time setup) sits last — reference/entry, not a daily step.
+      { to: "/kg/onboard", icon: Wand2, label: "KG Onboarding" },
     ],
   },
   // Work Items sit before Ideate: load the Jira task you're working on first —
