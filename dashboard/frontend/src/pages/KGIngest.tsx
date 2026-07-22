@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SetupRequiredBanner } from "@/components/SetupRequiredBanner";
+import { Neo4jPreflight } from "@/components/Neo4jPreflight";
 import { usePolling } from "@/hooks/usePolling";
 import {
   api,
@@ -278,6 +279,7 @@ export function KGIngest() {
       </div>
 
       <SetupRequiredBanner requires={["workspaces", "neo4j", "vertex_ai"]} feature="KG ingest" />
+      <Neo4jPreflight />
 
       {/* Domain ingest */}
       <section className="space-y-3">

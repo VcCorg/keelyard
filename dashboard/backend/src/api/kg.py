@@ -19,6 +19,8 @@ from src.services.kg_service import (
     get_domain_gaps,
     get_node_neighborhood,
     get_domain_graph,
+    neo4j_preflight,
+    Neo4jPreflight,
     ProductKGSummary,
     KGLinkRow,
     KGGapRow,
@@ -28,6 +30,18 @@ from src.services import kg_ingest_service as ingest_svc
 from src.services import okf_service
 
 router = APIRouter(prefix="/api/kg", tags=["kg"])
+
+
+# ── Neo4j readiness (preflight for KG Ingest) ─────────────────────────────────
+
+@router.get("/neo4j/preflight", response_model=Neo4jPreflight)
+async def api_neo4j_preflight():
+    """Report which step of Neo4j readiness is blocking KG ingest.
+
+    Driver installed → config present → port reachable → auth OK. Read-only;
+    surfaces a specific message per stage so users don't have to guess.
+    """
+    return neo4j_preflight()
 
 
 # ── OKF bundles ──────────────────────────────────────────────────────────────

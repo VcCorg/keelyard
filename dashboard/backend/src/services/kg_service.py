@@ -71,24 +71,92 @@ class KGNeighborhood(BaseModel):
 
 # ── Neo4j helpers ──────────────────────────────────────────────────────────────
 
+class Neo4jPreflight(BaseModel):
+    """Actionable neo4j status for the KG Ingest page — pinpoints which piece
+    is failing so users don't guess. Every check reports a status and hint."""
+    driver_available: bool = False   # `neo4j` Python package importable
+    configured: bool = False         # KG config has provider=neo4j + uri/user/pw
+    reachable: bool = False          # TCP port responds
+    auth_ok: bool = False            # driver.session() succeeds
+    ok: bool = False                 # all of the above
+    uri: str = ""
+    message: str = ""
+
+
+def neo4j_preflight() -> Neo4jPreflight:
+    """Report Neo4j readiness for KG ingest — driver installed, configured,
+    reachable, authenticated. Reuses the CLI's ``check_neo4j_availability``.
+    """
+    out = Neo4jPreflight()
+
+    # 1) Driver package importable in this process?
+    try:
+        import neo4j  # noqa: F401
+        out.driver_available = True
+    except ImportError as e:
+        out.message = (
+            f"The `neo4j` Python driver isn't installed on the backend "
+            f"({e}). Install `neo4j>=5.14.0` and restart."
+        )
+        return out
+
+    # 2) Config present + neo4j-shaped?
+    try:
+        from agentic_cli.kg.config import KGConfig
+
+        cfg = KGConfig.load()
+        out.uri = cfg.neo4j_uri or ""
+        out.configured = cfg.is_neo4j_configured()
+    except Exception as e:  # noqa: BLE001
+        out.message = f"Couldn't load KG config: {e}"
+        return out
+    if not out.configured:
+        out.message = (
+            "Neo4j is not configured. Set the URI, username and password from "
+            "the setup panel (or run `keel kg init --provider neo4j ...`)."
+        )
+        return out
+
+    # 3+4) Reachable + auth (delegate to the shared CLI check).
+    try:
+        from agentic_cli.kg.validation import check_neo4j_availability
+
+        ok, message = check_neo4j_availability()
+    except Exception as e:  # noqa: BLE001
+        out.message = f"Preflight failed: {e}"
+        return out
+    out.message = message
+    if ok:
+        out.reachable = True
+        out.auth_ok = True
+        out.ok = True
+        return out
+    # Classify the CLI's message so the UI can highlight the right piece.
+    low = message.lower()
+    if "authentication" in low or "unauthorized" in low:
+        out.reachable = True  # port answered; auth was the problem
+    elif "cannot connect" in low or "refused" in low or "resolve" in low:
+        out.reachable = False
+    return out
+
+
 def _get_neo4j_client():
-    """Get a connected Neo4j client, or None if unavailable."""
+    """Get a connected Neo4j client, or None if unavailable.
+
+    Silently returns None on any failure — callers surface the diagnostic via
+    ``neo4j_preflight()`` (see above), which pinpoints which stage broke.
+    """
     try:
         from agentic_cli.kg.neo4j_client import Neo4jClient
         from agentic_cli.kg.config import KGConfig
+
         config = KGConfig.load()
-        print(f"DEBUG: KGConfig provider={config.provider}, is_neo4j_configured={config.is_neo4j_configured()}")
         if not config.is_neo4j_configured():
-            print("DEBUG: Neo4j not configured")
             return None
         client = Neo4jClient(config=config)
         client.connect()
-        print("DEBUG: Neo4j client connected successfully")
         return client
-    except Exception as e:
-        print(f"DEBUG: Error getting Neo4j client: {e}")
-        import traceback
-        traceback.print_exc()
+    except Exception:  # noqa: BLE001
         return None
 
 
