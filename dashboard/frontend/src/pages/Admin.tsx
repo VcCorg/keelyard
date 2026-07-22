@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { ShieldCheck, Save, RotateCcw, Loader2, Palette, ListChecks, Lock, AlertTriangle, Trash2, Scale, Cpu } from "lucide-react";
+import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
+import { ShieldCheck, Save, RotateCcw, Loader2, Palette, ListChecks, Lock, AlertTriangle, Trash2, Scale, Cpu, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useUser, type UserRole } from "@/context/UserContext";
@@ -35,6 +35,65 @@ const labelOf = (name: string) => ENGINE_META[name]?.label ?? name;
 const isPrimary = (name: string) => !ENGINE_META[name] || !!ENGINE_META[name].primary;
 const primaryOf = (family: string) =>
   Object.entries(ENGINE_META).find(([, m]) => m.family === family && m.primary)?.[0];
+
+/**
+ * Collapsible section wrapper used for every Admin card. The header row shows
+ * an icon + title + hint on the left and an actions slot on the right; the
+ * body is only rendered when open. Navigation visibility opts into
+ * `defaultOpen={false}` so it stops dominating the page.
+ */
+function AdminSection({
+  icon: Icon,
+  title,
+  hint,
+  actions,
+  defaultOpen = true,
+  tone = "default",
+  children,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  title: string;
+  hint?: string;
+  actions?: ReactNode;
+  defaultOpen?: boolean;
+  tone?: "default" | "danger";
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  const shellCls =
+    tone === "danger"
+      ? "rounded-xl border border-red-200 dark:border-red-900/40 bg-red-50/40 dark:bg-red-900/10"
+      : "rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900";
+  const titleCls =
+    tone === "danger" ? "text-lg font-semibold text-red-700 dark:text-red-300" : "text-lg font-semibold";
+  return (
+    <section className={shellCls}>
+      <div className="flex items-center gap-2 px-5 py-4">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className="flex items-center gap-2 flex-1 min-w-0 text-left hover:opacity-80"
+        >
+          {open ? (
+            <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
+          )}
+          <Icon className={cn("h-5 w-5", tone === "danger" ? "text-red-500" : "text-blue-500")} />
+          <h2 className={titleCls}>{title}</h2>
+          {hint && (
+            <span className={cn("text-xs truncate", tone === "danger" ? "text-red-500/80" : "text-gray-400")}>
+              {hint}
+            </span>
+          )}
+        </button>
+        {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
+      </div>
+      {open && <div className="px-5 pb-5 space-y-4">{children}</div>}
+    </section>
+  );
+}
 
 export function Admin() {
   const { can } = useUser();
@@ -286,12 +345,7 @@ export function Admin() {
       )}
 
       {/* ── Branding ─────────────────────────────────────────────────────── */}
-      <section className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 space-y-4">
-        <div className="flex items-center gap-2">
-          <Palette className="h-5 w-5 text-blue-500" />
-          <h2 className="text-lg font-semibold">Branding</h2>
-          <span className="text-xs text-gray-400">shown top-left of the app</span>
-        </div>
+      <AdminSection icon={Palette} title="Branding" hint="shown top-left of the app">
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">
             <span className="text-xs font-medium text-gray-500">App title (heading)</span>
@@ -323,15 +377,10 @@ export function Admin() {
             <p className="text-[11px] text-gray-500">{name || "Agentic Product Development Platform"}</p>
           </div>
         </div>
-      </section>
+      </AdminSection>
 
       {/* ── Skill governance ─────────────────────────────────────────────── */}
-      <section className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 space-y-4">
-        <div className="flex items-center gap-2">
-          <Scale className="h-5 w-5 text-blue-500" />
-          <h2 className="text-lg font-semibold">Skill governance</h2>
-          <span className="text-xs text-gray-400">persona-scoped skill enforcement</span>
-        </div>
+      <AdminSection icon={Scale} title="Skill governance" hint="persona-scoped skill enforcement">
         <div className="flex items-start gap-4">
           <div className="flex-1">
             <p className="text-sm text-gray-600 dark:text-gray-300">
@@ -417,16 +466,15 @@ export function Admin() {
             enforce: refused at the seams (onboard &amp; session create)
           </p>
         </div>
-      </section>
+      </AdminSection>
 
       {/* ── Code assist tools (vendor-neutral build engines) ─────────────── */}
-      <section className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 space-y-4">
-        <div className="flex items-center gap-2">
-          <Cpu className="h-5 w-5 text-blue-500" />
-          <h2 className="text-lg font-semibold">Code assist tools</h2>
-          <span className="text-xs text-gray-400">which engines Build may use, and the org default</span>
-          {savingCA && <Loader2 className="ml-auto h-4 w-4 animate-spin text-blue-400" />}
-        </div>
+      <AdminSection
+        icon={Cpu}
+        title="Code assist tools"
+        hint="which engines Build may use, and the org default"
+        actions={savingCA ? <Loader2 className="h-4 w-4 animate-spin text-blue-400" /> : null}
+      >
         <p className="text-sm text-gray-600 dark:text-gray-300">
           Enable the code-assist tools your team may pick, and click <strong>make default</strong>
           {" "}on the one to use org-wide. Build Sessions and "Open in IDE" open the{" "}
@@ -463,15 +511,16 @@ export function Admin() {
           Devin runs a remote cloud session; VS Code + Copilot hands off a governed context bundle
           to your local editor. At least one tool stays enabled.
         </p>
-      </section>
+      </AdminSection>
 
       {/* ── Nav visibility ───────────────────────────────────────────────── */}
-      <section className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 space-y-4">
-        <div className="flex items-center gap-2">
-          <ListChecks className="h-5 w-5 text-blue-500" />
-          <h2 className="text-lg font-semibold">Navigation visibility</h2>
-          <span className="text-xs text-gray-400">which roles see each entry</span>
-          <div className="ml-auto flex items-center gap-2">
+      <AdminSection
+        icon={ListChecks}
+        title="Navigation visibility"
+        hint="which roles see each entry"
+        defaultOpen={false}
+        actions={
+          <>
             <Button size="sm" variant="outline" onClick={() => setDraft({})} disabled={!navDirty}>
               Discard
             </Button>
@@ -479,9 +528,9 @@ export function Admin() {
               {savingNav ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
               Save visibility
             </Button>
-          </div>
-        </div>
-
+          </>
+        }
+      >
         {loading && <Loader2 className="h-4 w-4 animate-spin text-blue-400" />}
 
         <div className="space-y-5">
@@ -542,16 +591,17 @@ export function Admin() {
             </div>
           ))}
         </div>
-      </section>
+      </AdminSection>
 
       {/* ── Danger zone: platform reset ──────────────────────────────────── */}
       {canEdit && (
-        <section className="rounded-xl border border-red-200 dark:border-red-900/40 bg-red-50/40 dark:bg-red-900/10 p-5 space-y-4">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-red-500" />
-            <h2 className="text-lg font-semibold text-red-700 dark:text-red-300">Reset platform data</h2>
-            <span className="text-xs text-red-500/80">destructive · cannot be undone</span>
-          </div>
+        <AdminSection
+          icon={AlertTriangle}
+          title="Reset platform data"
+          hint="destructive · cannot be undone"
+          defaultOpen={false}
+          tone="danger"
+        >
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Return the platform to a clean state. Select what to clear, then type{" "}
             <code className="font-mono">{RESET_CONFIRM}</code> to confirm.
@@ -588,7 +638,7 @@ export function Admin() {
             </Button>
             {resetMsg && <span className="text-xs text-gray-500">{resetMsg}</span>}
           </div>
-        </section>
+        </AdminSection>
       )}
     </div>
   );
