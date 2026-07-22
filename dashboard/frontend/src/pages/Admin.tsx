@@ -19,14 +19,15 @@ const sameRoles = (a: UserRole[], b: UserRole[]) =>
   a.length === b.length && UI_ROLES.every((r) => a.includes(r) === b.includes(r));
 
 // Code-assist engines grouped into vendor families with friendly labels. An
-// engine with no meta renders standalone under its own name. `local` (the
-// internal portable-bundle engine) is HIDDEN — it isn't a user-facing tool.
+// engine with no meta renders standalone under its own name. Hidden engines
+// stay registered underneath (used elsewhere) but don't clutter the admin UI:
+// `local` is the internal portable-bundle mechanism; `devin-cli` is deferred
+// from the tools list to keep the picker to just Devin and VS Code for now.
 const ENGINE_META: Record<string, { family: string; label: string; primary?: boolean }> = {
   "vscode-copilot": { family: "VS Code + Copilot", label: "VS Code + Copilot", primary: true },
-  "devin": { family: "Devin", label: "Cloud", primary: true },
-  "devin-cli": { family: "Devin", label: "CLI (headless)" },
+  "devin": { family: "Devin", label: "Devin", primary: true },
 };
-const HIDDEN_ENGINES = new Set(["local"]);
+const HIDDEN_ENGINES = new Set(["local", "devin-cli"]);
 const familyOf = (name: string) => ENGINE_META[name]?.family ?? name;
 const labelOf = (name: string) => ENGINE_META[name]?.label ?? name;
 // The "primary" engine of a family is the one whose toggle controls the family
@@ -459,10 +460,8 @@ export function Admin() {
           })()}
         </div>
         <p className="text-[11px] text-gray-400">
-          Cloud engines run a remote session; IDE engines (kind{" "}
-          <code className="font-mono">ide</code>) hand off a governed context bundle to your editor;
-          <code className="font-mono"> cli</code> engines run headless with no IDE. Sub-options (e.g.
-          Devin CLI) require the vendor above enabled. At least one engine stays enabled.
+          Devin runs a remote cloud session; VS Code + Copilot hands off a governed context bundle
+          to your local editor. At least one tool stays enabled.
         </p>
       </section>
 
