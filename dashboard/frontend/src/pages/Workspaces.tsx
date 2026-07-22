@@ -64,6 +64,7 @@ const EDITOR_LABELS: Record<string, string> = {
 export function Workspaces() {
   const [domains, setDomains] = useState<DomainInfo[]>([]);
   const [editors, setEditors] = useState<string[]>([]);
+  const [defaultEditor, setDefaultEditor] = useState<string | null>(null);
   const [workspaces, setWorkspaces] = useState<WorkspaceInfo[]>([]);
 
   const [persona, setPersona] = useState<PersonaId>("tech-lead");
@@ -88,7 +89,9 @@ export function Workspaces() {
   // Initial loads.
   useEffect(() => {
     api.listDomains().then(setDomains).catch(() => setDomains([]));
-    api.listEditors().then((r) => setEditors(r.editors)).catch(() => setEditors([]));
+    api.listEditors()
+      .then((r) => { setEditors(r.editors); setDefaultEditor(r.default ?? null); })
+      .catch(() => { setEditors([]); setDefaultEditor(null); });
     reloadWorkspaces();
   }, []);
 
@@ -284,6 +287,16 @@ export function Workspaces() {
                 ]}
               />
             </Field>
+          )}
+
+          {/* The admin default's editor isn't installed here — warn rather than
+              silently opening a different vendor. */}
+          {defaultEditor && !editors.includes(defaultEditor) && (
+            <div className="rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+              Your org default (<code>{EDITOR_LABELS[defaultEditor] ?? defaultEditor}</code>) isn't
+              installed on this machine. Install it, or pick another tool in{" "}
+              <a href="/admin" className="underline">Admin → Code assist tools</a>.
+            </div>
           )}
         </div>
 

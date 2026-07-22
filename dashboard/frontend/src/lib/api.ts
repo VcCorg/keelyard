@@ -1642,8 +1642,9 @@ class APIClient {
     return this.request(`/workspaces${q}`);
   }
 
-  /** Editor CLIs available on the backend's PATH. */
-  async listEditors(): Promise<{ editors: string[] }> {
+  /** Editor tools offered for Open-in-IDE + the org default's editor key so
+   *  the UI can flag it as missing when it's not installed. */
+  async listEditors(): Promise<{ editors: string[]; default?: string | null }> {
     return this.request(`/workspaces/editors`);
   }
 
