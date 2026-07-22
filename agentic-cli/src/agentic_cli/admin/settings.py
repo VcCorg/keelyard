@@ -42,10 +42,12 @@ DEFAULT_BUILD_GOVERNANCE = "warn"
 
 # Code-assist tools (execution engines) users may pick for builds, and the
 # org default. Engine names are validated against the registry by callers; the
-# store just persists the admin's choice. Seeded with the always-available
-# engines so a fresh install has a working, vendor-neutral default.
-DEFAULT_CODE_ASSIST_ENABLED = ["devin", "local"]
-DEFAULT_CODE_ASSIST_DEFAULT = "devin"
+# store just persists the admin's choice. Seeded with the local IDE (VS Code +
+# Copilot) as the default — a real IDE, so "Open in IDE" and Build Sessions
+# behave intuitively out of the box. `local` (the portable-bundle engine) is
+# an internal fallback and is intentionally NOT seeded as a user-facing tool.
+DEFAULT_CODE_ASSIST_ENABLED = ["vscode-copilot", "devin"]
+DEFAULT_CODE_ASSIST_DEFAULT = "vscode-copilot"
 
 
 def _sanitize_enforcement(mode: object) -> str:

@@ -19,8 +19,8 @@ class BrandingModel(BaseModel):
 
 class CodeAssistModel(BaseModel):
     """Which code-assist engines users may pick, and the org default."""
-    enabled: List[str] = ["devin", "local"]
-    default: str = "devin"
+    enabled: List[str] = ["vscode-copilot", "devin"]
+    default: str = "vscode-copilot"
 
 
 class AdminSettingsModel(BaseModel):

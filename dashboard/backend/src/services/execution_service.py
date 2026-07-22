@@ -62,9 +62,9 @@ def default_engine() -> str:
     try:
         from agentic_cli.admin import load_settings
 
-        return load_settings().code_assist.default or "local"
+        return load_settings().code_assist.default or "vscode-copilot"
     except Exception:  # noqa: BLE001
-        return "local"
+        return "vscode-copilot"
 
 
 def enabled_engines() -> list[str]:
@@ -73,7 +73,7 @@ def enabled_engines() -> list[str]:
 
         return list(load_settings().code_assist.enabled)
     except Exception:  # noqa: BLE001
-        return ["devin", "local"]
+        return ["vscode-copilot", "devin"]
 
 
 class PortableContextRequest(BaseModel):

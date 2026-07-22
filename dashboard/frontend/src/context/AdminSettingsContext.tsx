@@ -20,7 +20,7 @@ const DEFAULTS: AdminSettings = {
   nav_visibility: {},
   skill_enforcement: "off",
   build_governance_default: "warn",
-  code_assist: { enabled: ["devin", "local"], default: "devin" },
+  code_assist: { enabled: ["vscode-copilot", "devin"], default: "vscode-copilot" },
 };
 
 interface AdminSettingsValue {
