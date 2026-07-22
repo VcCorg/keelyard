@@ -206,6 +206,7 @@ _EDITOR_ORDER = ["devin", "windsurf", "cursor", "code"]
 ENGINE_TO_EDITOR = {
     "vscode-copilot": "code",
     "devin": "devin",
+    "devin-cli": "devin",   # the CLI variant still opens the Devin app to review
     "cursor": "cursor",
     "windsurf": "windsurf",
 }

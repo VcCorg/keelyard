@@ -8,8 +8,8 @@ def test_get_settings_includes_code_assist(monkeypatch, tmp_path):
 
     monkeypatch.setattr(S, "SETTINGS_PATH", tmp_path / "admin.json")
     m = svc.get_settings()
-    assert m.code_assist.default == "devin"
-    assert "local" in m.code_assist.enabled
+    assert m.code_assist.default == "vscode-copilot"
+    assert "devin" in m.code_assist.enabled
 
 
 def test_update_settings_persists_code_assist(monkeypatch, tmp_path):

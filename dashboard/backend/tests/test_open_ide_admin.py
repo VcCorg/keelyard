@@ -44,3 +44,15 @@ def test_enabled_editors_falls_back_when_no_admin_config(monkeypatch):
     monkeypatch.setattr(svc, "detect_editors", lambda: ["devin", "code"])
     monkeypatch.setattr(svc, "_code_assist", lambda: None)
     assert svc.enabled_editors() == ["devin", "code"]
+
+
+def test_devin_cli_maps_to_devin_editor(monkeypatch):
+    """Selecting Devin CLI as default should still open the Devin app to review."""
+    monkeypatch.setattr(svc, "detect_editors", lambda: ["devin", "code"])
+
+    class CA:
+        enabled = ["devin", "devin-cli"]
+        default = "devin-cli"
+
+    monkeypatch.setattr(svc, "_code_assist", lambda: CA())
+    assert svc.enabled_editors() == ["devin"]

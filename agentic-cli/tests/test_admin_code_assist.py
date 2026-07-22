@@ -6,8 +6,8 @@ from agentic_cli.admin import settings as S
 def test_default_code_assist(tmp_path):
     path = tmp_path / "admin.json"
     s = S.load_settings(path)
-    assert s.code_assist.default == "devin"
-    assert "local" in s.code_assist.enabled
+    assert s.code_assist.default == "vscode-copilot"
+    assert "devin" in s.code_assist.enabled
 
 
 def test_set_code_assist_persists_and_sanitizes(tmp_path):
