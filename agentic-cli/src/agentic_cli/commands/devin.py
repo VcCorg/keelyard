@@ -46,6 +46,8 @@ def configure_devin(
     snapshot_id: str | None = None,
     playbook_id: str | None = None,
     knowledge_folder: str | None = None,
+    verify_ssl: bool | None = None,
+    ca_bundle: str | None = None,
 ) -> None:
     """Persist Devin defaults to the shared CLI config and print a summary.
 
@@ -59,6 +61,10 @@ def configure_devin(
         cfg.base_url = base_url
     if max_acu is not None:
         cfg.default_max_acu = max_acu
+    if verify_ssl is not None:
+        cfg.verify_ssl = verify_ssl
+    if ca_bundle is not None:
+        cfg.ca_bundle = ca_bundle
     if domain:
         cfg.set_domain(domain, snapshot_id=snapshot_id, playbook_id=playbook_id,
                        knowledge_folder=knowledge_folder)
@@ -67,6 +73,9 @@ def configure_devin(
     console.print("[bold green]\u2713[/bold green] Saved Devin config")
     console.print(f"  base_url        = [cyan]{cfg.base_url}[/cyan]")
     console.print(f"  default_max_acu = [cyan]{cfg.default_max_acu}[/cyan]")
+    console.print(f"  verify_ssl      = [cyan]{cfg.verify_ssl}[/cyan]")
+    if cfg.ca_bundle:
+        console.print(f"  ca_bundle       = [cyan]{cfg.ca_bundle}[/cyan]")
     if domain:
         console.print(f"  domain '{domain}': [cyan]{cfg.domain(domain)}[/cyan]")
     state = "present" if has_api_key() else "[yellow]missing[/yellow]"
@@ -81,11 +90,14 @@ def devin_init(
     snapshot_id: Annotated[str | None, typer.Option("--snapshot-id", help="Machine snapshot id for the domain")] = None,
     playbook_id: Annotated[str | None, typer.Option("--playbook-id", help="Playbook id for the domain")] = None,
     knowledge_folder: Annotated[str | None, typer.Option("--knowledge-folder", help="Devin folder name for the domain")] = None,
+    verify_ssl: Annotated[bool, typer.Option("--verify-ssl/--no-verify-ssl", help="Verify Devin API TLS (disable for self-signed/proxy certs)")] = True,
+    ca_bundle: Annotated[str | None, typer.Option("--ca-bundle", help="Path to a corporate CA bundle for Devin API TLS")] = None,
 ) -> None:
     """Configure Devin defaults. The API key is NEVER stored — set $DEVIN_API_KEY."""
     configure_devin(base_url=base_url, max_acu=max_acu, domain=domain,
                     snapshot_id=snapshot_id, playbook_id=playbook_id,
-                    knowledge_folder=knowledge_folder)
+                    knowledge_folder=knowledge_folder,
+                    verify_ssl=verify_ssl, ca_bundle=ca_bundle)
 
 
 # ── kg: knowledge management ─────────────────────────────────────────────────

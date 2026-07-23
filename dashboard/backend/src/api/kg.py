@@ -32,6 +32,20 @@ from src.services import okf_service
 router = APIRouter(prefix="/api/kg", tags=["kg"])
 
 
+def _devin_error_detail(exc: Exception) -> str:
+    """Wrap a Devin API exception and append an SSL/TLS hint when relevant."""
+    msg = str(exc)
+    detail = f"Devin API error: {msg}"
+    low = msg.lower()
+    if "certificate" in low or "ssl" in low or "tls" in low:
+        detail += (
+            "\n\nIf you are behind a corporate proxy or the Devin endpoint uses a self-signed certificate, "
+            "set DEVIN_VERIFY_SSL=false or DEVIN_CA_BUNDLE=/path/to/ca.pem in ~/.keel/.env "
+            "(or run: keel init devin --no-verify-ssl --ca-bundle /path/to/ca.pem), then restart the backend."
+        )
+    return detail
+
+
 # ── Neo4j readiness (preflight for KG Ingest) ─────────────────────────────────
 
 @router.get("/neo4j/preflight", response_model=Neo4jPreflight)
@@ -178,7 +192,8 @@ async def okf_devin_knowledge():
     try:
         return okf_service.devin_list_knowledge()
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Devin API error: {e}")
+        detail = _devin_error_detail(e)
+        raise HTTPException(status_code=502, detail=detail)
 
 
 @router.delete("/okf/devin/knowledge/{note_id}")
@@ -190,7 +205,7 @@ async def okf_devin_delete(note_id: str, _principal=Depends(require(PERM_KNOWLED
         okf_service.devin_delete_knowledge(note_id)
         return {"deleted": note_id}
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Devin API error: {e}")
+        raise HTTPException(status_code=502, detail=_devin_error_detail(e))
 
 
 @router.post("/okf/devin/knowledge/{note_id}/move")
@@ -202,7 +217,7 @@ async def okf_devin_move(note_id: str, folder_id: Optional[str] = Query(None)):
         okf_service.devin_move_knowledge(note_id, folder_id)
         return {"moved": note_id, "folder_id": folder_id}
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Devin API error: {e}")
+        raise HTTPException(status_code=502, detail=_devin_error_detail(e))
 
 
 @router.put("/okf/devin/knowledge/{note_id}")
@@ -214,7 +229,7 @@ async def okf_devin_update(note_id: str, update: okf_service.DevinKnowledgeUpdat
         okf_service.devin_update_knowledge(note_id, update)
         return {"updated": note_id}
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Devin API error: {e}")
+        raise HTTPException(status_code=502, detail=_devin_error_detail(e))
 
 
 @router.post("/okf/devin/knowledge/bulk-delete")
@@ -229,7 +244,7 @@ async def okf_devin_bulk_delete(payload: dict = Body(...),
     try:
         return okf_service.devin_bulk_delete(ids)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Devin API error: {e}")
+        raise HTTPException(status_code=502, detail=_devin_error_detail(e))
 
 
 # ── Ingestion: reads ────────────────────────────────────────────────────────

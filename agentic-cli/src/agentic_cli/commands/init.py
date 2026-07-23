@@ -741,6 +741,14 @@ def init_devin(
         str | None,
         typer.Option("--knowledge-folder", help="Devin folder name for the domain"),
     ] = None,
+    verify_ssl: Annotated[
+        bool,
+        typer.Option("--verify-ssl/--no-verify-ssl", help="Verify Devin API TLS (disable for self-signed/proxy certs)"),
+    ] = True,
+    ca_bundle: Annotated[
+        str | None,
+        typer.Option("--ca-bundle", help="Path to a corporate CA bundle for Devin API TLS"),
+    ] = None,
 ) -> None:
     """Initialize Devin Cloud configuration.
 
@@ -763,12 +771,15 @@ def init_devin(
         snapshot_id=snapshot_id,
         playbook_id=playbook_id,
         knowledge_folder=knowledge_folder,
+        verify_ssl=verify_ssl,
+        ca_bundle=ca_bundle,
     )
     record_activity(
         command="init",
         subcommand="devin",
         args={"base_url": base_url, "max_acu": max_acu, "domain": domain,
-              "api_key_set": bool(api_key)},
+              "api_key_set": bool(api_key), "verify_ssl": verify_ssl,
+              "ca_bundle_set": bool(ca_bundle)},
     )
 
 
