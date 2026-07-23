@@ -52,6 +52,21 @@ npm run package:win     # -> release/*.exe   (run on Windows)
 into `resources/frontend` → freeze the backend into `resources/backend` → run
 electron-builder. Installers land in `desktop/release/`.
 
+### End-to-end prep scripts
+
+For a fresh checkout, use the platform prep scripts instead — they activate the
+repo `.venv`, install PyInstaller (and `pywinpty` on Windows), gate on Node 22,
+sweep stale sidecar processes and bundles, then run the full package pipeline
+into `release/`, teeing a build log for troubleshooting:
+
+```bash
+# macOS
+./scripts/package-mac.sh
+
+# Windows (PowerShell)
+powershell -ExecutionPolicy Bypass -File .\scripts\package-win.ps1
+```
+
 CI builds both in `.github/workflows/desktop-build.yml` (macOS + Windows runners;
 artifacts on `workflow_dispatch` or a `v*` tag).
 
