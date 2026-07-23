@@ -272,6 +272,9 @@ def _sse(args: list[str]) -> EventSourceResponse:
         async for line in ingest_svc.stream_kg_command(args):
             if line.startswith("__EXIT__"):
                 yield {"event": "done", "data": line.split(" ", 1)[1].strip()}
+            elif line.startswith("__PROGRESS__ "):
+                # progress payload is a JSON blob the client rehydrates as-is
+                yield {"event": "progress", "data": line[len("__PROGRESS__ "):]}
             else:
                 yield {"event": "log", "data": line}
 

@@ -10,12 +10,15 @@ Design principle (mirrors domain_service.py):
 """
 
 import asyncio
+import json
 import os
 import shutil
 import sys
 from typing import Any, AsyncGenerator, Optional
 
 from pydantic import BaseModel
+
+from src.services.kg_ingest_progress import ProgressParser
 
 
 # ── Pydantic models (transport shapes only — not logic) ─────────────────────
@@ -148,7 +151,14 @@ def list_ingestable_domains() -> list[IngestableDomain]:
 # ── Long-running ingest (subprocess + streaming) ────────────────────────────
 
 async def stream_kg_command(args: list[str]) -> AsyncGenerator[str, None]:
-    """Run `keel kg <args>` and yield stdout/stderr lines as they arrive."""
+    """Run `keel kg <args>` and yield stdout/stderr lines as they arrive.
+
+    Emits three kinds of frames the SSE layer decodes:
+      * plain text  → forwarded as `log` events
+      * `__PROGRESS__ {json}` → forwarded as `progress` events (phase, current,
+        total, message, elapsed_ms) so the UI can render a progress bar
+      * `__EXIT__ <code>` → terminal exit code
+    """
     cmd = resolve_cli_command() + ["kg"] + args
     yield f"$ {' '.join(cmd)}"
 
@@ -164,11 +174,16 @@ async def stream_kg_command(args: list[str]) -> AsyncGenerator[str, None]:
     )
 
     assert proc.stdout is not None
+    parser = ProgressParser()
     while True:
         raw = await proc.stdout.readline()
         if not raw:
             break
-        yield raw.decode(errors="replace").rstrip("\n")
+        line = raw.decode(errors="replace").rstrip("\n")
+        yield line
+        event = parser.feed(line)
+        if event is not None:
+            yield "__PROGRESS__ " + json.dumps(event.to_dict())
 
     rc = await proc.wait()
     yield f"__EXIT__ {rc}"

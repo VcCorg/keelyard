@@ -544,13 +544,32 @@ def check_health(name: Optional[str] = None, verify_auth: bool = True) -> list[M
                 ):
                     auth_map[sname] = res
 
+    # Probe TCP ports concurrently. When several servers are down the 2s
+    # timeout stacks: with 9 services that was up to ~18s per pass, longer
+    # than the 10s banner poll, which made status look stale even though it
+    # was always live. Running probes in parallel keeps the whole check
+    # within the timeout of the slowest single port (~2s).
+    port_map: dict[str, tuple[bool, str]] = {}
+    to_probe: list[tuple[str, str, int]] = []
+    for srv in servers:
+        host, port = _probe_target(srv)
+        if port:
+            to_probe.append((srv.name, host, port))
+    if to_probe:
+        with ThreadPoolExecutor(max_workers=min(9, len(to_probe))) as pool:
+            for (sname, _, _), (ok, msg) in zip(
+                to_probe,
+                pool.map(lambda t: _check_port(t[1], t[2]), to_probe),
+            ):
+                port_map[sname] = (ok, msg)
+
     results = []
     for srv in servers:
         auth_status, auth_message = auth_map.get(srv.name, ("unknown", ""))
 
-        host, port = _probe_target(srv)
+        _, port = _probe_target(srv)
         if port:
-            ok, msg = _check_port(host, port)
+            ok, msg = port_map.get(srv.name, (False, "Port probe skipped"))
             cname = srv.container_name or f"keel-{srv.name}"
             cstatus = docker_status.get(cname, "")
             if cstatus:

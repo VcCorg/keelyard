@@ -10,6 +10,9 @@ import {
   Play,
   RefreshCw,
   ArrowLeft,
+  Sparkles,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +29,72 @@ import {
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
+/* ── Progress state shared with the backend SSE `progress` event ──────────── */
+type IngestProgress = {
+  phase: string;
+  current: number;
+  total: number;
+  message: string;
+  elapsed_ms: number;
+};
+
+function fmtElapsed(ms: number) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return m > 0 ? `${m}m ${sec}s` : `${s}s`;
+}
+
+/**
+ * Progress bar rendered above the log console when the backend emits
+ * `progress` events. When `total` is 0 we render an indeterminate bar (we
+ * know the phase but not the amount of work); when it's set we render a
+ * determinate bar with the current/total ratio.
+ */
+function ProgressPanel({ progress, done }: { progress: IngestProgress; done: boolean }) {
+  const pct =
+    progress.total > 0
+      ? Math.min(100, Math.round((progress.current / progress.total) * 100))
+      : done
+        ? 100
+        : 0;
+  const indeterminate = progress.total === 0 && !done;
+  return (
+    <div className="px-3 py-2 border-b border-gray-800 bg-gray-900/60">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-gray-200 font-medium">
+          {progress.phase || "Starting…"}
+        </span>
+        <span className="text-gray-400 font-mono">
+          {progress.total > 0 && (
+            <>
+              {progress.current}/{progress.total}
+              {" · "}
+            </>
+          )}
+          {fmtElapsed(progress.elapsed_ms)}
+        </span>
+      </div>
+      {progress.message && (
+        <p className="text-[11px] text-gray-500 mt-0.5 truncate">{progress.message}</p>
+      )}
+      <div className="mt-2 h-1.5 rounded-full bg-gray-800 overflow-hidden">
+        {indeterminate ? (
+          <div className="h-full w-1/3 rounded-full bg-blue-500/70 animate-pulse" />
+        ) : (
+          <div
+            className={cn(
+              "h-full rounded-full transition-all duration-300",
+              done ? "bg-emerald-500" : "bg-blue-500"
+            )}
+            style={{ width: `${pct}%` }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ── Streaming console (mirrors DomainOnboarding) ─────────────────────────── */
 function StreamConsole({
   url,
@@ -36,14 +105,24 @@ function StreamConsole({
 }) {
   const [lines, setLines] = useState<string[]>([]);
   const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState<IngestProgress | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!url) return;
     setLines([]);
+    setProgress(null);
     setRunning(true);
     const es = new EventSource(url);
     es.addEventListener("log", (e: MessageEvent) => setLines((p) => [...p, e.data]));
+    es.addEventListener("progress", (e: MessageEvent) => {
+      try {
+        setProgress(JSON.parse(e.data));
+      } catch {
+        // Ignore malformed progress frames; they only downgrade the bar to
+        // its indeterminate state, they never break the log stream.
+      }
+    });
     es.addEventListener("done", (e: MessageEvent) => {
       setRunning(false);
       es.close();
@@ -84,6 +163,7 @@ function StreamConsole({
           )}
         </span>
       </div>
+      {progress && <ProgressPanel progress={progress} done={!running} />}
       <div className="p-3 max-h-80 overflow-y-auto font-mono text-xs text-gray-300 space-y-0.5">
         {lines.map((l, i) => (
           <div key={i} className="whitespace-pre-wrap break-all leading-relaxed">
@@ -181,6 +261,7 @@ function ProductDomainPicker({
 export function KGIngest() {
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
+  const [jobsOpen, setJobsOpen] = useState(false);
 
   // Domain ingest form
   const [depth, setDepth] = useState(3);
@@ -276,6 +357,26 @@ export function KGIngest() {
         <Button variant="outline" size="sm" onClick={() => { refreshDomains(); refreshJobs(); }}>
           <RefreshCw className="h-4 w-4 mr-1.5" /> Refresh
         </Button>
+      </div>
+
+      {/* Model dependency callout. Ingesting content (crawl + chunk + store)
+          runs without a model; entity extraction and relationship building
+          call an LLM. Without a model those two stages are skipped, and the
+          KG becomes a document store with no derived structure. */}
+      <div
+        className="flex items-start gap-3 rounded-lg border border-blue-200 dark:border-blue-900/40 bg-blue-50/60 dark:bg-blue-900/10 p-3 text-sm text-blue-900 dark:text-blue-200"
+        role="note"
+      >
+        <Sparkles className="h-4 w-4 mt-0.5 text-blue-500 shrink-0" />
+        <div>
+          <p className="font-medium">Model use in KG ingest</p>
+          <p className="text-xs text-blue-800/90 dark:text-blue-200/80 mt-0.5">
+            Content ingestion (crawl, parse, chunk, store) needs <strong>no model</strong>.
+            Entity extraction and relationship building call an LLM (Vertex AI / Gemini
+            or a configured local model). Without a model those two stages are skipped —
+            the graph is populated but has no derived structure between entities.
+          </p>
+        </div>
       </div>
 
       <SetupRequiredBanner requires={["workspaces", "neo4j", "vertex_ai"]} feature="KG ingest" />
@@ -459,12 +560,27 @@ export function KGIngest() {
       {/* Stream output */}
       <StreamConsole url={streamUrl} onDone={onStreamDone} />
 
-      {/* Jobs */}
+      {/* Jobs — collapsed by default; same treatment as Dashboard Recent Activity. */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Recent Ingest Jobs</h2>
+          <button
+            onClick={() => setJobsOpen((v) => !v)}
+            aria-expanded={jobsOpen}
+            className="flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+          >
+            {jobsOpen ? (
+              <ChevronDown className="h-4 w-4 text-gray-400" />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-gray-400" />
+            )}
+            Recent Ingest Jobs
+            <span className="text-xs font-normal text-gray-500 dark:text-gray-400">
+              ({jobs?.length ?? 0})
+            </span>
+          </button>
           {jobsLoading && <Loader2 className="h-4 w-4 animate-spin text-blue-400" />}
         </div>
+        {jobsOpen && (
         <div className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-gray-800/50">
@@ -515,6 +631,7 @@ export function KGIngest() {
             </tbody>
           </table>
         </div>
+        )}
       </section>
     </div>
   );
