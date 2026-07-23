@@ -383,12 +383,24 @@ def get_docker_mcp_status() -> DockerMcpStatus:
     # port probe is the authoritative "is it actually up" signal regardless.
     docker_status = _get_docker_status() if available else {}
 
+    # Probe TCP ports concurrently — serial 0.6s×9 stacked to ~5s per pass
+    # and made the MCP page's status feel laggy relative to the banner.
+    port_map: dict[str, bool] = {}
+    to_probe = [(svc, port) for svc, (_, port) in known.items() if port]
+    if to_probe:
+        with ThreadPoolExecutor(max_workers=min(9, len(to_probe))) as pool:
+            for (svc, _), ok in zip(
+                to_probe,
+                pool.map(lambda t: _check_port("localhost", t[1], timeout=0.6)[0], to_probe),
+            ):
+                port_map[svc] = ok
+
     services: list[DockerServiceStatus] = []
     running_count = 0
     for svc, (container, port) in known.items():
         raw = docker_status.get(container, "")
         low = raw.lower()
-        reachable = bool(port) and _check_port("localhost", port, timeout=0.6)[0]
+        reachable = bool(port) and port_map.get(svc, False)
         docker_up = low.startswith("up")
         running = reachable or docker_up
 
@@ -419,7 +431,15 @@ def get_docker_mcp_status() -> DockerMcpStatus:
 
 
 def list_mcp_servers() -> list[MCPServerInfo]:
-    """Discover MCP servers from docker-compose.yml + running containers."""
+    """Discover MCP servers from docker-compose.yml + running containers.
+
+    Falls back to the canonical `_DESCRIPTIONS` / `_MCP_PORTS` catalog when
+    the compose file isn't findable (frozen desktop sidecar, containerized
+    backend with no bundled compose). This keeps the Dashboard "MCP Servers"
+    card and the top-right banner aligned with what the MCP page's Docker
+    stack panel already shows — otherwise Dashboard/banner report the empty
+    registry while the MCP page reports 7/9 running from the same probes.
+    """
     compose_path = _find_compose_file()
     servers: dict[str, MCPServerInfo] = {}
 
@@ -451,6 +471,20 @@ def list_mcp_servers() -> list[MCPServerInfo]:
                     )
             except Exception as e:
                 logger.warning("Failed to parse docker-compose.yml: %s", e)
+
+    # Fallback: seed from the canonical catalog so Dashboard/banner see the
+    # same fleet the Docker MCP panel does when compose isn't around.
+    if not servers:
+        for svc_name in _DESCRIPTIONS:
+            port = _MCP_PORTS.get(svc_name)
+            servers[svc_name] = MCPServerInfo(
+                name=svc_name,
+                type="docker",
+                url=f"http://localhost:{port}/sse" if port else None,
+                port=port,
+                description=_DESCRIPTIONS.get(svc_name, ""),
+                container_name=f"keel-{svc_name}",
+            )
 
     # Enrich with CLI registry metadata (tools list, descriptions)
     # CLI keys like "jira" match Docker keys like "jira-mcp"

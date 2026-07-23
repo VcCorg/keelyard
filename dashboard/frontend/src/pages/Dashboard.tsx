@@ -110,31 +110,78 @@ export function Dashboard() {
         </Link>
         )}
 
-        {/* MCP Servers */}
-        {isLead && (
-        <Link
-          to="/mcp"
-          className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all group"
-          aria-label="View MCP servers"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/30">
-                <Server className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+        {/* MCP Servers — status dot mirrors the banner's chip: green when
+            all healthy, yellow when partial, red when none. Keeps the
+            Dashboard summary aligned with the MCP page's own 7/9 view. */}
+        {isLead && (() => {
+          const mcp = d.mcp_servers;
+          const stackStatus: "ok" | "warn" | "error" | "empty" =
+            mcp.total === 0
+              ? "empty"
+              : mcp.healthy === mcp.total
+                ? "ok"
+                : mcp.healthy === 0
+                  ? "error"
+                  : "warn";
+          const dotCls =
+            stackStatus === "ok"
+              ? "bg-emerald-500"
+              : stackStatus === "warn"
+                ? "bg-amber-500"
+                : stackStatus === "error"
+                  ? "bg-red-500"
+                  : "bg-gray-300 dark:bg-gray-700";
+          const stackLabel =
+            stackStatus === "warn"
+              ? `Partial stack — ${mcp.healthy}/${mcp.total} up`
+              : stackStatus === "ok"
+                ? `All ${mcp.total} up`
+                : stackStatus === "error"
+                  ? "Stack down"
+                  : "No servers";
+          return (
+            <Link
+              to="/mcp"
+              className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all group"
+              aria-label="View MCP servers"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/30">
+                    <Server className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500 flex items-center gap-1.5">
+                      MCP Servers
+                      <span
+                        className={`inline-block h-2 w-2 rounded-full ${dotCls}`}
+                        title={stackLabel}
+                        aria-label={stackLabel}
+                      />
+                    </p>
+                    <p className="text-2xl font-bold">{mcp.healthy}/{mcp.total}</p>
+                  </div>
+                </div>
+                <ArrowRight className="h-4 w-4 text-gray-300 group-hover:text-blue-500 transition-colors" />
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">MCP Servers</p>
-                <p className="text-2xl font-bold">{d.mcp_servers.total}</p>
+              <div className="mt-3 text-xs text-gray-500">
+                <span
+                  className={
+                    stackStatus === "ok"
+                      ? "text-emerald-600"
+                      : stackStatus === "warn"
+                        ? "text-amber-600 dark:text-amber-400"
+                        : stackStatus === "error"
+                          ? "text-red-500"
+                          : "text-gray-400"
+                  }
+                >
+                  {stackLabel}
+                </span>
               </div>
-            </div>
-            <ArrowRight className="h-4 w-4 text-gray-300 group-hover:text-blue-500 transition-colors" />
-          </div>
-          <div className="mt-3 flex gap-3 text-xs text-gray-500">
-            <span className="text-emerald-600">{d.mcp_servers.healthy} healthy</span>
-            <span className="text-red-500">{d.mcp_servers.unhealthy} unhealthy</span>
-          </div>
-        </Link>
-        )}
+            </Link>
+          );
+        })()}
 
         {/* Projects */}
         {isLead && (
