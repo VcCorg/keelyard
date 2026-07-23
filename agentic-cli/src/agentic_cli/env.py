@@ -108,6 +108,10 @@ RECOGNIZED_VARS: List[EnvVar] = [
     # --- Optional tooling -------------------------------------------------
     EnvVar("DEVIN_API_KEY", "Optional", required=False, secret=True,
            description="Devin API key for cloud sessions/knowledge"),
+    EnvVar("DEVIN_VERIFY_SSL", "Optional", required=False, default="true",
+           description="Verify Devin API TLS ('false' to disable for self-signed/proxy certs)"),
+    EnvVar("DEVIN_CA_BUNDLE", "Optional", required=False,
+           description="Path to a corporate CA bundle for Devin API TLS"),
     EnvVar("KEEL_SKILLS_REGISTRY", "Optional", required=False,
            description="Path/URL to the skills registry"),
 ]

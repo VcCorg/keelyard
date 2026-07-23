@@ -27,11 +27,15 @@ DEFAULT_MAX_ACU = 10
 
 
 def resolve_verify() -> bool | str:
-    """Resolve httpx ``verify`` from env: a CA bundle path, or a bool toggle."""
+    """Resolve httpx ``verify`` from env or persisted config: a CA bundle path, or a bool toggle."""
     ca = os.environ.get(DEVIN_CA_BUNDLE_ENV)
     if ca:
         return ca
-    flag = os.environ.get(DEVIN_VERIFY_SSL_ENV, "true").strip().lower()
+    # Allow persisted config to set the default without exporting env vars.
+    cfg = DevinConfig.load()
+    if cfg.ca_bundle:
+        return cfg.ca_bundle
+    flag = os.environ.get(DEVIN_VERIFY_SSL_ENV, "true" if cfg.verify_ssl else "false").strip().lower()
     return flag not in ("0", "false", "no", "off")
 
 
@@ -99,6 +103,29 @@ class DevinConfig:
     @default_max_acu.setter
     def default_max_acu(self, value: int) -> None:
         self.data["default_max_acu"] = int(value)
+
+    @property
+    def verify_ssl(self) -> bool:
+        # Stored as bool; default True for safety.
+        v = self.data.get("verify_ssl", True)
+        if isinstance(v, str):
+            return v.strip().lower() not in ("0", "false", "no", "off")
+        return bool(v)
+
+    @verify_ssl.setter
+    def verify_ssl(self, value: bool) -> None:
+        self.data["verify_ssl"] = bool(value)
+
+    @property
+    def ca_bundle(self) -> str | None:
+        return self.data.get("ca_bundle") or None
+
+    @ca_bundle.setter
+    def ca_bundle(self, value: str | None) -> None:
+        if value:
+            self.data["ca_bundle"] = str(value)
+        elif "ca_bundle" in self.data:
+            del self.data["ca_bundle"]
 
     # -- per-domain --
     def domains(self) -> dict[str, Any]:
