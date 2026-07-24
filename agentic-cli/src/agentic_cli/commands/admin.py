@@ -107,6 +107,42 @@ def set_code_assist(
                   f"enabled: {', '.join(s.code_assist.enabled)}")
 
 
+@admin_app.command("set-onboarding-ide",
+                   help="Set the enabled onboarding-IDE tools and/or the org default.")
+def set_onboarding_ide(
+    default: Annotated[Optional[str], typer.Option("--default", "-d", help="Default onboarding IDE name")] = None,
+    enable: Annotated[Optional[List[str]], typer.Option("--enable", "-e", help="Enabled IDE (repeatable); replaces the set")] = None,
+) -> None:
+    """Configure which onboarding IDE targets are allowed and the org default.
+
+    Distinct from `set-code-assist`, which picks the execution engine (Devin,
+    VS Code+Copilot). This dial controls where `keel code onboard` places
+    SKILL.md files on disk so the IDE actually reads them. Names come from
+    the code-assist registry (agentic_cli/code_assist/); unknown names get a
+    warning but aren't refused (so an org that registered a custom IDE can
+    still enable it).
+    """
+    known = {t.name for t in _list_onboarding_ides_safe()}
+    if enable:
+        unknown = [e for e in enable if e not in known]
+        if unknown:
+            console.print(f"[yellow]⚠ Unknown onboarding IDE(s): {', '.join(unknown)} "
+                          f"(known: {', '.join(sorted(known)) or 'none'})[/yellow]")
+    s = A.set_onboarding_ide(enabled=enable, default=default)
+    _audit("set_onboarding_ide", {"onboarding_ide": {"enabled": s.onboarding_ide.enabled,
+                                                     "default": s.onboarding_ide.default}})
+    console.print(f"[green]✓[/green] Onboarding IDE default [cyan]{s.onboarding_ide.default}[/cyan]; "
+                  f"enabled: {', '.join(s.onboarding_ide.enabled)}")
+
+
+def _list_onboarding_ides_safe() -> list:
+    try:
+        from agentic_cli.code_assist import list_tools
+        return list_tools()
+    except Exception:  # noqa: BLE001
+        return []
+
+
 def _list_engines_safe() -> list:
     try:
         from agentic_cli.execution import list_engines

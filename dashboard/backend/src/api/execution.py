@@ -30,6 +30,32 @@ async def get_engines():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/onboarding-ide-tools")
+async def get_onboarding_ide_tools():
+    """List registered onboarding-IDE tools — the code-assist registry.
+
+    Distinct from `/engines` (execution engines). This is the catalog the
+    admin UI shows for the "which IDE targets are enabled + which is the
+    default" picker. Names come from `agentic_cli/code_assist/`; adding a
+    new IDE via `register_tool()` makes it show up here automatically.
+    """
+    try:
+        from agentic_cli.code_assist import list_tools
+
+        return [
+            {
+                "name": t.name,
+                "label": t.label,
+                "description": t.description,
+                "deprecated": t.deprecated,
+                "has_bridge": t.bridge_to_user_dir is not None,
+            }
+            for t in list_tools()
+        ]
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/governance")
 async def get_build_governance(domain: str = ""):
     """Build-governance guidance for the UI's domain-first flows.
