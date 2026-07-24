@@ -42,10 +42,52 @@ for _name in ("stdout", "stderr"):
             pass
 if _sys.platform == "win32":
     import locale as _locale
-    # Monkey-patch getpreferredencoding so `open()` defaults to UTF-8. Safer
-    # than PYTHONUTF8=1 which only takes effect if set *before* the
-    # interpreter starts (we can't guarantee that from Python code).
+    # Monkey-patch getpreferredencoding so anything that CALLS it (Python
+    # code paths) sees UTF-8.
     _locale.getpreferredencoding = lambda do_setlocale=True: "utf-8"
+
+    # HOWEVER — `io.open()` (the C implementation) does NOT go through
+    # locale.getpreferredencoding(). It reads the CPython C-level
+    # `_Py_GetLocaleEncoding()`, which on Windows returns cp1252 unless
+    # PYTHONUTF8=1 was set BEFORE Python started — and PyInstaller's
+    # bootstrap uses its own PyConfig, so setting PYTHONUTF8 in
+    # os.environ from inside Python doesn't retroactively enable UTF-8
+    # mode. That's why the previous fix worked for `console.print("✓")`
+    # (which goes through the reconfigured sys.stdout) but NOT for
+    # `Path.write_text(content)` in project scaffolding (which goes
+    # through io.open at the C level).
+    #
+    # Solution: wrap io.open / builtins.open / Path.read_text /
+    # Path.write_text to inject encoding='utf-8' whenever the caller
+    # didn't specify one and the mode is text. Catches every write site
+    # in agentic_cli (there are 100+) without a whack-a-mole audit.
+    import io as _io
+    import builtins as _builtins
+    import pathlib as _pathlib
+
+    _real_io_open = _io.open
+
+    def _utf8_open(file, mode="r", buffering=-1, encoding=None, errors=None,
+                   newline=None, closefd=True, opener=None):
+        if isinstance(mode, str) and "b" not in mode and encoding is None:
+            encoding = "utf-8"
+        return _real_io_open(file, mode, buffering, encoding, errors,
+                             newline, closefd, opener)
+
+    _io.open = _utf8_open
+    _builtins.open = _utf8_open
+
+    _real_write_text = _pathlib.Path.write_text
+    _real_read_text = _pathlib.Path.read_text
+
+    def _utf8_write_text(self, data, encoding=None, errors=None, newline=None):
+        return _real_write_text(self, data, encoding or "utf-8", errors, newline)
+
+    def _utf8_read_text(self, encoding=None, errors=None):
+        return _real_read_text(self, encoding or "utf-8", errors)
+
+    _pathlib.Path.write_text = _utf8_write_text
+    _pathlib.Path.read_text = _utf8_read_text
 # ─── /UTF-8 ──────────────────────────────────────────────────────────────────
 
 import argparse

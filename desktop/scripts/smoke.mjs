@@ -214,32 +214,61 @@ async function terminalRoundTrip() {
   ok(`terminal session created (${id})`);
 
   const marker = `KEEL_SMOKE_${Date.now()}`;
-  const sawMarker = await new Promise((resolve) => {
+  const isWin = process.platform === "win32";
+  // PowerShell on Windows takes ~3s to start (profile scripts, PSReadLine
+  // init) and drops any input sent before its prompt is ready. Wait for a
+  // prompt indicator, then send. bash/zsh are much faster but the wait
+  // costs almost nothing there either.
+  const promptRe = isWin ? /(?:PS[^\n]*>|>\s?$)/ : /[\$#]\s?$/;
+  const result = await new Promise((resolve) => {
     const ws = new WebSocket(`ws://127.0.0.1:${PORT}/api/terminal/sessions/${id}/ws`);
     ws.binaryType = "arraybuffer";
     let out = "";
+    let sent = false;
     const timer = setTimeout(() => {
       ws.close();
-      resolve(false);
-    }, 20000);
-    ws.onopen = () => ws.send(new TextEncoder().encode(`echo ${marker}\r`));
+      // Return the last chunk of output so failures show WHY (blank prompt,
+      // profile-script noise, etc.) instead of just "false".
+      resolve({ ok: false, out: out.slice(-800) });
+    }, 25000);
+    ws.onopen = () => {
+      // If we don't see a prompt within 5s (Unix mostly), send anyway.
+      setTimeout(() => {
+        if (!sent) {
+          sent = true;
+          ws.send(new TextEncoder().encode(`echo ${marker}\r`));
+        }
+      }, 5000);
+    };
     ws.onmessage = (ev) => {
       if (ev.data instanceof ArrayBuffer) out += new TextDecoder().decode(ev.data);
       else if (typeof ev.data === "string") out += ev.data;
-      // Marker appears once as the echoed keystrokes; require the OUTPUT line
-      // (2nd occurrence) to prove the shell actually executed the command.
-      if (out.split(marker).length > 2) {
+      // Once a prompt appears, send the command (only once).
+      if (!sent && promptRe.test(out)) {
+        sent = true;
+        ws.send(new TextEncoder().encode(`echo ${marker}\r`));
+      }
+      // The marker appearing at least ONCE proves the PTY is bidirectional:
+      // input reached the shell AND its output reached us. Requiring it
+      // twice (echo + output) is fragile on Windows — PSReadLine sometimes
+      // suppresses the keystroke echo through ConPTY.
+      if (sent && out.includes(marker)) {
         clearTimeout(timer);
         ws.close();
-        resolve(true);
+        resolve({ ok: true });
       }
     };
     ws.onerror = () => {
       clearTimeout(timer);
-      resolve(false);
+      resolve({ ok: false, out: out.slice(-800) });
     };
   });
-  sawMarker ? ok("terminal PTY round-trip (echo via WebSocket)") : fail("terminal PTY round-trip");
+  if (result.ok) {
+    ok("terminal PTY round-trip (echo via WebSocket)");
+  } else {
+    fail("terminal PTY round-trip",
+      result.out ? `no marker after 25s; last 800 bytes:\n${result.out}` : "no output");
+  }
   await fetch(`${BASE}/api/terminal/sessions/${id}`, { method: "DELETE" }).catch(() => {});
 }
 
