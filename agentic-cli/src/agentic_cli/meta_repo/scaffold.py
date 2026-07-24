@@ -954,17 +954,27 @@ def _write_makefile(meta_repo_path: Path) -> None:
     """Write Makefile with automation targets."""
     makefile_path = meta_repo_path / "Makefile"
     makefile_path.write_text(
-        """.PHONY: init update update-one validate setup-hooks load-skills skills help
+        """.PHONY: init update update-one validate setup-hooks load-skills skills ide-install help
 
 # Optional persona scope: `make skills PERSONA=qa` / `make validate PERSONA=qa`
 # report and gate the skills profile against that persona's policy in skills.yaml.
 PERSONA_FLAG := $(if $(PERSONA),--persona $(PERSONA))
+
+# Which code-assist tool to install skills for. Reads the same env var the
+# `keel` CLI does, so `KEEL_CODE_ASSIST_TOOL=cursor make init` just works.
+# Override on the command line too: `make ide-install CODE_ASSIST_TOOL=windsurf`.
+CODE_ASSIST_TOOL ?= $(if $(KEEL_CODE_ASSIST_TOOL),$(KEEL_CODE_ASSIST_TOOL),generic)
 
 init: setup-hooks
 	@echo "Initializing domain meta-repo (shallow, parallel)..."
 	git -c protocol.file.allow=always submodule update --init --recursive --depth 1 --jobs 8
 	@echo "✓ Submodules initialized"
 	@$(MAKE) --no-print-directory load-skills
+	@if [ "$(SKIP_IDE_INSTALL)" = "1" ]; then \\
+		echo "  (SKIP_IDE_INSTALL=1 — skipping IDE placement; run 'make ide-install' later)"; \\
+	else \\
+		$(MAKE) --no-print-directory ide-install; \\
+	fi
 
 update:
 	@echo "Updating all submodules..."
@@ -991,6 +1001,33 @@ load-skills:
 	@echo "Loading skills across meta-repo (.agents + submodules)..."
 	@python3 .platform/scripts/profile_skills.py --write --summary
 	@echo "✓ Skills loaded → .platform/skills-manifest.json"
+
+# Place skills where the code-assist tool actually reads them (.cursorrules,
+# .devin/skills, .skills, ~/.codeium/windsurf/skills/<domain>__<name> for
+# Windsurf). Governance policy (skills.yaml + admin skill_enforcement) is
+# applied at this seam: under `enforce`, denied / out-of-policy skills are
+# filtered out before they land in an IDE-visible directory.
+#
+# No-op if the `keel` CLI isn't installed — the meta-repo Makefile itself
+# stays stdlib-only, and this step just prints a hint.
+ide-install:
+	@if command -v keel >/dev/null 2>&1; then \\
+		DOMAIN=$$(grep -E '^domain:' .platform/config/domain.yaml 2>/dev/null | awk '{print $$2}' | tr -d '"' | tr -d "'"); \\
+		echo "Placing skills for $(CODE_ASSIST_TOOL) via 'keel code onboard'..."; \\
+		if [ -n "$$DOMAIN" ]; then \\
+			keel code onboard --path . --domain "$$DOMAIN" --use-domain-skills --code-assist-tool $(CODE_ASSIST_TOOL) \\
+				|| echo "  (keel code onboard reported issues — see above)"; \\
+		else \\
+			keel code onboard --path . --code-assist-tool $(CODE_ASSIST_TOOL) \\
+				|| echo "  (keel code onboard reported issues — see above)"; \\
+		fi; \\
+	else \\
+		echo ""; \\
+		echo "  ! keel CLI not found on PATH — skills indexed, but NOT placed for the IDE."; \\
+		echo "    Install Keel and run 'make ide-install' to complete IDE setup."; \\
+		echo "    Override tool: make ide-install CODE_ASSIST_TOOL=cursor  (or windsurf/devin)"; \\
+		echo "    Docs: docs/GOVERNANCE_LAYERS.md"; \\
+	fi
 
 skills:
 	@python3 .platform/scripts/profile_skills.py --summary $(PERSONA_FLAG)
@@ -1020,11 +1057,14 @@ validate:
 
 help:
 	@echo "Domain Meta-Repo Targets:"
-	@echo "  make init        - Configure hooks, init submodules, load skills"
+	@echo "  make init        - Configure hooks, init submodules, load skills, place them for the IDE"
+	@echo "                     (skip IDE placement with SKIP_IDE_INSTALL=1)"
 	@echo "  make update      - Update all submodules"
 	@echo "  make update-one  - Update one submodule (REPO=repos/<name>)"
 	@echo "  make setup-hooks - Configure git hooks path"
 	@echo "  make load-skills - Index all skills into .platform/skills-manifest.json"
+	@echo "  make ide-install - Place skills where your code-assist tool reads them"
+	@echo "                     (CODE_ASSIST_TOOL=cursor|windsurf|devin|generic; needs keel CLI)"
 	@echo "  make skills      - Print the loaded-skills profile (PERSONA=<id> to scope)"
 	@echo "  make validate    - Validate repo state + skills profile (PERSONA=<id> gates)"
 	@echo "  make help        - Show this help message"
