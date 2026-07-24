@@ -109,38 +109,26 @@ def _ensure_registry(registry_override: Optional[str] = None) -> Path:
 def _get_skills_dir(project_path: Path, code_assist_tool: str) -> Path:
     """Get the repo-local skills directory based on the code assist tool.
 
-    Skills are stored as full directories (SKILL.md + companions). Windsurf uses
-    the same ``.skills`` layout as generic; a separate bridge step installs them
-    into the per-user dir Cascade scans (~/.codeium/windsurf/skills). Windsurf
-    skills are NOT ``.windsurf/workflows`` (that's the slash-command feature).
+    Delegates to the code-assist registry (`agentic_cli/code_assist/`) so
+    adding a new IDE requires zero changes here — register the tool with its
+    own layout and this call resolves it automatically.
     """
-    if code_assist_tool == "cursor":
-        return project_path / ".cursorrules"
-    elif code_assist_tool == "devin":
-        # Devin loads project skills from .devin/skills/<name>/SKILL.md
-        return project_path / ".devin" / "skills"
-    else:
-        # generic AND windsurf both use full skill dirs under .skills/.
-        return project_path / ".skills"
+    from agentic_cli.code_assist import get_tool, resolve_tool_name
+
+    name = resolve_tool_name(code_assist_tool)
+    return get_tool(name).skills_dir(project_path)
 
 
 def detect_code_assist_tool(default: str = "generic") -> str:
     """Best-effort detection of the active code assist tool / IDE.
 
-    Order: explicit ``KEEL_CODE_ASSIST_TOOL`` env override → Windsurf (Cascade)
-    per-user dir → Cursor config dir → Devin env markers → ``default``.
+    Delegates to `agentic_cli.code_assist.detect_tool`. Preserved as a
+    module-level helper because several callers import it directly; new
+    code should import from the registry package.
     """
-    override = os.environ.get("KEEL_CODE_ASSIST_TOOL", "").strip().lower()
-    if override in {"windsurf", "cursor", "devin", "generic"}:
-        return override
-    home = Path.home()
-    if (home / ".codeium" / "windsurf").exists():
-        return "windsurf"
-    if (home / ".cursor").exists():
-        return "cursor"
-    if os.environ.get("DEVIN_API_KEY") or os.environ.get("DEVIN_SESSION_ID"):
-        return "devin"
-    return default
+    from agentic_cli.code_assist import detect_tool
+
+    return detect_tool(default)
 
 
 def _generate_project_context_skill(
@@ -325,28 +313,19 @@ This updates the graph using AST-only extraction (no API cost).
 def _install_graphify_skill(project_path: Path, code_assist_tool: str) -> None:
     """Install the graphify guidance where the chosen tool will load it.
 
-    - devin    → ``.devin/skills/graphify/SKILL.md`` (name + description frontmatter)
-    - windsurf → ``.skills/graphify/SKILL.md`` (portable skill, later bridged to
-                 the per-user Cascade skills dir — NOT a .windsurf/workflows file)
-    - cursor   → ``.cursor/rules/graphify.md`` (conditional rule)
-    - generic  → ``.skills/graphify/SKILL.md`` (portable skill)
+    The per-tool layout (dest path + which frontmatter shape) lives in the
+    code-assist registry so a new IDE only has to declare its own layout.
     """
-    if code_assist_tool == "devin":
-        dest = project_path / ".devin" / "skills" / "graphify" / "SKILL.md"
-        content = f"---\nname: graphify\ndescription: {_GRAPHIFY_DESCRIPTION}\n---\n\n{_GRAPHIFY_BODY}"
-        label = "Devin (.devin/skills/graphify)"
-    elif code_assist_tool == "windsurf":
-        dest = project_path / ".skills" / "graphify" / "SKILL.md"
-        content = f"---\nname: graphify\ndescription: {_GRAPHIFY_DESCRIPTION}\n---\n\n{_GRAPHIFY_BODY}"
-        label = "Windsurf (.skills/graphify)"
-    elif code_assist_tool == "cursor":
-        dest = project_path / ".cursor" / "rules" / "graphify.md"
+    from agentic_cli.code_assist import get_tool, resolve_tool_name
+
+    name = resolve_tool_name(code_assist_tool)
+    tool = get_tool(name)
+    dest, shape = tool.graphify_layout(project_path)
+    if shape == "description-only":
         content = f"---\ndescription: {_GRAPHIFY_DESCRIPTION}\n---\n\n{_GRAPHIFY_BODY}"
-        label = "Cursor (.cursor/rules/graphify.md)"
     else:
-        dest = project_path / ".skills" / "graphify" / "SKILL.md"
         content = f"---\nname: graphify\ndescription: {_GRAPHIFY_DESCRIPTION}\n---\n\n{_GRAPHIFY_BODY}"
-        label = "generic (.skills/graphify)"
+    label = f"{tool.label} ({dest.relative_to(project_path)})"
 
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(content)
@@ -949,14 +928,17 @@ def onboard(
     _save_onboard_manifest(project_path, analysis, installed_names, suggested_names,
                            code_assist_tool, enforcement=enforcement_info)
 
-    # Step 9-bis: For Windsurf/Cascade, bridge the project's .skills into the
-    # per-user dir Cascade actually scans so they're immediately invokable.
-    if code_assist_tool == "windsurf":
-        try:
-            from agentic_cli.kg.domain_skills import install_skills_to_windsurf
+    # Step 9-bis: For tools that need a user-level bridge (Windsurf's Cascade
+    # doesn't scan repo folders), delegate to the tool's own bridge strategy.
+    # Registry-driven so a new IDE with the same problem just declares its
+    # own `bridge_to_user_dir`.
+    from agentic_cli.code_assist import get_tool, resolve_tool_name
 
+    _tool = get_tool(resolve_tool_name(code_assist_tool))
+    if _tool.bridge_to_user_dir is not None:
+        try:
             ns = domain or project_path.name
-            bridged = install_skills_to_windsurf(project_path / ".skills", ns)
+            bridged = _tool.bridge_to_user_dir(project_path / ".skills", ns)
             if bridged:
                 console.print(
                     f"[green]✓ Registered {len(bridged)} skills with Windsurf/Cascade[/green] "
