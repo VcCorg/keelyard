@@ -222,23 +222,30 @@ def _run_graphify_update(project_path: Path, code_assist_tool: str = "generic") 
     Returns:
         True if successful, False otherwise
     """
+    from agentic_cli.persona_workspace import _find_graphify_bin
+
     console.print("[cyan]Running graphify update to generate code structure graph...[/cyan]")
-    
+
     # Check if graphify is available
+    bin_path = _find_graphify_bin()
+    if not bin_path:
+        console.print("[yellow]⚠ graphify not found. Install with: pip install graphifyy, or set GRAPHIFY_BIN=/path/to/graphify[/yellow]")
+        return False
+
     try:
         subprocess.run(
-            ["graphify", "--help"],
+            [str(bin_path), "--help"],
             capture_output=True,
             check=True,
         )
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        console.print("[yellow]⚠ graphify not found. Install with: pip install graphifyy[/yellow]")
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        console.print("[yellow]⚠ graphify not found. Install with: pip install graphifyy, or set GRAPHIFY_BIN=/path/to/graphify[/yellow]")
         return False
-    
+
     try:
         # Run graphify update from project directory so graphify-out is created inside the project
         result = subprocess.run(
-            ["graphify", "update", ".", "--force"],
+            [str(bin_path), "update", ".", "--force"],
             capture_output=True,
             text=True,
             cwd=str(project_path),

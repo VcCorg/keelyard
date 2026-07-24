@@ -2860,7 +2860,7 @@ def sync_domain(
 
     if graphify and not pw.graphify_available():
         console.print("[yellow]⚠ graphify CLI not found; writing graph references without graphs.[/yellow]")
-        console.print("[dim]Install with: pip install graphifyy[/dim]")
+        console.print("[dim]Install with: pip install graphifyy, or set GRAPHIFY_BIN=/path/to/graphify[/dim]")
 
     console.print(f"[cyan]Syncing {len(repos)} repo(s) into the store for '{domain_name}'...[/cyan]")
 
