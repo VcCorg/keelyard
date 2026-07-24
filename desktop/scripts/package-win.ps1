@@ -1,5 +1,5 @@
-<#
-package-win.ps1 — Windows equivalent of package-mac.sh.
+﻿<#
+package-win.ps1 - Windows equivalent of package-mac.sh.
 Node 22 + install + build/pack the Keel desktop app on Windows.
 
 Run from the desktop\ directory:
@@ -8,6 +8,11 @@ Run from the desktop\ directory:
 
 Output installer: desktop\release\Keel-<version>.exe (NSIS, x64).
 Log:              desktop\release\package-win.log
+
+NOTE ON ENCODING
+This file is pure ASCII and saved with a UTF-8 BOM. Windows PowerShell 5.1
+reads .ps1 files as CP-1252 when there is no BOM, which corrupts anything
+non-ASCII in string literals; keep this file ASCII-only for maximum safety.
 #>
 
 Set-StrictMode -Version Latest
@@ -17,7 +22,7 @@ $ErrorActionPreference = 'Stop'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location (Join-Path $ScriptDir '..')
 
-# ── Repo venv (must exist; PyInstaller runs from here) ──────────────────────
+# ---- Repo venv (must exist; PyInstaller runs from here) --------------------
 $RepoRoot = Resolve-Path (Join-Path $ScriptDir '..\..')
 $VenvActivate = Join-Path $RepoRoot '.venv\Scripts\Activate.ps1'
 if (-not (Test-Path $VenvActivate)) {
@@ -26,7 +31,7 @@ if (-not (Test-Path $VenvActivate)) {
 }
 . $VenvActivate
 
-# ── PyInstaller ─────────────────────────────────────────────────────────────
+# ---- PyInstaller -----------------------------------------------------------
 $pyi = Get-Command pyinstaller -ErrorAction SilentlyContinue
 if (-not $pyi) {
     Write-Host "pyinstaller not found in .venv; installing it now..." -ForegroundColor Yellow
@@ -54,7 +59,7 @@ if ($LASTEXITCODE -ne 0) {
     if ($LASTEXITCODE -ne 0) { Write-Warning "pywinpty install failed; terminal PTY will not work in the packaged app." }
 }
 
-# ── Node 22 ────────────────────────────────────────────────────────────────
+# ---- Node 22 --------------------------------------------------------------
 # Prefer nvm-windows if installed; otherwise validate the ambient node.
 $nvm = Get-Command nvm -ErrorAction SilentlyContinue
 if ($nvm) {
@@ -70,7 +75,7 @@ if ($nvm) {
     }
 }
 
-# ── Stale-build cleanup ────────────────────────────────────────────────────
+# ---- Stale-build cleanup --------------------------------------------------
 # Kill leftover frozen-backend processes that could lock files during rebuild.
 # The smoke test spawns keel-backend.exe; if a previous run was force-killed
 # the OS may still hold an exclusive lock on the exe.
@@ -102,7 +107,7 @@ function Remove-StaleBackendBundle {
 Stop-KeelBackendProcesses
 Remove-StaleBackendBundle
 
-# ── Ensure output directory + log tee ──────────────────────────────────────
+# ---- Ensure output directory + log tee ------------------------------------
 New-Item -ItemType Directory -Force -Path release | Out-Null
 $LogPath = Join-Path (Resolve-Path 'release') 'package-win.log'
 Start-Transcript -Path $LogPath -Force | Out-Null
@@ -123,7 +128,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "build:backend failed" }
 
     & npm run smoke:backend
-    if ($LASTEXITCODE -ne 0) { throw "smoke:backend failed (frozen bundle is broken — do not ship)" }
+    if ($LASTEXITCODE -ne 0) { throw "smoke:backend failed (frozen bundle is broken - do not ship)" }
 
     & npx electron-builder --win nsis --publish never
     if ($LASTEXITCODE -ne 0) { throw "electron-builder --win failed" }
