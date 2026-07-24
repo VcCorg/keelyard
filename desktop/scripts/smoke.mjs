@@ -38,6 +38,13 @@ const env = { ...process.env, HOME: fakeHome, USERPROFILE: fakeHome };
 for (const k of Object.keys(env)) {
   if (/^(PYTHON|VIRTUAL_ENV|CONDA)/i.test(k)) delete env[k];
 }
+// Re-add UTF-8 mode AFTER the strip. On Windows Python otherwise defaults to
+// cp1252 for stdio + open() — which makes any CLI output containing a
+// checkmark or box-drawing char fail with UnicodeEncodeError. PYTHONUTF8=1
+// only takes effect when set BEFORE the interpreter starts, so setting it
+// here (before spawn) is exactly what we need. See PEP 540.
+env.PYTHONUTF8 = "1";
+env.PYTHONIOENCODING = "utf-8";
 
 const PORT = 18734 + Math.floor(Math.random() * 1000);
 const BASE = `http://127.0.0.1:${PORT}`;
