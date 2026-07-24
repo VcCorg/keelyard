@@ -1,5 +1,10 @@
 # Per-Domain Build Governance
 
+> New here? Start with [`GOVERNANCE_LAYERS.md`](./GOVERNANCE_LAYERS.md) for the
+> one-page inner-vs-outer-loop overview; this doc is the deep-dive on the
+> `build_governance` dial that runs the two outer-loop seams (session start +
+> `keel code onboard`).
+
 Makes the governance phase **binding** for the build phase: whether `keel code
 onboard` and engine sessions (Devin, local, any future adapter) must follow the
 governed, meta-repo-driven workflow — decided **per domain**, for adoption.
