@@ -350,6 +350,42 @@ def test_scaffold_makefile_has_skills_targets():
         assert "profile_skills.py --check" in makefile
 
 
+def test_scaffold_makefile_has_ide_install_target():
+    """`make init` places skills for the IDE by default, with a `keel` fallback.
+
+    Cloning + `make init` alone should leave a developer's IDE ready to use
+    the meta-repo's skills. The Makefile achieves this by invoking
+    `keel code onboard` at the end of init — but must degrade gracefully
+    when `keel` isn't on PATH, otherwise it breaks the stdlib-only guarantee
+    for people without Keel installed.
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        output_dir = Path(tmpdir)
+        scaffold_domain_meta_repo(
+            output_dir=output_dir, domain="test-domain", product="TEST",
+            git_init=False,
+        )
+        meta_repo = output_dir / "domain-test-domain-meta"
+        makefile = (meta_repo / "Makefile").read_text()
+
+        # New target exists and is wired from init.
+        assert "ide-install:" in makefile
+        init_body = makefile.split("init:")[1].split("update:")[0]
+        assert "ide-install" in init_body
+
+        # It only runs the CLI when it's actually installed, else prints a
+        # helpful hint (matches the stdlib-only contract).
+        assert "command -v keel" in makefile
+        assert "keel code onboard" in makefile
+        assert "keel CLI not found" in makefile
+
+        # Users can opt out (CI containers etc.).
+        assert "SKIP_IDE_INSTALL" in makefile
+
+        # And override which tool to install for.
+        assert "CODE_ASSIST_TOOL" in makefile
+
+
 def test_skills_profiler_indexes_and_classifies():
     """Running the profiler indexes skills across sources and writes a manifest."""
     with tempfile.TemporaryDirectory() as tmpdir:

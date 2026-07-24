@@ -90,6 +90,67 @@ The profiler classifies every `SKILL.md` by **tier** (`persona`,
 `agent-skill`, `domain-validated`, `linked:<repo>`, `local`) — those tiers are
 what `skills.yaml`'s `allow`/`deny` globs match against.
 
+## IDE placement, and how governance reaches it
+
+The meta-repo's `Makefile` is **IDE-independent**. `make init` /
+`make load-skills` / `make validate` do the same thing on every machine no
+matter what IDE is installed:
+
+- Fetch submodules under `repos/**` (`git submodule update`).
+- Walk `.agents/skills/`, `.skills/`, `repos/**` for every `SKILL.md`.
+- Classify by tier and index into `.platform/skills-manifest.json`.
+- With `PERSONA=<id>`, run that index against `skills.yaml` and report /
+  fail on denied skills.
+
+None of that touches `.cursor/`, `.codeium/`, or `.devin/`. The profiler
+never places files where an IDE reads them — it produces the manifest and
+the governance verdict.
+
+**IDE placement is `keel code onboard`'s job.** The onboard step is the
+one that is IDE-aware. It picks the target dir by the code-assist tool
+(env `KEEL_CODE_ASSIST_TOOL` → detection → `--code-assist-tool` flag →
+default `generic`):
+
+| Code assist tool | Repo-local skills dir | Extra step |
+|------------------|-----------------------|------------|
+| `cursor` | `.cursorrules/` | — |
+| `devin` | `.devin/skills/<name>/SKILL.md` | — |
+| `windsurf` | `.skills/<name>/` | Bridge into `~/.codeium/windsurf/skills/<domain>__<name>` (symlink by default) |
+| `generic` | `.skills/<name>/` | — |
+
+The bridge for Windsurf exists because Cascade doesn't scan repo folders —
+only the per-user dir. Symlinks let updates to the repo copy propagate
+without a re-install.
+
+Governance reaches the IDE through **two doors** across this placement:
+
+1. **Preventive (physical)** — `keel code onboard` under `enforce`
+   (per-domain `build_governance` in `governance.yaml`, or the admin-wide
+   `skill_enforcement` toggle) filters skills **before** copying. Denied
+   and out-of-policy skills never land in `.cursor/`, `.devin/`, `.skills/`,
+   or the Windsurf per-user dir. The IDE "obeys" governance because
+   governance trimmed what's on disk for it to load.
+2. **Detective (advisory)** — `make validate PERSONA=<id>` reads whatever's
+   already on disk against the policy and fails the run (pre-commit hook or
+   CI) if a loaded skill is denied. The IDE itself doesn't refuse a
+   violating skill — the profiler is what surfaces the drift.
+
+**One-liner takeaway.** If your team's flow is "clone meta-repo + `make init`"
+and nothing else, governance is **advisory**: the IDE will happily load
+whatever `SKILL.md` files are on disk, and `make validate` just reports.
+To make governance **physical** for the IDE, the install has to go through
+`keel code onboard` (with `--enforce-skills`, or admin `skill_enforcement`
+set to `enforce`) — that's the seam that decides what reaches the IDE-visible
+paths.
+
+To close that gap for humans (so a fresh clone doesn't require remembering
+the extra command), `make init` now auto-invokes `make ide-install` when
+the `keel` CLI is on `PATH`, which runs `keel code onboard --path . --use-domain-skills`
+for the meta-repo. If `keel` isn't installed the step prints a hint and
+skips — the stdlib-only `make init` guarantee still holds. Set
+`SKIP_IDE_INSTALL=1` to opt out (e.g. inside CI containers where IDE
+placement is irrelevant).
+
 ## Where the skills end up on disk (why you see them twice)
 
 `make load-skills` **indexes** skills into `.platform/skills-manifest.json`.
