@@ -35,13 +35,50 @@ if (-not (Test-Path $VenvActivate)) {
     exit 1
 }
 . $VenvActivate
+$venvPython = Join-Path $RepoRoot '.venv\Scripts\python.exe'
+$uv = Get-Command uv -ErrorAction SilentlyContinue
+
+# ---- Backend deps (agentic-cli + dashboard/backend) -----------------------
+# PyInstaller can only bundle packages that are actually installed in the
+# venv it runs under. If uvicorn / agentic_cli aren't there, PyInstaller
+# will "successfully" build a bundle whose entry point immediately fails
+# with `ModuleNotFoundError: uvicorn` at first launch. Mirror the CI
+# workflow (.github/workflows/desktop-build.yml) by installing the two
+# first-party packages non-editable (PyInstaller can't collect PEP 660
+# editable installs).
+$probe = "import importlib.util as u, sys; sys.exit(0 if all(u.find_spec(m) for m in ('uvicorn','fastapi','agentic_cli')) else 1)"
+& $venvPython -c $probe
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Backend deps missing; installing agentic-cli + dashboard/backend into the venv..." -ForegroundColor Yellow
+    $agenticPath = Join-Path $RepoRoot 'agentic-cli'
+    $backendPath = Join-Path $RepoRoot 'dashboard\backend'
+    if ($uv) {
+        & uv pip install --python $venvPython $agenticPath
+        if ($LASTEXITCODE -ne 0) { Write-Error "agentic-cli install failed"; exit 1 }
+        & uv pip install --python $venvPython $backendPath
+        if ($LASTEXITCODE -ne 0) { Write-Error "dashboard/backend install failed"; exit 1 }
+    } else {
+        & $venvPython -m pip install $agenticPath
+        if ($LASTEXITCODE -ne 0) { Write-Error "agentic-cli install failed"; exit 1 }
+        & $venvPython -m pip install $backendPath
+        if ($LASTEXITCODE -ne 0) { Write-Error "dashboard/backend install failed"; exit 1 }
+    }
+    # Best-effort: llama-cpp-python is the built-in tiny-model runtime. If
+    # it can't be installed the packaged app degrades to the deterministic
+    # test-mode provider - not a build blocker.
+    Write-Host "Installing llama-cpp-python (best-effort; built-in tiny model runtime)..." -ForegroundColor Yellow
+    if ($uv) {
+        & uv pip install --python $venvPython --index-strategy unsafe-best-match llama-cpp-python
+    } else {
+        & $venvPython -m pip install llama-cpp-python
+    }
+    if ($LASTEXITCODE -ne 0) { Write-Warning "llama-cpp-python install failed; packaged app degrades to test-mode provider." }
+}
 
 # ---- PyInstaller -----------------------------------------------------------
 $pyi = Get-Command pyinstaller -ErrorAction SilentlyContinue
 if (-not $pyi) {
     Write-Host "pyinstaller not found in .venv; installing it now..." -ForegroundColor Yellow
-    $uv = Get-Command uv -ErrorAction SilentlyContinue
-    $venvPython = Join-Path $RepoRoot '.venv\Scripts\python.exe'
     if ($uv) {
         & uv pip install --python $venvPython pyinstaller
     } else {
@@ -60,12 +97,10 @@ if (-not $pyi) {
 # outer double quotes PowerShell adds around the -c argument, so any inner
 # double quotes get dropped and Python would see find_spec(winpty) - a
 # NameError. Python accepts single quotes for strings, so 'winpty' survives.
-$probe = "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('winpty') else 1)"
-& python -c $probe
+$winptyProbe = "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('winpty') else 1)"
+& $venvPython -c $winptyProbe
 if ($LASTEXITCODE -ne 0) {
     Write-Host "pywinpty not found; installing it (needed for the terminal PTY)..." -ForegroundColor Yellow
-    $uv = Get-Command uv -ErrorAction SilentlyContinue
-    $venvPython = Join-Path $RepoRoot '.venv\Scripts\python.exe'
     if ($uv) {
         & uv pip install --python $venvPython pywinpty
     } else {
