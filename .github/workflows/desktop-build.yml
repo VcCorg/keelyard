@@ -8,9 +8,70 @@ on:
   push:
     tags:
       - "v*"
+  pull_request:
+    # Parse-check the Windows convenience script on every PR that touches it
+    # or this workflow. Cheap, catches encoding regressions.
+    paths:
+      - "desktop/scripts/package-win.ps1"
+      - ".github/workflows/desktop-build.yml"
 
 jobs:
+  # Guard against the CP-1252 encoding trap that broke package-win.ps1
+  # once already: Windows PowerShell 5.1 reads .ps1 files as CP-1252
+  # when there's no BOM, so an em-dash in a string literal terminates
+  # the string early and cascades into a "do{}while" parse error.
+  # This job parses the file under BOTH Windows PowerShell 5.1 and
+  # PowerShell 7.x, and verifies the UTF-8 BOM is intact.
+  parse-win-ps1:
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify UTF-8 BOM
+        shell: powershell
+        run: |
+          $bytes = [System.IO.File]::ReadAllBytes("desktop\scripts\package-win.ps1")
+          if ($bytes.Length -lt 3 -or $bytes[0] -ne 0xEF -or $bytes[1] -ne 0xBB -or $bytes[2] -ne 0xBF) {
+            Write-Host "MISSING BOM: first 3 bytes = $($bytes[0..2] | ForEach-Object { '0x{0:X2}' -f $_ })"
+            Write-Host "Windows PowerShell 5.1 needs the UTF-8 BOM or reads the file as CP-1252."
+            exit 1
+          }
+          Write-Host "OK: UTF-8 BOM present (0xEF 0xBB 0xBF)"
+
+      - name: Parse-check under Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          $tokens = $null; $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            "$PWD\desktop\scripts\package-win.ps1", [ref]$tokens, [ref]$errors
+          ) | Out-Null
+          if ($errors -and $errors.Count -gt 0) {
+            Write-Host "PARSE ERRORS under Windows PowerShell 5.1:" -ForegroundColor Red
+            $errors | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
+            exit 1
+          }
+          Write-Host "OK: parses clean under Windows PowerShell 5.1 (token count: $($tokens.Count))"
+
+      - name: Parse-check under PowerShell 7.x
+        shell: pwsh
+        run: |
+          $tokens = $null; $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            "$PWD\desktop\scripts\package-win.ps1", [ref]$tokens, [ref]$errors
+          ) | Out-Null
+          if ($errors -and $errors.Count -gt 0) {
+            Write-Host "PARSE ERRORS under PowerShell 7.x:" -ForegroundColor Red
+            $errors | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
+            exit 1
+          }
+          Write-Host "OK: parses clean under PowerShell 7.x (token count: $($tokens.Count))"
+
   build:
+    # The full desktop build runs on tag pushes or manual dispatch — this is
+    # the expensive path (~15-25 min per matrix leg). PR runs only do the
+    # cheap parse-check above.
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
