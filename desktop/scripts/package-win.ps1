@@ -16,7 +16,12 @@ non-ASCII in string literals; keep this file ASCII-only for maximum safety.
 #>
 
 Set-StrictMode -Version Latest
-$ErrorActionPreference = 'Stop'
+# NOTE: Continue, not Stop. Windows PowerShell 5.1 turns any stderr write
+# from a native command (python / npm / pip / nvm) into a NativeCommandError
+# under Stop mode - even a benign warning kills the script before its
+# `2>$null` redirect can suppress it. We use explicit `$LASTEXITCODE` +
+# `throw` for real failures, so Stop's implicit termination is not needed.
+$ErrorActionPreference = 'Continue'
 
 # Move to desktop\ regardless of where the script was invoked from.
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -46,7 +51,17 @@ if (-not $pyi) {
 }
 
 # Windows-only: the frozen backend needs pywinpty for the terminal (PTY).
-& python -c "import winpty" 2>$null
+# Use importlib.util.find_spec so a missing module returns exit 1 without
+# writing a Python traceback to stderr - Windows PowerShell surfaces
+# native-command stderr as NativeCommandError even with Continue, and
+# there is no need to pollute the log with a traceback we already expect.
+#
+# Note the SINGLE quotes around 'winpty': Windows argv parsing eats the
+# outer double quotes PowerShell adds around the -c argument, so any inner
+# double quotes get dropped and Python would see find_spec(winpty) - a
+# NameError. Python accepts single quotes for strings, so 'winpty' survives.
+$probe = "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('winpty') else 1)"
+& python -c $probe
 if ($LASTEXITCODE -ne 0) {
     Write-Host "pywinpty not found; installing it (needed for the terminal PTY)..." -ForegroundColor Yellow
     $uv = Get-Command uv -ErrorAction SilentlyContinue
