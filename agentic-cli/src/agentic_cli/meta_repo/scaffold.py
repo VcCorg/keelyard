@@ -1064,7 +1064,7 @@ help:
 	@echo "  make setup-hooks - Configure git hooks path"
 	@echo "  make load-skills - Index all skills into .platform/skills-manifest.json"
 	@echo "  make ide-install - Place skills where your code-assist tool reads them"
-	@echo "                     (CODE_ASSIST_TOOL=cursor|windsurf|devin|generic; needs keel CLI)"
+	@echo "                     (CODE_ASSIST_TOOL=devin|cursor|generic|windsurf; needs keel CLI)"
 	@echo "  make skills      - Print the loaded-skills profile (PERSONA=<id> to scope)"
 	@echo "  make validate    - Validate repo state + skills profile (PERSONA=<id> gates)"
 	@echo "  make help        - Show this help message"

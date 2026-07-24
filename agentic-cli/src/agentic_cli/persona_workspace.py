@@ -405,30 +405,22 @@ def write_graph_refs(domain_meta_path: Path, manifest: dict) -> Path:
 def persona_skill_path(root: Path, persona: str, code_assist_tool: str) -> Path:
     """Resolve the on-disk file a given IDE/agent picks up for a persona skill.
 
-    Each tool reads from a different location and layout:
-
-    - ``devin``    → ``.devin/skills/<persona>-context/SKILL.md`` (Devin project
-      skills; also mirrored by ``.agents/skills/``). Subfolder + ``SKILL.md``.
-    - ``windsurf`` → ``.windsurf/workflows/<persona>-context.md`` (flat workflow
-      file with ``description:`` frontmatter — Windsurf slash-command/workflow).
-    - ``cursor``   → ``.cursor/rules/<persona>-context.md`` (flat conditional rule).
-    - ``generic``  → ``.skills/<persona>-context/SKILL.md`` (portable subfolder).
+    Each tool declares its own persona-context layout on the registered
+    `CodeAssistTool`. Adding a new IDE only requires registering the tool
+    with a `persona_context_path` strategy — this dispatch site never
+    needs to change.
     """
-    name = f"{persona}-context"
-    if code_assist_tool == "devin":
-        return root / ".devin" / "skills" / name / "SKILL.md"
-    if code_assist_tool == "windsurf":
-        return root / ".windsurf" / "workflows" / f"{name}.md"
-    if code_assist_tool == "cursor":
-        return root / ".cursor" / "rules" / f"{name}.md"
-    return root / ".skills" / name / "SKILL.md"
+    from agentic_cli.code_assist import get_tool, resolve_tool_name
+
+    tool = get_tool(resolve_tool_name(code_assist_tool))
+    return tool.persona_context_path(root, f"{persona}-context")
 
 
 def assemble_persona_skill(
     root: Path,
     persona: str,
     content: str,
-    code_assist_tool: str = "windsurf",
+    code_assist_tool: str = "auto",
 ) -> Path:
     """Write a persona context skill into the IDE-specific pickup location.
 

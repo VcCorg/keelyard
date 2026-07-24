@@ -1640,21 +1640,22 @@ def init_domain(
         raise typer.Exit(1)
 
     # ── Bridge skills into the code assist tool ───────────────────────────
-    if code_assist_tool == "windsurf":
-        console.print("\n[cyan]Registering skills with Windsurf/Cascade...[/cyan]")
-        try:
-            from agentic_cli.kg.domain_skills import (
-                install_skills_to_windsurf, get_windsurf_skills_root,
-            )
+    # Delegates to the registered tool's own bridge strategy. Tools that
+    # read directly from the repo (Cursor, Devin, generic) skip this
+    # step; tools with a user-level dir (Windsurf) declare their own bridge.
+    from agentic_cli.code_assist import get_tool, resolve_tool_name
 
-            bridged = install_skills_to_windsurf(out_dir / ".skills", domain_name)
-            console.print(
-                f"[green]✓ {len(bridged)} skills registered[/green] "
-                f"[dim]in {get_windsurf_skills_root()}[/dim]"
-            )
-            console.print("[dim]Reload the Cascade window to load them.[/dim]")
+    _tool = get_tool(resolve_tool_name(code_assist_tool))
+    if _tool.bridge_to_user_dir is not None:
+        console.print(f"\n[cyan]Registering skills with {_tool.label}...[/cyan]")
+        try:
+            bridged = _tool.bridge_to_user_dir(out_dir / ".skills", domain_name)
+            console.print(f"[green]✓ {len(bridged)} skills registered[/green]")
+            console.print("[dim]Reload the IDE window to load them.[/dim]")
         except Exception as e:  # noqa: BLE001
-            console.print(f"[yellow]⚠ Windsurf skill registration failed: {e}[/yellow]")
+            console.print(
+                f"[yellow]⚠ {_tool.label} skill registration failed: {e}[/yellow]"
+            )
 
     # ── Git remote ────────────────────────────────────────────────────────
     # The meta scaffold's _init_git_repo already made the initial commit,
@@ -1944,25 +1945,25 @@ def init_context(
         console.print(f"[yellow]⚠ project-context skill generation failed: {e}[/yellow]")
         console.print("[dim]Domain context repo created without project-context skill.[/dim]")
 
-    # Bridge all repo-local skills into the per-user dir Cascade scans, so
-    # Windsurf loads them immediately (covers superpowers + project-context).
-    if code_assist_tool == "windsurf":
-        console.print("\n[cyan]Registering skills with Windsurf/Cascade...[/cyan]")
-        try:
-            from agentic_cli.kg.domain_skills import (
-                install_skills_to_windsurf, get_windsurf_skills_root,
-            )
+    # Bridge all repo-local skills into the per-user dir the IDE scans, so
+    # the IDE loads them immediately. Registry-driven — Windsurf is the only
+    # currently-bundled tool with a bridge strategy, but a new IDE with the
+    # same problem just declares one on registration.
+    from agentic_cli.code_assist import get_tool, resolve_tool_name
 
-            bridged = install_skills_to_windsurf(out_dir / ".skills", domain_name)
+    _tool = get_tool(resolve_tool_name(code_assist_tool))
+    if _tool.bridge_to_user_dir is not None:
+        console.print(f"\n[cyan]Registering skills with {_tool.label}...[/cyan]")
+        try:
+            bridged = _tool.bridge_to_user_dir(out_dir / ".skills", domain_name)
             for b in bridged:
                 console.print(f"  [green]✓[/green] {b['global_name']} [dim]({b['mode']})[/dim]")
-            console.print(
-                f"[green]✓ {len(bridged)} skills registered[/green] "
-                f"[dim]in {get_windsurf_skills_root()}[/dim]"
-            )
-            console.print("[dim]Reload the Cascade window (or restart Windsurf) to load them.[/dim]")
+            console.print(f"[green]✓ {len(bridged)} skills registered[/green]")
+            console.print(f"[dim]Reload the {_tool.label} window to load them.[/dim]")
         except Exception as e:  # noqa: BLE001
-            console.print(f"[yellow]⚠ Windsurf skill registration failed: {e}[/yellow]")
+            console.print(
+                f"[yellow]⚠ {_tool.label} skill registration failed: {e}[/yellow]"
+            )
 
     # Commit files to git (repo already initialized earlier)
     if git_init:
@@ -2830,7 +2831,7 @@ def sync_domain(
     domain_name: Annotated[str, typer.Argument(help="Domain slug (e.g. cwow-facility)")],
     persona: Annotated[str, typer.Option("--persona", help="Domain-tier persona (default: tech-lead)")] = "tech-lead",
     graphify: Annotated[bool, typer.Option("--graphify/--no-graphify", help="Run graphify update per repo to refresh code graphs")] = True,
-    code_assist_tool: Annotated[str, typer.Option("--code-assist-tool", help="devin | windsurf | cursor | generic (where the persona skill is written)")] = "windsurf",
+    code_assist_tool: Annotated[str, typer.Option("--code-assist-tool", help="auto (detect) | devin | cursor | generic | windsurf (deprecated) — where the persona skill is written")] = "auto",
 ) -> None:
     """Assemble the tech-lead (domain-tier) workspace.
 
