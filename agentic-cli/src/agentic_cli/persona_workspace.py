@@ -22,7 +22,10 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import shutil
 import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -250,14 +253,52 @@ def add_worktree(
 # Graphify (CLI path) — federation per repo
 # ---------------------------------------------------------------------------
 
+GRAPHIFY_BIN_ENV = "GRAPHIFY_BIN"
+
+_CANDIDATE_BIN_DIRS = (
+    Path.home() / ".keel" / "bin",
+    Path.home() / ".local" / "bin",
+    Path("/opt").resolve() / "anaconda3" / "bin",
+    Path("/opt").resolve() / "homebrew" / "bin",
+    Path("/usr").resolve() / "local" / "bin",
+    Path(sys.executable).resolve().parent,
+)
+
+
+def _find_graphify_bin() -> Path | None:
+    """Locate the graphify CLI binary using PATH, env var, and common paths."""
+    # 1. Explicit override.
+    env_path = os.environ.get(GRAPHIFY_BIN_ENV)
+    if env_path:
+        p = Path(env_path)
+        if p.is_file() and os.access(p, os.X_OK):
+            return p
+
+    # 2. PATH search.
+    found = shutil.which("graphify")
+    if found:
+        return Path(found)
+
+    # 3. Common install directories.
+    for d in _CANDIDATE_BIN_DIRS:
+        candidate = d / "graphify"
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return candidate
+
+    return None
+
+
 def graphify_available() -> bool:
     """True if the graphify CLI is installed."""
+    bin_path = _find_graphify_bin()
+    if not bin_path:
+        return False
     try:
         proc = subprocess.run(
-            ["graphify", "--help"], capture_output=True, text=True
+            [str(bin_path), "--help"], capture_output=True, text=True
         )
         return proc.returncode == 0
-    except FileNotFoundError:
+    except (FileNotFoundError, OSError):
         return False
 
 
@@ -267,16 +308,19 @@ def run_graphify_update(repo_path: Path) -> bool:
     Returns True on success. Best-effort: returns False if graphify is missing
     or the run fails, without raising.
     """
-    if not graphify_available():
+    bin_path = _find_graphify_bin()
+    if not bin_path:
         return False
     try:
         proc = subprocess.run(
-            ["graphify", "update", ".", "--force"],
+            [str(bin_path), "update", ".", "--force"],
             cwd=str(repo_path),
             capture_output=True,
             text=True,
             timeout=600,
         )
+        if proc.returncode != 0:
+            logger.warning("graphify update failed in %s: %s", repo_path, proc.stderr.strip())
         return proc.returncode == 0
     except subprocess.TimeoutExpired:
         logger.warning("graphify update timed out in %s", repo_path)
