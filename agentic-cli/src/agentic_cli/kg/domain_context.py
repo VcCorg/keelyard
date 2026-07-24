@@ -458,22 +458,15 @@ def scaffold_domain_context_repo(
     arch_path.write_text(arch_content)
     created["architecture.md"] = arch_path
 
-    # Shared domain skill - location depends on code_assist_tool.
-    # NOTE: Windsurf/Cascade skills are full SKILL.md folders (NOT
-    # .windsurf/workflows, which is the slash-command feature). Windsurf uses
-    # the same .skills layout as generic; the install step bridges it into the
-    # per-user dir Cascade scans.
-    if code_assist_tool == "devin":
-        # Devin project skill format: .devin/skills/<domain>-domain-skill/SKILL.md
-        skills_dir = output_dir / ".devin" / "skills"
-        skills_dir.mkdir(parents=True, exist_ok=True)
-        skill_path = skills_dir / f"{domain}-domain-skill" / "SKILL.md"
-    else:
-        # Generic/Cursor/Windsurf format: .skills/<domain>-domain-skill/SKILL.md
-        # (top-level so the Windsurf bridge discovers it).
-        skills_dir = output_dir / ".skills"
-        skills_dir.mkdir(parents=True, exist_ok=True)
-        skill_path = skills_dir / f"{domain}-domain-skill" / "SKILL.md"
+    # Shared domain skill location comes from the code-assist registry —
+    # each tool declares its own `skills_dir` layout so this call resolves
+    # correctly for every registered IDE without an `if` chain here.
+    from agentic_cli.code_assist import get_tool, resolve_tool_name
+
+    _tool = get_tool(resolve_tool_name(code_assist_tool))
+    skills_dir = _tool.skills_dir(output_dir)
+    skills_dir.mkdir(parents=True, exist_ok=True)
+    skill_path = skills_dir / f"{domain}-domain-skill" / "SKILL.md"
 
     # Shared skill content
     skill_content = build_domain_skill_md(domain, domain_data, kg_context)
@@ -486,19 +479,11 @@ def scaffold_domain_context_repo(
     product = domain_data.get("product", "")
     repo_list = "\n".join(f"- `{r.get('repo_slug', 'unknown')}`" for r in repos) or "- _(none linked yet)_"
 
-    # Structure description based on code_assist_tool
-    if code_assist_tool == "windsurf":
-        structure = f"""```
-.domain/
-├── kg-context.md          # Shared business context from Knowledge Graph
-├── domain-metadata.json   # Domain metadata and configuration
-└── architecture.md        # Domain architecture patterns
-
-.windsurf/
-└── workflows/
-    ├── {domain}-domain-skill.md  # Domain context skill for AI assistants
-    └── <superpowers-skills>.md  # Superpowers skills (if bootstrapped)
-```"""
+    # Structure description — each tool can declare its own on-disk shape via
+    # `domain_readme_structure`; fall through to the generic .skills/ layout
+    # when the tool doesn't declare one.
+    if _tool.domain_readme_structure is not None:
+        structure = _tool.domain_readme_structure(domain)
     else:
         structure = f"""```
 .domain/

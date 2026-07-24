@@ -52,7 +52,7 @@ def open_workspace(
     persona: Annotated[str, typer.Option("--persona", help="Persona (default: dev)")] = "dev",
     branch: Annotated[Optional[str], typer.Option("--branch", help="Worktree branch name (default: ws/<persona>/<slug>)")] = None,
     graphify: Annotated[bool, typer.Option("--graphify/--no-graphify", help="Generate the repo graph in the worktree now (default: off; run 'graphify update .' on demand)")] = False,
-    code_assist_tool: Annotated[str, typer.Option("--code-assist-tool", help="devin | windsurf | cursor | generic (where the persona skill is written)")] = "windsurf",
+    code_assist_tool: Annotated[str, typer.Option("--code-assist-tool", help="auto (detect) | devin | cursor | generic | windsurf (deprecated) — where the persona skill is written")] = "auto",
 ) -> None:
     """Open a developer (repo-tier) workspace as an editable git worktree.
 
@@ -164,7 +164,7 @@ def workspace_status(
     domain_name: Annotated[Optional[str], typer.Option("--domain", help="Single domain slug to inspect")] = None,
     assemble: Annotated[bool, typer.Option("--assemble/--no-assemble", help="Write the solutions-architect persona skill into the product meta-repo")] = False,
     product_meta: Annotated[Optional[Path], typer.Option("--product-meta", help="Explicit product meta-repo path (for --assemble)")] = None,
-    code_assist_tool: Annotated[str, typer.Option("--code-assist-tool", help="devin | windsurf | cursor | generic (where the persona skill is written)")] = "windsurf",
+    code_assist_tool: Annotated[str, typer.Option("--code-assist-tool", help="auto (detect) | devin | cursor | generic | windsurf (deprecated) — where the persona skill is written")] = "auto",
 ) -> None:
     """Solutions-architect (product tier) view: cross-domain map from the tracker.
 
