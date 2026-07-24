@@ -1,5 +1,10 @@
 # Persona-Scoped Skill Governance
 
+> New here? Start with [`GOVERNANCE_LAYERS.md`](./GOVERNANCE_LAYERS.md) for the
+> one-page inner-vs-outer-loop overview; this doc is the deep-dive on the
+> persona → skill policy that powers `make validate` (inner loop) and the
+> `keel code onboard` skill filter (outer loop).
+
 Impose governance on skills **based on the user's profile**. A signed-in user
 resolves to a *persona*; the domain's `skills.yaml` declares which skills each
 persona may load and use; the profiler reports and gates on it.

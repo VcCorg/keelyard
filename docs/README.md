@@ -89,6 +89,16 @@ Technical specifications.
 
 - `IMPLEMENTATION_SPECS.md` — Implementation specifications
 
+## Governance
+
+Where governance is imposed across the inner and outer loops. Start here
+before opening either deep-dive.
+
+- `GOVERNANCE_LAYERS.md` — **one-page inner-vs-outer-loop overview** (start here)
+- `BUILD_GOVERNANCE.md` — deep-dive on `build_governance` (outer loop: session + onboard)
+- `PERSONA_SKILL_GOVERNANCE.md` — deep-dive on persona → skill policy (inner + outer)
+- `DOMAIN_ONBOARDING_GOVERNANCE_DEMO.md` — end-to-end domain onboarding demo
+
 ## Other documentation
 
 Component-level docs live alongside their code:
