@@ -106,29 +106,15 @@ SUPERPOWERS_SKILLS = [
 def _get_skills_dir(domain_context_dir: Path, code_assist_tool: str) -> Path:
     """Get the *repo-local* skills directory based on the code assist tool.
 
-    Skills are always stored as full directories (SKILL.md + companion files).
-    For Windsurf/Cascade the repo copy lives in ``.skills`` just like the
-    generic layout; a separate install step (:func:`install_skills_to_windsurf`)
-    bridges those into the per-user directory Cascade actually scans
-    (``~/.codeium/windsurf/skills``). Windsurf skills are NOT workflows, so we
-    never write them under ``.windsurf/workflows`` (that is the slash-command
-    feature and Cascade never loads it as a skill).
-
-    Args:
-        domain_context_dir: Domain-context repo path.
-        code_assist_tool: Code assist tool (windsurf, cursor, devin, generic).
-
-    Returns:
-        Path to the repo-local skills directory.
+    Delegates to the code-assist registry so a new IDE only has to declare
+    its layout there. Windsurf/Cascade continues to use the generic
+    ``.skills`` layout — the bridge into ``~/.codeium/windsurf/skills`` is
+    the tool's ``bridge_to_user_dir`` strategy on the registered tool.
     """
-    if code_assist_tool == "cursor":
-        return domain_context_dir / ".cursorrules"
-    elif code_assist_tool == "devin":
-        # Devin loads project skills from .devin/skills/<name>/SKILL.md
-        return domain_context_dir / ".devin" / "skills"
-    else:
-        # generic AND windsurf both use full skill dirs under .skills/.
-        return domain_context_dir / ".skills"
+    from agentic_cli.code_assist import get_tool, resolve_tool_name
+
+    name = resolve_tool_name(code_assist_tool)
+    return get_tool(name).skills_dir(domain_context_dir)
 
 
 # ---------------------------------------------------------------------------
@@ -823,17 +809,24 @@ def bootstrap_domain_skills(
     md_path = domain_context_dir / "SKILLS_MANIFEST.md"
     md_path.write_text(manifest_md)
 
-    # For Windsurf/Cascade, bridge the repo-local .skills into the per-user dir
-    # Cascade actually scans, so the skills are immediately invokable. Symlinked
-    # + domain-namespaced so submodule updates propagate and nothing collides.
+    # For tools that don't scan repo folders (Windsurf/Cascade today), bridge
+    # the repo-local .skills into the per-user directory the IDE reads. The
+    # registry decides whether the current tool needs a bridge and how — so
+    # adding a new IDE with the same problem is one registration, not a new
+    # `if` branch here.
     windsurf_installed: list[dict[str, Any]] = []
-    if code_assist_tool == "windsurf":
+    from agentic_cli.code_assist import get_tool, resolve_tool_name
+
+    _tool = get_tool(resolve_tool_name(code_assist_tool))
+    if _tool.bridge_to_user_dir is not None:
         try:
-            windsurf_installed = install_skills_to_windsurf(
+            windsurf_installed = _tool.bridge_to_user_dir(
                 _get_skills_dir(domain_context_dir, code_assist_tool), domain,
             )
         except Exception as e:  # noqa: BLE001
-            logger.warning(f"Failed to bridge skills into Windsurf global dir: {e}")
+            logger.warning(
+                f"Failed to bridge skills into {_tool.label} user-level dir: {e}"
+            )
 
     return {
         "injected_skills": [s["name"] for s in injected_skills],

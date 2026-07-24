@@ -109,18 +109,50 @@ the governance verdict.
 **IDE placement is `keel code onboard`'s job.** The onboard step is the
 one that is IDE-aware. It picks the target dir by the code-assist tool
 (env `KEEL_CODE_ASSIST_TOOL` → detection → `--code-assist-tool` flag →
-default `generic`):
+default `auto` which detects → falls back to `generic`):
 
-| Code assist tool | Repo-local skills dir | Extra step |
-|------------------|-----------------------|------------|
-| `cursor` | `.cursorrules/` | — |
-| `devin` | `.devin/skills/<name>/SKILL.md` | — |
-| `windsurf` | `.skills/<name>/` | Bridge into `~/.codeium/windsurf/skills/<domain>__<name>` (symlink by default) |
-| `generic` | `.skills/<name>/` | — |
+| Code assist tool | Repo-local skills dir | Extra step | Status |
+|------------------|-----------------------|------------|--------|
+| `devin` | `.devin/skills/<name>/SKILL.md` | — | primary |
+| `cursor` | `.cursorrules/` | — | supported |
+| `generic` | `.skills/<name>/` | — | portable fallback |
+| `windsurf` | `.skills/<name>/` | Bridge into `~/.codeium/windsurf/skills/<domain>__<name>` (symlink by default) | deprecated |
 
-The bridge for Windsurf exists because Cascade doesn't scan repo folders —
-only the per-user dir. Symlinks let updates to the repo copy propagate
-without a re-install.
+Each tool is a `CodeAssistTool` registered in
+`agentic_cli/code_assist/tools.py`. Dispatch sites don't hardcode string
+comparisons — they call `get_tool(name).skills_dir(project)`,
+`.graphify_layout(project)`, `.persona_context_path(root, name)`,
+`.bridge_to_user_dir(...)` etc. Adding a new IDE = one `register_tool()`
+call; no dispatch code changes.
+
+Windsurf is registered as **deprecated** so existing installs keep working
+(the migration to Devin doesn't break clones still using it), but a fresh
+`auto` detection prefers a non-deprecated tool and only picks Windsurf if
+it's the only IDE on the machine. The bridge for Windsurf exists because
+Cascade doesn't scan repo folders — only the per-user dir. Symlinks let
+updates to the repo copy propagate without a re-install.
+
+### Adding a new IDE (extension seam)
+
+```python
+from agentic_cli.code_assist import CodeAssistTool, register_tool
+from pathlib import Path
+
+register_tool(CodeAssistTool(
+    name="my-ide",
+    label="MyIDE",
+    description="Where MyIDE reads skill files from.",
+    skills_dir=lambda p: p / ".my-ide" / "skills",
+    graphify_layout=lambda p: (
+        p / ".my-ide" / "skills" / "graphify" / "SKILL.md", "name",
+    ),
+    detect=lambda: (Path.home() / ".my-ide").exists(),
+))
+```
+
+That's the whole change. Onboard, domain scaffolding, persona-context
+placement, and the Makefile's `ide-install` target all pick up the new
+tool without editing.
 
 Governance reaches the IDE through **two doors** across this placement:
 
