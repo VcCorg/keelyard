@@ -12,6 +12,42 @@ thin ``keel`` wrappers into ``~/.keel/bin`` and prepend that to ``PATH``, so
 terminal sessions opened inside the desktop app can run ``keel …`` even though
 the recipient's machine has no Python at all.
 """
+# ─── UTF-8 stdio + file I/O (must run before any Rich / Typer import) ────────
+# On Windows the frozen interpreter defaults to cp1252 for both stdio and the
+# encoding-less `open()`. That means `console.print("✓ ...")` in the CLI dies
+# with `UnicodeEncodeError: 'charmap' codec can't encode character '✓'`,
+# and `open(path, "w").write(<text with a checkmark>)` in project scaffolding
+# dies with `'charmap' codec can't encode characters in position N`.
+#
+# Fix it once, at the top of the frozen entry, so every invocation path (the
+# uvicorn server AND `keel-backend cli ...` multi-call dispatch) inherits
+# UTF-8. Three layers:
+#   1. Reconfigure sys.stdout / sys.stderr to UTF-8.
+#   2. Force locale.getpreferredencoding to "utf-8" on Windows so `open()`
+#      without an explicit encoding uses UTF-8 too (this is what the CLI's
+#      project-scaffold and admin-doc writers rely on).
+#   3. Set PYTHONIOENCODING / PYTHONUTF8 in os.environ so any subprocess the
+#      CLI spawns (git, gh, pip, etc.) inherits UTF-8 as well.
+import os as _os
+import sys as _sys
+
+_os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+_os.environ.setdefault("PYTHONUTF8", "1")
+for _name in ("stdout", "stderr"):
+    _stream = getattr(_sys, _name, None)
+    if _stream is not None and hasattr(_stream, "reconfigure"):
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:  # noqa: BLE001 — must never brick startup
+            pass
+if _sys.platform == "win32":
+    import locale as _locale
+    # Monkey-patch getpreferredencoding so `open()` defaults to UTF-8. Safer
+    # than PYTHONUTF8=1 which only takes effect if set *before* the
+    # interpreter starts (we can't guarantee that from Python code).
+    _locale.getpreferredencoding = lambda do_setlocale=True: "utf-8"
+# ─── /UTF-8 ──────────────────────────────────────────────────────────────────
+
 import argparse
 import os
 import sys
