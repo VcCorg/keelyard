@@ -106,29 +106,51 @@ def _ensure_registry(registry_override: Optional[str] = None) -> Path:
     raise typer.Exit(1)
 
 
+def _admin_onboarding_ide() -> tuple[Optional[str], Optional[list[str]]]:
+    """Return the admin-configured (default, enabled) for onboarding IDEs.
+
+    Falls back to (None, None) if the settings file is missing or unreadable
+    so onboarding never breaks on a bad admin store — the registry then uses
+    its own built-in defaults + detection.
+    """
+    try:
+        from agentic_cli.admin.settings import load_settings
+
+        s = load_settings()
+        return s.onboarding_ide.default, list(s.onboarding_ide.enabled)
+    except Exception:  # noqa: BLE001 — a bad settings file must not brick onboard
+        return None, None
+
+
 def _get_skills_dir(project_path: Path, code_assist_tool: str) -> Path:
     """Get the repo-local skills directory based on the code assist tool.
 
     Delegates to the code-assist registry (`agentic_cli/code_assist/`) so
     adding a new IDE requires zero changes here — register the tool with its
-    own layout and this call resolves it automatically.
+    own layout and this call resolves it automatically. When the admin has
+    set an `onboarding_ide` default in AppSettings, that default wins over
+    the built-in `generic` fallback for `auto`.
     """
     from agentic_cli.code_assist import get_tool, resolve_tool_name
 
-    name = resolve_tool_name(code_assist_tool)
+    admin_default, enabled = _admin_onboarding_ide()
+    name = resolve_tool_name(code_assist_tool, admin_default=admin_default, enabled=enabled)
     return get_tool(name).skills_dir(project_path)
 
 
 def detect_code_assist_tool(default: str = "generic") -> str:
     """Best-effort detection of the active code assist tool / IDE.
 
-    Delegates to `agentic_cli.code_assist.detect_tool`. Preserved as a
-    module-level helper because several callers import it directly; new
-    code should import from the registry package.
+    Delegates to `agentic_cli.code_assist.detect_tool` with the admin's
+    onboarding-IDE picks folded in — so a tenant that admin-disabled Cursor
+    (say) doesn't get Cursor detected. Preserved as a module-level helper
+    because several callers import it directly; new code should import from
+    the registry package.
     """
     from agentic_cli.code_assist import detect_tool
 
-    return detect_tool(default)
+    admin_default, enabled = _admin_onboarding_ide()
+    return detect_tool(default, admin_default=admin_default, enabled=enabled)
 
 
 def _generate_project_context_skill(
@@ -677,6 +699,23 @@ def onboard(
     if use_domain_skills and not domain:
         console.print("[red]--use-domain-skills requires --domain[/red]")
         raise typer.Exit(1)
+
+    # Resolve `auto`/blank/unknown at the CLI boundary so every downstream
+    # helper deals in a concrete tool name. The registry consults env
+    # override → each tool's detect() → admin default (`onboarding_ide`) →
+    # generic fallback.
+    from agentic_cli.code_assist import resolve_tool_name as _resolve_tool_name
+
+    _admin_default, _admin_enabled = _admin_onboarding_ide()
+    resolved_tool = _resolve_tool_name(
+        code_assist_tool, admin_default=_admin_default, enabled=_admin_enabled,
+    )
+    if resolved_tool != code_assist_tool:
+        console.print(
+            f"[dim]Code-assist tool resolved to '{resolved_tool}' "
+            f"(from '{code_assist_tool}')[/dim]"
+        )
+    code_assist_tool = resolved_tool
 
     # Step 1: Clone if repo URL provided
     if repo:
