@@ -271,10 +271,34 @@ def _write_windows(session: TerminalSession, data: bytes) -> bool:
 
 
 def _read_windows(session: TerminalSession, max_bytes: int) -> Optional[bytes]:
+    """Non-blocking read from a pywinpty PTY.
+
+    The Unix path (_read_unix) uses ``select`` with timeout=0 so it never
+    blocks the asyncio event loop. Windows must do the same — pywinpty's
+    ``read()`` defaults to ``blocking=True`` and stalls the whole loop
+    until the shell writes something. That deadlocks the WebSocket
+    terminal on Windows: the read blocks waiting for shell output, the
+    loop can't process the client's input, so the shell never receives
+    the command and never produces output the read is waiting for. The
+    frozen bundle observed exactly this: 0 bytes back over the WS in
+    25s despite the shell process starting cleanly.
+
+    Passing ``blocking=False`` (pywinpty >= 2.0) returns whatever bytes
+    are already buffered and lets the loop yield back to write_pty_loop.
+    """
     try:
-        text = session.handle.read(max_bytes)
+        text = session.handle.read(max_bytes, blocking=False)
     except EOFError:
         return None
+    except TypeError:
+        # Very old pywinpty without the blocking kwarg — degrade to
+        # sync read and accept the risk of a brief stall on first call.
+        try:
+            text = session.handle.read(max_bytes)
+        except EOFError:
+            return None
+        except Exception:
+            return None
     except Exception:
         return None
     if not text:
