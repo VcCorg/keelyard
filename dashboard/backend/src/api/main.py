@@ -50,6 +50,7 @@ from src.api.ideate import router as ideate_router
 from src.api.execution import router as execution_router
 from src.api.auth import router as auth_router
 from src.api.admin import router as admin_router
+from src.api.watchers import router as watchers_router
 
 
 @asynccontextmanager
@@ -69,7 +70,26 @@ async def lifespan(app: FastAPI):
         _ensure_db()
     except ImportError:
         pass
+    # Start the watcher runtime — catch-up scan + steady-state polls. Any
+    # failure here is logged but must never brick startup (a bad watcher
+    # spec should not take down the whole backend).
+    _stop_watcher_runtime = None
+    try:
+        from src.services.watcher_runtime import start_runtime, stop_runtime
+        _stop_watcher_runtime = stop_runtime
+        try:
+            await start_runtime()
+        except Exception:  # noqa: BLE001
+            import logging
+            logging.getLogger(__name__).exception("watcher runtime startup failed")
+    except ImportError:
+        pass
     yield
+    if _stop_watcher_runtime is not None:
+        try:
+            await _stop_watcher_runtime()
+        except Exception:  # noqa: BLE001
+            pass
 
 
 app = FastAPI(
@@ -120,6 +140,7 @@ app.include_router(ideate_router)
 app.include_router(execution_router)
 app.include_router(auth_router)
 app.include_router(admin_router)
+app.include_router(watchers_router)
 
 
 @app.get("/api/health")

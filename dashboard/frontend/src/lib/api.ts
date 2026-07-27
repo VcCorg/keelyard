@@ -492,6 +492,67 @@ export interface ResetPreview {
   scopes: ResetScope[];
 }
 
+/* ============ Watchers ============ */
+
+export interface WatcherHandler {
+  agent: string;
+  chain: string[];
+  input: Record<string, unknown>;
+}
+
+export interface WatcherSpec {
+  name: string;
+  trigger_type: string;
+  handler: WatcherHandler;
+  filter: Record<string, unknown>;
+  domain: string;
+  enabled: boolean;
+  poll_seconds: number;
+  description: string;
+}
+
+export interface WatcherStateInfo {
+  cursor: string | null;
+  last_polled: string | null;
+  last_fired: string | null;
+  last_error: string;
+  delivered_count: number;
+}
+
+export interface WatcherView {
+  spec: WatcherSpec;
+  state: WatcherStateInfo;
+}
+
+export interface TriggerField {
+  type: "string" | "int" | "bool" | "regex" | "duration" | string;
+  label: string;
+  required: boolean;
+  help: string;
+}
+
+export interface TriggerInfo {
+  name: string;
+  label: string;
+  description: string;
+  source_mcp: string;
+  filter_schema: Record<string, TriggerField>;
+  default_poll_seconds: number;
+}
+
+export interface TestRunEvent {
+  event_id: string;
+  ts: string;
+  data: Record<string, unknown>;
+}
+
+export interface TestRunResult {
+  trigger_type: string;
+  matched: number;
+  events: TestRunEvent[];
+  error: string;
+}
+
 export interface ResetResult {
   reset: string[];
   summary: Record<string, unknown>;
@@ -1917,6 +1978,40 @@ class APIClient {
 
   async setRoleAssignment(body: RoleAssignmentUpdate): Promise<RoleAssignments> {
     return this.request("/admin/roles", { method: "PUT", body: JSON.stringify(body) });
+  }
+
+  /* ---- Watchers ---- */
+  async listWatchers(): Promise<WatcherView[]> {
+    return this.request("/watchers");
+  }
+  async listTriggers(): Promise<TriggerInfo[]> {
+    return this.request("/watchers/triggers");
+  }
+  async watchersForAgent(agent: string): Promise<WatcherView[]> {
+    return this.request(`/watchers/for-agent/${encodeURIComponent(agent)}`);
+  }
+  async getWatcher(name: string): Promise<WatcherView> {
+    return this.request(`/watchers/${encodeURIComponent(name)}`);
+  }
+  async createWatcher(spec: WatcherSpec): Promise<WatcherView> {
+    return this.request("/watchers", { method: "POST", body: JSON.stringify(spec) });
+  }
+  async updateWatcher(spec: WatcherSpec): Promise<WatcherView> {
+    return this.request(`/watchers/${encodeURIComponent(spec.name)}`, {
+      method: "PUT", body: JSON.stringify(spec),
+    });
+  }
+  async deleteWatcher(name: string): Promise<{ deleted: string }> {
+    return this.request(`/watchers/${encodeURIComponent(name)}`, { method: "DELETE" });
+  }
+  async pauseWatcher(name: string): Promise<WatcherView> {
+    return this.request(`/watchers/${encodeURIComponent(name)}/pause`, { method: "POST" });
+  }
+  async resumeWatcher(name: string): Promise<WatcherView> {
+    return this.request(`/watchers/${encodeURIComponent(name)}/resume`, { method: "POST" });
+  }
+  async testRunWatcher(name: string): Promise<TestRunResult> {
+    return this.request(`/watchers/${encodeURIComponent(name)}/test-run`, { method: "POST" });
   }
 
   /* ---- Execution engines (vendor-neutral seam) ---- */
