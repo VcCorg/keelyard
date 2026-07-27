@@ -1,10 +1,62 @@
-import { useCallback, useState } from "react";
-import { Bot, Play, Square, MessageSquare, Eye, FlaskConical } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { Bot, Play, Square, MessageSquare, Eye, FlaskConical, Radio, Plus } from "lucide-react";
 import { usePolling } from "@/hooks/usePolling";
-import { api, type AgentInfo } from "@/lib/api";
+import { api, type AgentInfo, type WatcherView } from "@/lib/api";
 import { StatusBadge } from "@/components/StatusBadge";
 import { LogViewer } from "@/components/LogViewer";
 import { TestChat } from "@/components/TestChat";
+
+/**
+ * Small "Triggers" strip shown on each agent card — lists watchers wired to
+ * fire this agent, with a shortcut to create a new one pre-filled. The
+ * heavy lifting (list/create/edit) lives on the /watchers page.
+ */
+function AgentTriggersStrip({ agent }: { agent: AgentInfo }) {
+  const [wired, setWired] = useState<WatcherView[] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    api.watchersForAgent(agent.name)
+      .then((r) => alive && setWired(r))
+      .catch(() => alive && setWired([]));
+    return () => { alive = false; };
+  }, [agent.name]);
+  if (wired === null) return null;
+  return (
+    <div className="mt-3 border-t border-gray-100 dark:border-gray-800 pt-3">
+      <div className="flex items-center gap-2 flex-wrap">
+        <Radio className="h-3.5 w-3.5 text-blue-500" />
+        <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+          Triggers
+        </span>
+        <span className="text-[11px] text-gray-400">
+          ({wired.length} wired)
+        </span>
+        {wired.map((v) => (
+          <Link
+            key={v.spec.name}
+            to={`/watchers`}
+            className={
+              "text-[11px] px-1.5 py-0.5 rounded border " +
+              (v.spec.enabled
+                ? "border-emerald-200 text-emerald-700 dark:border-emerald-900/40 dark:text-emerald-300"
+                : "border-gray-200 text-gray-400")
+            }
+            title={`${v.spec.trigger_type}${v.state.last_fired ? ` · last fired ${new Date(v.state.last_fired).toLocaleString()}` : ""}`}
+          >
+            {v.spec.name}
+          </Link>
+        ))}
+        <Link
+          to={`/watchers?new=1&agent=${encodeURIComponent(agent.name)}`}
+          className="text-[11px] px-1.5 py-0.5 rounded border border-dashed border-gray-300 text-gray-500 hover:border-blue-400 hover:text-blue-600 dark:border-gray-700 dark:text-gray-400 dark:hover:border-blue-500 dark:hover:text-blue-400 inline-flex items-center gap-1"
+        >
+          <Plus className="h-3 w-3" /> Wire trigger
+        </Link>
+      </div>
+    </div>
+  );
+}
 
 export function Agents() {
   const fetcher = useCallback(() => api.listAgents(), []);
@@ -159,6 +211,9 @@ export function Agents() {
                   {agent.poll_interval && <span>Poll: {agent.poll_interval}s</span>}
                 </div>
               )}
+
+              {/* Triggers wired to this agent — Watchers integration. */}
+              <AgentTriggersStrip agent={agent} />
 
               {/* Test chat */}
               {testFor === agent.name && agent.path && (
