@@ -160,18 +160,18 @@ export const navGroups: NavGroup[] = [
       { to: "/kg/onboard", icon: Wand2, label: "KG Onboarding" },
     ],
   },
-  // Work Items sit before Ideate: load the Jira task you're working on first —
-  // ideation itself is work — then flow into ideate → build → quality.
+  // Ideate follows Knowledge: capture requirements against the knowledge you
+  // just surveyed, then load the concrete Jira work items and flow into build.
+  {
+    label: "Ideate",
+    items: [{ to: "/ideate", icon: Lightbulb, label: "Requirements" }],
+  },
   {
     label: "Work Items",
     items: [
       { to: "/tasks", icon: ListTodo, label: "Work Items" },
       { to: "/assignments", icon: ClipboardList, label: "Assignments", minRole: "lead" },
     ],
-  },
-  {
-    label: "Ideate",
-    items: [{ to: "/ideate", icon: Lightbulb, label: "Requirements" }],
   },
   // Build directly after Ideate: requirements flow straight into construction.
   {
