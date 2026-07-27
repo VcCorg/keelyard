@@ -38,6 +38,7 @@ import {
   ShieldCheck,
   ScrollText,
   Fingerprint,
+  Radio,
 } from "lucide-react";
 import type { UserRole } from "@/context/UserContext";
 
@@ -193,6 +194,10 @@ export const navGroups: NavGroup[] = [
       { to: "/projects", icon: FolderKanban, label: "Agent Projects" },
       { to: "/canvas", icon: Workflow, label: "Project Canvas" },
       { to: "/agents", icon: Bot, label: "Agents" },
+      // Watchers turn agents from request/response into event-driven — they
+      // sit here (not Ideate) because wiring an agent to a trigger is a
+      // build activity.
+      { to: "/watchers", icon: Radio, label: "Watchers" },
     ],
     subgroups: [
       {

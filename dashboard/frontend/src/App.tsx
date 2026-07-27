@@ -44,6 +44,7 @@ import { SetupWizard } from "@/pages/SetupWizard";
 import { AuditHistory } from "@/pages/AuditHistory";
 import { IdentityAccess } from "@/pages/IdentityAccess";
 import { ExecutionContext } from "@/pages/ExecutionContext";
+import { Watchers } from "@/pages/Watchers";
 import { TerminalProvider } from "@/context/TerminalContext";
 import { UserProvider } from "@/context/UserContext";
 import { SetupProvider } from "@/context/SetupContext";
@@ -69,6 +70,7 @@ function App() {
             <Route path="/shared/agents" element={<SharedAgents />} />
             <Route path="/shared/kg" element={<SharedKG />} />
             <Route path="/agents" element={<Agents />} />
+            <Route path="/watchers" element={<Watchers />} />
             <Route path="/quickstart" element={<Quickstart />} />
             <Route path="/ideate" element={<Ideate />} />
             <Route path="/canvas" element={<ProjectCanvas />} />
