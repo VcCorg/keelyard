@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Keel mark: fin descending through the waterline. Duotone so it reads on
-     any browser chrome; the waterline is deliberately lighter so the fin is
-     the hero at favicon size. -->
+<!-- Keel mark (duotone). Same paths as favicon.svg; kept as an importable
+     asset so React components don't have to hard-code the geometry. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Keel">
   <path d="M 4 22 L 22 22 M 42 22 L 60 22"
         stroke="#89B7D3" stroke-width="3.5" stroke-linecap="round" fill="none"/>

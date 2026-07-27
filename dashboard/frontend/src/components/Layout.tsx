@@ -25,6 +25,7 @@ import { useAdminSettings } from "@/context/AdminSettingsContext";
 import { SetupPanel } from "@/components/SetupPanel";
 import { IntegrationStatusBar } from "@/components/IntegrationStatusBar";
 import { HelpButton } from "@/components/HelpButton";
+import { KeelMark } from "@/components/KeelMark";
 import {
   navGroups,
   groupId,
@@ -264,9 +265,12 @@ export function Layout() {
       {/* Sidebar */}
       <aside className="w-60 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-col">
         <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800 space-y-3">
-          <div>
-            <h1 className="text-lg font-bold tracking-tight">{settings.branding.app_title}</h1>
-            <p className="text-xs text-gray-500 mt-0.5">{settings.branding.app_name}</p>
+          <div className="flex items-center gap-3">
+            <KeelMark className="h-8 w-auto text-[#0E3B57] dark:text-[#6AA5C7] shrink-0" />
+            <div className="min-w-0">
+              <h1 className="text-lg font-bold tracking-tight truncate">{settings.branding.app_title}</h1>
+              <p className="text-xs text-gray-500 mt-0.5 truncate">{settings.branding.app_name}</p>
+            </div>
           </div>
           <WorkspaceLabel />
         </div>
