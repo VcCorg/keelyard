@@ -21,6 +21,12 @@ WORKSPACE_DIR = Path.home() / "keel-agentic-project"
 
 MAX_SESSIONS = 4
 
+# How long an orphaned session (no attached websocket client) is kept alive
+# before being reaped. Tab-switch/page-reload reconnects happen within
+# seconds, so this only catches genuinely abandoned sessions (crashed
+# client, closed tab, dropped network) — see mark_disconnected/mark_connected.
+ORPHAN_GRACE_PERIOD_SECONDS = 600
+
 
 @dataclass
 class TerminalSession:
@@ -38,6 +44,7 @@ class TerminalSession:
     pid: int = 0
     fd: Optional[int] = None
     handle: object = field(default=None, repr=False)
+    disconnected_at: Optional[datetime] = None
 
 
 # Active sessions keyed by session ID
@@ -82,9 +89,9 @@ def _build_env() -> dict[str, str]:
     clean_parts = [p for p in current_path.split(os.pathsep) if "conda" not in p.lower()]
     env["PATH"] = os.pathsep.join(clean_parts)
 
-    env["TERM"] = "xterm-256color"
-    env["COLORTERM"] = "truecolor"
     if not IS_WINDOWS:
+        env["TERM"] = "xterm-256color"
+        env["COLORTERM"] = "truecolor"
         env["LANG"] = env.get("LANG", "en_US.UTF-8")
     return env
 
@@ -235,12 +242,30 @@ def _create_session_windows(cols: int, rows: int, title: str) -> TerminalSession
         or os.environ.get("COMSPEC", "cmd.exe")
     )
 
+    # Skip the user's profile/AutoRun scripts: mirrors the Unix backend's use
+    # of a minimal custom rc file rather than the user's real (possibly slow
+    # or antivirus-scanned) shell config. Without this, PowerShell can sit
+    # silent for tens of seconds loading profile modules before ever
+    # printing a prompt.
+    shell_lower = shell.lower()
+    if "powershell" in shell_lower or "pwsh" in shell_lower:
+        argv = [shell, "-NoLogo", "-NoProfile"]
+    elif "cmd" in shell_lower:
+        argv = [shell, "/D"]
+    else:
+        argv = [shell]
+
     proc = PtyProcess.spawn(
-        shell,
+        argv,
         dimensions=(rows, cols),
         env=env,
         cwd=cwd,
     )
+    # PtyProcess.read() is a blocking socket.recv() with no timeout. Bound it
+    # so a stalled/dead shell (or a stale reader after the client
+    # disconnects and later reconnects to the same session) can't block
+    # forever; _read_windows treats socket.timeout as an idle poll tick.
+    proc.fileobj.settimeout(0.2)
 
     return TerminalSession(
         id=uuid.uuid4().hex[:12],
@@ -271,8 +296,11 @@ def _write_windows(session: TerminalSession, data: bytes) -> bool:
 
 
 def _read_windows(session: TerminalSession, max_bytes: int) -> Optional[bytes]:
+    import socket
     try:
         text = session.handle.read(max_bytes)
+    except socket.timeout:
+        return b""  # idle poll tick — not death; must be checked before Exception
     except EOFError:
         return None
     except Exception:
@@ -308,6 +336,10 @@ def create_session(cols: int = 120, rows: int = 30, title: str = "Terminal") -> 
     else:
         session = _create_session_unix(cols, rows, title)
 
+    # Start the disconnect timer immediately so a session that's created but
+    # never actually connected to (client crashed between create and
+    # websocket-open) still gets reaped by cleanup_dead_sessions().
+    session.disconnected_at = datetime.now(timezone.utc)
     _sessions[session.id] = session
     return session
 
@@ -382,7 +414,35 @@ def _is_alive(session: TerminalSession) -> bool:
 
 
 def cleanup_dead_sessions():
-    """Remove sessions whose processes have died."""
-    dead = [sid for sid, s in _sessions.items() if not _is_alive(s)]
-    for sid in dead:
+    """Remove sessions whose processes have died or that were abandoned.
+
+    A session is "abandoned" if no websocket client has been attached for
+    longer than ``ORPHAN_GRACE_PERIOD_SECONDS`` (see ``mark_disconnected``).
+    Tab-switch/page-reload reconnects clear this within seconds via
+    ``mark_connected``, so this only reaps genuinely dropped clients.
+    """
+    now = datetime.now(timezone.utc)
+    to_kill = []
+    for sid, s in _sessions.items():
+        if not _is_alive(s):
+            to_kill.append(sid)
+        elif s.disconnected_at is not None:
+            idle = (now - s.disconnected_at).total_seconds()
+            if idle > ORPHAN_GRACE_PERIOD_SECONDS:
+                to_kill.append(sid)
+    for sid in to_kill:
         kill_session(sid)
+
+
+def mark_connected(session_id: str) -> None:
+    """Clear the disconnect timer — a client has attached to this session."""
+    session = _sessions.get(session_id)
+    if session:
+        session.disconnected_at = None
+
+
+def mark_disconnected(session_id: str) -> None:
+    """Start the disconnect timer — no client is currently attached."""
+    session = _sessions.get(session_id)
+    if session:
+        session.disconnected_at = datetime.now(timezone.utc)
