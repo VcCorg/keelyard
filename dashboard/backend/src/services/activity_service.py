@@ -106,7 +106,7 @@ def get_activity_stats() -> ActivityStats:
         from agentic_cli.tracker import get_activity_summary
         summary = get_activity_summary()
         return ActivityStats(
-            total_commands=summary.get("total", 0),
+            total_commands=summary.get("total_actions", 0),
             total_errors=summary.get("errors", 0),
             commands_by_type=summary.get("commands", {}),
             last_activity=summary.get("last_activity"),

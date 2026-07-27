@@ -64,3 +64,28 @@ def test_tracker_get_activity_accepts_audit_filters(tracker):
     rows = tracker.get_activity(source="dashboard", actor="carol@example.com",
                                 entity_type="mcp", limit=10)
     assert len(rows) == 1 and rows[0]["entity_id"] == "remote-1"
+
+
+def test_get_activity_stats_reads_tracker_keys(tracker):
+    """Regression: the service must read the tracker's ``total_actions`` key.
+
+    A prior version read ``summary.get("total", …)`` which never existed on
+    the tracker payload, so the Dashboard Activity card always showed 0.
+    """
+    from src.services import activity_service as svc
+
+    # Nothing recorded yet — still returns a well-formed object with zeros.
+    empty = svc.get_activity_stats()
+    assert empty.total_commands == 0
+    assert empty.total_errors == 0
+    assert empty.last_activity is None
+
+    tracker.record_action("code", "onboard", source="dashboard")
+    tracker.record_action("skill", "trial", source="cli", status="error")
+    tracker.record_action("kg", "ingest", source="dashboard")
+
+    stats = svc.get_activity_stats()
+    assert stats.total_commands == 3
+    assert stats.total_errors == 1
+    assert stats.last_activity is not None
+    assert stats.commands_by_type.get("code") == 1
