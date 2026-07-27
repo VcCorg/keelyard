@@ -208,6 +208,7 @@ async function terminalRoundTrip() {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ cols: 100, rows: 30, title: "smoke" }),
+    signal: AbortSignal.timeout(10000),
   });
   if (create.status !== 200) return fail("terminal create", `status ${create.status}`);
   const { id } = await create.json();
@@ -225,7 +226,17 @@ async function terminalRoundTrip() {
     ws.binaryType = "arraybuffer";
     let out = "";
     let sent = false;
+    // Periodic progress so a hang is diagnosable while it's happening, not
+    // just from a final 800-byte tail: distinguishes "silent before any
+    // output" (e.g. slow/hung shell startup) from "sent but no marker back"
+    // (e.g. backend not forwarding input) from "totally dead".
+    const startedAt = Date.now();
+    const progressTimer = setInterval(() => {
+      const elapsed = ((Date.now() - startedAt) / 1000).toFixed(0);
+      console.log(`    … ${elapsed}s: ${out.length} bytes received, sent=${sent}`);
+    }, 5000);
     const timer = setTimeout(() => {
+      clearInterval(progressTimer);
       ws.close();
       // Return the last chunk of output so failures show WHY (blank prompt,
       // profile-script noise, etc.) instead of just "false".
@@ -254,12 +265,14 @@ async function terminalRoundTrip() {
       // suppresses the keystroke echo through ConPTY.
       if (sent && out.includes(marker)) {
         clearTimeout(timer);
+        clearInterval(progressTimer);
         ws.close();
         resolve({ ok: true });
       }
     };
     ws.onerror = () => {
       clearTimeout(timer);
+      clearInterval(progressTimer);
       resolve({ ok: false, out: out.slice(-800) });
     };
   });
@@ -269,7 +282,14 @@ async function terminalRoundTrip() {
     fail("terminal PTY round-trip",
       result.out ? `no marker after 25s; last 800 bytes:\n${result.out}` : "no output");
   }
-  await fetch(`${BASE}/api/terminal/sessions/${id}`, { method: "DELETE" }).catch(() => {});
+  // Always bounded: an unresponsive backend must not prevent this function
+  // from returning, or the outer try/finally that kills the backend process
+  // (and thus this whole script) never runs — see terminal PTY round-trip
+  // root cause notes.
+  await fetch(`${BASE}/api/terminal/sessions/${id}`, {
+    method: "DELETE",
+    signal: AbortSignal.timeout(5000),
+  }).catch(() => {});
 }
 
 function runCli(args, expectInOutput, timeoutMs = 120000) {
