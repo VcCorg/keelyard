@@ -296,11 +296,37 @@ def _write_windows(session: TerminalSession, data: bytes) -> bool:
 
 
 def _read_windows(session: TerminalSession, max_bytes: int) -> Optional[bytes]:
+    """Read from a pywinpty PTY without freezing the asyncio event loop.
+
+    Tries ``read(max_bytes, blocking=False)`` first (some pywinpty releases
+    support this and it's the cheapest path when available). The pinned
+    version here — pywinpty 3.0.5 — does NOT: its ``PtyProcess.read(self,
+    size=1024)`` takes no ``blocking`` kwarg and does a plain blocking
+    ``socket.recv()`` (confirmed by reading the installed
+    ``winpty/ptyprocess.py`` source), so that call raises ``TypeError`` and
+    we fall back to the plain ``read()``. That fallback is still safe:
+    ``_create_session_windows`` calls ``proc.fileobj.settimeout(0.2)`` at
+    spawn time, so the "blocking" read can never actually block longer than
+    ~200ms — it raises ``socket.timeout`` instead, which we treat as an
+    idle poll tick. Combined with ``asyncio.to_thread`` at the call site
+    (api/terminal.py), this guarantees the event loop is never wedged
+    waiting on shell output, regardless of which pywinpty version is
+    installed.
+    """
     import socket
     try:
-        text = session.handle.read(max_bytes)
+        text = session.handle.read(max_bytes, blocking=False)
+    except TypeError:
+        try:
+            text = session.handle.read(max_bytes)
+        except socket.timeout:
+            return b""  # idle poll tick — not death
+        except EOFError:
+            return None
+        except Exception:
+            return None
     except socket.timeout:
-        return b""  # idle poll tick — not death; must be checked before Exception
+        return b""
     except EOFError:
         return None
     except Exception:
