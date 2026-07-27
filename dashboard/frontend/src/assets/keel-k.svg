@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Keel K monogram: the stem descends through the waterline and becomes the
+     keel fin. Upper leg sits above the surface (sail-side); the lower leg
+     lives below alongside the fin (governance-side). Uses currentColor for
+     the K itself so consumers can theme it; the waterline stays sea-glass. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 130" role="img" aria-label="Keel">
+  <path d="M 0 66 L 8 66 M 30 66 L 96 66"
+        stroke="#89B7D3" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <path d="M 12 8 L 26 8 L 26 66 L 12 66 Z" fill="currentColor"/>
+  <path d="M 12 66 L 26 66 C 25 82, 22 102, 20 124 L 18 124 C 15 102, 12 82, 12 66 Z"
+        fill="currentColor"/>
+  <path d="M 26 44 L 66 8 L 80 8 L 26 62 Z" fill="currentColor"/>
+  <path d="M 26 70 L 66 124 L 80 124 L 26 88 Z" fill="currentColor"/>
+</svg>
