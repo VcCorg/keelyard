@@ -192,3 +192,9 @@ settings.local.py
 
 # Brainstorming visual companion
 .superpowers/
+
+# Site-specific guardrail terms (never committed — see scripts/check-no-company-data.sh)
+.guardterms
+
+# Identity mapping for history rewrite (never committed — see scripts/rewrite-history.sh)
+.mailmap-local

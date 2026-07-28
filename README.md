@@ -158,8 +158,9 @@ Fallback order: **cloud → local → built-in → test mode.**
 
 ## Preventing internal/company data in commits
 
-This repo ships a guard that blocks commits containing company-specific data
-(internal hostnames, usernames), real domain/KG data files, and secret formats.
+This repo ships a guard that blocks commits containing secret formats (private
+keys, AWS/Google/GitHub/Slack tokens), real domain/KG data files, and any
+site-specific terms you configure.
 
 Enable the version-controlled hook once per clone:
 
@@ -172,6 +173,24 @@ git config core.hooksPath .githooks
 - Real domain data (`skills/domains/cwow-*/`, `kg-infrastructure/docs/CWOW_*|SNF_*`,
   `graphify-out/`, `knowledge-export/`) is git-ignored and stays local.
 - Emergency bypass (discouraged): `ALLOW_COMPANY_DATA=1 git commit ...`
+
+### Site-specific terms
+
+Terms like an employer name or an internal username are **injected, never
+committed** — otherwise the guard file would itself disclose the very strings
+it exists to catch. Provide them either way:
+
+```bash
+# Option 1 — env var (CI injects this from a repo secret)
+export KEEL_GUARD_TERMS="acme,jdoe"
+
+# Option 2 — a git-ignored file at the repo root, one term per line
+printf 'acme\njdoe\n' > .guardterms
+```
+
+With neither configured the guard still runs and still enforces every generic
+secret/key pattern; it simply skips the site-specific terms. That is the right
+default for outside contributors, who have no internal terms to leak.
 
 ## Development
 
