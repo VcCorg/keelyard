@@ -70,7 +70,19 @@ function startBackend(port: number): void {
   }
   log(`Starting backend: ${exe} --port ${port}`);
   backend = spawn(exe, ["--host", "127.0.0.1", "--port", String(port)], {
-    env: { ...process.env, KEEL_SERVE_FRONTEND: frontendDir, KEEL_AUTH_MODE: "dev" },
+    env: {
+      ...process.env,
+      KEEL_SERVE_FRONTEND: frontendDir,
+      KEEL_AUTH_MODE: "dev",
+      // Force UTF-8 stdio + file I/O for the frozen Python sidecar. On
+      // Windows Python otherwise defaults to cp1252, which makes any CLI
+      // output containing a checkmark or box-drawing char die with
+      // UnicodeEncodeError. PYTHONUTF8=1 only takes effect when set BEFORE
+      // the interpreter starts, so setting it here (before spawn) is exactly
+      // what we need. See PEP 540.
+      PYTHONUTF8: "1",
+      PYTHONIOENCODING: "utf-8",
+    },
     stdio: ["ignore", "pipe", "pipe"],
   });
   backend.stdout?.on("data", (d) => log(`[backend] ${d.toString().trimEnd()}`));
