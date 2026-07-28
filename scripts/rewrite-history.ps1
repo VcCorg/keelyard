@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Rewrite git author/committer identities across ALL history, in preparation
     for publishing this repository publicly. PowerShell port of
@@ -45,11 +45,31 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# PowerShell 7.3+ can turn a non-zero native exit code into a terminating error.
+# This script probes exit codes deliberately (`git show-ref --verify` to test
+# whether a branch exists), so that behaviour must be off. Declared at SCRIPT
+# scope: preference variables resolve up the scope chain, so this applies
+# throughout the script without mutating the caller's global state. Harmless
+# on 5.1, where the variable is simply unused.
+$PSNativeCommandUseErrorActionPreference = $false
+
 # Native commands do not honour $ErrorActionPreference consistently across
 # PowerShell 5.1 and 7.x, so exit codes are checked explicitly throughout.
 function Invoke-Git {
     param([Parameter(Mandatory)][string[]]$GitArgs, [switch]$Quiet)
-    $output = & git @GitArgs 2>&1
+    # git writes progress to stderr even when it SUCCEEDS ("Cloning into ...").
+    # With `2>&1` those lines become ErrorRecord objects, and under
+    # $ErrorActionPreference='Stop' PowerShell promotes them to terminating
+    # errors - failing the script on a perfectly good clone. Relax the
+    # preference for the duration of the native call and judge success solely
+    # by $LASTEXITCODE.
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $output = & git @GitArgs 2>&1
+    } finally {
+        $ErrorActionPreference = $prev
+    }
     if ($LASTEXITCODE -ne 0) {
         throw "git $($GitArgs -join ' ') failed (exit $LASTEXITCODE):`n$($output -join "`n")"
     }
@@ -193,9 +213,11 @@ try {
             $line = $line.Trim()
             if (-not $line -or $line.StartsWith('#')) { continue }
             # The old address is the LAST <...> on a mailmap line.
-            $matches = [regex]::Matches($line, '<([^>]*)>')
-            if ($matches.Count -eq 0) { continue }
-            $old = $matches[$matches.Count - 1].Groups[1].Value
+            # NB: do not name this $matches - that is a PowerShell automatic
+            # variable and assigning to it misbehaves under Set-StrictMode.
+            $found = [regex]::Matches($line, '<([^>]*)>')
+            if ($found.Count -eq 0) { continue }
+            $old = $found[$found.Count - 1].Groups[1].Value
             if (-not $old) { continue }
             $hits = @($all | Where-Object { $_ -and $_.Contains($old) }).Count
             if ($hits -gt 0) {
