@@ -134,7 +134,7 @@ try {
     # Iterate FULL refnames: %(refname:short) renders refs/remotes/origin/HEAD
     # as plain "origin", which would create a junk branch of that name.
     Write-Host "==> Promoting remote branches to local branches..."
-    $remoteRefs = & git for-each-ref --format='%(refname)' refs/remotes/
+    $remoteRefs = @(& git for-each-ref --format='%(refname)' refs/remotes/)
     foreach ($full in $remoteRefs) {
         $full = $full.Trim()
         if (-not $full -or $full.EndsWith('/HEAD')) { continue }
@@ -154,14 +154,18 @@ try {
     # --- 5b. Optionally restrict to a subset of branches ---------------------
     if ($Branches) {
         Write-Host "==> Restricting to branches: $Branches"
-        $keep = $Branches.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+        # @(...) is REQUIRED: a pipeline yielding one item collapses to a
+        # scalar string, and $keep[0] would then index the first CHARACTER
+        # ("main" -> "m") rather than the first element.
+        $keep = @($Branches.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+        if ($keep.Count -eq 0) { Fail "-Branches was given but resolved to no branch names" }
         foreach ($b in $keep) {
             & git show-ref --verify --quiet "refs/heads/$b"
             if ($LASTEXITCODE -ne 0) { Fail "branch not found in clone: $b" }
         }
         # Detach so the checked-out branch can be deleted if it is not kept.
         Invoke-Git @('checkout', '--quiet', '--detach') -Quiet
-        $localRefs = & git for-each-ref --format='%(refname:short)' refs/heads/
+        $localRefs = @(& git for-each-ref --format='%(refname:short)' refs/heads/)
         foreach ($b in $localRefs) {
             $b = $b.Trim()
             if (-not $b -or ($keep -contains $b)) { continue }
