@@ -26,8 +26,11 @@
 #     2. .mailmap-local     — same content, git-ignored, at the repo root
 #
 #   Then:
-#     bash scripts/rewrite-history.sh [output-dir]
+#     bash scripts/rewrite-history.sh [--branches main[,other]] [output-dir]
 #
+#   --branches  Keep ONLY these branches; all others are deleted before the
+#               rewrite, so commits reachable only from them are pruned too.
+#               Recommended for publishing: --branches main
 #   Default output-dir is ../<repo>-rewritten
 #
 # AFTERWARDS
@@ -40,9 +43,28 @@ set -euo pipefail
 
 SRC="$(git rev-parse --show-toplevel)"
 REPO_NAME="$(basename "$SRC")"
-OUT="${1:-$(dirname "$SRC")/${REPO_NAME}-rewritten}"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
+
+KEEP_BRANCHES=""
+OUT=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --branches)
+      [[ -n "${2:-}" ]] || die "--branches requires a value, e.g. --branches main"
+      KEEP_BRANCHES="$2"; shift 2 ;;
+    --branches=*)
+      KEEP_BRANCHES="${1#*=}"; shift ;;
+    -h|--help)
+      sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -*)
+      die "unknown option: $1" ;;
+    *)
+      [[ -n "$OUT" ]] && die "unexpected extra argument: $1"
+      OUT="$1"; shift ;;
+  esac
+done
+OUT="${OUT:-$(dirname "$SRC")/${REPO_NAME}-rewritten}"
 
 # --- 1. Resolve the identity mapping (never committed) -----------------------
 MAP=""
@@ -100,6 +122,31 @@ done < <(git for-each-ref --format='%(refname)' refs/remotes/)
 
 # Drop the origin pointing back at the source so nothing can be pushed there.
 git remote remove origin 2>/dev/null || true
+
+# --- 4b. Optionally restrict to a subset of branches -------------------------
+# Publishing usually wants main ONLY: merged feature branches are noise in a
+# public repo. Deleting the other refs before filter-repo runs also makes
+# filter-repo prune commits reachable only from them, so their history is
+# genuinely dropped rather than merely unreferenced.
+if [[ -n "$KEEP_BRANCHES" ]]; then
+  echo "==> Restricting to branches: $KEEP_BRANCHES"
+  IFS=',' read -r -a _keep <<< "$KEEP_BRANCHES"
+  for b in "${_keep[@]}"; do
+    b="${b//[[:space:]]/}"
+    git show-ref --verify --quiet "refs/heads/$b" || die "branch not found in clone: $b"
+  done
+  # Detach HEAD so the branch it points at can be deleted if it is not kept.
+  git checkout --quiet --detach
+  while IFS= read -r b; do
+    keep=0
+    for k in "${_keep[@]}"; do [[ "$b" == "${k//[[:space:]]/}" ]] && keep=1; done
+    if [[ "$keep" -eq 0 ]]; then
+      git branch -D "$b" >/dev/null 2>&1 && echo "    - dropped $b"
+    fi
+  done < <(git for-each-ref --format='%(refname:short)' refs/heads/)
+  # Re-attach HEAD to the first kept branch.
+  git checkout --quiet "${_keep[0]//[[:space:]]/}"
+fi
 
 echo "==> Branches to be rewritten:"
 git branch --format='    %(refname:short)'
