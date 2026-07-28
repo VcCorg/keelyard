@@ -15,24 +15,45 @@ if [[ "${ALLOW_COMPANY_DATA:-0}" == "1" ]]; then
   exit 0
 fi
 
-# Company/user identifiers are assembled from fragments so this guard file does
-# not itself contain the literal strings it searches for (keeps it clean and
-# safe from history --replace-text rewrites).
-_CO="da"; _CO="${_CO}vita"       # company name
-_US="vch"; _US="${_US}inta"      # internal username
+# Site-specific terms (company names, internal usernames, internal domains) are
+# INJECTED — never committed. Previously they were assembled from string
+# fragments in this file, which meant anyone reading the script could trivially
+# reconstruct them; in a public repo that discloses exactly what the guard
+# exists to protect. Sources, checked in order:
+#
+#   1. $KEEL_GUARD_TERMS   comma-separated, e.g. "acme,jdoe" (CI injects via secrets)
+#   2. .guardterms         one term per line, git-ignored (local clones)
+#
+# With neither present, the site-specific checks are skipped and only the
+# generic secret/key patterns below run. That is the correct default for
+# outside contributors, who have no internal terms to leak.
+GUARD_TERMS=()
+if [[ -n "${KEEL_GUARD_TERMS:-}" ]]; then
+  IFS=',' read -r -a GUARD_TERMS <<< "${KEEL_GUARD_TERMS}"
+elif [[ -f "$(git rev-parse --show-toplevel 2>/dev/null)/.guardterms" ]]; then
+  while IFS= read -r line; do
+    line="${line%%#*}"                            # strip comments
+    line="$(echo "$line" | tr -d '[:space:]')"    # strip whitespace
+    [[ -n "$line" ]] && GUARD_TERMS+=("$line")
+  done < "$(git rev-parse --show-toplevel)/.guardterms"
+fi
 
-# HARD patterns — always block (company data + real secret formats).
+# HARD patterns — always block (real secret formats).
 # NOTE: 'keel' alone is the CLI/product name and is intentionally NOT blocked.
 HARD_PATTERNS=(
-  "\\b${_CO}\\b"                                  # company name (any case)
-  "\\b${_US}\\b"                                  # internal username
-  "\\.${_CO}\\.(com|net|org)"                     # internal hostnames
   'BEGIN (RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY'
   'AKIA[0-9A-Z]{16}'                             # AWS access key id
   'AIza[0-9A-Za-z_-]{30,}'                       # Google API key
   'gh[pousr]_[A-Za-z0-9]{30,}'                   # GitHub token
   'xox[baprs]-[A-Za-z0-9-]{20,}'                 # Slack token
 )
+
+# Add a bare-word and a hostname pattern for each injected term.
+for _t in ${GUARD_TERMS+"${GUARD_TERMS[@]}"}; do
+  [[ -z "$_t" ]] && continue
+  HARD_PATTERNS+=("\\b${_t}\\b")                  # term as a whole word (any case)
+  HARD_PATTERNS+=("\\.${_t}\\.(com|net|org)")     # internal hostnames
+done
 
 # SECRET patterns — likely hardcoded credentials. Filtered by PLACEHOLDER below
 # so documented .env.example placeholders do not trip the guard.
@@ -50,8 +71,8 @@ PATH_PATTERNS='^(skills/domains/cwow-|kg-infrastructure/docs/(CWOW_|SNF_)|kg-inf
 HARD_REGEX=$(IFS='|'; echo "${HARD_PATTERNS[*]}")
 SECRET_REGEX=$(IFS='|'; echo "${SECRET_PATTERNS[*]}")
 
-# Skip binary/vendored/large-noise paths, and this guard script itself (it must
-# contain the very patterns it searches for).
+# Skip binary/vendored/large-noise paths, and this guard script itself (it
+# contains the detection regexes, which can resemble what they match).
 SKIP='(^|/)(node_modules|dist|build|\.venv|venv)/|package-lock\.json$|\.(html|png|jpg|jpeg|gif|pdf|ico|lock)$|scripts/check-no-company-data\.sh$'
 
 violations=0
