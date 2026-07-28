@@ -200,6 +200,48 @@ try {
         [System.IO.File]::WriteAllText(
             $mailmap, $normalized, (New-Object System.Text.UTF8Encoding $false))
 
+        # --- 6b. Pre-flight: does each mapping actually MATCH this repo? ------
+        # Without this, a mapping containing a placeholder or a typo rewrites
+        # nothing, and the post-rewrite check then "passes" because the bogus
+        # address was never in the history to begin with - reporting success
+        # while leaving every real address exposed. Record before-counts so the
+        # final check can require present-before AND absent-after.
+        $preAll = @(& git log --all --format='%ae%n%ce')
+        $expected = @()   # list of @{ Old = <addr>; Before = <count> }
+        foreach ($line in ($normalized -split "`n")) {
+            $line = $line.Trim()
+            if (-not $line -or $line.StartsWith('#')) { continue }
+            $found = [regex]::Matches($line, '<([^>]*)>')
+            if ($found.Count -eq 0) { continue }
+            $old = $found[$found.Count - 1].Groups[1].Value
+            if (-not $old) { continue }
+
+            if ($old -match '(?i)paste|_here|changeme|oldcompany|example\.com|your[-_.]') {
+                Fail @"
+the identity mapping still contains placeholder text: '$old'
+  Edit .mailmap-local (or `$env:KEEL_REWRITE_MAP) and put your REAL old address there.
+  Find it with:  git log --all --format='%ae' | Sort-Object -Unique
+"@
+            }
+
+            $n = @($preAll | Where-Object { $_ -and $_.Contains($old) }).Count
+            if ($n -eq 0) {
+                $present = ($preAll | Sort-Object -Unique) -join "`n      "
+                Fail @"
+the mapping's old address matched NOTHING in this repository: '$old'
+  Nothing would be rewritten. This is almost always a typo or a leftover
+  placeholder. Addresses actually present in this history:
+      $present
+"@
+            }
+            $expected += @{ Old = $old; Before = $n }
+            Write-Host "==> Mapping will rewrite $n commit reference(s) for: $old"
+        }
+        if ($expected.Count -eq 0) {
+            Fail "no usable mapping lines found (need: Name <new> <old>)"
+        }
+        Write-Host ""
+
         Write-Host "==> Rewriting all commits..."
         & git filter-repo --mailmap $mailmap --force
         if ($LASTEXITCODE -ne 0) { Fail "git filter-repo failed (exit $LASTEXITCODE)" }
@@ -210,25 +252,22 @@ try {
             ForEach-Object { Write-Host ("    {0,5}  {1}" -f $_.Count, $_.Name) }
 
         # --- 9. Verify the scrubbed addresses are gone -----------------------
+        # Checked against the recorded before-count, so "absent after" counts
+        # as success only when the address was actually PRESENT before. An
+        # address that never matched cannot certify a no-op rewrite.
         Write-Host "`n==> Verifying old addresses no longer appear anywhere in history..."
         $failed = $false
-        $all = & git log --all --format='%ae%n%ce'
-        foreach ($line in ($normalized -split "`n")) {
-            $line = $line.Trim()
-            if (-not $line -or $line.StartsWith('#')) { continue }
-            # The old address is the LAST <...> on a mailmap line.
-            # NB: do not name this $matches - that is a PowerShell automatic
-            # variable and assigning to it misbehaves under Set-StrictMode.
-            $found = [regex]::Matches($line, '<([^>]*)>')
-            if ($found.Count -eq 0) { continue }
-            $old = $found[$found.Count - 1].Groups[1].Value
-            if (-not $old) { continue }
-            $hits = @($all | Where-Object { $_ -and $_.Contains($old) }).Count
-            if ($hits -gt 0) {
-                Write-Host "    FAIL: $hits commit(s) still reference the old address"
+        $all = @(& git log --all --format='%ae%n%ce')
+        foreach ($e in $expected) {
+            $after = @($all | Where-Object { $_ -and $_.Contains($e.Old) }).Count
+            if ($after -gt 0) {
+                Write-Host "    FAIL: $after commit(s) still reference the old address"
+                $failed = $true
+            } elseif ($e.Before -eq 0) {
+                Write-Host "    FAIL: mapping never matched anything - nothing was rewritten"
                 $failed = $true
             } else {
-                Write-Host "    OK: old address fully removed"
+                Write-Host "    OK: $($e.Before) reference(s) rewritten, 0 remaining"
             }
         }
         if ($failed) { Fail "rewrite incomplete - do NOT publish this clone." }

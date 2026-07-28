@@ -158,9 +158,41 @@ echo "==> Identities BEFORE rewrite:"
   | sort | uniq -c | sort -rn | sed 's/^/    /'
 echo
 
+# --- 5b. Pre-flight: does each mapping actually MATCH this repo? --------------
+# Without this, a mapping containing a placeholder or a typo rewrites nothing,
+# and the post-rewrite check below then "passes" because the bogus address was
+# never in the history to begin with — reporting success while leaving every
+# real address exposed. Record the before-counts so the check can require that
+# each address was genuinely present and is genuinely gone.
+BEFORE_COUNTS="$(mktemp)"
+trap 'rm -f "$MAILMAP" "$BEFORE_COUNTS"' EXIT
+
+while IFS= read -r line; do
+  [[ -z "${line//[[:space:]]/}" || "$line" == \#* ]] && continue
+  old="$(echo "$line" | grep -o '<[^>]*>' | tail -1 | tr -d '<>')"
+  [[ -z "$old" ]] && continue
+  # Reject obvious placeholder text before doing any work.
+  if echo "$old" | grep -qiE 'paste|_here|changeme|oldcompany|<old|example\.com|your[-_.]'; then
+    die "the identity mapping still contains placeholder text: '$old'
+  Edit .mailmap-local (or \$KEEL_REWRITE_MAP) and put your REAL old address there.
+  Find it with:  git log --all --format='%ae' | sort -u"
+  fi
+  n=$({ git log --all --format='%ae'; git log --all --format='%ce'; } | grep -Fc "$old" || true)
+  printf '%s\t%s\n' "$n" "$old" >> "$BEFORE_COUNTS"
+  if [[ "$n" -eq 0 ]]; then
+    die "the mapping's old address matched NOTHING in this repository: '$old'
+  Nothing would be rewritten. This is almost always a typo or a leftover
+  placeholder. Addresses actually present in this history:
+$({ git log --all --format='%ae'; git log --all --format='%ce'; } | sort -u | sed 's/^/      /')"
+  fi
+  echo "==> Mapping will rewrite $n commit reference(s) for: $old"
+done <<< "$MAP"
+
+[[ -s "$BEFORE_COUNTS" ]] || die "no usable mapping lines found (need: Name <new> <old>)"
+echo
+
 # --- 6. Rewrite --------------------------------------------------------------
 MAILMAP="$(mktemp)"
-trap 'rm -f "$MAILMAP"' EXIT
 printf '%s\n' "$MAP" > "$MAILMAP"
 
 echo "==> Rewriting all commits..."
@@ -173,23 +205,27 @@ echo "==> Identities AFTER rewrite:"
   | sort | uniq -c | sort -rn | sed 's/^/    /'
 
 # --- 8. Verify the scrubbed addresses are actually gone ----------------------
+# Each address is checked against its recorded before-count, so "absent after"
+# only counts as success when the address was actually PRESENT before. An
+# address that never matched cannot silently certify a no-op rewrite.
 echo
 echo "==> Verifying old addresses no longer appear anywhere in history..."
 FAIL=0
-# Extract the old address from each mapping line: the LAST <...> on the line.
-while IFS= read -r line; do
-  [[ -z "${line//[[:space:]]/}" || "$line" == \#* ]] && continue
-  old="$(echo "$line" | grep -o '<[^>]*>' | tail -1 | tr -d '<>')"
+while IFS=$'\t' read -r before old; do
   [[ -z "$old" ]] && continue
-  hits=$({ git log --all --format='%ae'; git log --all --format='%ce'; } \
-          | grep -Fc "$old" || true)
-  if [[ "$hits" -gt 0 ]]; then
-    echo "    FAIL: $hits commit(s) still reference the old address" >&2
+  after=$({ git log --all --format='%ae'; git log --all --format='%ce'; } \
+           | grep -Fc "$old" || true)
+  if [[ "$after" -gt 0 ]]; then
+    echo "    FAIL: $after commit(s) still reference the old address" >&2
+    FAIL=1
+  elif [[ "$before" -eq 0 ]]; then
+    # Defensive: pre-flight should already have caught this.
+    echo "    FAIL: mapping never matched anything (was $before before) — nothing was rewritten" >&2
     FAIL=1
   else
-    echo "    OK: old address fully removed"
+    echo "    OK: $before reference(s) rewritten, 0 remaining"
   fi
-done <<< "$MAP"
+done < "$BEFORE_COUNTS"
 
 echo
 if [[ "$FAIL" -ne 0 ]]; then
