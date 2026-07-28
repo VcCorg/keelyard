@@ -163,38 +163,91 @@ def get_tool(name: str) -> CodeAssistTool:
     return tool
 
 
-def resolve_tool_name(name: Optional[str], default: str = "generic") -> str:
+def resolve_tool_name(
+    name: Optional[str],
+    default: str = "generic",
+    admin_default: Optional[str] = None,
+    enabled: Optional[list[str]] = None,
+) -> str:
     """Resolve a caller-supplied name into a registered tool name.
 
     ``None`` or ``"auto"`` triggers detection (env override → each tool's
-    ``detect()``). An unknown explicit name falls back to ``default`` after
-    logging a warning — never raises, so a stale config doesn't brick onboard.
+    ``detect()``). An unknown explicit name falls back to the admin's own
+    default (if any), then ``default`` — never raises, so a stale config
+    doesn't brick onboard.
+
+    ``admin_default`` — the platform admin's chosen default onboarding IDE
+    (from ``AppSettings.onboarding_ide.default``). Consulted after live
+    detection but before the hardcoded ``default`` fallback, so a tenant
+    that picked "cursor" gets Cursor when no IDE was auto-detected.
+
+    ``enabled`` — restrict detection to the admin's allow-list. A tool that
+    isn't in this list is skipped by ``detect_tool`` and refused by an
+    explicit name (falls through to admin_default / default).
     """
+    allow = _admin_allowlist(enabled)
+
     if name and name != "auto":
-        if name in _REGISTRY:
+        if name in _REGISTRY and (allow is None or name in allow):
             return name
-        # Unknown explicit — fall through to default; caller can log if needed.
-        return default if default in _REGISTRY else "generic"
-    return detect_tool(default)
+        # Not permitted by admin (or unknown). Fall through so we still return
+        # SOMETHING sensible instead of raising inside onboard.
+        return _fallback(admin_default, default, allow)
+
+    return detect_tool(default, admin_default=admin_default, enabled=allow)
 
 
-def detect_tool(default: str = "generic") -> str:
+def detect_tool(
+    default: str = "generic",
+    admin_default: Optional[str] = None,
+    enabled: Optional[list[str]] = None,
+) -> str:
     """Best-effort detection of the active code-assist tool.
 
     Order: explicit ``KEEL_CODE_ASSIST_TOOL`` env override → each registered
     tool's ``detect()`` predicate (non-deprecated first, deprecated last) →
-    ``default``.
+    ``admin_default`` (if valid) → ``default``. Tools not in ``enabled``
+    (when supplied) are skipped so a disabled IDE never wins auto-detection.
     """
+    allow = _admin_allowlist(enabled)
     override = os.environ.get("KEEL_CODE_ASSIST_TOOL", "").strip().lower()
-    if override and override in _REGISTRY:
+    if override and override in _REGISTRY and (allow is None or override in allow):
         return override
     for tool in list_tools():
+        if allow is not None and tool.name not in allow:
+            continue
         try:
             if tool.detect():
                 return tool.name
         except Exception:  # noqa: BLE001 — a broken detector must never crash callers
             continue
-    return default if default in _REGISTRY else "generic"
+    return _fallback(admin_default, default, allow)
+
+
+def _admin_allowlist(enabled: Optional[list[str]]) -> Optional[set[str]]:
+    """Normalize an admin ``enabled`` list into a set, or None for no filter."""
+    if enabled is None:
+        return None
+    return {str(n).strip().lower() for n in enabled if str(n).strip()}
+
+
+def _fallback(
+    admin_default: Optional[str],
+    default: str,
+    allow: Optional[set[str]],
+) -> str:
+    """Resolve terminal fallback: admin_default > default > 'generic'."""
+    for candidate in (admin_default, default, "generic"):
+        if not candidate:
+            continue
+        if candidate not in _REGISTRY:
+            continue
+        if allow is not None and candidate not in allow:
+            continue
+        return candidate
+    # Nothing usable — return the caller's default even if not registered, so
+    # error surfaces at the caller (get_tool()) with a clear message.
+    return default
 
 
 # ── Built-in tools ───────────────────────────────────────────────────────────
