@@ -80,8 +80,30 @@ echo "==> Cloning..."
 git clone --no-local --no-hardlinks "$SRC" "$OUT" >/dev/null 2>&1
 cd "$OUT"
 
+# `git clone` materialises a LOCAL branch only for HEAD; every other branch
+# exists solely as a remote-tracking ref. Removing the remote would delete
+# those refs, and filter-repo would then rewrite only the one branch it can
+# see — silently dropping main and everything else. So promote every remote
+# branch to a local branch FIRST, then drop the remote.
+# NOTE: iterate FULL refnames. `%(refname:short)` renders refs/remotes/origin/HEAD
+# as plain "origin", which slips past a *HEAD filter and would create a junk
+# local branch literally named "origin".
+echo "==> Promoting remote branches to local branches..."
+while IFS= read -r full; do
+  [[ -z "$full" || "$full" == */HEAD ]] && continue      # skip the symbolic HEAD
+  b="${full#refs/remotes/origin/}"
+  [[ -z "$b" || "$b" == "$full" ]] && continue           # not an origin/* ref
+  if ! git show-ref --verify --quiet "refs/heads/$b"; then
+    git branch "$b" "$full" >/dev/null 2>&1 && echo "    + $b"
+  fi
+done < <(git for-each-ref --format='%(refname)' refs/remotes/)
+
 # Drop the origin pointing back at the source so nothing can be pushed there.
 git remote remove origin 2>/dev/null || true
+
+echo "==> Branches to be rewritten:"
+git branch --format='    %(refname:short)'
+echo
 
 # --- 5. Identities BEFORE ----------------------------------------------------
 echo "==> Identities BEFORE rewrite:"
