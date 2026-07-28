@@ -154,6 +154,44 @@ export function Admin() {
     fetch("/api/execution/engines").then((r) => r.json()).then(setEngines).catch(() => setEngines([]));
   }, []);
 
+  // ── Onboarding-IDE tools (where `keel code onboard` places SKILL.md) ────
+  // Separate concept from Code assist tools (execution engines). Same
+  // enable/default UX so it feels familiar; two rails avoid conflating
+  // "who runs the code" with "which IDE reads the skills on disk".
+  const [ideTools, setIdeTools] = useState<
+    { name: string; label: string; description: string; deprecated: boolean; has_bridge: boolean }[]
+  >([]);
+  const [savingIde, setSavingIde] = useState(false);
+  const oi = settings.onboarding_ide;
+
+  useEffect(() => {
+    fetch("/api/execution/onboarding-ide-tools")
+      .then((r) => r.json())
+      .then(setIdeTools)
+      .catch(() => setIdeTools([]));
+  }, []);
+
+  const saveOnboardingIde = async (enabled: string[], def: string) => {
+    setSavingIde(true);
+    try {
+      await updateSettings({ onboarding_ide: { enabled, default: def } });
+    } finally {
+      setSavingIde(false);
+    }
+  };
+  const toggleIde = (name: string) => {
+    const on = oi.enabled.includes(name);
+    const enabled = on ? oi.enabled.filter((e) => e !== name) : [...oi.enabled, name];
+    if (enabled.length === 0) return; // Never leave the store with zero options
+    const def = enabled.includes(oi.default) ? oi.default : enabled[0];
+    saveOnboardingIde(enabled, def);
+  };
+  const setDefaultIde = (name: string) => {
+    if (name === oi.default) return;
+    const enabled = oi.enabled.includes(name) ? oi.enabled : [...oi.enabled, name];
+    saveOnboardingIde(enabled, name);
+  };
+
   const saveCodeAssist = async (enabled: string[], def: string) => {
     setSavingCA(true);
     try {
@@ -510,6 +548,83 @@ export function Admin() {
         <p className="text-[11px] text-gray-400">
           Devin runs a remote cloud session; VS Code + Copilot hands off a governed context bundle
           to your local editor. At least one tool stays enabled.
+        </p>
+      </AdminSection>
+
+      {/* ── Onboarding-IDE tools (SKILL.md placement layer) ───────────────── */}
+      <AdminSection
+        icon={Cpu}
+        title="Onboarding IDE tools"
+        hint="where `keel code onboard` places SKILL.md so the IDE reads it"
+        actions={savingIde ? <Loader2 className="h-4 w-4 animate-spin text-blue-400" /> : null}
+      >
+        <p className="text-sm text-gray-600 dark:text-gray-300">
+          Enable the IDE targets your team may pick, and make one the org default. Distinct from
+          the <strong>Code assist tools</strong> above (which pick the <em>execution engine</em>).
+          When <code className="font-mono text-xs">--code-assist-tool auto</code> is passed to
+          onboard, the default here wins if no live IDE is detected on the machine.
+        </p>
+        <div className="space-y-2">
+          {ideTools.length === 0 ? (
+            <p className="text-sm text-gray-400">No onboarding IDE tools registered.</p>
+          ) : (
+            ideTools.map((t) => {
+              const on = oi.enabled.includes(t.name);
+              const isDefault = oi.default === t.name;
+              return (
+                <div
+                  key={t.name}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg border p-3",
+                    isDefault
+                      ? "border-blue-300 dark:border-blue-800 bg-blue-50/40 dark:bg-blue-900/10"
+                      : "border-gray-200 dark:border-gray-800"
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    disabled={!canEdit || savingIde}
+                    onChange={() => toggleIde(t.name)}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">{t.label}</span>
+                      {t.deprecated && (
+                        <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                          deprecated
+                        </span>
+                      )}
+                      {t.has_bridge && (
+                        <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                          bridge
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-gray-400 truncate">{t.description}</p>
+                  </div>
+                  <button
+                    onClick={() => setDefaultIde(t.name)}
+                    disabled={!canEdit || savingIde || !on}
+                    className={cn(
+                      "text-xs px-2.5 py-1 rounded-md border transition-colors disabled:opacity-40",
+                      isDefault
+                        ? "border-blue-300 bg-blue-100 text-blue-700 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                        : "border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800"
+                    )}
+                  >
+                    {isDefault ? "default" : "make default"}
+                  </button>
+                </div>
+              );
+            })
+          )}
+        </div>
+        <p className="text-[11px] text-gray-400">
+          Deprecated tools (like Windsurf post-Devin migration) can still be enabled if a team
+          needs them, but a fresh <code className="font-mono text-xs">auto</code> detection never
+          picks one when a non-deprecated IDE is present. At least one tool stays enabled.
         </p>
       </AdminSection>
 
