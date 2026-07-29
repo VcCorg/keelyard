@@ -23,6 +23,17 @@ class CodeAssistModel(BaseModel):
     default: str = "vscode-copilot"
 
 
+class OnboardingIdeModel(BaseModel):
+    """Which onboarding-IDE targets are enabled, and the org default.
+
+    Separate concept from CodeAssistModel (execution engines) — this drives
+    where `keel code onboard` places SKILL.md on disk so the IDE reads it.
+    See agentic_cli/code_assist/ for the registry that resolves the names.
+    """
+    enabled: List[str] = ["devin", "cursor", "generic"]
+    default: str = "devin"
+
+
 class AdminSettingsModel(BaseModel):
     branding: BrandingModel = BrandingModel()
     nav_visibility: Dict[str, List[str]] = {}
@@ -32,6 +43,8 @@ class AdminSettingsModel(BaseModel):
     build_governance_default: str = "warn"
     # Vendor-neutral code-assist tools + org default engine.
     code_assist: CodeAssistModel = CodeAssistModel()
+    # Onboarding IDE targets (SKILL.md placement layer).
+    onboarding_ide: OnboardingIdeModel = OnboardingIdeModel()
 
 
 class AdminSettingsUpdate(BaseModel):
@@ -41,6 +54,7 @@ class AdminSettingsUpdate(BaseModel):
     skill_enforcement: Optional[str] = None
     build_governance_default: Optional[str] = None
     code_assist: Optional[CodeAssistModel] = None
+    onboarding_ide: Optional[OnboardingIdeModel] = None
 
 
 def _to_model(s) -> AdminSettingsModel:
@@ -50,6 +64,9 @@ def _to_model(s) -> AdminSettingsModel:
         skill_enforcement=s.skill_enforcement,
         build_governance_default=s.build_governance_default,
         code_assist=CodeAssistModel(enabled=s.code_assist.enabled, default=s.code_assist.default),
+        onboarding_ide=OnboardingIdeModel(
+            enabled=s.onboarding_ide.enabled, default=s.onboarding_ide.default,
+        ),
     )
 
 
@@ -185,6 +202,7 @@ def update_settings(update: AdminSettingsUpdate, actor: str | None = None) -> Ad
         skill_enforcement=update.skill_enforcement,
         build_governance_default=update.build_governance_default,
         code_assist=update.code_assist.model_dump() if update.code_assist else None,
+        onboarding_ide=update.onboarding_ide.model_dump() if update.onboarding_ide else None,
     )
     try:
         from agentic_cli.tracker import record_action
@@ -195,7 +213,8 @@ def update_settings(update: AdminSettingsUpdate, actor: str | None = None) -> Ad
                                "nav_ids": sorted((update.nav_visibility or {}).keys()),
                                "skill_enforcement": update.skill_enforcement,
                                "build_governance_default": update.build_governance_default,
-                               "code_assist": update.code_assist.model_dump() if update.code_assist else None})
+                               "code_assist": update.code_assist.model_dump() if update.code_assist else None,
+                               "onboarding_ide": update.onboarding_ide.model_dump() if update.onboarding_ide else None})
     except Exception:  # noqa: BLE001 - never break on audit
         pass
     return _to_model(s)
