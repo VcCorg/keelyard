@@ -38,6 +38,13 @@ const env = { ...process.env, HOME: fakeHome, USERPROFILE: fakeHome };
 for (const k of Object.keys(env)) {
   if (/^(PYTHON|VIRTUAL_ENV|CONDA)/i.test(k)) delete env[k];
 }
+// Re-add UTF-8 mode AFTER the strip. On Windows Python otherwise defaults to
+// cp1252 for stdio + open() — which makes any CLI output containing a
+// checkmark or box-drawing char fail with UnicodeEncodeError. PYTHONUTF8=1
+// only takes effect when set BEFORE the interpreter starts, so setting it
+// here (before spawn) is exactly what we need. See PEP 540.
+env.PYTHONUTF8 = "1";
+env.PYTHONIOENCODING = "utf-8";
 
 const PORT = 18734 + Math.floor(Math.random() * 1000);
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -201,39 +208,88 @@ async function terminalRoundTrip() {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ cols: 100, rows: 30, title: "smoke" }),
+    signal: AbortSignal.timeout(10000),
   });
   if (create.status !== 200) return fail("terminal create", `status ${create.status}`);
   const { id } = await create.json();
   ok(`terminal session created (${id})`);
 
   const marker = `KEEL_SMOKE_${Date.now()}`;
-  const sawMarker = await new Promise((resolve) => {
+  const isWin = process.platform === "win32";
+  // PowerShell on Windows takes ~3s to start (profile scripts, PSReadLine
+  // init) and drops any input sent before its prompt is ready. Wait for a
+  // prompt indicator, then send. bash/zsh are much faster but the wait
+  // costs almost nothing there either.
+  const promptRe = isWin ? /(?:PS[^\n]*>|>\s?$)/ : /[\$#]\s?$/;
+  const result = await new Promise((resolve) => {
     const ws = new WebSocket(`ws://127.0.0.1:${PORT}/api/terminal/sessions/${id}/ws`);
     ws.binaryType = "arraybuffer";
     let out = "";
+    let sent = false;
+    // Periodic progress so a hang is diagnosable while it's happening, not
+    // just from a final 800-byte tail: distinguishes "silent before any
+    // output" (e.g. slow/hung shell startup) from "sent but no marker back"
+    // (e.g. backend not forwarding input) from "totally dead".
+    const startedAt = Date.now();
+    const progressTimer = setInterval(() => {
+      const elapsed = ((Date.now() - startedAt) / 1000).toFixed(0);
+      console.log(`    … ${elapsed}s: ${out.length} bytes received, sent=${sent}`);
+    }, 5000);
     const timer = setTimeout(() => {
+      clearInterval(progressTimer);
       ws.close();
-      resolve(false);
-    }, 20000);
-    ws.onopen = () => ws.send(new TextEncoder().encode(`echo ${marker}\r`));
+      // Return the last chunk of output so failures show WHY (blank prompt,
+      // profile-script noise, etc.) instead of just "false".
+      resolve({ ok: false, out: out.slice(-800) });
+    }, 25000);
+    ws.onopen = () => {
+      // If we don't see a prompt within 5s (Unix mostly), send anyway.
+      setTimeout(() => {
+        if (!sent) {
+          sent = true;
+          ws.send(new TextEncoder().encode(`echo ${marker}\r`));
+        }
+      }, 5000);
+    };
     ws.onmessage = (ev) => {
       if (ev.data instanceof ArrayBuffer) out += new TextDecoder().decode(ev.data);
       else if (typeof ev.data === "string") out += ev.data;
-      // Marker appears once as the echoed keystrokes; require the OUTPUT line
-      // (2nd occurrence) to prove the shell actually executed the command.
-      if (out.split(marker).length > 2) {
+      // Once a prompt appears, send the command (only once).
+      if (!sent && promptRe.test(out)) {
+        sent = true;
+        ws.send(new TextEncoder().encode(`echo ${marker}\r`));
+      }
+      // The marker appearing at least ONCE proves the PTY is bidirectional:
+      // input reached the shell AND its output reached us. Requiring it
+      // twice (echo + output) is fragile on Windows — PSReadLine sometimes
+      // suppresses the keystroke echo through ConPTY.
+      if (sent && out.includes(marker)) {
         clearTimeout(timer);
+        clearInterval(progressTimer);
         ws.close();
-        resolve(true);
+        resolve({ ok: true });
       }
     };
     ws.onerror = () => {
       clearTimeout(timer);
-      resolve(false);
+      clearInterval(progressTimer);
+      resolve({ ok: false, out: out.slice(-800) });
     };
   });
-  sawMarker ? ok("terminal PTY round-trip (echo via WebSocket)") : fail("terminal PTY round-trip");
-  await fetch(`${BASE}/api/terminal/sessions/${id}`, { method: "DELETE" }).catch(() => {});
+  if (result.ok) {
+    ok("terminal PTY round-trip (echo via WebSocket)");
+  } else {
+    fail("terminal PTY round-trip",
+      result.out ? `no marker after 25s; last 800 bytes:\n${result.out}` : "no output");
+  }
+  // Always bounded: an unresponsive backend must not prevent this function
+  // from returning, or the outer try/finally that kills the backend process
+  // (and thus this whole script) never runs — see terminal PTY round-trip
+  // root cause notes.
+  await fetch(`${BASE}/api/terminal/sessions/${id}`, {
+    method: "DELETE",
+    signal: AbortSignal.timeout(5000),
+  }).catch(() => {});
 }
 
 function runCli(args, expectInOutput, timeoutMs = 120000) {

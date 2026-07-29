@@ -21,6 +21,7 @@ const DEFAULTS: AdminSettings = {
   skill_enforcement: "off",
   build_governance_default: "warn",
   code_assist: { enabled: ["vscode-copilot", "devin"], default: "vscode-copilot" },
+  onboarding_ide: { enabled: ["devin", "cursor", "generic"], default: "devin" },
 };
 
 interface AdminSettingsValue {

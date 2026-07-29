@@ -17,6 +17,8 @@ from src.services.terminal_service import (
     write_to_pty,
     read_from_pty,
     cleanup_dead_sessions,
+    mark_connected,
+    mark_disconnected,
 )
 
 logger = logging.getLogger(__name__)
@@ -101,13 +103,18 @@ async def terminal_ws(websocket: WebSocket, session_id: str):
         return
 
     await websocket.accept()
+    mark_connected(session_id)
     logger.info("Terminal WebSocket connected: %s", session_id)
 
     async def read_pty_loop():
         """Read PTY output and send to WebSocket."""
         try:
             while True:
-                data = read_from_pty(session_id)
+                # read_from_pty ultimately calls a blocking OS read (pywinpty's
+                # PtyProcess.read() is a blocking socket.recv()) — offload to a
+                # thread so a quiet shell can't freeze this single-threaded
+                # event loop and starve the sibling write_pty_loop task.
+                data = await asyncio.to_thread(read_from_pty, session_id)
                 if data is None:
                     # Session died
                     try:
@@ -164,4 +171,10 @@ async def terminal_ws(websocket: WebSocket, session_id: str):
         for task in pending:
             task.cancel()
     finally:
+        # Don't kill the session here — tab-switch/page-reload reconnects to
+        # the same session_id with a fresh websocket are a legitimate flow
+        # (see TerminalContext/TerminalView on the frontend). Just start the
+        # disconnect timer; cleanup_dead_sessions() reaps genuinely abandoned
+        # sessions after ORPHAN_GRACE_PERIOD_SECONDS.
+        mark_disconnected(session_id)
         logger.info("Terminal WebSocket closed: %s", session_id)

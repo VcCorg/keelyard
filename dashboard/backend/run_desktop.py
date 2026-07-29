@@ -12,6 +12,84 @@ thin ``keel`` wrappers into ``~/.keel/bin`` and prepend that to ``PATH``, so
 terminal sessions opened inside the desktop app can run ``keel …`` even though
 the recipient's machine has no Python at all.
 """
+# ─── UTF-8 stdio + file I/O (must run before any Rich / Typer import) ────────
+# On Windows the frozen interpreter defaults to cp1252 for both stdio and the
+# encoding-less `open()`. That means `console.print("✓ ...")` in the CLI dies
+# with `UnicodeEncodeError: 'charmap' codec can't encode character '✓'`,
+# and `open(path, "w").write(<text with a checkmark>)` in project scaffolding
+# dies with `'charmap' codec can't encode characters in position N`.
+#
+# Fix it once, at the top of the frozen entry, so every invocation path (the
+# uvicorn server AND `keel-backend cli ...` multi-call dispatch) inherits
+# UTF-8. Three layers:
+#   1. Reconfigure sys.stdout / sys.stderr to UTF-8.
+#   2. Force locale.getpreferredencoding to "utf-8" on Windows so `open()`
+#      without an explicit encoding uses UTF-8 too (this is what the CLI's
+#      project-scaffold and admin-doc writers rely on).
+#   3. Set PYTHONIOENCODING / PYTHONUTF8 in os.environ so any subprocess the
+#      CLI spawns (git, gh, pip, etc.) inherits UTF-8 as well.
+import os as _os
+import sys as _sys
+
+_os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+_os.environ.setdefault("PYTHONUTF8", "1")
+for _name in ("stdout", "stderr"):
+    _stream = getattr(_sys, _name, None)
+    if _stream is not None and hasattr(_stream, "reconfigure"):
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:  # noqa: BLE001 — must never brick startup
+            pass
+if _sys.platform == "win32":
+    import locale as _locale
+    # Monkey-patch getpreferredencoding so anything that CALLS it (Python
+    # code paths) sees UTF-8.
+    _locale.getpreferredencoding = lambda do_setlocale=True: "utf-8"
+
+    # HOWEVER — `io.open()` (the C implementation) does NOT go through
+    # locale.getpreferredencoding(). It reads the CPython C-level
+    # `_Py_GetLocaleEncoding()`, which on Windows returns cp1252 unless
+    # PYTHONUTF8=1 was set BEFORE Python started — and PyInstaller's
+    # bootstrap uses its own PyConfig, so setting PYTHONUTF8 in
+    # os.environ from inside Python doesn't retroactively enable UTF-8
+    # mode. That's why the previous fix worked for `console.print("✓")`
+    # (which goes through the reconfigured sys.stdout) but NOT for
+    # `Path.write_text(content)` in project scaffolding (which goes
+    # through io.open at the C level).
+    #
+    # Solution: wrap io.open / builtins.open / Path.read_text /
+    # Path.write_text to inject encoding='utf-8' whenever the caller
+    # didn't specify one and the mode is text. Catches every write site
+    # in agentic_cli (there are 100+) without a whack-a-mole audit.
+    import io as _io
+    import builtins as _builtins
+    import pathlib as _pathlib
+
+    _real_io_open = _io.open
+
+    def _utf8_open(file, mode="r", buffering=-1, encoding=None, errors=None,
+                   newline=None, closefd=True, opener=None):
+        if isinstance(mode, str) and "b" not in mode and encoding is None:
+            encoding = "utf-8"
+        return _real_io_open(file, mode, buffering, encoding, errors,
+                             newline, closefd, opener)
+
+    _io.open = _utf8_open
+    _builtins.open = _utf8_open
+
+    _real_write_text = _pathlib.Path.write_text
+    _real_read_text = _pathlib.Path.read_text
+
+    def _utf8_write_text(self, data, encoding=None, errors=None, newline=None):
+        return _real_write_text(self, data, encoding or "utf-8", errors, newline)
+
+    def _utf8_read_text(self, encoding=None, errors=None):
+        return _real_read_text(self, encoding or "utf-8", errors)
+
+    _pathlib.Path.write_text = _utf8_write_text
+    _pathlib.Path.read_text = _utf8_read_text
+# ─── /UTF-8 ──────────────────────────────────────────────────────────────────
+
 import argparse
 import os
 import sys

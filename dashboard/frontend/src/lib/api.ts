@@ -442,12 +442,21 @@ export interface CodeAssistConfig {
   default: string;
 }
 
+/** Onboarding-IDE tools = where `keel code onboard` writes SKILL.md so the
+ *  IDE reads it. Same shape as CodeAssistConfig but a distinct concept from
+ *  the execution engines above — see docs/GOVERNANCE_LAYERS.md. */
+export interface OnboardingIdeConfig {
+  enabled: string[];
+  default: string;
+}
+
 export interface AdminSettings {
   branding: AdminBranding;
   nav_visibility: Record<string, string[]>;
   skill_enforcement: "off" | "enforce";
   build_governance_default: "off" | "warn" | "enforce";
   code_assist: CodeAssistConfig;
+  onboarding_ide: OnboardingIdeConfig;
 }
 
 export interface BuildGovernanceInfo {
@@ -465,6 +474,15 @@ export interface AdminSettingsUpdate {
   skill_enforcement?: "off" | "enforce";
   build_governance_default?: "off" | "warn" | "enforce";
   code_assist?: CodeAssistConfig;
+  onboarding_ide?: OnboardingIdeConfig;
+}
+
+export interface OnboardingIdeTool {
+  name: string;
+  label: string;
+  description: string;
+  deprecated: boolean;
+  has_bridge: boolean;
 }
 
 export interface RoleAssignment {

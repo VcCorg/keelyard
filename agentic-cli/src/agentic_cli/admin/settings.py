@@ -49,6 +49,15 @@ DEFAULT_BUILD_GOVERNANCE = "warn"
 DEFAULT_CODE_ASSIST_ENABLED = ["vscode-copilot", "devin"]
 DEFAULT_CODE_ASSIST_DEFAULT = "vscode-copilot"
 
+# Onboarding-IDE tools — different concept from the execution engines above.
+# These control where `keel code onboard` places SKILL.md files on disk so the
+# IDE actually reads them (registry in agentic_cli/code_assist/). Windsurf is
+# NOT seeded post-migration; it can still be enabled but a fresh admin store
+# defaults to Devin + Cursor + generic. Tool names are validated against the
+# registry by callers; the store just persists the admin's picks.
+DEFAULT_ONBOARDING_IDE_ENABLED = ["devin", "cursor", "generic"]
+DEFAULT_ONBOARDING_IDE_DEFAULT = "devin"
+
 
 def _sanitize_enforcement(mode: object) -> str:
     """Coerce to a known enforcement mode (defaults to 'off')."""
@@ -89,6 +98,45 @@ def _sanitize_code_assist(raw: object) -> CodeAssist:
 
 
 @dataclass
+class OnboardingIde:
+    """Which onboarding-IDE targets are enabled, and the org default.
+
+    Names are validated against the code-assist registry
+    (``agentic_cli/code_assist/``) by callers — this dataclass just persists
+    the admin's picks. A tenant that adds a custom IDE via
+    :func:`agentic_cli.code_assist.register_tool` can then enable it here
+    without any core code change.
+    """
+    enabled: List[str] = field(default_factory=lambda: list(DEFAULT_ONBOARDING_IDE_ENABLED))
+    default: str = DEFAULT_ONBOARDING_IDE_DEFAULT
+
+
+def _sanitize_onboarding_ide(raw: object) -> OnboardingIde:
+    """Coerce persisted onboarding-IDE config; ensure default ∈ enabled.
+
+    Same shape as _sanitize_code_assist but keyed on the onboarding-IDE
+    registry. A missing / empty ``enabled`` reseeds from the built-in
+    defaults so a corrupt settings file never leaves the store with zero
+    installable IDEs.
+    """
+    if not isinstance(raw, dict):
+        return OnboardingIde()
+    seen: set = set()
+    enabled: List[str] = []
+    for x in raw.get("enabled") or []:
+        name = str(x).strip().lower()
+        if name and name not in seen:
+            seen.add(name)
+            enabled.append(name)
+    if not enabled:
+        enabled = list(DEFAULT_ONBOARDING_IDE_ENABLED)
+    default = str(raw.get("default") or "").strip().lower()
+    if default not in enabled:
+        default = enabled[0]
+    return OnboardingIde(enabled=enabled, default=default)
+
+
+@dataclass
 class Branding:
     app_title: str = DEFAULT_APP_TITLE   # top-left heading
     app_name: str = DEFAULT_APP_NAME     # top-left subtitle
@@ -105,13 +153,18 @@ class AppSettings:
     build_governance_default: str = DEFAULT_BUILD_GOVERNANCE
     # Vendor-neutral code-assist tools users may pick + the org default engine.
     code_assist: CodeAssist = field(default_factory=CodeAssist)
+    # Onboarding-IDE tools admins allow + the org default. Separate concept
+    # from `code_assist` (execution engines) — this drives WHERE `keel code
+    # onboard` places SKILL.md on disk. See agentic_cli/code_assist/.
+    onboarding_ide: OnboardingIde = field(default_factory=OnboardingIde)
 
     def to_dict(self) -> dict:
         return {"branding": asdict(self.branding),
                 "nav_visibility": self.nav_visibility,
                 "skill_enforcement": self.skill_enforcement,
                 "build_governance_default": self.build_governance_default,
-                "code_assist": asdict(self.code_assist)}
+                "code_assist": asdict(self.code_assist),
+                "onboarding_ide": asdict(self.onboarding_ide)}
 
 
 def _sanitize_roles(roles: List[str]) -> List[str]:
@@ -146,6 +199,7 @@ def load_settings(path: Optional[Path] = None) -> AppSettings:
         build_governance_default=_sanitize_build_governance(
             raw.get("build_governance_default")),
         code_assist=_sanitize_code_assist(raw.get("code_assist")),
+        onboarding_ide=_sanitize_onboarding_ide(raw.get("onboarding_ide")),
     )
 
 
@@ -215,12 +269,28 @@ def set_code_assist(enabled: Optional[List[str]] = None, default: Optional[str] 
     return s
 
 
+def set_onboarding_ide(enabled: Optional[List[str]] = None, default: Optional[str] = None,
+                       path: Optional[Path] = None) -> AppSettings:
+    """Set the enabled onboarding-IDE tools and/or the org default IDE.
+
+    Onboarding-IDE controls where `keel code onboard` places SKILL.md on
+    disk (not which execution engine runs the code — that's `code_assist`).
+    """
+    s = load_settings(path)
+    raw = {"enabled": enabled if enabled is not None else s.onboarding_ide.enabled,
+           "default": default if default is not None else s.onboarding_ide.default}
+    s.onboarding_ide = _sanitize_onboarding_ide(raw)
+    save_settings(s, path)
+    return s
+
+
 def update_settings(branding: Optional[dict] = None,
                     nav_visibility: Optional[Dict[str, List[str]]] = None,
                     replace_nav: bool = False,
                     skill_enforcement: Optional[str] = None,
                     build_governance_default: Optional[str] = None,
                     code_assist: Optional[dict] = None,
+                    onboarding_ide: Optional[dict] = None,
                     path: Optional[Path] = None) -> AppSettings:
     """Apply a partial update (used by the dashboard PUT)."""
     s = load_settings(path)
@@ -242,5 +312,9 @@ def update_settings(branding: Optional[dict] = None,
         merged = {"enabled": code_assist.get("enabled", s.code_assist.enabled),
                   "default": code_assist.get("default", s.code_assist.default)}
         s.code_assist = _sanitize_code_assist(merged)
+    if onboarding_ide is not None:
+        merged = {"enabled": onboarding_ide.get("enabled", s.onboarding_ide.enabled),
+                  "default": onboarding_ide.get("default", s.onboarding_ide.default)}
+        s.onboarding_ide = _sanitize_onboarding_ide(merged)
     save_settings(s, path)
     return s
