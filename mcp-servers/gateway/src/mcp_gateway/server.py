@@ -8,11 +8,12 @@ Supports both stdio and SSE transports (set MCP_TRANSPORT=sse for Docker).
 """
 
 import asyncio
+import inspect
 import json
 import logging
 import os
 import sys
-from typing import Any
+from typing import Any, Optional
 
 from mcp.server.fastmcp import FastMCP
 from mcp.client.sse import sse_client
@@ -121,6 +122,62 @@ async def _discover_tools(server_name: str, server_url: str) -> list[dict]:
         return []
 
 
+# ── Schema-to-signature helpers ──────────────────────────────────────────────
+
+_JSON_TYPE_MAP: dict[str, type] = {
+    "string": str,
+    "integer": int,
+    "number": float,
+    "boolean": bool,
+    "object": dict,
+    "array": list,
+}
+
+
+def _json_type_to_python(prop_info: dict) -> type:
+    """Convert a JSON-schema property descriptor to a Python type."""
+    jtype = prop_info.get("type")
+    if jtype and jtype in _JSON_TYPE_MAP:
+        return _JSON_TYPE_MAP[jtype]
+    # Handle anyOf / nullable unions
+    any_of = prop_info.get("anyOf", [])
+    if any_of:
+        non_null = [t for t in any_of if t.get("type") != "null"]
+        if non_null:
+            return _json_type_to_python(non_null[0])
+    return str  # safe default
+
+
+def _build_signature(tool_schema: dict) -> tuple[inspect.Signature, dict[str, type]]:
+    """Build an inspect.Signature and annotations dict from a JSON schema."""
+    properties = tool_schema.get("properties", {})
+    required_set = set(tool_schema.get("required", []))
+
+    params: list[inspect.Parameter] = []
+    annotations: dict[str, type] = {"return": str}
+
+    for pname, pinfo in properties.items():
+        py_type = _json_type_to_python(pinfo)
+        if pname in required_set:
+            param = inspect.Parameter(
+                pname, inspect.Parameter.KEYWORD_ONLY,
+                annotation=py_type,
+            )
+        else:
+            opt_type = Optional[py_type]  # type: ignore[valid-type]
+            param = inspect.Parameter(
+                pname, inspect.Parameter.KEYWORD_ONLY,
+                default=None, annotation=opt_type,
+            )
+        params.append(param)
+        annotations[pname] = param.annotation
+
+    return inspect.Signature(params, return_annotation=str), annotations
+
+
+# ── Proxy tool registration ─────────────────────────────────────────────────
+
+
 def _register_proxy_tool(
     server_name: str,
     server_url: str,
@@ -148,7 +205,10 @@ def _register_proxy_tool(
     if param_lines:
         full_description += "\n\nArgs:\n" + "\n".join(param_lines)
 
-    # Create the async proxy function using a factory to capture closure vars
+    # Build a proper function signature from the upstream schema so FastMCP
+    # generates the correct parameter model (not a single 'kwargs' wrapper).
+    sig, annotations = _build_signature(tool_schema)
+
     def _make_proxy(url: str, tool: str):
         async def proxy(**kwargs) -> str:
             call_args = {k: v for k, v in kwargs.items() if v is not None}
@@ -158,6 +218,8 @@ def _register_proxy_tool(
     fn = _make_proxy(server_url, tool_name)
     fn.__name__ = namespaced_name
     fn.__doc__ = full_description
+    fn.__signature__ = sig
+    fn.__annotations__ = annotations
 
     try:
         mcp.tool(name=namespaced_name, description=full_description)(fn)
