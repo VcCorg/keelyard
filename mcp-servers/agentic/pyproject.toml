@@ -5,7 +5,7 @@ description = "Central MCP server for the Agentic Platform — domain management
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "mcp>=1.0.0",
+    "mcp>=1.0.0,<2.0.0",
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
 ]
