@@ -45,6 +45,7 @@ from agentic_cli.tracker import (
     register_workspace,
 )
 from agentic_cli import persona_workspace as pw
+from agentic_cli.commands.domain_template import template_app
 from agentic_cli.meta_repo.detector import detect_domain_meta_repo
 from agentic_cli.skill_generator import (
     ROLES,
@@ -57,6 +58,11 @@ domain_app = typer.Typer(
     help="Domain management — register domains within a product with Jira, Bitbucket, and Confluence links",
     rich_markup_mode=None,
 )
+
+# `domain template ...` — track a generated meta-repo against the template that
+# produced it (drift detection today; upgrade/promote build on it).
+domain_app.add_typer(template_app, name="template")
+
 console = Console()
 
 # Configuration directory and file

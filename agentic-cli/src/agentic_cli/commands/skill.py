@@ -16,11 +16,16 @@ from rich.table import Table
 from rich.tree import Tree
 from typing_extensions import Annotated
 
+from agentic_cli.commands.skill_upstream import upstream_app
 from agentic_cli.config import CLI_NAME
 from agentic_cli.tracker import record_activity, record_action
 
 console = Console()
 skill_app = typer.Typer(help="Create, list, and install Agent Skills (agentskills.io format)")
+
+# `skill upstream ...` — the inverse of a skill trial: promote skills a domain
+# authored into the shared registry so other domains inherit them.
+skill_app.add_typer(upstream_app, name="upstream")
 
 
 SKILL_TEMPLATE = '''---

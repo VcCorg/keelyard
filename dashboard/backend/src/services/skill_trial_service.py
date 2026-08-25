@@ -286,15 +286,15 @@ def _check_ai_review(skill_dir: Path, domain: str) -> tuple[TrialCheck, str]:
                           detail=f"Review unavailable ({str(e)[:80]})"), ""
 
 
-def evaluate_trial(skill_name: str, domain: str, persona: str,
-                   actor: Optional[str] = None,
-                   run_security: bool = True) -> TrialScorecard:
-    """Run the trial scorecard for a skill against a domain.
+def evaluate_skill_dir(skill_dir: Path, skill_name: str, domain: str,
+                       persona: str, actor: Optional[str] = None,
+                       run_security: bool = True) -> TrialScorecard:
+    """Score a skill folder wherever it lives (registry, domain repo, upload).
 
-    ``run_security`` toggles the SkillSpector scan — leads can skip it when the
-    scanner isn't installed or a skill is trusted (the check reports as skipped).
+    Split out from :func:`evaluate_trial` so the same scorecard can gate an
+    *upstream* promotion, where the skill is still in the domain repo and must
+    not be copied into the registry just to be scored.
     """
-    skill_dir = _skill_dir(skill_name)
     security = (_check_security(skill_dir) if run_security else
                 TrialCheck(name="Security scan", status="skipped",
                            detail="Disabled for this trial"))
@@ -327,6 +327,18 @@ def evaluate_trial(skill_name: str, domain: str, persona: str,
     return TrialScorecard(skill=skill_name, domain=domain, persona=persona,
                           verdict=verdict, checks=checks,
                           ai_provider=ai_provider, promotable=promotable)
+
+
+def evaluate_trial(skill_name: str, domain: str, persona: str,
+                   actor: Optional[str] = None,
+                   run_security: bool = True) -> TrialScorecard:
+    """Run the trial scorecard for a REGISTRY skill against a domain.
+
+    ``run_security`` toggles the SkillSpector scan — leads can skip it when the
+    scanner isn't installed or a skill is trusted (the check reports as skipped).
+    """
+    return evaluate_skill_dir(_skill_dir(skill_name), skill_name, domain,
+                              persona, actor=actor, run_security=run_security)
 
 
 def _resolve_domain_context_dir(domain: str) -> Optional[Path]:
@@ -485,6 +497,118 @@ def stage_uploaded_skill(skill_name: str, files: List[Tuple[str, str]],
         pass
 
     return UploadResult(skill=name, files=len(staged), registry=str(reg))
+
+
+# ── Upstream: promote a domain-authored skill INTO the registry ──────────────
+#
+# The mirror image of `promote_trial`. Where that pulls a registry skill down
+# into a domain, this pushes a skill the domain *authored* up into the shared
+# registry so every other domain inherits it. The heavy lifting (origin
+# classification, gate, registry upsert, branch/commit) lives in
+# `agentic_cli.skills_upstream`; this layer supplies the dashboard's strongest
+# available gate — the full trial scorecard — and the audit actor.
+
+
+class UpstreamCandidate(BaseModel):
+    name: str
+    origin: str
+    location: str
+    kind: str
+    description: str = ""
+    upstream_skill: str = ""
+    promotable: bool = False
+    reason: str = ""
+
+
+class UpstreamCandidates(BaseModel):
+    domain: str
+    domain_repo: str
+    registry: str
+    candidates: List[UpstreamCandidate] = []
+    promotable_count: int = 0
+
+
+class UpstreamPromoteResult(BaseModel):
+    skill: str
+    domain: str
+    kind: str
+    dest: str
+    files: int
+    branch: str = ""
+    commit: str = ""
+    committed: bool = False
+    pushed: bool = False
+    push_hint: str = ""
+    gate: List[str] = []
+
+
+def list_upstream_candidates(domain: str) -> UpstreamCandidates:
+    """Classify a domain's skills for promotion into the shared registry."""
+    from agentic_cli import skills_upstream as up
+    from agentic_cli.commands.code import _ensure_registry
+
+    registry = _ensure_registry()
+    repo, candidates = up.discover_for_domain(domain, registry=registry)
+    items = [UpstreamCandidate(**{k: v for k, v in c.to_dict().items()
+                                  if k != "path"})
+             for c in candidates]
+    return UpstreamCandidates(
+        domain=domain, domain_repo=str(repo), registry=str(registry),
+        candidates=items,
+        promotable_count=sum(1 for c in items if c.promotable),
+    )
+
+
+def _scorecard_gate(skill_name: str, domain: str, persona: str):
+    """Build a gate that runs the full trial scorecard on the domain's copy.
+
+    Scores the skill **in place** via :func:`evaluate_skill_dir`. Nothing is
+    written to the registry, so a failing gate (or a dry run) leaves the shared
+    registry — including an existing copy of the same skill — untouched.
+    """
+    def gate(skill_dir: Path) -> Tuple[bool, List[str]]:
+        card = evaluate_skill_dir(skill_dir, skill_name, domain, persona,
+                                  run_security=True)
+        notes = [f"{c.name}: {c.status}" for c in card.checks]
+        return card.promotable, notes + [f"verdict: {card.verdict}"]
+
+    return gate
+
+
+def promote_upstream(skill_name: str, domain: str, persona: str = "dev",
+                     push: bool = False, dry_run: bool = False,
+                     actor: Optional[str] = None) -> UpstreamPromoteResult:
+    """Promote a domain-authored skill into the shared registry (lead action).
+
+    Gated on the full trial scorecard. Commits on a
+    ``skill-promote/<domain>/<skill>`` branch; ``push`` is opt-in because the
+    registry is a reviewed, shared artifact.
+    """
+    from agentic_cli import skills_upstream as up
+    from agentic_cli.commands.code import _ensure_registry
+
+    registry = _ensure_registry()
+    repo, candidates = up.discover_for_domain(domain, registry=registry)
+    candidate = next((c for c in candidates if c.name == skill_name), None)
+    if candidate is None:
+        raise FileNotFoundError(
+            f"Skill '{skill_name}' not found in the '{domain}' context-meta repo")
+
+    try:
+        result = up.promote_to_registry(
+            candidate, domain, registry, domain_repo=repo,
+            gate=_scorecard_gate(skill_name, domain, persona),
+            push=push, dry_run=dry_run, actor=actor,
+        )
+    except up.PromotionError as e:
+        raise ValueError(str(e)) from e
+
+    return UpstreamPromoteResult(
+        skill=result.skill, domain=result.domain, kind=result.kind,
+        dest=str(result.dest), files=result.files, branch=result.branch,
+        commit=result.commit, committed=result.committed, pushed=result.pushed,
+        push_hint=result.push_hint, gate=result.gate,
+    )
 
 
 # ── LLM-as-judge impact evaluation (deep, on-demand) ─────────────────────────

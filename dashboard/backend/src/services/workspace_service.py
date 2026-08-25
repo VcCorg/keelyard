@@ -22,6 +22,10 @@ from typing import AsyncGenerator, Optional
 
 from pydantic import BaseModel
 
+# Safe at import time: template_service only reaches back into this module from
+# inside function bodies, so there is no import cycle.
+from src.services.template_service import TemplateDriftSummary
+
 
 # ── Models ───────────────────────────────────────────────────────────────────
 
@@ -45,6 +49,11 @@ class WorkspaceTarget(BaseModel):
     ready: bool = False             # registered workspace exists for this target
     needs: Optional[str] = None     # suggested action: "sync" | "open" | None
     hint: str = ""                  # human-readable guidance
+    # Template drift, populated only when explicitly requested: the check renders
+    # the whole template to compare against, which is too slow for every
+    # persona/context change. `ready` deliberately stays true for a drifted repo —
+    # it IS usable; it is just no longer the template it was generated from.
+    drift: Optional[TemplateDriftSummary] = None
 
 
 class OpenIdeResult(BaseModel):
@@ -115,8 +124,15 @@ def resolve_target(
     product: Optional[str] = None,
     domain: Optional[str] = None,
     repo: Optional[str] = None,
+    include_drift: bool = False,
 ) -> WorkspaceTarget:
-    """Resolve the folder a persona should open, and whether it's ready."""
+    """Resolve the folder a persona should open, and whether it's ready.
+
+    With ``include_drift``, a domain-tier target is also annotated with template
+    drift counts so the UI can show a `drifted` state. Off by default because the
+    check re-renders the template (seconds), and this function is on the hot path
+    of every persona/context change and of ``workflow_service``.
+    """
     pw = _pw()
     tier = PERSONA_TIER.get(persona)
     if not tier:
@@ -175,10 +191,18 @@ def resolve_target(
 
     exists = bool(path and Path(path).exists())
     ready = exists and needs is None
+
+    drift = None
+    if include_drift and tier == "domain" and exists and domain:
+        from src.services import template_service
+
+        drift = template_service.drift_summary(domain)
+
     return WorkspaceTarget(
         persona=persona, tier=tier,
         path=str(path) if path else None,
         exists=exists, ready=ready, needs=needs, hint=hint,
+        drift=drift,
     )
 
 
