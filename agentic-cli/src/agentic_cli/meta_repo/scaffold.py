@@ -10,6 +10,7 @@ import yaml
 
 from .config import DomainConfig, GovernanceConfig, RepoConfig, SkillsConfig
 from .git_utils import register_submodule, resolve_remote_shas
+from .template_manifest import write_manifest
 
 logger = logging.getLogger(__name__)
 
@@ -178,6 +179,28 @@ def scaffold_domain_meta_repo(
                 mcp_servers=load_workspace_mcp_servers(),
             )
             created["devin_blueprint"] = bp["environment"]
+
+        # Apply the template overlay LAST, so promoted improvements win over the
+        # built-in defaults written above — and BEFORE the manifest below, so
+        # overlay content is part of the recorded baseline. A fresh install has
+        # an empty overlay, making this a no-op.
+        from .template_overlay import apply_overlay
+
+        overlaid = apply_overlay(
+            meta_repo_path, domain=domain, product=product,
+            description=description, owner=owner,
+        )
+        if overlaid:
+            created["template_overlay"] = meta_repo_path
+            logger.debug("Applied %d template overlay file(s)", len(overlaid))
+
+        # Fingerprint the template that produced this repo (.platform/template.json)
+        # BEFORE the initial commit, so the baseline is versioned with the repo.
+        # This is what lets `keel domain template status` later tell a template
+        # update apart from a local edit.
+        created["template_manifest"] = write_manifest(
+            meta_repo_path, domain, product, description, owner
+        )
 
         # Initialize git repository if requested
         if git_init:
