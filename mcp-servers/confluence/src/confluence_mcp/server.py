@@ -318,7 +318,7 @@ def create_confluence_space(
     """Create a new Confluence space.
 
     Args:
-        key: Space key — uppercase letters/numbers, e.g. 'DVACWOW', 'DVAFAC'
+        key: Space key — uppercase letters/numbers, e.g. 'KEELCWOW', 'KEELFAC'
         name: Display name for the space (e.g. 'KEEL CWOW Facility')
         description: Optional space description
 
@@ -340,7 +340,7 @@ def create_confluence_page(
     """Create a new page in a Confluence space.
 
     Args:
-        space_key: Space key to create the page in (e.g. 'DVACWOW')
+        space_key: Space key to create the page in (e.g. 'KEELCWOW')
         title: Page title
         body: Page content in Confluence storage format (XHTML).
               Use <p>text</p> for paragraphs, <h1>/<h2> for headings,

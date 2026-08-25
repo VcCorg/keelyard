@@ -7,7 +7,7 @@ matching PR the first time we see it (subsequent updates re-emit only when
 the review-request sequence bumps).
 
 Data source is the MCP server — not a fresh Bitbucket API client — so:
-  * auth already lives in ~/.dva/.env alongside every other MCP,
+  * auth already lives in ~/.keel/.env alongside every other MCP,
   * the trigger degrades gracefully when the MCP is offline (returns []),
   * a future switch from Bitbucket to GitHub is a new adapter, not a rewrite.
 

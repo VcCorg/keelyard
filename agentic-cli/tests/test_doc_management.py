@@ -258,12 +258,12 @@ class TestSyncDocsCLI:
             "version": 3, "body_html": "<p>Architecture content</p>",
         }
         mock_created_page = {
-            "id": "55555", "title": "Arch Doc", "space_key": "DVACWOWFACILITY",
+            "id": "55555", "title": "Arch Doc", "space_key": "KEELCWOWFACILITY",
             "version": 1,
         }
 
         with patch(f"{MCP_PATCH}.confluence_get_space", side_effect=mock_get_space), \
-             patch(f"{MCP_PATCH}.confluence_create_space", return_value={"key": "DVACWOWFACILITY", "name": "KEEL Managed"}), \
+             patch(f"{MCP_PATCH}.confluence_create_space", return_value={"key": "KEELCWOWFACILITY", "name": "KEEL Managed"}), \
              patch(f"{MCP_PATCH}.confluence_get_page", return_value=mock_source_page), \
              patch(f"{MCP_PATCH}.confluence_create_page", return_value=mock_created_page):
             result = runner.invoke(domain_app, ["sync-docs", "cwow-facility"])

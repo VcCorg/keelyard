@@ -102,7 +102,7 @@ CREATE TABLE IF NOT EXISTS domains (
     bitbucket_project       TEXT,                      -- Bitbucket project key, e.g. 'CGF'
     bitbucket_url           TEXT,                      -- Bitbucket project/repo URL
     confluence_space        TEXT,                      -- source Confluence space, e.g. 'MTT'
-    managed_confluence_space TEXT,                     -- agent-owned space, e.g. 'DVACWOWFAC'
+    managed_confluence_space TEXT,                     -- agent-owned space, e.g. 'KEELCWOWFAC'
     jira_dashboard          TEXT,                      -- Jira dashboard URL
     confluence_url          TEXT,                      -- Confluence page/space URL
     tags                    TEXT,                      -- JSON list of extra tags

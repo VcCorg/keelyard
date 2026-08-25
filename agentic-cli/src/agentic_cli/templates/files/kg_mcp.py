@@ -306,7 +306,7 @@ class KGWorkspaceClient:
             raise ValueError(f"Workspace '{self.workspace_name}' not found. "
                            f"Create it with: agent-cli kg workspace create {self.workspace_name}")
     
-    def _run_dva_command(self, *args) -> Dict[str, Any]:
+    def _run_kg_command(self, *args) -> Dict[str, Any]:
         """Run an agent-cli kg command and return parsed output."""
         cmd = ["agent-cli", "kg", *args, "--workspace", self.workspace_name, "--json"]
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -333,7 +333,7 @@ class KGWorkspaceClient:
         args = ["query", question]
         if persona:
             args.extend(["--persona", persona])
-        return self._run_dva_command(*args)
+        return self._run_kg_command(*args)
     
     def search(
         self,
@@ -352,7 +352,7 @@ class KGWorkspaceClient:
         Returns:
             Search results
         """
-        return self._run_dva_command(
+        return self._run_kg_command(
             "search", text,
             "--mode", mode,
             "--limit", str(limit)
@@ -360,7 +360,7 @@ class KGWorkspaceClient:
     
     def stats(self) -> Dict[str, Any]:
         """Get knowledge graph statistics."""
-        return self._run_dva_command("stats")
+        return self._run_kg_command("stats")
     
     def ingest(
         self,
@@ -382,7 +382,7 @@ class KGWorkspaceClient:
         args = ["ingest", "--path", path, "--format", format]
         if tags:
             args.extend(["--tags", ",".join(tags)])
-        return self._run_dva_command(*args)
+        return self._run_kg_command(*args)
 
 
 # Convenience functions for direct use
