@@ -782,6 +782,47 @@ export interface WorkspaceTarget {
   ready: boolean;
   needs?: string | null;         // sync | open | onboard | null
   hint: string;
+  /** Only present when requested with `drift: true` (the check re-renders the
+   *  template, so it is not part of the fast target resolution). */
+  drift?: TemplateDriftSummary | null;
+}
+
+export interface TemplateFileDrift {
+  path: string;
+  status: string;                // unchanged | template-updated | locally-modified | ...
+  detail: string;
+}
+
+export interface TemplateDriftSummary {
+  domain: string;
+  meta_repo?: string | null;
+  template_version: string;
+  recorded_version?: string | null;
+  has_baseline: boolean;
+  version_behind: boolean;
+  drifted: boolean;
+  counts: Record<string, number>;
+  upgradable: number;            // template moved ahead — safe to pull down
+  promotable: number;            // local content ahead — candidate to push up
+  conflicted: number;            // both sides moved — needs a human
+  error?: string | null;         // the check could not run
+}
+
+export interface TemplateStatus extends TemplateDriftSummary {
+  files: TemplateFileDrift[];
+}
+
+export interface TemplateOverlayInfo {
+  overlay_root: string;
+  files: string[];
+  env_var: string;
+}
+
+export interface TemplatePromotable {
+  domain: string;
+  meta_repo?: string | null;
+  overlay_root: string;
+  files: TemplateFileDrift[];
 }
 
 export interface OpenIdeResult {
@@ -1733,12 +1774,59 @@ class APIClient {
     product?: string;
     domain?: string;
     repo?: string;
+    drift?: boolean;
   }): Promise<WorkspaceTarget> {
     const q = new URLSearchParams({ persona: params.persona });
     if (params.product) q.append("product", params.product);
     if (params.domain) q.append("domain", params.domain);
     if (params.repo) q.append("repo", params.repo);
+    if (params.drift) q.append("drift", "true");
     return this.request(`/workspaces/target?${q.toString()}`);
+  }
+
+  /** Template drift for a domain meta-repo (slow: re-renders the template). */
+  async getTemplateStatus(domain: string, meta?: string): Promise<TemplateStatus> {
+    const q = new URLSearchParams({ domain });
+    if (meta) q.append("meta", meta);
+    return this.request(`/workspaces/template/status?${q.toString()}`);
+  }
+
+  /** Files the shared template overlay provides (i.e. promoted content). */
+  async getTemplateOverlay(): Promise<TemplateOverlayInfo> {
+    return this.request(`/workspaces/template/overlay`);
+  }
+
+  /** Local files a domain could contribute back to the template. */
+  async getTemplatePromotable(domain: string): Promise<TemplatePromotable> {
+    return this.request(`/workspaces/template/promotable?domain=${encodeURIComponent(domain)}`);
+  }
+
+  /** SSE: `keel domain template upgrade` — pull template updates down.
+   *  Previews unless `apply`. */
+  templateUpgradeStreamUrl(
+    domain: string,
+    opts?: { apply?: boolean; prune?: boolean; force?: boolean },
+  ): string {
+    const q = new URLSearchParams({ domain });
+    if (opts?.apply) q.append("apply", "true");
+    if (opts?.prune) q.append("prune", "true");
+    if (opts?.force) q.append("force", "true");
+    return this.streamUrl(`/workspaces/template/upgrade/stream?${q.toString()}`);
+  }
+
+  /** SSE: `keel domain template promote` — push local improvements up.
+   *  Previews unless `apply`; publishing needs `push`. */
+  templatePromoteStreamUrl(
+    domain: string,
+    files: string[],
+    opts?: { apply?: boolean; push?: boolean; allowUnreviewed?: boolean },
+  ): string {
+    const q = new URLSearchParams({ domain });
+    files.forEach((f) => q.append("file", f));
+    if (opts?.apply) q.append("apply", "true");
+    if (opts?.push) q.append("push", "true");
+    if (opts?.allowUnreviewed) q.append("allow_unreviewed", "true");
+    return this.streamUrl(`/workspaces/template/promote/stream?${q.toString()}`);
   }
 
   /** Launch a local editor/agent (devin/windsurf/cursor/code) at a folder. */

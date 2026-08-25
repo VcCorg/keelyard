@@ -941,6 +941,68 @@ async def api_trial_promote(req: TrialRequest, request: Request,
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ── Upstream: promote domain-authored skills into the shared registry ────────
+
+class UpstreamPromoteRequest(BaseModel):
+    skill_name: str
+    domain: str
+    push: bool = False
+    dry_run: bool = False
+
+
+@router.get("/upstream/{domain}")
+async def api_upstream_candidates(domain: str):
+    """List a domain's skills classified for promotion into the registry.
+
+    Read-only, any role. Non-promotable skills are returned too, each with the
+    reason, so the UI can explain why (injected baseline, platform-generated
+    domain context, already identical upstream) instead of hiding them.
+    """
+    from src.services.skill_trial_service import list_upstream_candidates
+
+    try:
+        return list_upstream_candidates(domain)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/upstream/promote")
+async def api_upstream_promote(req: UpstreamPromoteRequest, request: Request,
+                              _principal=Depends(_require_promote())):
+    """Promote a domain-authored skill into the shared registry (lead action).
+
+    Gated on the full trial scorecard. Commits on a
+    ``skill-promote/<domain>/<skill>`` branch; ``push`` is opt-in.
+    """
+    from src.services.auth_service import actor_of, principal_from_request
+    from src.services.skill_trial_service import promote_upstream
+
+    if not req.domain.strip():
+        raise HTTPException(status_code=400, detail="A domain is required to promote")
+    try:
+        from agentic_cli.auth import persona_for
+
+        persona = persona_for(principal_from_request(request))
+    except Exception:  # noqa: BLE001
+        persona = "dev"
+
+    try:
+        import asyncio
+
+        return await asyncio.to_thread(
+            promote_upstream, req.skill_name, req.domain.strip(), persona,
+            req.push, req.dry_run, actor_of(request))
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        # Gate failure / not promotable — a client-side condition, not a bug.
+        raise HTTPException(status_code=409, detail=str(e))
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 class JudgeRequest(BaseModel):
     skill_name: str
     domain: str = ""
@@ -977,6 +1039,7 @@ async def api_skill_audit(limit: int = Query(50, ge=1, le=500)):
         rows = get_activity(command="skill", limit=limit)
     except Exception:  # noqa: BLE001
         rows = []
-    trial_actions = {"trial_evaluate", "trial_judge", "trial_promote", "scan"}
+    trial_actions = {"trial_evaluate", "trial_judge", "trial_promote", "scan",
+                     "promote_upstream"}
     filtered = [r for r in rows if (r.get("subcommand") or r.get("action")) in trial_actions]
     return {"actions": filtered}

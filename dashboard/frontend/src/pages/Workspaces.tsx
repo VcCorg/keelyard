@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Boxes,
   Building2,
@@ -11,10 +11,12 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StreamConsole } from "@/components/StreamConsole";
+import { TemplatePanel } from "@/components/TemplatePanel";
 import {
   api,
   type DomainInfo,
   type RepoInfo,
+  type TemplateDriftSummary,
   type WorkspaceInfo,
   type WorkspaceTarget,
 } from "@/lib/api";
@@ -76,6 +78,10 @@ export function Workspaces() {
 
   const [target, setTarget] = useState<WorkspaceTarget | null>(null);
   const [resolving, setResolving] = useState(false);
+  // Drift is fetched separately: the check re-renders the whole template, so
+  // folding it into target resolution would stall every persona/context change.
+  const [drift, setDrift] = useState<TemplateDriftSummary | null>(null);
+  const [driftLoading, setDriftLoading] = useState(false);
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -156,6 +162,27 @@ export function Workspaces() {
       .finally(() => setResolving(false));
   }, [persona, product, domain, repo]);
 
+  // Template drift for the tech-lead's domain meta-repo — the only tier the
+  // template generates. Loaded after the target resolves so the chip settles in
+  // rather than blocking the page.
+  const loadDrift = useCallback(() => {
+    if (persona !== "tech-lead" || !domain || !target?.exists) {
+      setDrift(null);
+      return;
+    }
+    setDriftLoading(true);
+    api
+      .getTemplateStatus(domain)
+      .then((s) => setDrift(s))
+      .catch(() => setDrift(null))   // never break the page on a template problem
+      .finally(() => setDriftLoading(false));
+  }, [persona, domain, target?.exists]);
+
+  useEffect(() => {
+    setDrift(null);
+    loadDrift();
+  }, [loadDrift]);
+
   const reresolve = () => {
     const params: { persona: string; product?: string; domain?: string; repo?: string } = { persona };
     if (persona === "solutions-architect") params.product = product;
@@ -206,6 +233,9 @@ export function Workspaces() {
 
   const needsAction = target?.needs;
   const canOpenIde = !!target?.exists;
+  // A drifted repo is still `ready` — it works, it just no longer matches the
+  // template. Surfaced as its own chip state rather than downgrading readiness.
+  const drifted = !!drift?.drifted && !drift?.error;
 
   return (
     <div className="space-y-6">
@@ -315,17 +345,48 @@ export function Workspaces() {
                 </code>
                 <span
                   className={`text-[11px] px-1.5 py-0.5 rounded ${
-                    target.ready
-                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
-                      : target.exists
+                    !target.exists
+                      ? "bg-gray-200 text-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                      : !target.ready
                       ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
-                      : "bg-gray-200 text-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                      : drifted
+                      ? "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300"
+                      : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
                   }`}
+                  title={
+                    drifted
+                      ? "Usable, but no longer matches the template it was generated from"
+                      : undefined
+                  }
                 >
-                  {target.ready ? "ready" : target.exists ? "needs setup" : "not created"}
+                  {!target.exists
+                    ? "not created"
+                    : !target.ready
+                    ? "needs setup"
+                    : drifted
+                    ? "drifted"
+                    : "ready"}
                 </span>
+                {driftLoading && (
+                  <span title="Checking template drift">
+                    <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
+                  </span>
+                )}
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">{target.hint}</p>
+              {drifted && (
+                <p className="text-xs text-violet-700 dark:text-violet-300">
+                  Diverged from the template:{" "}
+                  {[
+                    drift?.upgradable ? `${drift.upgradable} update(s) available` : null,
+                    drift?.promotable ? `${drift.promotable} local improvement(s)` : null,
+                    drift?.conflicted ? `${drift.conflicted} needing review` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                  . See Template &amp; Upstream below.
+                </p>
+              )}
 
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 {persona === "dev" && (needsAction === "open" || target.exists) && (
@@ -385,6 +446,11 @@ export function Workspaces() {
 
         <StreamConsole url={streamUrl} title="workspace setup" onDone={onStreamDone} />
       </div>
+
+      {/* Template & Upstream — only the domain meta-repo comes from the template. */}
+      {persona === "tech-lead" && domain && target?.exists && (
+        <TemplatePanel domain={domain} onChanged={loadDrift} />
+      )}
 
       {/* Registered workspaces */}
       <div className="rounded-xl border border-gray-200 dark:border-gray-800">

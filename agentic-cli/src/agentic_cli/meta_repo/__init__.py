@@ -24,6 +24,11 @@ from .product_scaffold import (
     list_exceptions,
 )
 from .git_utils import add_submodule, detect_default_branch, detect_git_host
+from .template_manifest import TEMPLATE_VERSION, read_manifest, write_manifest
+from .template_drift import DriftReport, FileDrift, classify, classify_domain
+from .template_upgrade import UpgradeReport, upgrade, upgrade_domain
+from .template_overlay import apply_overlay, list_overlay, overlay_root
+from .template_promote import PromotionResult, promotable, promote, promote_domain
 
 __all__ = [
     "detect_domain_meta_repo",
@@ -42,4 +47,21 @@ __all__ = [
     "add_submodule",
     "detect_default_branch",
     "detect_git_host",
+    "TEMPLATE_VERSION",
+    "read_manifest",
+    "write_manifest",
+    "DriftReport",
+    "FileDrift",
+    "classify",
+    "classify_domain",
+    "UpgradeReport",
+    "upgrade",
+    "upgrade_domain",
+    "apply_overlay",
+    "list_overlay",
+    "overlay_root",
+    "PromotionResult",
+    "promotable",
+    "promote",
+    "promote_domain",
 ]
