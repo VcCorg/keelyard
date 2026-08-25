@@ -221,7 +221,7 @@ def check_mcp_tools_registered():
     return f"{len(tool_names)} tools registered (expected {len(expected)})"
 
 
-def check_mcp_no_dva_prefix():
+def check_mcp_no_keel_prefix():
     """Ensure no tool has a 'keel_' prefix."""
     from agentic_mcp.server import mcp
     import asyncio
@@ -248,7 +248,7 @@ def check_docker_build():
 # ── Phase 7: Naming Convention ───────────────────────────────────────────────
 
 
-def check_no_dva_in_server_code():
+def check_no_keel_in_server_code():
     """Verify no 'keel' references in Python server code."""
     src_dir = Path(__file__).resolve().parent.parent / "src" / "agentic_mcp"
     violations = []
@@ -330,7 +330,7 @@ def main():
     # Phase 5
     print("\n── Phase 5: MCP Registration ──")
     check("All 19 tools registered", check_mcp_tools_registered)
-    check("No keel_ prefix on tools", check_mcp_no_dva_prefix)
+    check("No keel_ prefix on tools", check_mcp_no_keel_prefix)
 
     # Phase 6
     if docker_ok:
@@ -342,7 +342,7 @@ def main():
 
     # Phase 7
     print("\n── Phase 7: Naming Convention ──")
-    check("No 'keel' in server code", check_no_dva_in_server_code)
+    check("No 'keel' in server code", check_no_keel_in_server_code)
     check("Registry uses server='agentic'", check_registry_server_name)
 
     # Summary

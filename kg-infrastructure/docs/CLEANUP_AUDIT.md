@@ -26,8 +26,8 @@ Audit and cleanup of memory/KG-related projects in the workspace to eliminate re
 ### 3. Isolated Docker Networks (3 separate `keel-network` bridges)
 - **Issue:** Three separate Docker networks instead of one shared network:
   - `keel-network` (shared, used by kg-mcp and mcp-servers)
-  - `lightrag-infrastructure_dva-network` (orphaned)
-  - `neo4j-infrastructure_dva-network` (isolated — Neo4j was unreachable from other services)
+  - `lightrag-infrastructure_keel-network` (orphaned)
+  - `neo4j-infrastructure_keel-network` (isolated — Neo4j was unreachable from other services)
 - **Root cause:** Each docker-compose.yml defined `keel-network` as `driver: bridge` instead of `external: true`
 - **Fix:**
   - Changed `kg-infrastructure/lightrag/docker-compose.yml` network to `external: true`
@@ -83,8 +83,8 @@ Audit and cleanup of memory/KG-related projects in the workspace to eliminate re
 
 | Action | Detail |
 |--------|--------|
-| Removed `lightrag-infrastructure_dva-network` | Orphaned network |
-| Removed `neo4j-infrastructure_dva-network` | Isolated network, Neo4j moved to shared |
+| Removed `lightrag-infrastructure_keel-network` | Orphaned network |
+| Removed `neo4j-infrastructure_keel-network` | Isolated network, Neo4j moved to shared |
 | Reconnected `keel-neo4j` to `keel-network` | Was on isolated network |
 | Restarted `keel-lightrag` from correct compose | Now mounts correct `scripts/server.py` |
 

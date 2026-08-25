@@ -143,7 +143,7 @@ def _load_stack_env() -> dict[str, str]:
     """Read the tokens the containers actually run with.
 
     docker compose is launched with ``--env-file mcp-servers/.env`` (see mcp.sh),
-    so that file is ground truth. Process env (loaded from ~/.dva/.env) overrides
+    so that file is ground truth. Process env (loaded from ~/.keel/.env) overrides
     only when the stack file leaves a value blank.
     """
     env: dict[str, str] = {}
