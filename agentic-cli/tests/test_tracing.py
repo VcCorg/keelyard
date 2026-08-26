@@ -210,3 +210,54 @@ def test_measure_survives_unserialisable_objects():
             return "x" * 10
 
     assert tracing.measure(Weird()) > 0
+
+
+# --------------------------------------------------------------------------
+# Session listing (P2: the picker's data source)
+# --------------------------------------------------------------------------
+
+def test_list_sessions_groups_and_orders_newest_first(tracker):
+    with tracing.session_scope("s-old"):
+        tracing.record_context_read(source="mcp", operation="a", size_bytes=100)
+    with tracing.session_scope("s-new"):
+        tracing.record_context_read(source="mcp", operation="b", size_bytes=200)
+        tracing.record_context_read(source="kg", operation="c", size_bytes=300,
+                                    status="error")
+
+    sessions = tracing.list_sessions()
+    ids = [s["session_id"] for s in sessions]
+    assert set(ids) == {"s-old", "s-new"}
+    assert ids[0] == "s-new", "most recently active session should sort first"
+
+    newest = sessions[0]
+    assert newest["reads"] == 2
+    assert newest["bytes"] == 500
+    assert newest["errors"] == 1
+    assert newest["sources"] == ["kg", "mcp"]      # sorted, de-duplicated
+
+
+def test_list_sessions_ignores_unattributed_reads(tracker):
+    tracing.record_context_read(source="mcp", operation="orphan")
+    with tracing.session_scope("s-real"):
+        tracing.record_context_read(source="mcp", operation="real")
+
+    ids = [s["session_id"] for s in tracing.list_sessions()]
+    assert ids == ["s-real"]
+
+
+def test_list_sessions_respects_limit(tracker):
+    for i in range(5):
+        with tracing.session_scope(f"s-{i}"):
+            tracing.record_context_read(source="mcp", operation="x")
+    assert len(tracing.list_sessions(limit=3)) == 3
+
+
+def test_list_sessions_empty_when_nothing_recorded(tracker):
+    assert tracing.list_sessions() == []
+
+
+def test_details_of_handles_json_text_and_dicts_and_garbage():
+    assert tracing.details_of({"details": '{"bytes": 5}'}) == {"bytes": 5}
+    assert tracing.details_of({"details": {"bytes": 7}}) == {"bytes": 7}
+    assert tracing.details_of({"details": "not json"}) == {}
+    assert tracing.details_of({}) == {}
