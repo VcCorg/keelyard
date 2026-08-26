@@ -89,6 +89,12 @@ Technical specifications.
 
 - `IMPLEMENTATION_SPECS.md` — Implementation specifications
 
+## Observability
+
+- `KEELTRACE.md` — session context provenance: what an agent read,
+  why it matters for evaluation, and the open decision blocking the
+  eval feed. Start here before touching the tracing sensors.
+
 ## Governance
 
 Where governance is imposed across the inner and outer loops. Start here
