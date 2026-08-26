@@ -1,8 +1,17 @@
 # Keel — Agentic Platform
 
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+
 Keel is the workbench for building governed agent workflows. It ships as a **desktop
 app** (macOS `.dmg`, Windows `.exe`) for zero-setup use, and as a **web dashboard +
 CLI** for local development. The same backend powers both.
+
+> **Keel** is the product and the CLI (`keel`). **keelyard** is this repository —
+> the yard where keels are laid, holding the CLI, dashboard, desktop app, skills
+> registry, MCP servers, and KG infrastructure together in one workspace.
+
+Contributing: [CONTRIBUTING.md](CONTRIBUTING.md) · Security:
+[SECURITY.md](SECURITY.md) · Third-party notices: [NOTICE](NOTICE)
 
 Under one roof:
 
