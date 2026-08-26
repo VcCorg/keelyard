@@ -39,6 +39,7 @@ import {
   ScrollText,
   Fingerprint,
   Radio,
+  Waypoints,
 } from "lucide-react";
 import type { UserRole } from "@/context/UserContext";
 
@@ -223,6 +224,9 @@ export const navGroups: NavGroup[] = [
     items: [
       { to: "/skills/trials", icon: FlaskConical, label: "Skill Trials" },
       { to: "/eval", icon: FlaskConical, label: "Evaluation", personas: ["qa"] },
+      // Context Trace is a measurement instrument: it shows what a run
+      // actually retrieved, which is what makes retrieval quality gradeable.
+      { to: "/trace", icon: Waypoints, label: "Context Trace" },
     ],
   },
   {

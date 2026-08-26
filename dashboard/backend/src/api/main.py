@@ -51,6 +51,7 @@ from src.api.execution import router as execution_router
 from src.api.auth import router as auth_router
 from src.api.admin import router as admin_router
 from src.api.watchers import router as watchers_router
+from src.api.trace import router as trace_router
 
 
 @asynccontextmanager
@@ -141,6 +142,7 @@ app.include_router(execution_router)
 app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(watchers_router)
+app.include_router(trace_router)
 
 
 @app.get("/api/health")

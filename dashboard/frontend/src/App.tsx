@@ -45,6 +45,7 @@ import { AuditHistory } from "@/pages/AuditHistory";
 import { IdentityAccess } from "@/pages/IdentityAccess";
 import { ExecutionContext } from "@/pages/ExecutionContext";
 import { Watchers } from "@/pages/Watchers";
+import { ContextTrace } from "@/pages/ContextTrace";
 import { TerminalProvider } from "@/context/TerminalContext";
 import { UserProvider } from "@/context/UserContext";
 import { SetupProvider } from "@/context/SetupContext";
@@ -102,6 +103,7 @@ function App() {
             <Route path="/data" element={<DataSources />} />
             <Route path="/code-onboard" element={<CodeOnboard />} />
             <Route path="/eval" element={<Eval />} />
+            <Route path="/trace" element={<ContextTrace />} />
             <Route path="/devin" element={<BuildSessions />} />
             <Route path="/execution" element={<ExecutionContext />} />
             <Route path="/snapshots" element={<Snapshots />} />

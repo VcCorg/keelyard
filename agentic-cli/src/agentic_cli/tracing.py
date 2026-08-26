@@ -223,6 +223,65 @@ def session_context(session_id: str, limit: int = 500) -> list[dict]:
             if r.get("entity_type") == "context"]
 
 
+def details_of(row: Dict[str, Any]) -> Dict[str, Any]:
+    """Decode a row's details column, which may arrive as JSON text or a dict."""
+    details = row.get("details") or {}
+    if isinstance(details, str):
+        try:
+            details = json.loads(details)
+        except (ValueError, TypeError):
+            return {}
+    return details if isinstance(details, dict) else {}
+
+
+def list_sessions(limit: int = 25, scan: int = 2000) -> list[Dict[str, Any]]:
+    """Recent sessions that read context, newest first.
+
+    Scans the most recent ``scan`` context rows and groups them by session, so
+    a caller can offer "which run do you want to inspect?" without knowing a
+    correlation id up front. ``scan`` bounds the work: sessions whose reads all
+    fall outside that window will not appear.
+    """
+    try:
+        from agentic_cli.tracker import get_activity
+
+        rows = get_activity(entity_type="context", limit=scan)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("could not list sessions: %s", exc)
+        return []
+
+    sessions: Dict[str, Dict[str, Any]] = {}
+    for r in rows:                      # newest first from the tracker
+        sid = r.get("correlation_id")
+        if not sid:
+            continue                    # unattributed reads are not a session
+        s = sessions.setdefault(sid, {
+            "session_id": sid,
+            "reads": 0,
+            "bytes": 0,
+            "errors": 0,
+            "sources": set(),
+            "latest": r.get("timestamp"),
+            "earliest": r.get("timestamp"),
+        })
+        s["reads"] += 1
+        s["bytes"] += int(details_of(r).get("bytes") or 0)
+        if r.get("status") == "error":
+            s["errors"] += 1
+        if r.get("command"):
+            s["sources"].add(r["command"])
+        ts = r.get("timestamp")
+        if ts:
+            if not s["earliest"] or ts < s["earliest"]:
+                s["earliest"] = ts
+            if not s["latest"] or ts > s["latest"]:
+                s["latest"] = ts
+
+    out = [{**s, "sources": sorted(s["sources"])} for s in sessions.values()]
+    out.sort(key=lambda s: s.get("latest") or "", reverse=True)
+    return out[:limit]
+
+
 def session_summary(session_id: str, limit: int = 500) -> Dict[str, Any]:
     """Roll up a session's context ledger: totals, and a per-source breakdown.
 
@@ -234,13 +293,7 @@ def session_summary(session_id: str, limit: int = 500) -> Dict[str, Any]:
     errors = 0
     for r in rows:
         src = r.get("command") or "unknown"
-        details = r.get("details") or {}
-        if isinstance(details, str):
-            try:
-                details = json.loads(details)
-            except (ValueError, TypeError):
-                details = {}
-        size = int(details.get("bytes") or 0)
+        size = int(details_of(r).get("bytes") or 0)
         total_bytes += size
         if r.get("status") == "error":
             errors += 1

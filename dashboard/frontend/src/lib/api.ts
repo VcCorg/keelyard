@@ -512,6 +512,38 @@ export interface ResetPreview {
 
 /* ============ Watchers ============ */
 
+// ---- Context trace (KeelTrace): what an agent actually read ----
+export interface ContextRead {
+  id: number;
+  timestamp: string;
+  source: string;            // mcp | kg | retriever
+  operation: string;         // e.g. bitbucket/get_issue
+  entity_id?: string | null;
+  bytes: number;
+  duration_ms?: number | null;
+  status: string;
+  args_digest?: string | null;
+  payload_ref?: string | null;
+}
+export interface SourceRollup { source: string; reads: number; bytes: number; }
+export interface SessionLedger {
+  session_id: string;
+  reads: number;
+  bytes: number;
+  errors: number;
+  by_source: SourceRollup[];
+  entries: ContextRead[];
+}
+export interface TraceSessionRef {
+  session_id: string;
+  reads: number;
+  bytes: number;
+  errors: number;
+  sources: string[];
+  earliest?: string | null;
+  latest?: string | null;
+}
+
 export interface WatcherHandler {
   agent: string;
   chain: string[];
@@ -2087,6 +2119,12 @@ class APIClient {
   }
 
   /* ---- Watchers ---- */
+  async listTraceSessions(limit = 25): Promise<TraceSessionRef[]> {
+    return this.request(`/trace/sessions?limit=${limit}`);
+  }
+  async getSessionLedger(sessionId: string): Promise<SessionLedger> {
+    return this.request(`/trace/sessions/${encodeURIComponent(sessionId)}`);
+  }
   async listWatchers(): Promise<WatcherView[]> {
     return this.request("/watchers");
   }
