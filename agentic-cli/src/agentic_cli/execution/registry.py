@@ -58,8 +58,21 @@ def create_session(spec: ExecutionSpec, engine: Optional[str] = None, *,
     policy = check_session(spec.domain)
     enforce_or_raise(policy, "create_session")  # raises GovernanceViolation
 
-    eng = get_engine(engine)
-    result = eng.create_session(spec)
+    # Mint the trace id BEFORE the engine runs, and bind it, so any context the
+    # engine reads on the way (MCP tool calls, KG queries) lands in this
+    # session's ledger rather than unattributed. The same id is the audit row's
+    # correlation_id, so the session and everything it read share one key.
+    from agentic_cli import tracing
+    from agentic_cli.tracker import new_correlation_id
+
+    trace_id = new_correlation_id()
+    token = tracing.set_session_id(trace_id)
+    try:
+        eng = get_engine(engine)
+        result = eng.create_session(spec)
+    finally:
+        tracing.reset_session_id(token)
+
     try:
         from agentic_cli.tracker import record_action
 
@@ -69,6 +82,7 @@ def create_session(spec: ExecutionSpec, engine: Optional[str] = None, *,
             "domain": spec.domain,
             "dry_run": result.dry_run,
             "url": result.url,
+            "trace_id": trace_id,
         }
         if policy.tagged:
             details.update(policy.audit_details())
@@ -76,6 +90,7 @@ def create_session(spec: ExecutionSpec, engine: Optional[str] = None, *,
             "execution", "create_session",
             entity_type="session",
             entity_id=result.session_id or spec.jira or "",
+            correlation_id=trace_id,
             source=source,
             actor=actor,
             status="success" if not result.dry_run else "success",

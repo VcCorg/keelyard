@@ -18,6 +18,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 from typing import Any, Optional
 from urllib.parse import urlparse
 
@@ -112,22 +113,84 @@ def _run_async(coro: Any) -> Any:
     return box["result"]
 
 
+def _server_label(sse_url: str) -> str:
+    """Short name for the MCP server behind a URL, for readable ledger rows."""
+    try:
+        host = urlparse(sse_url).netloc or sse_url
+    except Exception:  # noqa: BLE001
+        return "mcp"
+    for name, url in (
+        ("bitbucket", _env_url("MCP_BITBUCKET_URL", DEFAULT_BITBUCKET_URL)),
+        ("confluence", _env_url("MCP_CONFLUENCE_URL", DEFAULT_CONFLUENCE_URL)),
+        ("gateway", _env_url("MCP_GATEWAY_URL", DEFAULT_GATEWAY_URL)),
+    ):
+        try:
+            if urlparse(url).netloc == host:
+                return name
+        except Exception:  # noqa: BLE001
+            continue
+    return host
+
+
+def _env_url(var: str, default: str) -> str:
+    return os.environ.get(var, default)
+
+
 def call_mcp_tool(
     sse_url: str, tool_name: str, arguments: Optional[dict] = None, timeout: float = 30.0,
 ) -> Any:
-    """Call an MCP tool synchronously. Handles connection errors gracefully."""
+    """Call an MCP tool synchronously. Handles connection errors gracefully.
+
+    Every call is recorded to the session context ledger (see
+    ``agentic_cli.tracing``) so retrieval is visible to both the provenance
+    viewer and context-aware evaluation.
+
+    The session id is read HERE, on the caller's thread, and passed down
+    explicitly. ``_run_async`` hops to a fresh ``threading.Thread`` when there
+    is already a running loop (the FastAPI dashboard), and ContextVars do not
+    cross that boundary - reading it any later yields None from the dashboard
+    while working fine from the CLI.
+    """
+    from agentic_cli import tracing
+
+    session_id = tracing.current_session_id()
+    started = time.perf_counter()
+
+    def _elapsed_ms() -> int:
+        return int((time.perf_counter() - started) * 1000)
+
+    def _record(status: str, size: int) -> None:
+        # record_context_read guards itself, but belt-and-braces here too: a
+        # telemetry fault must never surface as a retrieval failure.
+        try:
+            tracing.record_context_read(
+                source="mcp",
+                operation=f"{_server_label(sse_url)}/{tool_name}",
+                session_id=session_id,
+                entity_id=tracing.digest_args(arguments)[:64] if arguments else "",
+                size_bytes=size,
+                duration_ms=_elapsed_ms(),
+                status=status,
+                arguments=arguments,
+            )
+        except Exception:  # noqa: BLE001
+            logger.debug("MCP context read not recorded", exc_info=True)
+
     try:
-        return _run_async(
+        result = _run_async(
             _call_tool_async(sse_url, tool_name, arguments or {}, timeout)
         )
     except MCPToolError:
+        _record("error", 0)
         raise
     except OSError as e:
+        _record("error", 0)
         raise MCPToolError(
             f"Cannot connect to MCP server at {sse_url}. Is the server running? ({e})",
             is_connection_error=True,
         )
     except Exception as e:
+        _record("error", 0)
         # ExceptionGroup from anyio wraps connection errors
         msg = str(e)
         if "connect" in msg.lower() or "refused" in msg.lower() or "timed out" in msg.lower():
@@ -136,6 +199,9 @@ def call_mcp_tool(
                 is_connection_error=True,
             )
         raise MCPToolError(f"MCP call failed: {msg}")
+
+    _record("success", tracing.measure(result))
+    return result
 
 
 # ---------------------------------------------------------------------------

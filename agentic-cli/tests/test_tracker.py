@@ -45,11 +45,15 @@ class TestSchema:
         assert use_temp_db.exists()
 
     def test_schema_version_set(self, use_temp_db):
+        # Assert against the module's own constant rather than a literal, so the
+        # test tracks migrations instead of going stale every time one lands.
+        from agentic_cli.tracker import _SCHEMA_VERSION
+
         _ensure_db()
         conn = sqlite3.connect(str(use_temp_db))
         row = conn.execute("SELECT version FROM schema_version").fetchone()
         conn.close()
-        assert row[0] == 8
+        assert row[0] == _SCHEMA_VERSION
 
     def test_tables_exist(self, use_temp_db):
         _ensure_db()
