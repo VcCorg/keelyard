@@ -1,6 +1,6 @@
-Keel — Agentic Product Development Platform
+Keel - Agentic Product Development Platform
 
-Copyright [YYYY] [COPYRIGHT HOLDER — SEE "Before first release" BELOW]
+Copyright 2026 VcCorg
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,61 +16,39 @@ limitations under the License.
 
 
 ================================================================================
-Before first release
-================================================================================
-
-Two items in this file MUST be resolved before the project is published. They
-are deliberately left as placeholders rather than guessed:
-
-1. COPYRIGHT HOLDER — Replace the bracketed placeholder above with the entity
-   that actually owns the copyright, and set the year. If this project was
-   authored in the course of employment, the owner may be the employer rather
-   than an individual contributor. Confirm ownership in writing before
-   publishing: applying a license is an act of granting rights, which requires
-   holding them.
-
-2. THIRD-PARTY INVENTORY — The "Third-party components" section below is
-   incomplete. It lists what is redistributed, but the license of each
-   dependency has NOT yet been verified. Run the audit and complete the
-   section before release:
-
-       pip install pip-licenses && pip-licenses --format=markdown --with-urls
-       npm --prefix desktop ls --all --json    # Electron/runtime tree
-       npm --prefix dashboard/frontend ls --all --json
-
-   Pay particular attention to any GPL/AGPL-licensed transitive dependency,
-   since the desktop application redistributes its dependency tree rather than
-   merely using it.
-
-
-================================================================================
-Third-party components (INVENTORY INCOMPLETE — see item 2 above)
+Third-party components
 ================================================================================
 
 The desktop application distributes third-party software in binary form. This
-is redistribution, not mere use, so each component's license terms apply to
-the distributed artifacts.
+is redistribution, not mere use, so each component's license terms apply to the
+distributed artifacts.
 
-Components known to be redistributed:
+The inventory below is INCOMPLETE: it records what is redistributed, but the
+license of each dependency has not yet been verified one by one. Complete it
+before publishing signed releases:
 
-  * Electron and its bundled Chromium/Node.js runtime
-      -> shipped in the packaged .dmg / .exe
+    pip install pip-licenses && pip-licenses --format=markdown --with-urls
+    npm --prefix desktop ls --all --json
+    npm --prefix dashboard/frontend ls --all --json
 
+Pay particular attention to any GPL/AGPL-licensed transitive dependency, since
+the desktop application ships its dependency tree rather than merely using it.
+
+Redistributed in the packaged installers:
+
+  * Electron, including its bundled Chromium and Node.js runtimes
   * The Python dependency tree frozen into the backend sidecar by PyInstaller
-      -> see agentic-cli/pyproject.toml and dashboard/backend for the roots
-
+      -> roots are declared in agentic-cli/pyproject.toml and dashboard/backend
   * PyInstaller bootloader code embedded in the frozen binary
       -> PyInstaller's license carries an exception governing the terms under
          which frozen applications may be distributed; confirm its current
-         wording applies to this project's distribution model
+         wording covers this project's distribution model
 
-Components NOT redistributed (referenced or downloaded at runtime, not shipped
-in the installer):
+NOT redistributed (referenced or fetched at runtime, absent from the installer):
 
-  * Neo4j — referenced via docker-compose; the user supplies the server
-  * The optional built-in language model — downloaded on first use into
+  * Neo4j - referenced via docker-compose; the user supplies the server
+  * The optional built-in language model - downloaded on first use into
     ~/.keel/models at the user's request; nothing ships in the installer
 
-Each entry above still requires its license confirmed and recorded. Where a
-dependency's own license requires attribution, reproduce its NOTICE content
-here.
+Where a dependency's own license requires attribution, reproduce its NOTICE
+content here.
