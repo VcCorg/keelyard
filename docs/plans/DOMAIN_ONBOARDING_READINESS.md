@@ -316,15 +316,26 @@ moved the domain from 25 (F) to 78 (C).
 
 ## What is left
 
-**Answerability** is the one rubric dimension still reporting `SKIPPED` even
-when a judge is configured. It is the load-bearing one — generate the questions
-a persona would ask, retrieve against the domain, judge coverage — and it is
-also the only part needing a model, so it was left until the deterministic
-seven were trustworthy. `readiness._answerability` is the seam.
+Tier 0 is done: answerability now scores, repo sources report staleness, and
+`create_session` records the model it ran.
 
-**Phase 3** (governance across the fleet) is untouched and independent.
+**Phase 3** (governance across the fleet) is untouched. Note that
+`template_drift`'s three-hash classifier does not transfer to `governance.yaml`
+— a scalar has no "fresh render" to compare against, so the fleet view needs its
+own axes: unchanged / tightened locally / loosened below `inner_loop_floor` /
+covered by a recorded exception.
 
-**Repo-doc staleness.** A repo citation carries a commit sha, so the comparison
-is available, but nothing yet re-reads it: only Confluence pages currently
-report drift. The knowledge map already renders repo sources, so they simply
-never light up.
+**The drift bus.** `get_drift` is a synchronous read model, not an event
+stream. `watchers/types.py:TriggerProtocol` and `watchers/registry.py` are the
+seam, and nothing registers drift against them.
+
+**A context-file sensor for KeelTrace.** Sensors sit on MCP, KG and retriever
+calls, so an agent reading the `.domain/*.md` files this pipeline generates
+records nothing. Until that exists, "which context is actually read?" cannot be
+answered about the context we now produce.
+
+**Retrieval quality is a separate question.** Answerability asks whether the
+finalized context *contains* the answers. Whether retrieval surfaces them is
+ContextPrecision/ContextRecall, and conflating the two yields a number nobody
+can act on — you would not know whether to write more context or fix the
+retriever.
