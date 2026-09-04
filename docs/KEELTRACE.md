@@ -106,6 +106,44 @@ Ablation is what makes it an instrument rather than a report.
     entity edges to an edge store, chunks carrying entity ids; graph retrieval
     becomes vector search for candidates then expansion over edges joined by
     entity id. Neo4j stops being special.
+- **Context budget, and model fit.** Two questions the platform cannot answer
+  today: *what exactly went into this coding session's context, and how long was
+  it?* — and *given that same context, which model does best?* The second is an
+  evaluation feature; the first is its prerequisite, and is also what tells us
+  whether a domain's context is the right size at all.
+
+  Half of it already exists. `record_context_read` stores `bytes` per read,
+  `session_summary` rolls up totals and a per-source breakdown (its docstring
+  already anticipates a "context-budget readout"), and `create_session` binds
+  the trace id *before* the engine runs, so reads on the way in are attributed.
+  Three things are genuinely missing:
+
+  - **No model is recorded on a session.** `execution.registry.create_session`
+    records the *engine* (Devin, local, IDE), never the model inside it. Without
+    that there is nothing to group a comparison by. One column, and by far the
+    cheapest first step — do this one regardless of whether the rest happens.
+  - **Bytes are not tokens, and tokens are model-specific.** Every model
+    tokenizes differently, so "context length" is only meaningful per model.
+    `bytes` also lives in the details JSON rather than an indexed column, which
+    is fine for one session's ledger and wrong for aggregating across a fleet.
+  - **Read is not sent.** The ledger records what was *retrieved*. The prompt is
+    what the engine *assembled* — after dedup, truncation, reordering and
+    caching — and for a vendor engine we may never see it. So the honest
+    reporting is two numbers, retrieved and admitted, each labelled: quoting one
+    as if it were the other makes every downstream comparison meaningless.
+
+  Comparing models on identical context is the **transpose of P4**: the Context
+  Playground holds the model fixed and varies the sources; this holds the
+  sources fixed and varies the model. Same replay core, and the same primitive a
+  drift-replay ("did this context change alter past answers?") would need — so
+  build the replay engine once with three consumers rather than three times.
+
+  The payoff for domain context is the part that is easy to miss: a token count
+  per invocation turns *"is our domain context the right size?"* from taste into
+  a number, and gives `onboarding/readiness.py` a further dimension — does the
+  finalized instruction set fit the target model's window with room left to
+  actually work?
+
 - **Test CI.** Not wired, because `main` has pre-existing failures (see
   [`CLAUDE.md`](../CLAUDE.md)). Triage first, then add the workflow.
 
