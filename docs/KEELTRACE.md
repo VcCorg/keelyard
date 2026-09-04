@@ -65,14 +65,43 @@ stop holding.
 retain. Tool arguments are **digested, never stored** — they routinely carry
 tokens. A test asserts a bearer token cannot reach the ledger.
 
-**Tier two (not built)** — the retrieved *text*, which Ragas needs.
-Deliberately absent: it means proprietary document bodies at rest, which needs
-size caps, a retention policy, and redaction before anything is written.
-`payload_ref` in the details column is the seam it will hang from.
+**Tier two (built, off by default)** — the retrieved *text*, which Ragas needs.
+`agentic_cli/payload_store.py`, hanging off the `payload_ref` seam. Nothing is
+stored unless `KEEL_PAYLOAD_STORE` selects a backend: writing document bodies to
+disk is a decision for whoever runs Keel, not for whoever imports the module.
 
-> **This is the decision blocking P3.** Settle caps / TTL / redaction before
-> writing code — retrofitting a payload store after three consumers exist is
-> painful.
+- `memory` — process-local, never touches disk. Serves run-and-score in one
+  flow (the ablation playground). It cannot serve `keel eval` over an earlier
+  session, which is a separate process.
+- `sqlite` — a **separate** `payloads.db` beside the tracker. Separate because
+  `tracker.db` is the audit trail and is safe to hand to someone debugging an
+  issue; a file holding document bodies is not, and nothing in the code would
+  flag the change if they shared one.
+
+Three rules the code enforces rather than documents:
+
+| Rule | Why |
+|---|---|
+| **Drop, never truncate** | A chunk cut mid-sentence makes Faithfulness score the agent against a mutilated version of what it saw — a wrong number, not a missing one. Over the cap, the row records `payload: omitted (size …)`. |
+| **Mask in place, and report it** | Identifiers become typed markers (`<email>`, `<person>`) rather than being deleted, so a correct claim about a value the text still contains does not read as unfaithful. The row carries `payload_masked`, so a score over altered text stays identifiable. |
+| **Expiry erases** | `DELETE` frees SQLite pages without zeroing them, so expired bodies stay readable in the file until a `VACUUM`. `secure_delete` is on and the sweep vacuums. |
+
+`keel context payloads` inspects, sweeps and purges it.
+
+### Still open
+
+Enabling a backend does not settle everything. Two decisions remain, and both
+are cheaper now because a separate file can be dropped and rebuilt:
+
+- **Read-back authorization.** `GET /api/trace/sessions/{id}` needs none today
+  because it returns metadata. The moment it can return bodies, it does.
+- **Desktop redistribution.** The app ships `~/.keel/` on real machines, where a
+  payload store syncs to backups and lands in any support bundle. The repo guard
+  only scans staged files and does not reach there.
+
+Defaults are deliberately conservative — 64 KiB per payload, 7-day TTL — and
+should be re-set from measurement once the memory backend has run for a while,
+rather than argued about in advance.
 
 ## Next
 

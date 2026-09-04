@@ -151,3 +151,84 @@ def trace(
         "  ·  ".join(parts) + (f"\n[dim]{by_source}[/dim]" if by_source else ""),
         title="Context budget", expand=False,
     ))
+
+
+@context_app.command(
+    "payloads",
+    help="Inspect or clear the tier-two payload store (retrieved text).",
+)
+def payloads(
+    session: Annotated[Optional[str], typer.Option("--session", help="Show stored payloads for one session")] = None,
+    show: Annotated[Optional[str], typer.Option("--show", help="Print one payload by ref, e.g. sqlite:abc123")] = None,
+    sweep: Annotated[bool, typer.Option("--sweep", help="Delete expired payloads now")] = False,
+    purge: Annotated[bool, typer.Option("--purge", help="Delete every stored payload")] = False,
+) -> None:
+    """Look at what tier two is holding, and get rid of it.
+
+    Tier two is off unless ``KEEL_PAYLOAD_STORE`` selects a backend, so on a
+    default install this reports an empty store — which is the honest answer,
+    not a misconfiguration.
+    """
+    from agentic_cli import payload_store
+
+    store = payload_store.get_store()
+    backend = payload_store.backend_name()
+
+    if isinstance(store, payload_store.NullStore):
+        console.print("[yellow]Payload store is disabled.[/yellow]")
+        console.print(
+            f"[dim]Nothing is written. Enable with {payload_store.ENV_BACKEND}="
+            f"memory (process-local) or sqlite (a separate payloads.db).[/dim]")
+        raise typer.Exit(0)
+
+    if purge:
+        if hasattr(store, "purge"):
+            store.purge()
+            console.print("[green]✓[/green] Every stored payload deleted and the space reclaimed.")
+        else:
+            console.print(f"[green]✓[/green] {store.sweep()} expired payload(s) dropped "
+                          f"(the {backend} backend holds nothing else).")
+        raise typer.Exit(0)
+
+    if sweep:
+        console.print(f"[green]✓[/green] Swept {store.sweep()} expired payload(s).")
+        raise typer.Exit(0)
+
+    if show:
+        payload = store.get(show)
+        if payload is None:
+            console.print(f"[red]✗ No live payload for '{show}'.[/red]")
+            console.print("[dim]It may have expired, or belong to another backend.[/dim]")
+            raise typer.Exit(1)
+        if payload.lossy:
+            console.print(f"[yellow]⚠ Masked: {', '.join(payload.masked)} — this is not "
+                          f"verbatim what the agent saw.[/yellow]")
+        console.print(payload.text)
+        raise typer.Exit(0)
+
+    if not session:
+        console.print(f"Payload store: [cyan]{backend}[/cyan]  "
+                      f"cap [bold]{payload_store.max_bytes()}[/bold] bytes  "
+                      f"ttl [bold]{payload_store.ttl_days() or 'none'}[/bold] day(s)")
+        console.print("[dim]Pass --session <id> to list what it holds.[/dim]")
+        raise typer.Exit(0)
+
+    rows = store.session(session) if hasattr(store, "session") else []
+    if not rows:
+        console.print(f"[yellow]No stored payloads for session [bold]{session}[/bold].[/yellow]")
+        raise typer.Exit(0)
+
+    table = Table(title=f"Payloads — {session}", show_lines=False)
+    table.add_column("Ref", style="dim", no_wrap=True)
+    table.add_column("Operation")
+    table.add_column("Bytes", justify="right")
+    table.add_column("Masked")
+    table.add_column("Expires", style="dim")
+    for payload in rows:
+        table.add_row(
+            f"{store.scheme}:{payload.id}", payload.operation or "—",
+            str(payload.bytes),
+            f"[yellow]{', '.join(payload.masked)}[/yellow]" if payload.masked else "—",
+            (payload.expires_at or "never")[:19],
+        )
+    console.print(table)

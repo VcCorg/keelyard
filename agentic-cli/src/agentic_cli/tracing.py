@@ -158,6 +158,7 @@ def record_context_read(
     duration_ms: Optional[int] = None,
     status: str = "success",
     arguments: Optional[Dict[str, Any]] = None,
+    payload: Optional[str] = None,
     payload_ref: Optional[str] = None,
     extra: Optional[Dict[str, Any]] = None,
 ) -> None:
@@ -168,6 +169,14 @@ def record_context_read(
 
     ``session_id`` should be passed explicitly by any caller that may cross a
     thread boundary before reaching here; it falls back to the ContextVar.
+
+    ``payload`` is the retrieved text. It is offered to the configured tier-two
+    store, which is disabled unless ``KEEL_PAYLOAD_STORE`` selects a backend —
+    so passing it is safe everywhere and changes nothing until an operator opts
+    in. The row records the resulting ref, or why there is none: a payload that
+    was dropped for size should be visibly dropped, not indistinguishable from
+    one that was never offered. Callers with a ref already in hand keep passing
+    ``payload_ref``.
 
     This function never raises. Telemetry must not be able to break retrieval:
     a failure to record is logged at debug and swallowed.
@@ -182,6 +191,14 @@ def record_context_read(
         digest = digest_args(arguments)
         if digest:
             details["args_digest"] = digest
+        if payload is not None and not payload_ref:
+            from agentic_cli import payload_store
+
+            details.update(payload_store.get_store().put(
+                payload,
+                session_id=session_id if session_id is not None else current_session_id(),
+                source=source, operation=operation, entity_id=entity_id,
+            ).details())
         if payload_ref:
             details["payload_ref"] = payload_ref
         if extra:

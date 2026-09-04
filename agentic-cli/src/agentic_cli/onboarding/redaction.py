@@ -211,7 +211,93 @@ def is_safe(text: str) -> bool:
     return not scan(text)
 
 
+# ── masking ─────────────────────────────────────────────────────────────────
+#
+# A second action for the same detection. Onboarding *holds* a risky candidate,
+# because a held instruction costs a reviewer one click. A retrieval payload
+# cannot be held the same way: dropping it means no eval score at all, so the
+# text is kept with identifying spans replaced.
+#
+# Masking must be **span-preserving and semantically neutral**. Deleting "the
+# SLA is 100ms" would make an agent's correct claim about 100ms score as
+# unfaithful to the stored context, so a marker takes the span's place rather
+# than the span being removed. Every metric computed over a masked payload is
+# computed over something the agent did not literally see, which is why
+# :class:`MaskResult` reports what it changed — a caller that does not record
+# that is producing scores nobody can later account for.
+
+#: Replaced with a typed marker. Losing the exact value costs nothing a metric
+#: depends on: no claim worth scoring rests on which address was quoted.
+MASKABLE = (SECRET, EMAIL, PERSON, INTERNAL_HOST, IP_ADDRESS, GUARD_TERM)
+
+#: Marker written in place of a masked span.
+_MARKERS = {
+    GUARD_TERM: "<term>",
+    SECRET: "<secret>",
+    EMAIL: "<email>",
+    PERSON: "<person>",
+    INTERNAL_HOST: "<host>",
+    IP_ADDRESS: "<ip>",
+}
+
+
+@dataclass(frozen=True)
+class MaskResult:
+    """Masked text, and an account of what was changed."""
+
+    text: str
+    masked: tuple[str, ...] = ()
+
+    @property
+    def lossy(self) -> bool:
+        """True when the stored text is not what the agent saw."""
+        return bool(self.masked)
+
+
+def mask(text: str) -> MaskResult:
+    """Replace identifying spans with typed markers, keeping everything else.
+
+    Applied in a fixed order, most specific first: a credential inside a URL
+    should read as ``<secret>`` rather than being half-consumed by the host
+    pattern.
+    """
+    if not text:
+        return MaskResult(text=text or "")
+
+    masked: list[str] = []
+
+    def note(kind: str) -> str:
+        if kind not in masked:
+            masked.append(kind)
+        return _MARKERS[kind]
+
+    out = text
+    for pattern in _SECRET_RES:
+        out = pattern.sub(
+            lambda m: m.group(0) if _PLACEHOLDER_RE.search(m.group(0)) else note(SECRET),
+            out,
+        )
+
+    for term in guard_terms():
+        if term:
+            out = re.sub(rf"\b{re.escape(term)}\b", lambda m: note(GUARD_TERM),
+                         out, flags=re.IGNORECASE)
+
+    out = _EMAIL_RE.sub(lambda m: note(EMAIL), out)
+    # Keep the addressing verb, replace only the name it points at.
+    out = _PERSON_RE.sub(lambda m: m.group(0).replace(m.group(1), note(PERSON)), out)
+    out = _IP_RE.sub(lambda m: note(IP_ADDRESS), out)
+    out = _URL_RE.sub(
+        lambda m: m.group(0) if _is_public_host(m.group(1))
+        else m.group(0).replace(m.group(1), note(INTERNAL_HOST)),
+        out,
+    )
+
+    return MaskResult(text=out, masked=tuple(masked))
+
+
 __all__ = [
     "GUARD_TERM", "SECRET", "EMAIL", "PERSON", "INTERNAL_HOST", "IP_ADDRESS",
-    "RISK_ORDER", "Risk", "guard_terms", "scan", "is_safe",
+    "RISK_ORDER", "MASKABLE", "Risk", "MaskResult", "guard_terms", "scan",
+    "is_safe", "mask",
 ]
