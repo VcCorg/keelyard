@@ -67,8 +67,10 @@ _OWNERSHIP_MARKERS = re.compile(
 
 # Durable ownership pointers: a file, a group handle, a rota — things that stay
 # true when people move on.
+# Every alternative is boundary-anchored: without \b, "OWNERS" matches inside
+# "Ownership" and every ownership sentence grows a phantom pointer.
 _POINTER_RE = re.compile(
-    r"(CODEOWNERS|OWNERS(?:\.md)?|@[\w-]+/[\w-]+|#[\w-]{3,}|"
+    r"(\bCODEOWNERS\b|\bOWNERS(?:\.md)?\b|@[\w-]+/[\w-]+|#[\w-]{3,}\b|"
     r"\b(?:the\s+)?[\w-]+\s+(?:team|guild|squad|chapter)\b|"
     r"\bon[\s-]?call\s+rota\b|\bpager\s?duty\b|\bescalation\s+path\b)",
     re.IGNORECASE,
@@ -265,11 +267,13 @@ def _pointerize(line: str) -> str | None:
     *"Ask Jane Doe or the platform team"* becomes *"Ownership is recorded in: the
     platform team"*. A line naming only a person has nothing durable to keep.
     """
-    pointers = [m.group(0).strip() for m in _POINTER_RE.finditer(line)]
-    if not pointers:
+    unique: dict[str, str] = {}
+    for match in _POINTER_RE.finditer(line):
+        pointer = match.group(0).strip()
+        unique.setdefault(pointer.lower(), pointer)
+    if not unique:
         return None
-    unique = list(dict.fromkeys(pointers))
-    return "Ownership is recorded in: " + ", ".join(unique[:3])
+    return "Ownership is recorded in: " + ", ".join(list(unique.values())[:3])
 
 
 def _dedupe(result: ExtractionResult) -> None:

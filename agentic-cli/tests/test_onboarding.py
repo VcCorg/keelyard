@@ -349,9 +349,17 @@ class TestReadiness:
         assert answerability.score is None
 
     def test_skipped_dimensions_are_excluded_from_the_mean(self):
+        """An empty domain skips both answerability and freshness."""
         card = readiness.score(readiness.Inputs(domain="d"))
         assert all(d.score is not None for d in card.scored)
-        assert len(card.scored) == len(card.dimensions) - 1
+        assert len(card.scored) == len(card.dimensions) - 2
+
+    def test_freshness_skips_when_there_is_nothing_to_assess(self):
+        """Absent evidence is unknown, not failure."""
+        card = readiness.score(readiness.Inputs(domain="d"))
+        freshness = next(d for d in card.dimensions if d.key == "freshness")
+        assert freshness.status == readiness.SKIPPED
+        assert freshness.score is None
 
     def test_a_well_stocked_domain_is_ready(self, tmp_path):
         for name in ("kg-context.md", "architecture.md"):
@@ -477,3 +485,21 @@ class TestDocTypeMigration:
 
         doc = tracker.get_domain_docs("d")[0]
         assert doc["doc_type"] == classify.ONBOARDING
+
+
+class TestPointerRegex:
+    """A pointer must be a whole token, not a substring of a longer word."""
+
+    def test_ownership_word_does_not_yield_a_phantom_owners_pointer(self):
+        text = "- Ownership for each package is recorded in CODEOWNERS\n"
+        result = extract.extract(text, CITATION)
+        owners = [c for c in result.candidates if c.kind == extract.OWNERSHIP]
+        assert owners
+        assert owners[0].text == "Ownership is recorded in: CODEOWNERS"
+
+    def test_pointers_dedupe_case_insensitively(self):
+        text = "- Owner is in CODEOWNERS; see codeowners for the current list\n"
+        result = extract.extract(text, CITATION)
+        owners = [c for c in result.candidates if c.kind == extract.OWNERSHIP]
+        assert owners
+        assert owners[0].text.lower().count("codeowners") == 1

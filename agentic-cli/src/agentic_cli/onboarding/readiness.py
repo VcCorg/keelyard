@@ -321,11 +321,27 @@ def _groundedness(i: Inputs) -> Dimension:
 
 
 def _freshness(i: Inputs) -> Dimension:
-    """Is it still true?"""
+    """Is it still true?
+
+    Nothing tracked and nothing proposed means there is nothing whose truth
+    could have lapsed. That reports SKIPPED rather than 0: scoring absent
+    evidence as failure conflates *unknown* with *bad*, the same conflation
+    ``stale_domain_docs`` avoids by refusing to call an unchecked doc fresh.
+    """
     docs = len(i.docs)
     stale = i.stale_docs
     pending = len(i.review.pending) if i.review else 0
-    value = 100.0 - _share(stale, docs) if docs else 0.0
+    entries = len(i.review.entries) if i.review else 0
+
+    if not docs and not entries:
+        return Dimension(
+            "freshness", "Freshness", "Is it still true?",
+            SKIPPED, None,
+            detail="Nothing tracked or proposed yet.",
+            fix="Track docs with `domain add-docs`, then `domain extract`.",
+        )
+
+    value = 100.0 - _share(stale, docs) if docs else 100.0
     if pending:
         # Instructions awaiting a decision are unresolved drift, not neutral.
         value = max(0.0, value - min(30.0, pending * 3.0))
