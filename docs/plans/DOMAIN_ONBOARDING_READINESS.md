@@ -316,26 +316,33 @@ moved the domain from 25 (F) to 78 (C).
 
 ## What is left
 
-Tier 0 is done: answerability now scores, repo sources report staleness, and
-`create_session` records the model it ran.
+Tier 0 and Tier 1 are done: answerability scores, repo sources report staleness,
+`create_session` records its model, context assembly is traced, drift is an
+event source, and `keel governance status/promote` compares and moves a value
+across a product's domains.
 
-**Phase 3** (governance across the fleet) is untouched. Note that
-`template_drift`'s three-hash classifier does not transfer to `governance.yaml`
-— a scalar has no "fresh render" to compare against, so the fleet view needs its
-own axes: unchanged / tightened locally / loosened below `inner_loop_floor` /
-covered by a recorded exception.
+**Remaining, in order:**
 
-**The drift bus.** `get_drift` is a synchronous read model, not an event
-stream. `watchers/types.py:TriggerProtocol` and `watchers/registry.py` are the
-seam, and nothing registers drift against them.
+1. **Replay core + eval feed.** One engine, three consumers — model comparison,
+   drift replay, and P4 ablation. Gated on the tier-two payload storage decision
+   (caps / TTL / redaction), which is still open and is a decision rather than
+   work.
+2. **P4 Context Playground** — falls out of the replay core with a UI.
+3. **Semantic differ** — cosmetic vs contradicting changes; needs an embedding
+   pipeline, and is built twice if it lands before the retriever seam.
+4. **Merge-queue fan-out** — `proposal.merge` already does fast-forward versus
+   escalate for one domain; generalising it across N is a fan-out problem, not a
+   new algorithm.
+5. **Retriever seam**, **KeelGuard**, **test-CI triage**.
 
-**A context-file sensor for KeelTrace.** Sensors sit on MCP, KG and retriever
-calls, so an agent reading the `.domain/*.md` files this pipeline generates
-records nothing. Until that exists, "which context is actually read?" cannot be
-answered about the context we now produce.
+**Known limits of what shipped, worth not rediscovering:**
 
-**Retrieval quality is a separate question.** Answerability asks whether the
-finalized context *contains* the answers. Whether retrieval surfaces them is
-ContextPrecision/ContextRecall, and conflating the two yields a number nobody
-can act on — you would not know whether to write more context or fix the
-retriever.
+- The context sensor sees what Keel *assembles*. An agent that opens
+  `.domain/setup.md` itself inside a vendor engine or an IDE reads outside
+  anything we mediate and records nothing.
+- Answerability measures whether the context *contains* the answers. Whether
+  retrieval surfaces them is ContextPrecision/ContextRecall — conflating the two
+  yields a number nobody can act on.
+- Repo staleness is file-granular: editing one line marks every instruction from
+  that file as needing another look. That is deliberate — the flag is a prompt
+  to re-extract, and `proposal.merge` does the precise per-instruction diff.
