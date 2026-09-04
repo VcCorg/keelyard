@@ -9,6 +9,7 @@ one is the reason the extraction contract is shaped the way it is.
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -503,3 +504,306 @@ class TestPointerRegex:
         owners = [c for c in result.candidates if c.kind == extract.OWNERSHIP]
         assert owners
         assert owners[0].text.lower().count("codeowners") == 1
+
+
+# ── repo-source staleness ───────────────────────────────────────────────────
+
+class TestRepoStaleness:
+    """A repo citation is a digest of the file's own content, not a commit sha.
+
+    Citing HEAD would mark every repo-sourced instruction stale the moment
+    anyone committed an unrelated file, which is why this is content-addressed.
+    """
+
+    def test_version_tracks_content_not_the_repository(self, tmp_path):
+        from agentic_cli.onboarding import sources
+
+        path = tmp_path / "CONTRIBUTING.md"
+        path.write_text("- Run the bootstrap target before your first build\n",
+                        encoding="utf-8")
+        [doc] = sources.repo_documents(tmp_path, "svc")
+        first = doc.citation.version
+        assert first
+
+        # An unrelated file appearing does not touch this citation's version.
+        (tmp_path / "UNRELATED.md").write_text("noise\n", encoding="utf-8")
+        [again] = [d for d in sources.repo_documents(tmp_path, "svc")
+                   if d.citation.ref.endswith("CONTRIBUTING.md")]
+        assert again.citation.version == first
+
+    def test_editing_the_file_changes_the_version(self, tmp_path):
+        from agentic_cli.onboarding import sources
+
+        path = tmp_path / "CONTRIBUTING.md"
+        path.write_text("- Run the bootstrap target\n", encoding="utf-8")
+        before = sources.repo_documents(tmp_path, "svc")[0].citation.version
+
+        path.write_text("- Run the bootstrap target with --clean\n", encoding="utf-8")
+        after = sources.repo_documents(tmp_path, "svc")[0].citation.version
+        assert before != after
+
+    def test_stale_check(self, tmp_path):
+        from agentic_cli.onboarding import sources
+
+        path = tmp_path / "CONTRIBUTING.md"
+        path.write_text("original\n", encoding="utf-8")
+        cited = sources.content_version("original\n")
+
+        assert sources.is_repo_citation_stale(tmp_path, "CONTRIBUTING.md", cited) is False
+        path.write_text("changed\n", encoding="utf-8")
+        assert sources.is_repo_citation_stale(tmp_path, "CONTRIBUTING.md", cited) is True
+
+    def test_unreadable_source_is_unknown_not_stale(self, tmp_path):
+        """Unknown is never reported as fresh and never as stale."""
+        from agentic_cli.onboarding import sources
+
+        assert sources.is_repo_citation_stale(tmp_path, "missing.md", "abc123") is None
+        assert sources.is_repo_citation_stale(tmp_path, "missing.md", "") is None
+
+    def test_stale_instructions_lower_freshness(self):
+        accepted = proposal.Proposal(domain="d", entries=[
+            proposal.Entry(id=f"e{i}", kind=extract.SETUP, citation="repo:svc/X.md@abc",
+                           status=proposal.ACCEPTED, text=f"Step {i}")
+            for i in range(4)
+        ])
+
+        def freshness(stale):
+            card = readiness.score(readiness.Inputs(
+                domain="d", docs=[{"source_page_id": "1"}],
+                review=accepted, stale_instructions=stale))
+            return next(d for d in card.dimensions if d.key == "freshness").score
+
+        assert freshness(2) < freshness(0)
+
+
+class TestSessionModel:
+    """create_session recorded the engine and never the model."""
+
+    def test_requested_and_served_are_kept_apart(self, tmp_path, monkeypatch):
+        import importlib
+
+        monkeypatch.setenv("HOME", str(tmp_path))
+        import agentic_cli.tracker as tracker
+        tracker = importlib.reload(tracker)
+        import agentic_cli.tracing as tracing
+        tracing = importlib.reload(tracing)
+
+        trace_id = tracker.new_correlation_id()
+        tracker.record_action(
+            "execution", "create_session", entity_type="session", entity_id="s1",
+            correlation_id=trace_id,
+            details={"engine": "local", "model_requested": "big-model",
+                     "model_served": "fallback-model"},
+        )
+        assert tracing.session_engine(trace_id) == {
+            "engine": "local",
+            "model_requested": "big-model",
+            "model_served": "fallback-model",
+        }
+
+    def test_unknown_model_reports_empty_not_a_guess(self, tmp_path, monkeypatch):
+        """A hosted engine that never reports back leaves this empty."""
+        import importlib
+
+        monkeypatch.setenv("HOME", str(tmp_path))
+        import agentic_cli.tracker as tracker
+        tracker = importlib.reload(tracker)
+        import agentic_cli.tracing as tracing
+        tracing = importlib.reload(tracing)
+
+        trace_id = tracker.new_correlation_id()
+        tracker.record_action(
+            "execution", "create_session", entity_type="session", entity_id="s2",
+            correlation_id=trace_id, details={"engine": "devin"},
+        )
+        engine = tracing.session_engine(trace_id)
+        assert engine["engine"] == "devin"
+        assert engine["model_served"] == ""
+
+
+# ── answerability ───────────────────────────────────────────────────────────
+
+class _FakeProvider:
+    def __init__(self, reply, name="fake/judge-1"):
+        self._reply, self._name = reply, name
+
+    def generate(self, prompt):
+        if isinstance(self._reply, Exception):
+            raise self._reply
+        self.prompt = prompt
+        return self._reply
+
+    def get_name(self):
+        return self._name
+
+
+class TestAnswerability:
+    def _questions(self):
+        from agentic_cli.onboarding import answerability
+        return answerability.build_questions("acme-facility", "ACME",
+                                             [{"slug": "svc-a"}, {"slug": "svc-b"}])
+
+    def test_questions_are_deterministic(self):
+        """A generated exam would drift for reasons unrelated to the context."""
+        from agentic_cli.onboarding import answerability
+
+        first = answerability.build_questions("d", "P", [{"slug": "r"}])
+        second = answerability.build_questions("d", "P", [{"slug": "r"}])
+        assert [q.text for q in first] == [q.text for q in second]
+
+    def test_repo_questions_are_capped(self):
+        """The exam must not get harder just because a domain has more repos."""
+        from agentic_cli.onboarding import answerability
+
+        many = answerability.build_questions(
+            "d", "P", [{"slug": f"r{i}"} for i in range(20)])
+        repo_questions = [q for q in many if q.key.startswith("repo-setup")]
+        assert len(repo_questions) == answerability.MAX_REPO_QUESTIONS
+
+    def test_scores_a_clean_json_reply(self):
+        from agentic_cli.onboarding import answerability
+
+        questions = self._questions()
+        reply = json.dumps([
+            {"n": i + 1, "verdict": "answered" if i % 2 == 0 else "missing", "why": "x"}
+            for i in range(len(questions))
+        ])
+        report = answerability.judge(questions, "some context", _FakeProvider(reply))
+        assert report is not None
+        assert 40 < report.score < 60
+        assert report.model == "fake/judge-1"
+
+    def test_tolerates_a_fenced_reply(self):
+        from agentic_cli.onboarding import answerability
+
+        questions = self._questions()
+        body = json.dumps([{"n": i + 1, "verdict": "answered"} for i in range(len(questions))])
+        report = answerability.judge(questions, "ctx", _FakeProvider(f"Sure!\n```json\n{body}\n```"))
+        assert report is not None and report.score == 100.0
+
+    def test_unparseable_reply_is_unknown_not_zero(self):
+        """A model having a bad day must not look like an unready domain."""
+        from agentic_cli.onboarding import answerability
+
+        assert answerability.judge(self._questions(), "ctx", _FakeProvider("no idea, sorry")) is None
+
+    def test_provider_failure_is_unknown(self):
+        from agentic_cli.onboarding import answerability
+
+        assert answerability.judge(
+            self._questions(), "ctx", _FakeProvider(RuntimeError("429"))) is None
+
+    def test_empty_context_is_unknown(self):
+        from agentic_cli.onboarding import answerability
+
+        assert answerability.judge(self._questions(), "   ", _FakeProvider("[]")) is None
+
+    def test_a_question_the_judge_skipped_counts_as_missing(self):
+        """Silence about a question is not evidence the context answers it."""
+        from agentic_cli.onboarding import answerability
+
+        questions = self._questions()
+        reply = json.dumps([{"n": 1, "verdict": "answered"}])
+        report = answerability.judge(questions, "ctx", _FakeProvider(reply))
+        assert report is not None
+        assert report.answered == 1
+        assert len(report.gaps) == len(questions) - 1
+
+    def test_scorecard_uses_the_report(self):
+        from agentic_cli.onboarding import answerability
+
+        questions = self._questions()
+        report = answerability.Report(
+            verdicts=[answerability.Verdict(q, answerability.ANSWERED) for q in questions],
+            model="fake/judge-1")
+        card = readiness.score(readiness.Inputs(
+            domain="d", judge_available=True, answerability=report))
+        dimension = next(d for d in card.dimensions if d.key == "answerability")
+        assert dimension.status == readiness.OK
+        assert dimension.score == 100.0
+
+    def test_scorecard_skips_when_the_judge_could_not_be_read(self):
+        card = readiness.score(readiness.Inputs(
+            domain="d", judge_available=True, answerability=None))
+        dimension = next(d for d in card.dimensions if d.key == "answerability")
+        assert dimension.status == readiness.SKIPPED
+        assert "could not be read" in dimension.detail
+
+
+class TestMergeAmbiguity:
+    """Regression: one document yielding several instructions of a kind.
+
+    The first implementation keyed the "what did this replace?" lookup on
+    (kind, source) alone, so three setup steps from one file collapsed into a
+    single entry. Every re-extraction then paired each new candidate with an
+    arbitrary survivor and showed the reviewer a diff that never happened —
+    and because the instruction id included the source's *version*, identical
+    text was re-identified on every edit, so no verdict could survive at all.
+    """
+
+    def _file_candidates(self, texts, version):
+        citation = extract.Citation("repo", "svc/CONTRIBUTING.md", version)
+        return [extract.Candidate(t, extract.SETUP, citation, 0.7) for t in texts]
+
+    def test_identical_text_survives_a_change_elsewhere_in_the_file(self):
+        texts = ["Run the bootstrap target", "Install the toolchain",
+                 "Configure the local database"]
+        first = proposal.merge(proposal.Proposal(domain="d"),
+                               self._file_candidates(texts, "v1"), "d")
+        for entry in first.entries:
+            entry.status = proposal.ACCEPTED
+
+        # One step edited; the file's digest changes for all of them.
+        edited = ["Run the bootstrap target with --clean", "Install the toolchain",
+                  "Configure the local database"]
+        second = proposal.merge(first, self._file_candidates(edited, "v2"), "d")
+
+        by_text = {e.text: e for e in second.entries}
+        assert by_text["Install the toolchain"].status == proposal.ACCEPTED
+        assert by_text["Configure the local database"].status == proposal.ACCEPTED
+
+    def test_ambiguous_replacement_is_not_invented(self):
+        """With several candidates from one source, no false 'was → now' pairing."""
+        first = proposal.merge(
+            proposal.Proposal(domain="d"),
+            self._file_candidates(["Step one", "Step two"], "v1"), "d")
+        for entry in first.entries:
+            entry.status = proposal.ACCEPTED
+
+        second = proposal.merge(
+            first, self._file_candidates(["Totally different A", "Totally different B"], "v2"), "d")
+
+        for entry in second.entries:
+            if entry.proposed_text:
+                assert entry.text != entry.proposed_text
+                raise AssertionError("no pairing should have been invented here")
+        assert {e.text for e in second.entries if e.status == proposal.UNREVIEWED} == {
+            "Totally different A", "Totally different B"}
+        assert all(e.source_absent for e in second.entries
+                   if e.text in {"Step one", "Step two"})
+
+    def test_unambiguous_replacement_still_pairs(self):
+        """The 1:1 case keeps the diff a reviewer wants to see."""
+        first = proposal.merge(proposal.Proposal(domain="d"),
+                               self._file_candidates(["Step one"], "v1"), "d")
+        first.entries[0].status = proposal.ACCEPTED
+
+        second = proposal.merge(first, self._file_candidates(["Step one, revised"], "v2"), "d")
+        [entry] = second.entries
+        assert entry.status == proposal.STALE
+        assert entry.text == "Step one"
+        assert entry.proposed_text == "Step one, revised"
+
+    def test_id_ignores_the_source_version(self):
+        citation_v1 = extract.Citation("repo", "svc/X.md", "v1")
+        citation_v2 = extract.Citation("repo", "svc/X.md", "v2")
+        one = extract.Candidate("Same words", extract.SETUP, citation_v1, 0.7)
+        two = extract.Candidate("Same words", extract.SETUP, citation_v2, 0.7)
+        assert one.id == two.id
+
+    def test_id_still_separates_different_sources(self):
+        one = extract.Candidate("Same words", extract.SETUP,
+                                extract.Citation("repo", "a/X.md", "v1"), 0.7)
+        two = extract.Candidate("Same words", extract.SETUP,
+                                extract.Citation("repo", "b/X.md", "v1"), 0.7)
+        assert one.id != two.id

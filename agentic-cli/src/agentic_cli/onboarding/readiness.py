@@ -30,7 +30,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from agentic_cli.onboarding import classify, extract, provenance, proposal
+from agentic_cli.onboarding import answerability, classify, extract, provenance, proposal
 
 OK = "ok"
 WARN = "warn"
@@ -90,8 +90,15 @@ class Inputs:
     governance: dict = field(default_factory=dict)
     # Docs whose upstream version moved since we last looked.
     stale_docs: int = 0
+    # Accepted instructions whose repo source changed since extraction. Tracked
+    # apart from stale_docs: one is a page someone else edited, the other is our
+    # own repository moving under an instruction we approved.
+    stale_instructions: int = 0
     # True when an LLM judge is configured, enabling answerability.
     judge_available: bool = False
+    # The judge's verdict, computed in gather() so score() stays pure. None
+    # means the judge could not run or could not be read — never a zero.
+    answerability: Optional[answerability.Report] = None
 
 
 @dataclass
@@ -274,25 +281,34 @@ def _hazards(i: Inputs) -> Dimension:
 def _answerability(i: Inputs) -> Dimension:
     """Could I answer the questions a new joiner asks in week one?
 
-    The load-bearing dimension, and the only one needing a model. A missing
-    judge credential reports SKIPPED — never FAIL, which would make an
-    unconfigured environment look like an unready domain.
+    The load-bearing dimension, and the only one needing a model. Both failure
+    modes report SKIPPED rather than a score: no judge configured, and a judge
+    whose reply could not be read. Neither is a statement about the domain, and
+    scoring either as zero would make an unconfigured environment indistinguish-
+    able from an empty one.
     """
-    if not i.judge_available:
+    report = i.answerability
+    if report is not None and report.verdicts:
+        gaps = report.gaps
+        detail = f"{report.answered}/{len(report.verdicts)} answered from the domain's own context"
+        if gaps:
+            detail += " — unanswered: " + ", ".join(g.question.area for g in gaps[:4])
         return Dimension(
             "answerability", "Answerability",
             "Could I answer a new joiner's week-one questions?",
-            SKIPPED, None,
-            detail="No LLM judge configured.",
-            fix="Configure a model provider to enable persona-question scoring.",
+            _status_for(report.score), report.score, detail=detail,
+            fix="Add the missing material to an onboarding doc, then re-run extract.",
             weight=2.0,
         )
+
     return Dimension(
         "answerability", "Answerability",
         "Could I answer a new joiner's week-one questions?",
         SKIPPED, None,
-        detail="Judge configured; persona-question scoring not yet wired.",
-        fix="",
+        detail=("No LLM judge configured." if not i.judge_available
+                else "Judge configured but its reply could not be read."),
+        fix=("Configure a model provider to enable persona-question scoring."
+             if not i.judge_available else "Re-run scoring; the judge returned no usable verdict."),
         weight=2.0,
     )
 
@@ -332,6 +348,7 @@ def _freshness(i: Inputs) -> Dimension:
     stale = i.stale_docs
     pending = len(i.review.pending) if i.review else 0
     entries = len(i.review.entries) if i.review else 0
+    accepted = len(i.review.accepted) if i.review else 0
 
     if not docs and not entries:
         return Dimension(
@@ -342,14 +359,20 @@ def _freshness(i: Inputs) -> Dimension:
         )
 
     value = 100.0 - _share(stale, docs) if docs else 100.0
+    # An accepted instruction whose repo source has moved is the sharpest
+    # freshness signal we have: it is a statement we vouched for, over code
+    # that has since changed.
+    value -= _share(i.stale_instructions, accepted) if accepted else 0.0
     if pending:
         # Instructions awaiting a decision are unresolved drift, not neutral.
-        value = max(0.0, value - min(30.0, pending * 3.0))
+        value -= min(30.0, pending * 3.0)
+    value = max(0.0, value)
     return Dimension(
         "freshness", "Freshness", "Is it still true?",
         _status_for(value), value,
         detail=f"{stale}/{docs} tracked doc(s) moved upstream; "
-               f"{pending} instruction(s) pending review",
+               f"{i.stale_instructions}/{accepted} accepted instruction(s) over "
+               f"changed repo files; {pending} pending review",
         fix="Re-run `domain extract` and clear the pending queue.",
     )
 

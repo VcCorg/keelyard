@@ -25,7 +25,9 @@ from rich.table import Table
 from typing_extensions import Annotated
 
 from agentic_cli.config import CLI_NAME
-from agentic_cli.onboarding import classify, extract, proposal, provenance, readiness, sources
+from agentic_cli.onboarding import (
+    answerability, classify, extract, proposal, provenance, readiness, sources,
+)
 from agentic_cli.tracker import (
     get_domain,
     get_domain_docs,
@@ -458,12 +460,79 @@ def score(
         raise typer.Exit(1)
 
 
+def _run_answerability(
+    slug: str, meta: Path, repos: list[dict], product: str = ""
+) -> Optional[answerability.Report]:
+    """Ask a judge whether the finalized context answers a new joiner's questions.
+
+    Returns None whenever the judge cannot run or cannot be read — no provider,
+    an empty context, a reply we cannot parse. The scorecard turns that into
+    SKIPPED, which is the honest reading: nothing was learned about the domain.
+    """
+    if not _judge_available():
+        return None
+
+    domain_dir = _domain_dir(meta)
+    bodies: dict[str, str] = {}
+    for stamp in provenance.scan(domain_dir):
+        if not stamp.real:
+            continue
+        try:
+            bodies[stamp.path.name] = stamp.path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+    context = answerability.render_context(bodies)
+    if not context.strip():
+        return None
+
+    try:
+        from agentic_cli.llm.factory import get_llm_provider
+
+        provider = get_llm_provider(
+            system_instruction="You grade onboarding documentation strictly and "
+                               "reply with JSON only.")
+        # Test mode answers deterministically without a model; grading against
+        # it would produce a confident number backed by nothing.
+        if provider.get_name().startswith("test-mode"):
+            return None
+    except Exception:  # noqa: BLE001 - an unavailable judge is not a failing domain
+        return None
+
+    questions = answerability.build_questions(slug, product, repos)
+    return answerability.judge(questions, context, provider)
+
+
+def stale_repo_entries(slug: str, review: proposal.Proposal) -> list[proposal.Entry]:
+    """Accepted instructions whose repo source has changed since we read it.
+
+    Confluence staleness is a version comparison held in the tracker; repo
+    staleness has to be recomputed, because the citation carries a digest of the
+    file's content rather than a number someone else increments. Entries whose
+    file cannot be read are left out entirely — unknown is not stale.
+    """
+    from agentic_cli import persona_workspace as pw
+
+    stale: list[proposal.Entry] = []
+    for entry in review.entries:
+        if entry.held or entry.status != proposal.ACCEPTED:
+            continue
+        citation = extract.Citation.parse(entry.citation)
+        if citation.scheme != "repo" or "/" not in citation.ref:
+            continue
+        repo_slug, _, rel = citation.ref.partition("/")
+        if sources.is_repo_citation_stale(pw.store_repo_path(repo_slug), rel,
+                                          citation.version) is True:
+            stale.append(entry)
+    return stale
+
+
 def gather(slug: str, meta: Path) -> readiness.Inputs:
     """Collect every signal the rubric needs. The only part that touches I/O."""
     import yaml
 
     from agentic_cli import persona_workspace as pw
 
+    d = get_domain(slug) or {}
     docs = get_domain_docs(slug)
     repos = []
     for repo in get_domain_repos(slug):
@@ -485,6 +554,7 @@ def gather(slug: str, meta: Path) -> readiness.Inputs:
         except (OSError, yaml.YAMLError):
             governance = {}
 
+    review = proposal.load(meta, slug)
     return readiness.Inputs(
         domain=slug,
         meta_repo=meta,
@@ -495,11 +565,13 @@ def gather(slug: str, meta: Path) -> readiness.Inputs:
             for d in docs if d.get("source_page_id")
         },
         repos=repos,
-        review=proposal.load(meta, slug),
+        review=review,
         stamps=provenance.scan(_domain_dir(meta)),
         governance=governance,
         stale_docs=len(stale_domain_docs(slug)),
+        stale_instructions=len(stale_repo_entries(slug, review)),
         judge_available=_judge_available(),
+        answerability=_run_answerability(slug, meta, repos, product=d.get("product") or ""),
     )
 
 
@@ -522,5 +594,6 @@ def register(domain_app: typer.Typer) -> None:
     domain_app.command("score")(score)
 
 
-__all__ = ["register", "gather", "KIND_FILES", "FILE_KINDS", "classify_docs",
+__all__ = ["register", "gather", "stale_repo_entries", "KIND_FILES",
+           "FILE_KINDS", "classify_docs",
            "extract_intent", "review", "finalize", "score"]

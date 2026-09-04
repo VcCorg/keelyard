@@ -282,12 +282,43 @@ def list_sessions(limit: int = 25, scan: int = 2000) -> list[Dict[str, Any]]:
     return out[:limit]
 
 
+def session_engine(session_id: str, limit: int = 500) -> Dict[str, str]:
+    """Which engine and model ran a session, from its own audit row.
+
+    Returns ``engine``, ``model_requested`` and ``model_served``, each empty
+    when unknown. The two model fields are kept apart on purpose: a request can
+    be ignored, substituted, or fall back mid-session, so a comparison keyed on
+    the request rather than the answer measures the wrong thing.
+
+    An empty ``model_served`` is an honest answer, not a gap to paper over — a
+    hosted engine that chooses server-side may never report back, and the local
+    engine's ``create_session`` only prepares a context bundle without running
+    a model at all.
+    """
+    return _engine_from_chain(session_chain(session_id, limit=limit))
+
+
+def _engine_from_chain(rows: list) -> Dict[str, str]:
+    """Pull engine/model out of an already-fetched chain, so callers that have
+    one do not pay for a second read."""
+    out = {"engine": "", "model_requested": "", "model_served": ""}
+    for row in rows:
+        if row.get("entity_type") != "session":
+            continue
+        details = details_of(row)
+        for key in out:
+            if not out[key] and details.get(key):
+                out[key] = str(details[key])
+    return out
+
+
 def session_summary(session_id: str, limit: int = 500) -> Dict[str, Any]:
     """Roll up a session's context ledger: totals, and a per-source breakdown.
 
     This is what the ledger view and the context-budget readout are built from.
     """
-    rows = session_context(session_id, limit=limit)
+    chain = session_chain(session_id, limit=limit)
+    rows = [r for r in chain if r.get("entity_type") == "context"]
     by_source: Dict[str, Dict[str, int]] = {}
     total_bytes = 0
     errors = 0
@@ -306,4 +337,5 @@ def session_summary(session_id: str, limit: int = 500) -> Dict[str, Any]:
         "bytes": total_bytes,
         "errors": errors,
         "by_source": by_source,
+        **_engine_from_chain(chain),
     }

@@ -129,9 +129,17 @@ class Candidate:
 
     @property
     def id(self) -> str:
-        """Stable id from kind + citation + text, so re-extraction can match."""
+        """Stable id from kind + source *ref* + text, so re-extraction can match.
+
+        The citation's **version is deliberately excluded**. An instruction's
+        identity is what it says and where it came from, not which revision of
+        that source happened to be current. Including the version re-ids every
+        instruction whenever the file changes at all, so a verdict could never
+        survive an edit to an unrelated line of the same document — which is
+        exactly what the review flow exists to avoid.
+        """
         digest = hashlib.sha256(
-            f"{self.kind}|{self.citation}|{self.text}".encode("utf-8")
+            f"{self.kind}|{self.citation.scheme}:{self.citation.ref}|{self.text}".encode("utf-8")
         ).hexdigest()
         return digest[:12]
 

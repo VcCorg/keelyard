@@ -84,6 +84,15 @@ def create_session(spec: ExecutionSpec, engine: Optional[str] = None, *,
             "url": result.url,
             "trace_id": trace_id,
         }
+        # The engine was always recorded; the model never was, so there was
+        # nothing to group a "which model did better on this context?" question
+        # by. Requested and served are kept apart deliberately — a request can
+        # be ignored, substituted, or fall back mid-session, and attributing a
+        # result to the request would silently measure the wrong thing.
+        if spec.model:
+            details["model_requested"] = spec.model
+        if result.model:
+            details["model_served"] = result.model
         if policy.tagged:
             details.update(policy.audit_details())
         record_action(
@@ -126,7 +135,9 @@ def ask(spec: ExecutionSpec, engine: Optional[str] = None, *,
             entity_type="session", entity_id=result.session_id or spec.jira or "",
             source=source, actor=actor,
             details={"engine": eng.name, "domain": spec.domain,
-                     "authoritative": result.authoritative},
+                     "authoritative": result.authoritative,
+                     **({"model_requested": spec.model} if spec.model else {}),
+                     **({"model_served": result.model} if result.model else {})},
         )
     except Exception:  # noqa: BLE001 - never break on audit
         pass

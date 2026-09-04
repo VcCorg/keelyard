@@ -262,6 +262,19 @@ def get_drift(slug: str) -> list[DriftSignal]:
         fix=f"Re-run extract for {slug} to re-read the changed pages.",
     ))
 
+    from agentic_cli.commands.domain_onboarding import stale_repo_entries
+
+    stale_repo = stale_repo_entries(slug, review)
+    if stale_repo:
+        signals.append(DriftSignal(
+            key="repo-sources", label="Accepted instructions over changed repo files",
+            count=len(stale_repo), total=len(review.accepted),
+            severity="fail",
+            detail=f"{len(stale_repo)} instruction(s) we vouched for cite a file "
+                   "that has changed since",
+            fix=f"Re-run extract for {slug}; the changed files will re-propose.",
+        ))
+
     stale_entries = [e for e in review.entries if e.status == proposal.STALE]
     absent = [e for e in review.entries if e.source_absent]
     pending = review.pending

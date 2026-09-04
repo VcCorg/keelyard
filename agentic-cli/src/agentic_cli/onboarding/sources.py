@@ -17,9 +17,10 @@ onboarding.extract.extract`, which reduces it to candidates and drops it.
 """
 from __future__ import annotations
 
-import subprocess
+import hashlib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 from agentic_cli.onboarding.extract import Citation
 
@@ -78,16 +79,35 @@ def fetch_confluence(page_id: str, title: str = "") -> Document | None:
     )
 
 
-def head_sha(repo_root: Path) -> str:
-    """Short HEAD sha, or empty when the path is not a git checkout."""
+def content_version(text: str) -> str:
+    """A short digest of the text an instruction was extracted from.
+
+    This is the repo analogue of a Confluence page version, and it is
+    deliberately **not** a commit sha. HEAD moves on every commit to the
+    repository, so citing it would mark every repo-sourced instruction stale
+    the moment anyone touched an unrelated file — the check would be useless on
+    the day it shipped. A digest of the file's own content changes exactly when
+    the thing we read changed, needs no subprocess, and works outside a git
+    checkout.
+    """
+    return hashlib.sha256((text or "").encode("utf-8")).hexdigest()[:12]
+
+
+def is_repo_citation_stale(repo_root: Path, rel_path: str, cited: str) -> Optional[bool]:
+    """Has the file behind a repo citation changed since we read it?
+
+    ``None`` means *unknown* — the file could not be read, or the citation
+    carried no version. Unknown is never reported as fresh and never as stale:
+    an unreadable source is a gap in our knowledge, not a verdict about it.
+    """
+    if not cited:
+        return None
+    path = Path(repo_root) / rel_path
     try:
-        out = subprocess.run(
-            ["git", "-C", str(repo_root), "rev-parse", "--short", "HEAD"],
-            capture_output=True, text=True, timeout=10, check=False,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return ""
-    return out.stdout.strip() if out.returncode == 0 else ""
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    return content_version(text[:MAX_BODY_CHARS]) != cited
 
 
 def repo_documents(repo_root: Path, slug: str = "") -> list[Document]:
@@ -96,7 +116,6 @@ def repo_documents(repo_root: Path, slug: str = "") -> list[Document]:
     if not repo_root.is_dir():
         return []
 
-    sha = head_sha(repo_root)
     prefix = f"{slug}/" if slug else ""
     documents: list[Document] = []
 
@@ -108,9 +127,10 @@ def repo_documents(repo_root: Path, slug: str = "") -> list[Document]:
         if not text.strip():
             continue
         rel = path.relative_to(repo_root).as_posix()
+        body = text[:MAX_BODY_CHARS]
         documents.append(Document(
-            text=text[:MAX_BODY_CHARS],
-            citation=Citation("repo", f"{prefix}{rel}", sha),
+            text=body,
+            citation=Citation("repo", f"{prefix}{rel}", content_version(body)),
             title=path.name,
         ))
         if len(documents) >= _MAX_REPO_DOCS:
@@ -142,5 +162,6 @@ def _repo_doc_paths(repo_root: Path) -> list[Path]:
 
 __all__ = [
     "MAX_BODY_CHARS", "REPO_DOC_NAMES", "REPO_DOC_DIRS", "Document",
-    "fetch_confluence", "head_sha", "repo_documents",
+    "fetch_confluence", "content_version", "is_repo_citation_stale",
+    "repo_documents",
 ]

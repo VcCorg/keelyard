@@ -225,62 +225,77 @@ def save(meta_repo: Path, proposal: Proposal) -> Path:
 def merge(existing: Proposal, candidates: list[Candidate], domain: str) -> Proposal:
     """Fold a fresh extraction into an existing proposal, preserving verdicts.
 
-    A verdict survives until its source moves. When the citation for an approved
-    instruction gains a new version and the text changed with it, the entry
-    becomes ``stale`` and carries the replacement beside the approved text — the
-    same fast-forward/escalate split ``template upgrade`` uses, applied to
+    A verdict survives until the instruction itself changes. When it does, the
+    entry becomes ``stale`` carrying the replacement beside the approved text —
+    the same fast-forward/escalate split ``template upgrade`` uses, applied to
     knowledge instead of files.
+
+    **Pairing is only attempted when it is unambiguous.** A single document
+    routinely yields several instructions of the same kind, so "what did this
+    replace?" often has no answer: matching them by source alone pairs each new
+    candidate with an arbitrary survivor and shows the reviewer a diff that
+    never happened. Where the answer is not exactly one, the new instruction is
+    presented as new and the old one is flagged as no longer present — two
+    honest facts instead of one invented one.
     """
     by_id = {e.id: e for e in existing.entries}
-    # Approved entries indexed by what they were extracted from, so a source
-    # that moves can be matched even though the id (which hashes the text) moved.
-    approved_by_source: dict[tuple[str, str], Entry] = {
-        (e.kind, Citation.parse(e.citation).ref): e
-        for e in existing.entries
-        if e.status in (ACCEPTED, STALE) and not e.held
-    }
+    fresh_entries = [Entry.from_candidate(c) for c in candidates]
+    seen_ids = {e.id for e in fresh_entries}
 
     merged: list[Entry] = []
-    seen_ids: set[str] = set()
-    matched_sources: set[tuple[str, str]] = set()
+    unmatched_fresh: list[Entry] = []
 
-    for candidate in candidates:
-        fresh = Entry.from_candidate(candidate)
-        seen_ids.add(fresh.id)
-
+    for fresh in fresh_entries:
         prior = by_id.get(fresh.id)
         if prior is not None:
             # Same instruction, same source: keep the human's decision.
             fresh.status = prior.status
             fresh.source_absent = False
             merged.append(fresh)
-            matched_sources.add((fresh.kind, Citation.parse(fresh.citation).ref))
-            continue
+        else:
+            unmatched_fresh.append(fresh)
 
-        source_key = (fresh.kind, Citation.parse(fresh.citation).ref)
-        approved = approved_by_source.get(source_key)
-        if approved is not None and not fresh.held:
-            # The source moved and the instruction changed with it. Show the
-            # reviewer both, rather than overwriting an approved instruction.
-            matched_sources.add(source_key)
+    # Approved instructions this extraction did not reproduce, grouped by the
+    # source they came from, so an unambiguous replacement can be recognised.
+    orphaned = [
+        e for e in existing.entries
+        if e.id not in seen_ids
+        and e.status in (ACCEPTED, STALE)
+        and not e.held
+    ]
+
+    def source_key(entry: Entry) -> tuple[str, str]:
+        return entry.kind, Citation.parse(entry.citation).ref
+
+    orphans_by_source: dict[tuple[str, str], list[Entry]] = {}
+    for entry in orphaned:
+        orphans_by_source.setdefault(source_key(entry), []).append(entry)
+
+    fresh_by_source: dict[tuple[str, str], list[Entry]] = {}
+    for entry in unmatched_fresh:
+        fresh_by_source.setdefault(source_key(entry), []).append(entry)
+
+    paired: set[str] = set()
+    for key, fresh_group in fresh_by_source.items():
+        orphan_group = orphans_by_source.get(key, [])
+        if len(fresh_group) == 1 and len(orphan_group) == 1 and not fresh_group[0].held:
+            # Exactly one interpretation: this instruction replaced that one.
+            was, now = orphan_group[0], fresh_group[0]
+            paired.add(was.id)
             merged.append(Entry(
-                id=approved.id, kind=approved.kind, citation=fresh.citation,
-                status=STALE, text=approved.text, confidence=fresh.confidence,
-                abstracted=approved.abstracted, proposed_text=fresh.text,
+                id=was.id, kind=was.kind, citation=now.citation, status=STALE,
+                text=was.text, confidence=now.confidence,
+                abstracted=was.abstracted, proposed_text=now.text,
             ))
-            continue
+        else:
+            merged.extend(fresh_group)
 
-        merged.append(fresh)
-
-    # An approved instruction its source no longer yields is not silently
-    # dropped — a human decides whether it stopped being true or merely moved.
     for entry in existing.entries:
-        if entry.id in seen_ids:
+        if entry.id in seen_ids or entry.id in paired:
             continue
-        source_key = (entry.kind, Citation.parse(entry.citation).ref)
-        if source_key in matched_sources:
-            continue
-        if entry.status == ACCEPTED and not entry.held:
+        if entry.status in (ACCEPTED, STALE) and not entry.held:
+            # Not silently dropped: a human decides whether it stopped being
+            # true or merely moved.
             entry.source_absent = True
             merged.append(entry)
         elif entry.status == REJECTED:
