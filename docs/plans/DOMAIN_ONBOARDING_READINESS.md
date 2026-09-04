@@ -136,11 +136,11 @@ signals we can compute:
 |---|---|---|
 | **Orientation** | What is this domain, and what words does it use? | Glossary concept coverage; entity terms in the KG resolvable to a definition. |
 | **Runnable** | Can I get it running today? | Setup/build/test steps present, per linked repo, and *dated*. |
-| **Ownership** | Who owns each piece, who do I ask? | Owner recorded per repo and per concept; unowned load-bearing concepts. |
+| **Ownership** | Where is ownership recorded? | A resolvable *pointer* per repo and concept (`CODEOWNERS`, a team handle, a rota) — never a person's name; unowned load-bearing concepts. |
 | **Path to prod** | How does my change reach users? | `promotion_path` populated, gates mapped, deploy runbook linked. |
 | **Hazards** | What will bite me? | Incident/runbook/gotcha docs present; known-issue concepts. |
 | **Answerability** | Could I answer the questions a new joiner asks in week one? | Generate persona questions from the domain, retrieve, judge coverage. |
-| **Groundedness** | Is any of this actually sourced? | Share of concepts with a real citation vs. placeholder text. |
+| **Groundedness** | Has a human stood behind this? | Three-state share: reviewed-and-finalized / auto-extracted / placeholder. |
 | **Freshness** | Is it still true? | Upstream doc version delta (G6) + `graph.json` staleness (provenance). |
 
 **Answerability** is the load-bearing one and it needs no golden dataset: the
@@ -156,7 +156,8 @@ against, and judged.
   `runbook`, `adr`, `reference`, `requirement`, `other`. Heuristics on title and
   space first (cheap, auditable); LLM classification only as a fallback.
 - Mark placeholder content. A `provenance:` frontmatter key on every generated
-  `.domain/` file — `kg`, `doc:<page-id>`, `repo:<path>`, or `placeholder`.
+  `.domain/` file — `kg`, `doc:<page-id>`, `repo:<path>`, or `placeholder` — plus
+  a `reviewed:` key carrying `no` until a human finalizes it (Phase 1).
   Nothing else in the plan works without this: every score below is a share of
   real content over total, and today those are indistinguishable.
 - `domain init` reports placeholder count in its summary panel, and exits
@@ -164,19 +165,81 @@ against, and judged.
 
 *Deliverable:* a domain can no longer claim to be onboarded while empty.
 
-### Phase 1 — Read the onboarding corpus properly
+### Phase 1 — Extract intent, review it, then finalize
 
-- **`OnboardingDocsSource`** — a fourth `Source` implementation, reading the
-  pages classified `onboarding`/`runbook` and mapping them to *operational*
-  concept types (`Setup`, `Runbook`, `Glossary`, `Ownership`, `Hazard`) rather
-  than the blanket `Requirement`.
-- **`RepoDocsSource`** — walks `CONTRIBUTING.md`, `docs/`, `adr/`, `runbooks/`,
-  `.github/`, and Makefile targets in each linked repo. Version-controlled, so
-  every concept it produces carries a commit sha and is drift-checkable.
-- Extend the aspect taxonomy in `query_domain_kg` with the operational half:
-  `setup`, `ownership`, `deploy_path`, `hazards`, `glossary`.
+**We capture the *intent* of an onboarding doc, never its text.** Bodies are read
+in memory, reduced to instruction candidates, and discarded. Nothing raw is
+written to disk, so this path needs no payload store, no retention policy, and no
+redaction-at-rest design.
 
-Both new sources land behind the existing `Source` ABC — no runner changes.
+Two new sources feed the extractor, both behind the existing `Source` ABC:
+
+- **`OnboardingDocsSource`** — pages classified `onboarding`/`runbook`, mapped to
+  *operational* concept types (`Setup`, `Runbook`, `Glossary`, `Ownership`,
+  `Hazard`) rather than the blanket `Requirement`.
+- **`RepoDocsSource`** — `CONTRIBUTING.md`, `docs/`, `adr/`, `runbooks/`,
+  `.github/`, Makefile targets. Version-controlled, so every concept carries a
+  commit sha and is drift-checkable.
+
+Extend the aspect taxonomy in `query_domain_kg` with the operational half:
+`setup`, `ownership`, `deploy_path`, `hazards`, `glossary`.
+
+#### The extraction contract
+
+Each candidate is an abstracted imperative — *"run the bootstrap target before
+the first build"* — carrying a type, a **citation as a pointer** (page id +
+version, or path + sha; never content), a confidence, and a residual-risk list.
+
+An instruction points at where a live value lives; it never carries the value.
+*"Staging connection details are in the team's vault entry"* — not the string.
+This is the same discipline as `template_overlay.plan_promotion`, which reports
+every substitution it made **and** every residual it could not tokenize, for a
+human to decide. Reuse that reporting shape rather than inventing one.
+
+Two consequences worth stating plainly:
+
+- **Guard terms are checked before the review file is written**, not after. The
+  review artifact is git-visible, so a candidate carrying a `$KEEL_GUARD_TERMS`
+  match is held and flagged, never auto-written — the same reasoning that keeps
+  the guard file itself from hardcoding terms.
+- **Dropping names makes the artifact more correct, not merely safer.** A person's
+  name is the fastest-decaying fact in any onboarding doc. *"Ownership is recorded
+  in `CODEOWNERS`"* stays true across three reorgs; *"ask the tech lead by name"*
+  is wrong within a quarter.
+
+#### The review step
+
+Finalization is an onboarding step, not an audit afterthought:
+
+```
+keel domain add-docs      # track pages                      (exists)
+keel domain extract       # in-memory read → review proposal (new)
+      ← the domain's own team reviews and edits
+keel domain finalize      # accept the reviewed set into .domain/
+```
+
+The proposal is a git-visible file in the meta-repo, every candidate defaulting
+to **unreviewed** so nothing lands silently. The file is the source of truth; the
+dashboard screen and a CLI picker (the `_interactive_doc_picker` pattern already
+in `commands/domain.py`) are editors over it. Reviewing it as a PR is the natural
+default — the team that owns the domain reviews its own instructions, exactly as
+they would their onboarding guide.
+
+`finalize` flips `reviewed: yes` and records the reviewer and timestamp **in the
+tracker**, which already carries actor attribution — not in the git-visible
+context file, which stays free of personal identifiers by construction.
+
+#### Why the gate earns its keep
+
+An unreviewed domain scores lower on groundedness (Phase 2). That is the
+incentive that makes review actually happen, rather than a checkbox teams route
+around.
+
+It also changes what drift *means*. When a tracked page's version moves (G6), the
+instructions citing it are flagged **stale-pending-review** rather than silently
+re-extracted: the next `extract` proposes a diff against the finalized text and a
+human accepts or rejects it. Same shape as `template upgrade` — fast-forward the
+uncontested, escalate the rest.
 
 ### Phase 2 — `keel domain score`
 
@@ -224,9 +287,9 @@ can run in parallel by a second pair.
 2. **Does a low score block or warn by default?** Proposal: warn at `warn`,
    block at `enforce`, matching the existing `build_governance` dial rather than
    inventing a second one.
-3. **Onboarding docs are written for humans and often contain names,
-   credentials-adjacent detail, and internal hostnames.** Ingesting them at scale
-   walks straight into the guard-terms rule in `CLAUDE.md`. Classification (G1)
-   should carry a redaction pass before any body text is persisted — and this
-   overlaps the KeelTrace tier-two decision, which is still open. Settle them
-   together.
+3. ~~**How do we ingest human-written docs without persisting names, internal
+   hostnames, and credentials-adjacent detail?**~~ **Settled** — we capture the
+   *intent* of an instruction and discard the source text, with a human review
+   step to finalize (Phase 1). Bodies never reach disk, so this no longer needs
+   to be settled alongside the KeelTrace tier-two payload-store decision; that
+   one stays open on its own, scoped to the eval feed.
