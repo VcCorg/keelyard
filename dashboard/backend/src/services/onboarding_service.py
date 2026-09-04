@@ -242,96 +242,12 @@ def get_readiness(slug: str) -> Optional[dict]:
 def get_drift(slug: str) -> list[DriftSignal]:
     """Every drift signal for one domain, in one shape.
 
-    Three detectors already existed and had never been introduced to each
-    other: template drift (3-way hash), doc freshness (upstream version), and
-    the review backlog (instructions whose source moved). A reviewer needs them
-    side by side, because they are the same question asked of three corpora.
+    Delegates to ``agentic_cli.onboarding.drift``, which owns the detectors so
+    the watcher trigger and this page cannot disagree about what drift means.
     """
-    signals: list[DriftSignal] = []
-    meta, review = _load(slug)
+    from agentic_cli.onboarding import drift
 
-    docs = get_domain_docs(slug)
-    stale = stale_domain_docs(slug)
-    unchecked = sum(1 for d in docs if not (d.get("live_version") or 0))
-    signals.append(DriftSignal(
-        key="docs", label="Tracked docs moved upstream",
-        count=len(stale), total=len(docs),
-        severity="fail" if stale else ("warn" if unchecked and docs else "ok"),
-        detail=(f"{len(stale)} of {len(docs)} changed since we read them"
-                + (f"; {unchecked} never checked" if unchecked else "")),
-        fix=f"Re-run extract for {slug} to re-read the changed pages.",
-    ))
-
-    from agentic_cli.commands.domain_onboarding import stale_repo_entries
-
-    stale_repo = stale_repo_entries(slug, review)
-    if stale_repo:
-        signals.append(DriftSignal(
-            key="repo-sources", label="Accepted instructions over changed repo files",
-            count=len(stale_repo), total=len(review.accepted),
-            severity="fail",
-            detail=f"{len(stale_repo)} instruction(s) we vouched for cite a file "
-                   "that has changed since",
-            fix=f"Re-run extract for {slug}; the changed files will re-propose.",
-        ))
-
-    stale_entries = [e for e in review.entries if e.status == proposal.STALE]
-    absent = [e for e in review.entries if e.source_absent]
-    pending = review.pending
-    signals.append(DriftSignal(
-        key="instructions", label="Instructions needing a decision",
-        count=len(pending), total=len(review.entries),
-        severity="fail" if stale_entries or absent else ("warn" if pending else "ok"),
-        detail=(f"{len(pending)} pending"
-                + (f", {len(stale_entries)} superseded by a changed source" if stale_entries else "")
-                + (f", {len(absent)} no longer at their source" if absent else "")),
-        fix="Clear the review queue, then finalize.",
-    ))
-
-    if meta is not None:
-        signals.append(_template_drift(meta, slug))
-        signals.append(_placeholder_drift(meta))
-
-    return signals
-
-
-def _template_drift(meta: Path, slug: str) -> DriftSignal:
-    """Meta-repo files against a fresh render of the template that made them."""
-    from agentic_cli.meta_repo import template_drift
-
-    try:
-        report = template_drift.classify(meta, domain=slug)
-    except Exception:  # noqa: BLE001 - a drift read must never break the page
-        return DriftSignal(
-            key="template", label="Template drift", count=0,
-            severity="ok", detail="Not comparable (no baseline recorded).",
-            fix=f"Regenerate with `keel domain init {slug}` to record a baseline.",
-        )
-
-    conflicted, upgradable = len(report.conflicted), len(report.upgradable)
-    return DriftSignal(
-        key="template", label="Template drift",
-        count=conflicted + upgradable, total=len(report.entries),
-        severity="fail" if conflicted else ("warn" if upgradable else "ok"),
-        detail=(f"{upgradable} can fast-forward"
-                + (f", {conflicted} need a decision" if conflicted else "")),
-        fix=f"`keel domain template upgrade {slug}` for the safe ones.",
-    )
-
-
-def _placeholder_drift(meta: Path) -> DriftSignal:
-    """Context files still carrying the scaffold's filler."""
-    stamps = provenance.scan(meta / ".domain")
-    summary = provenance.summarize(stamps)
-    filler = summary["placeholder"] + summary["unknown"]
-    return DriftSignal(
-        key="placeholder", label="Context files without real content",
-        count=filler, total=summary["total"],
-        severity="fail" if summary["placeholder"] else ("warn" if filler else "ok"),
-        detail=f"{summary['real']} of {summary['total']} carry real content; "
-               f"{summary['reviewed']} reviewed",
-        fix="Run extract, review the proposal, then finalize.",
-    )
+    return [DriftSignal(**signal.to_dict()) for signal in drift.detect(slug)]
 
 
 # ── knowledge map ───────────────────────────────────────────────────────────
