@@ -150,7 +150,7 @@ against, and judged.
 
 ## Plan
 
-### Phase 0 — Stop lying about readiness (small, unblocks everything)
+### Phase 0 — Stop lying about readiness — **shipped**
 
 - Add `doc_type` to `domain_docs` and classify on ingest — `onboarding`,
   `runbook`, `adr`, `reference`, `requirement`, `other`. Heuristics on title and
@@ -165,7 +165,7 @@ against, and judged.
 
 *Deliverable:* a domain can no longer claim to be onboarded while empty.
 
-### Phase 1 — Extract intent, review it, then finalize
+### Phase 1 — Extract intent, review it, then finalize — **shipped**
 
 **We capture the *intent* of an onboarding doc, never its text.** Bodies are read
 in memory, reduced to instruction candidates, and discarded. Nothing raw is
@@ -241,7 +241,7 @@ re-extracted: the next `extract` proposes a diff against the finalized text and 
 human accepts or rejects it. Same shape as `template upgrade` — fast-forward the
 uncontested, escalate the rest.
 
-### Phase 2 — `keel domain score`
+### Phase 2 — `keel domain score` — **shipped, except answerability**
 
 A `ValidationReport`-shaped scorecard (reuse the `Check`/`OK`/`WARN`/`FAIL`
 pattern from `product_validation.py`) over the eight rubric dimensions, emitting
@@ -259,7 +259,7 @@ a per-dimension score, an overall grade, and a JSON artifact for the dashboard.
 sessions — the same seam that already carries governance, reading one more
 signal.
 
-### Phase 3 — Governance across the fleet
+### Phase 3 — Governance across the fleet — *not started*
 
 - `keel governance status --all` — every domain's `governance.yaml` against the
   product floor, in one table. Which are stricter, which are looser, which
@@ -293,3 +293,38 @@ can run in parallel by a second pair.
    step to finalize (Phase 1). Bodies never reach disk, so this no longer needs
    to be settled alongside the KeelTrace tier-two payload-store decision; that
    one stays open on its own, scoped to the eval feed.
+
+
+## What shipped
+
+| Piece | Where |
+|---|---|
+| Doc typing + freshness columns | `tracker.py` v14; `onboarding/classify.py` |
+| Intent extraction, bodies discarded | `onboarding/extract.py`, `onboarding/sources.py` |
+| Residual-risk scan, held candidates | `onboarding/redaction.py` |
+| Review proposal, verdicts preserved | `onboarding/proposal.py` |
+| Provenance + reviewed frontmatter | `onboarding/provenance.py` |
+| Eight-dimension scorecard | `onboarding/readiness.py` |
+| `classify-docs / extract / review / finalize / score` | `commands/domain_onboarding.py` |
+| Read models, drift, knowledge map | `dashboard/backend/src/services/onboarding_service.py` |
+| Review + Readiness wizard steps | `dashboard/frontend/src/components/Domain{Review,Readiness}Panel.tsx` |
+| Knowledge flow visualisation | `dashboard/frontend/src/components/KnowledgeFlowMap.tsx` |
+
+Verified end to end on a fixture domain: a `CONTRIBUTING.md` yielded eight
+instructions and held the one naming a person and an email; review and finalize
+moved the domain from 25 (F) to 78 (C).
+
+## What is left
+
+**Answerability** is the one rubric dimension still reporting `SKIPPED` even
+when a judge is configured. It is the load-bearing one — generate the questions
+a persona would ask, retrieve against the domain, judge coverage — and it is
+also the only part needing a model, so it was left until the deterministic
+seven were trustworthy. `readiness._answerability` is the seam.
+
+**Phase 3** (governance across the fleet) is untouched and independent.
+
+**Repo-doc staleness.** A repo citation carries a commit sha, so the comparison
+is available, but nothing yet re-reads it: only Confluence pages currently
+report drift. The knowledge map already renders repo sources, so they simply
+never light up.
