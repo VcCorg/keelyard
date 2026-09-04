@@ -11,8 +11,13 @@ from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
 from src.services import domain_service as svc
+from src.services import onboarding_service as onboarding
 
 router = APIRouter(prefix="/api/domains", tags=["domains"])
+
+
+class DocTypeRequest(BaseModel):
+    doc_type: str
 
 
 # ── Request bodies ──────────────────────────────────────────────────────────
@@ -563,3 +568,76 @@ async def api_product_regen_personas_stream(name: str, enrich: bool = Query(Fals
                 yield {"event": "log", "data": line}
 
     return EventSourceResponse(gen())
+
+
+# ---------------------------------------------------------------------------
+# Onboarding: classify → extract → review → finalize → score
+#
+# `extract` and `finalize` stream through the CLI like every other wizard step,
+# so their logic is never duplicated here. Everything else is a read model over
+# the review proposal on disk, which stays the single store.
+# ---------------------------------------------------------------------------
+
+@router.get("/{slug}/onboarding/docs", response_model=list[onboarding.DocClassification])
+async def api_onboarding_docs(slug: str):
+    """Tracked docs with what each one is *for*, and whether it has moved."""
+    return onboarding.list_classified_docs(slug)
+
+
+@router.patch("/{slug}/onboarding/docs/{page_id}", response_model=ActionResponse)
+async def api_set_doc_type(slug: str, page_id: str, body: DocTypeRequest):
+    """Correct one doc's type. Stored at full confidence; survives re-syncing."""
+    if not onboarding.set_doc_type(slug, page_id, body.doc_type):
+        raise HTTPException(status_code=400, detail=f"Unknown doc type '{body.doc_type}'")
+    return ActionResponse(ok=True, message=f"{page_id} → {body.doc_type}")
+
+
+@router.get("/{slug}/onboarding/proposal", response_model=onboarding.ReviewProposal)
+async def api_onboarding_proposal(slug: str):
+    """The review worklist. Held entries carry risk kinds, never text."""
+    return onboarding.get_proposal(slug)
+
+
+@router.post("/{slug}/onboarding/verdicts", response_model=onboarding.VerdictResult)
+async def api_onboarding_verdicts(slug: str, body: onboarding.VerdictRequest):
+    """Accept or reject reviewed instructions."""
+    result = onboarding.record_verdicts(slug, body)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"No meta-repo for '{slug}'")
+    return result
+
+
+@router.get("/{slug}/onboarding/extract/stream")
+async def api_extract_stream(slug: str, repos: bool = Query(True), all_types: bool = Query(False)):
+    """Run `keel domain extract <slug>` and stream output."""
+    args = ["extract", slug, "--repos" if repos else "--no-repos"]
+    if all_types:
+        args.append("--all-types")
+    return _sse(args)
+
+
+@router.get("/{slug}/onboarding/finalize/stream")
+async def api_finalize_stream(slug: str):
+    """Run `keel domain finalize <slug>` and stream output."""
+    return _sse(["finalize", slug])
+
+
+@router.get("/{slug}/readiness")
+async def api_readiness(slug: str):
+    """The eight-dimension scorecard, computed live."""
+    card = onboarding.get_readiness(slug)
+    if card is None:
+        raise HTTPException(status_code=404, detail=f"No meta-repo for '{slug}'")
+    return card
+
+
+@router.get("/{slug}/drift", response_model=list[onboarding.DriftSignal])
+async def api_drift(slug: str):
+    """Every drift signal for one domain, in one shape."""
+    return onboarding.get_drift(slug)
+
+
+@router.get("/{slug}/knowledge-map", response_model=onboarding.KnowledgeMap)
+async def api_knowledge_map(slug: str):
+    """Sources → instruction kinds → context artifacts, with staleness."""
+    return onboarding.get_knowledge_map(slug)

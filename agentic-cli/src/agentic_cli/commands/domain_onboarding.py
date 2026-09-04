@@ -325,13 +325,19 @@ def review(
 
 # ── finalize ────────────────────────────────────────────────────────────────
 
-_KIND_FILES = {
+#: Which ``.domain/`` file each instruction kind is written to, and its heading.
+#: Exported because the dashboard maps artifacts back to kinds and must not
+#: re-derive the relationship from filenames.
+KIND_FILES: dict[str, tuple[str, str]] = {
     extract.SETUP: ("setup.md", "Setup"),
     extract.RUNBOOK_STEP: ("runbook.md", "Operating"),
     extract.HAZARD: ("hazards.md", "Hazards"),
     extract.OWNERSHIP: ("ownership.md", "Ownership"),
     extract.GLOSSARY: ("glossary.md", "Glossary"),
 }
+
+#: The inverse: ``setup.md`` → ``setup``.
+FILE_KINDS: dict[str, str] = {filename: kind for kind, (filename, _) in KIND_FILES.items()}
 
 
 def finalize(
@@ -358,7 +364,7 @@ def finalize(
     domain_dir.mkdir(parents=True, exist_ok=True)
     written: list[str] = []
 
-    for kind, (filename, heading) in _KIND_FILES.items():
+    for kind, (filename, heading) in KIND_FILES.items():
         entries = [e for e in accepted if e.kind == kind]
         if not entries:
             continue
@@ -516,5 +522,5 @@ def register(domain_app: typer.Typer) -> None:
     domain_app.command("score")(score)
 
 
-__all__ = ["register", "gather", "classify_docs", "extract_intent", "review",
-           "finalize", "score"]
+__all__ = ["register", "gather", "KIND_FILES", "FILE_KINDS", "classify_docs",
+           "extract_intent", "review", "finalize", "score"]
