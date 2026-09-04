@@ -51,11 +51,19 @@ class TestSchemaMigration:
         conn.close()
         assert "products" in table_names
 
-    def test_schema_version_is_7(self):
+    def test_fresh_db_is_stamped_at_the_current_schema_version(self):
+        """A fresh database must be stamped current, not at some past literal.
+
+        This asserted ``== 8`` and had been failing since v9, because a
+        hardcoded version breaks on every migration and nobody updates a test
+        that is already red. Comparing against ``_SCHEMA_VERSION`` pins the
+        invariant that actually matters — a fresh install never looks like it
+        needs migrating — and survives the next bump.
+        """
         conn = sqlite3.connect(str(tracker.DB_PATH))
         version = conn.execute("SELECT version FROM schema_version").fetchone()[0]
         conn.close()
-        assert version == 8
+        assert version == tracker._SCHEMA_VERSION
 
 
 # ---------------------------------------------------------------------------
