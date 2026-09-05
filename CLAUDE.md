@@ -20,6 +20,84 @@ what is easy to get wrong.
 | `mcp-servers/` | MCP servers + docker-compose |
 | `kg-infrastructure/` | Neo4j, LightRAG, Postgres graph |
 
+## Glossary
+
+This vocabulary is dense and mostly unguessable — *domain*, *product*, *meta-repo*
+and *context-meta repo* are four different things, and three of them are git
+repositories. Written as a definition list so `keel domain extract` can lift it
+into the domain's own glossary; keep that shape if you add to it.
+
+**Keel** — the product and the CLI (`keel`).
+
+**keelyard** — this repository: one git repo holding the CLI, dashboard, desktop
+app, skills registry, MCP servers and KG infrastructure.
+
+**Product** — the top registration tier. Groups domains and owns the governance
+floor they are measured against.
+
+**Domain** — a scoped area within a product, tying together a Jira project, a
+Bitbucket project, a Confluence space and selected repositories.
+
+**Context-meta repo** — the per-domain git repository created by `keel domain
+init`, holding both the context (`.domain/`) and the meta layer (`.platform/`
+governance, `.agents/` personas, `repos/` submodules).
+
+**OKF** — Open Knowledge Format, the Markdown-native knowledge bundle format the
+KG exports to and reads from.
+
+**Skill** — a packaged instruction set at `skills/<name>/SKILL.md`, injected into
+a repo so a coding agent picks it up.
+
+**Persona** — a role (dev, tech-lead, QA, SM, BA) that skills and workspaces are
+generated for.
+
+**Watcher** — a binding from a trigger to an agent handler. The runtime polls the
+source and dispatches through the same governance seam a manual run uses.
+
+**Trigger** — an adapter that emits events for a watcher. Registered against a
+protocol, never added as a branch in a dispatch chain.
+
+**Engine** — an execution backend (Devin, Devin CLI, local, an IDE) selected
+through `execution.registry`, which is the single build-governance seam.
+
+**Context read** — one row in the KeelTrace ledger: source, operation, entity,
+bytes, latency, status. Tier one, and safe to retain.
+
+**Payload** — the retrieved text behind a context read. Tier two, written only
+when `KEEL_PAYLOAD_STORE` names a backend, masked and capped when it is.
+
+**Provenance stamp** — the `provenance:` and `reviewed:` frontmatter on a
+`.domain/` file, saying where its content came from and whether a human approved
+it.
+
+**Placeholder** — filler `domain init` writes when the KG returns nothing. Never
+served as context, because an agent handed it reads it as a domain fact.
+
+**Held instruction** — an extracted instruction carrying a name, an email or a
+credential. Its text is never written: the review file records only the kinds of
+identifier found, plus a citation pointing at the source.
+
+**Drift** — any signal that context has moved away from what it was drawn from:
+a page revised upstream, a repo file edited, a template advanced, an approved
+instruction whose source no longer yields it.
+
+**Template drift** — the three-way comparison of a meta-repo file against its
+generation baseline and a fresh render of the current template, which is what
+separates a template change from a local edit.
+
+**Readiness score** — the eight-dimension answer to "could a competent new
+teammate ship from this domain?", produced by `keel domain score`.
+
+**Governance floor** — the product-level governance values a domain may tighten
+freely and may not loosen without a recorded exception.
+
+**Exception** — an auditable waiver in the product meta-repo's `exceptions/`
+ledger, permitting one domain to sit below the floor for a stated reason.
+
+**Guard terms** — site-specific strings supplied through `$KEEL_GUARD_TERMS` or a
+git-ignored `.guardterms`. Never committed: a guard list in the repository would
+disclose exactly what it protects.
+
 ## Commands
 
 ```bash

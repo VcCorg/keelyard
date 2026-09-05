@@ -407,8 +407,91 @@ def _provenance_for(entries: list[proposal.Entry]) -> str:
 
 # ── score ───────────────────────────────────────────────────────────────────
 
+def _score_portfolio(
+    product: Optional[str], *, as_json: bool, write: bool, require: Optional[float]
+) -> None:
+    """Score every domain and rank them worst-first.
+
+    A domain without a meta-repo is listed rather than skipped: "not set up yet"
+    and "set up and scoring badly" are different problems, and a portfolio view
+    that silently omits the first one is the more misleading of the two.
+    """
+    from agentic_cli.meta_repo.detector import detect_domain_meta_repo
+    from agentic_cli.tracker import get_domains
+
+    domains = [
+        d for d in get_domains()
+        if not product or (d.get("product") or "").lower() == product.lower()
+    ]
+    if not domains:
+        console.print(f"[yellow]No domains registered"
+                      f"{f' for product {product}' if product else ''}.[/yellow]")
+        raise typer.Exit(0)
+
+    rows: list[dict] = []
+    for domain in domains:
+        slug = domain["name"]
+        meta = detect_domain_meta_repo(slug)
+        if meta is None:
+            rows.append({"domain": slug, "product": domain.get("product") or "",
+                         "overall": None, "grade": "—", "ready": False,
+                         "note": "no meta-repo — run `domain init`"})
+            continue
+        card = readiness.score(gather(slug, meta))
+        if write:
+            target = meta / ".platform" / "readiness.json"
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(json.dumps(card.to_dict(), indent=2) + "\n", encoding="utf-8")
+        weakest = sorted(
+            (d for d in card.dimensions if d.score is not None),
+            key=lambda d: d.score)[:2]
+        rows.append({
+            "domain": slug, "product": domain.get("product") or "",
+            "overall": card.overall, "grade": card.grade, "ready": card.ready(),
+            "note": ", ".join(f"{d.label} {d.score:.0f}" for d in weakest),
+        })
+
+    # Worst first: an unscorable domain sorts to the top, because it is the most
+    # actionable row on the page.
+    rows.sort(key=lambda r: (r["overall"] is not None, r["overall"] or 0))
+
+    if as_json:
+        console.print_json(json.dumps({"product": product, "domains": rows}))
+    else:
+        table = Table(title="Domain readiness" + (f" — {product}" if product else ""),
+                      show_lines=False)
+        table.add_column("Domain", no_wrap=True)
+        table.add_column("Grade", justify="center", no_wrap=True)
+        table.add_column("Overall", justify="right", no_wrap=True)
+        table.add_column("Weakest", overflow="fold")
+        for row in rows:
+            style = ("green" if row["ready"] else
+                     "dim" if row["overall"] is None else "yellow")
+            table.add_row(
+                row["domain"],
+                f"[{style}]{row['grade']}[/]",
+                "—" if row["overall"] is None else f"{row['overall']:.0f}",
+                row["note"],
+            )
+        console.print(table)
+        ready = sum(1 for r in rows if r["ready"])
+        console.print(f"[bold]{ready}[/bold]/{len(rows)} ready to build on")
+
+    record_activity(command="domain", subcommand="score",
+                    args={"product": product, "domains": len(rows),
+                          "ready": sum(1 for r in rows if r["ready"])})
+
+    lowest = min((r["overall"] for r in rows if r["overall"] is not None), default=None)
+    if require is not None and (lowest is None or lowest < require):
+        raise typer.Exit(1)
+
+
 def score(
-    slug: Annotated[str, typer.Argument(help="Domain slug")],
+    slug: Annotated[Optional[str], typer.Argument(help="Domain slug (omit with --all)")] = None,
+    all_domains: Annotated[bool, typer.Option(
+        "--all", help="Score every domain, worst first — the portfolio readout")] = False,
+    product: Annotated[Optional[str], typer.Option(
+        "--product", "-p", help="With --all, limit to one product's domains")] = None,
     as_json: Annotated[bool, typer.Option("--json", help="Emit the scorecard as JSON")] = False,
     write: Annotated[bool, typer.Option("--write/--no-write", help="Save to .platform/readiness.json")] = True,
     require: Annotated[Optional[float], typer.Option(
@@ -419,7 +502,18 @@ def score(
     Seven dimensions are deterministic. Answerability needs an LLM judge and
     reports SKIPPED without one — a missing credential must never look like an
     unready domain.
+
+    ``--all`` scores every domain worst-first, which is the question a lead
+    actually has: not "how is this one doing" but "which of mine needs attention
+    this morning".
     """
+    if all_domains:
+        _score_portfolio(product, as_json=as_json, write=write, require=require)
+        return
+    if not slug:
+        console.print("[red]✗ Give a domain slug, or --all for every domain.[/red]")
+        raise typer.Exit(1)
+
     _require_domain(slug)
     meta = _require_meta(slug)
     card = readiness.score(gather(slug, meta))

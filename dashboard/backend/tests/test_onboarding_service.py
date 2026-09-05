@@ -125,3 +125,44 @@ class TestKnowledgeMap:
         graph = svc.get_knowledge_map(slug)
         assert any(f.stale for f in graph.flows)
         assert any(n.stale for n in graph.nodes if n.group == "source")
+
+
+class TestPortfolio:
+    """The cross-domain readout: which of mine needs attention this morning."""
+
+    def test_a_domain_without_a_meta_repo_is_listed_not_skipped(self, domain):
+        """'Not set up yet' and 'set up and scoring badly' are different
+        problems, and omitting the first is the more misleading choice."""
+        slug, _, svc = domain
+        import agentic_cli.tracker as tracker
+        tracker.register_domain("acme-payments", product="ACME", domain="Payments")
+
+        rows = svc.get_portfolio()
+        by_domain = {r.domain: r for r in rows}
+        assert set(by_domain) == {slug, "acme-payments"}
+        assert by_domain["acme-payments"].overall is None
+        assert by_domain["acme-payments"].note == "no meta-repo"
+        assert not by_domain["acme-payments"].ready
+
+    def test_worst_first(self, domain):
+        """An unscorable domain sorts to the top — it is the most actionable row."""
+        slug, _, svc = domain
+        import agentic_cli.tracker as tracker
+        tracker.register_domain("acme-payments", product="ACME", domain="Payments")
+
+        assert svc.get_portfolio()[0].domain == "acme-payments"
+
+    def test_scored_domain_reports_its_weakest_dimensions(self, domain):
+        slug, _, svc = domain
+        [row] = [r for r in svc.get_portfolio() if r.domain == slug]
+        assert row.overall is not None
+        assert row.grade
+        assert row.note  # names the two lowest-scoring dimensions
+
+    def test_product_filter(self, domain):
+        slug, _, svc = domain
+        import agentic_cli.tracker as tracker
+        tracker.register_domain("other-thing", product="OTHER", domain="Thing")
+
+        assert [r.domain for r in svc.get_portfolio(product="ACME")] == [slug]
+        assert svc.get_portfolio(product="NOPE") == []

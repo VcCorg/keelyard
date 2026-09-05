@@ -622,6 +622,16 @@ async def api_finalize_stream(slug: str):
     return _sse(["finalize", slug])
 
 
+@router.get("/readiness/portfolio", response_model=list[onboarding.PortfolioRow])
+async def api_portfolio(product: Optional[str] = Query(None)):
+    """Every domain's readiness, worst first.
+
+    Declared before /{slug}/readiness so the literal path is not swallowed by
+    the slug route.
+    """
+    return onboarding.get_portfolio(product)
+
+
 @router.get("/{slug}/readiness")
 async def api_readiness(slug: str):
     """The eight-dimension scorecard, computed live."""

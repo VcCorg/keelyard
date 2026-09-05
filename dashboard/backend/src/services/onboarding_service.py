@@ -237,6 +237,52 @@ def get_readiness(slug: str) -> Optional[dict]:
     return readiness.score(gather(slug, meta)).to_dict()
 
 
+class PortfolioRow(BaseModel):
+    """One domain's standing in the portfolio readout."""
+
+    domain: str
+    product: str = ""
+    overall: Optional[float] = None
+    grade: str = "—"
+    ready: bool = False
+    note: str = ""
+
+
+def get_portfolio(product: Optional[str] = None) -> list[PortfolioRow]:
+    """Every domain's readiness, worst first.
+
+    The question a lead actually has is not "how is this one doing" but "which
+    of mine needs attention this morning". A domain with no meta-repo is listed
+    rather than skipped — "not set up yet" and "set up and scoring badly" are
+    different problems, and omitting the first is the more misleading choice.
+    """
+    from agentic_cli.commands.domain_onboarding import gather
+    from agentic_cli.onboarding import readiness
+    from agentic_cli.tracker import get_domains
+
+    rows: list[PortfolioRow] = []
+    for domain in get_domains():
+        if product and (domain.get("product") or "").lower() != product.lower():
+            continue
+        slug = domain["name"]
+        meta = detect_domain_meta_repo(slug)
+        if meta is None:
+            rows.append(PortfolioRow(domain=slug, product=domain.get("product") or "",
+                                     note="no meta-repo"))
+            continue
+        card = readiness.score(gather(slug, meta))
+        weakest = sorted((d for d in card.dimensions if d.score is not None),
+                         key=lambda d: d.score)[:2]
+        rows.append(PortfolioRow(
+            domain=slug, product=domain.get("product") or "",
+            overall=card.overall, grade=card.grade, ready=card.ready(),
+            note=", ".join(f"{d.label} {d.score:.0f}" for d in weakest),
+        ))
+
+    rows.sort(key=lambda r: (r.overall is not None, r.overall or 0))
+    return rows
+
+
 # ── drift ───────────────────────────────────────────────────────────────────
 
 def get_drift(slug: str) -> list[DriftSignal]:

@@ -807,3 +807,68 @@ class TestMergeAmbiguity:
         two = extract.Candidate("Same words", extract.SETUP,
                                 extract.Citation("repo", "b/X.md", "v1"), 0.7)
         assert one.id != two.id
+
+
+# ── portfolio scoring (`domain score --all`) ─────────────────────────────────
+
+class TestScorePortfolio:
+    """`domain score --all` — the lead's morning question, ranked worst-first.
+
+    Both assertions here are about what the readout refuses to hide: a domain
+    with no meta-repo stays on the page (it is the most actionable row, not an
+    absent one), and the ordering puts the worst domain first rather than
+    listing registration order.
+    """
+
+    @staticmethod
+    def _run(monkeypatch, tmp_path, cards):
+        """Drive the command over ``cards``: slug → overall score, or None.
+
+        ``None`` means "registered but never initialised" — no meta-repo on disk.
+        """
+        from typer.testing import CliRunner
+
+        from agentic_cli import tracker
+        from agentic_cli.commands.domain import domain_app
+        from agentic_cli.meta_repo import detector
+        from agentic_cli.onboarding import readiness
+
+        monkeypatch.setattr(
+            tracker, "get_domains",
+            lambda: [{"name": slug, "product": "acme"} for slug in cards])
+        monkeypatch.setattr(
+            detector, "detect_domain_meta_repo",
+            lambda slug: None if cards[slug] is None else tmp_path / slug)
+        monkeypatch.setattr(
+            "agentic_cli.commands.domain_onboarding.gather",
+            lambda slug, meta: slug)
+
+        def _score(slug):
+            return readiness.Scorecard(
+                domain=slug,
+                dimensions=[readiness.Dimension(
+                    key="grounded", label="Groundedness",
+                    question="Is the context grounded in real sources?",
+                    status=readiness.OK, score=cards[slug])],
+            )
+
+        monkeypatch.setattr(
+            "agentic_cli.commands.domain_onboarding.readiness.score", _score)
+        return CliRunner().invoke(
+            domain_app, ["score", "--all", "--no-write", "--json"])
+
+    def test_domain_without_a_meta_repo_is_listed_not_skipped(
+            self, monkeypatch, tmp_path):
+        result = self._run(monkeypatch, tmp_path,
+                           {"ready-one": 96.0, "never-started": None})
+        assert result.exit_code == 0
+        slugs = [row["domain"] for row in json.loads(result.stdout)["domains"]]
+        assert "never-started" in slugs
+
+    def test_worst_domain_sorts_first_and_unscorable_sorts_above_it(
+            self, monkeypatch, tmp_path):
+        result = self._run(monkeypatch, tmp_path,
+                           {"good": 96.0, "poor": 41.0, "never-started": None})
+        assert result.exit_code == 0
+        slugs = [row["domain"] for row in json.loads(result.stdout)["domains"]]
+        assert slugs == ["never-started", "poor", "good"]
