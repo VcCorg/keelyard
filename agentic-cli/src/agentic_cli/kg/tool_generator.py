@@ -2,6 +2,8 @@
 
 from typing import List
 
+from agentic_cli.config import CLI_NAME
+
 
 def generate_tool(name: str, operations: List[str]) -> str:
     """
@@ -191,7 +193,7 @@ class CustomKGTool:
         
         if not self.config.is_neo4j_configured():
             raise ValueError(
-                "Neo4j is not configured. Run '{CLI_NAME} kg init' first."
+                f"Neo4j is not configured. Run '{CLI_NAME} kg init' first."
             )
     
     def custom_operation(self, *args, **kwargs) -> Any:

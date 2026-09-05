@@ -226,8 +226,14 @@ could not measure this before" and "this got worse" must not render the same.
   finalized instruction set fit the target model's window with room left to
   actually work?
 
-- **Test CI.** Not wired, because `main` has pre-existing failures (see
-  [`CLAUDE.md`](../CLAUDE.md)). Triage first, then add the workflow.
+- **Test CI.** Wired — `.github/workflows/tests.yml` blocks on the suites, with
+  the eight still-failing files excluded by name. Triage took `agentic-cli` from
+  47 failures to 28 by fixing three causes rather than individual tests (a
+  missing `pytest-asyncio`, a `CLI_NAME` NameError in the tool generator, and a
+  suite invoking `python` from `PATH` rather than `sys.executable`). The
+  remaining exclusions are listed in [`CLAUDE.md`](../CLAUDE.md); each is a debt
+  entry with a name attached, and the job is honest rather than
+  `continue-on-error`.
 
 ## Next after KeelTrace
 
