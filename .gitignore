@@ -177,7 +177,15 @@ bin/
 obj/
 
 # Package managers
-package-lock.json
+#
+# package-lock.json is deliberately NOT ignored. The desktop app redistributes
+# the frontend's dependency tree inside its installers, so NOTICE's license
+# obligations attach to whatever versions actually shipped — and those cannot be
+# established for a tree nothing pins. Committing it also lets CI use `npm ci`,
+# which installs the resolved graph rather than re-resolving it on every run.
+#
+# The rest stay ignored: this repo does not use yarn, poetry or pipenv, so those
+# entries guard against a stray file rather than a policy anyone relies on.
 yarn.lock
 poetry.lock
 Pipfile.lock

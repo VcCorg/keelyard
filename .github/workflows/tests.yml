@@ -86,20 +86,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      # No npm cache and `npm install` rather than `npm ci`, because this repo
-      # gitignores every lockfile (.gitignore, "# Package managers"). Without
-      # package-lock.json in the checkout, `cache: npm` cannot resolve its
-      # cache-dependency-path and `npm ci` refuses to run at all — so this job
-      # has failed on every commit since it was added, before executing a
-      # single one of the checks it exists to run.
-      #
-      # Committing the lockfile would be the better answer and is a policy
-      # decision, not a CI fix: the desktop app redistributes this dependency
-      # tree, and NOTICE's license obligations are hard to honour for a tree
-      # nothing pins. Raised separately rather than changed here.
+          cache: npm
+          cache-dependency-path: dashboard/frontend/package-lock.json
+      # `npm ci` again, now that package-lock.json is committed. It installs the
+      # resolved graph instead of re-resolving it, so an upstream release cannot
+      # turn this job red on a day nothing here changed — which is the failure
+      # `npm install` in CI quietly invites.
       - name: Install
         working-directory: dashboard/frontend
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
       - name: Typecheck
         working-directory: dashboard/frontend
         run: npx tsc --noEmit
