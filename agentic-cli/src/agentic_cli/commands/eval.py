@@ -1655,3 +1655,136 @@ def eval_playground(
     record_activity(command="eval", subcommand="playground",
                     args={"session": session, "variants": len(comparison.variants),
                           "scored": bool(metric_names)})
+
+
+# ── run outcomes ────────────────────────────────────────────────────────────
+
+@eval_app.command("outcome")
+def eval_outcome(
+    session: Annotated[str, typer.Argument(help="Session / correlation id the result belongs to")],
+    metric: Annotated[str, typer.Option("--metric", "-m", help="What was measured, e.g. rmse, accuracy, public-lb")],
+    value: Annotated[float, typer.Option("--value", "-v", help="The number, supplied by you — never computed here")],
+    higher: Annotated[bool, typer.Option("--higher-is-better/--lower-is-better",
+                                         help="Which direction counts as an improvement")] = True,
+    domain: Annotated[Optional[str], typer.Option("--domain", "-d", help="Project this run belongs to")] = None,
+    note: Annotated[str, typer.Option("--note", help="What was different about this run")] = "",
+    reported_by: Annotated[str, typer.Option("--by", help="Where the number came from, e.g. kaggle-public-lb")] = "",
+) -> None:
+    """Attach an externally supplied result to a run.
+
+    Keel scores *context* quality. A leaderboard scores *model* performance, and
+    that number is ground truth arriving from outside — so it is supplied here,
+    never derived, and the row records who supplied it.
+
+    The point is not the number. It is that the run's session already records
+    what context it read, so a result and the context that informed it end up on
+    the same correlation id. That join is what no experiment tracker has.
+    """
+    from agentic_cli.evaluation import outcomes
+
+    try:
+        recorded = outcomes.record(
+            session, metric, value,
+            direction=outcomes.HIGHER if higher else outcomes.LOWER,
+            domain=domain or "", note=note, reported_by=reported_by)
+    except ValueError as exc:
+        console.print(f"[red]✗ {exc}[/red]")
+        raise typer.Exit(1)
+
+    context = outcomes._context_of(session)
+    console.print(f"[green]✓[/green] {recorded.metric} = {recorded.value:g} "
+                  f"({recorded.better_is} better) on {session}")
+    if context["sources"]:
+        slices = ", ".join(sorted(context["sources"]))
+        console.print(f"[dim]That run read: {slices}"
+                      + (f" — {context['tokens']:,} tokens" if context["tokens"] else "")
+                      + "[/dim]")
+    else:
+        # Worth saying plainly: an outcome with no context behind it records
+        # fine and is exactly half of what makes this useful.
+        console.print("[yellow]No context reads recorded for that session — the "
+                      "result is stored, but there is nothing to attribute it "
+                      "to.[/yellow]")
+
+
+@eval_app.command("runs")
+def eval_runs(
+    domain: Annotated[Optional[str], typer.Argument(help="Project to rank runs for")] = None,
+    metric: Annotated[Optional[str], typer.Option("--metric", "-m", help="Rank by this metric")] = None,
+    compare: Annotated[bool, typer.Option("--compare", help="Diff the context of the best and worst run")] = False,
+    as_json: Annotated[bool, typer.Option("--json", help="Emit the runs as JSON")] = False,
+) -> None:
+    """Rank runs by their result, showing what each one read.
+
+    Deliberately not an experiment tracker — MLflow and Weights & Biases do that
+    well and should be integrated with rather than rebuilt. What they cannot
+    show is the context an agent read while writing the run, which is the column
+    on the right.
+
+    ``--compare`` diffs the best and worst run's context. It says what differed,
+    never what caused the difference: a correlation between sources and score is
+    a lead to chase, and calling it a cause would be the overreach this avoids.
+    """
+    import json as _json
+
+    from agentic_cli.evaluation import outcomes
+
+    found = outcomes.runs(domain=domain or "", metric=metric or "")
+    if not found:
+        where = f" for '{domain}'" if domain else ""
+        console.print(f"[yellow]No runs with a recorded outcome{where}.[/yellow]")
+        console.print(f"[dim]Attach one with: {CLI_NAME} eval outcome <session> "
+                      f"--metric rmse --value 0.12 --lower-is-better[/dim]")
+        raise typer.Exit(0)
+
+    seen = {r.outcome.metric for r in found}
+    ranked = len(seen) == 1
+    if as_json:
+        console.print_json(_json.dumps({
+            "ranked": ranked, "metric": (metric or (list(seen)[0] if ranked else None)),
+            "runs": [r.to_dict() for r in found]}))
+        raise typer.Exit(0)
+
+    title = "Runs" + (f" — {domain}" if domain else "")
+    table = Table(title=title + ("" if ranked else " (unranked)"), show_lines=False)
+    table.add_column("Run", no_wrap=True)
+    table.add_column("Metric", no_wrap=True)
+    table.add_column("Result", justify="right", no_wrap=True)
+    table.add_column("Tokens", justify="right", no_wrap=True)
+    table.add_column("Read", overflow="fold")
+
+    for run in found:
+        table.add_row(
+            run.session_id[:12],
+            f"{run.outcome.metric} {run.outcome.better_is}",
+            f"{run.outcome.value:g}",
+            f"{run.tokens:,}" if run.tokens else "—",
+            ", ".join(sorted(run.sources)) or "[dim]nothing recorded[/dim]",
+        )
+    console.print(table)
+
+    if not ranked:
+        # Two metrics have no ordering between them, so this is listed in
+        # recording order rather than sorted into a leaderboard that would be
+        # meaningless. Naming one fixes it.
+        console.print(f"[yellow]Several metrics here ({', '.join(sorted(seen))}) — "
+                      f"listed in recording order. Rank with "
+                      f"--metric <name>.[/yellow]")
+        raise typer.Exit(0)
+
+    if compare and len(found) >= 2:
+        delta = outcomes.context_delta(found[0], found[-1])
+        console.print()
+        console.print(f"[bold]Best vs worst[/bold] — {delta['value_delta']:+g} "
+                      f"{found[0].outcome.metric}, "
+                      f"{delta['token_delta']:+,} tokens")
+        for label, keys in (("only the better run read", delta["only_in_better"]),
+                            ("only the worse run read", delta["only_in_worse"])):
+            console.print(f"  [dim]{label}:[/dim] "
+                          + (", ".join(keys) if keys else "[dim]nothing[/dim]"))
+        console.print("[dim]What differed, not what caused it — a lead to chase, "
+                      "not an attribution.[/dim]")
+
+    record_activity(command="eval", subcommand="runs",
+                    args={"domain": domain or "*", "runs": len(found),
+                          "ranked": ranked})
