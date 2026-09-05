@@ -73,6 +73,13 @@ class Variant:
     scores: dict[str, float] = field(default_factory=dict)
     framework: str = ""
     problems: list[str] = field(default_factory=list)
+    #: An externally supplied result for this variant — a leaderboard score, a
+    #: holdout metric. Never computed here: `scores` are what Keel judged about
+    #: the context, and this is ground truth arriving from outside. Keeping them
+    #: in separate fields is what stops a judged number and a measured one being
+    #: read as the same kind of thing.
+    outcome: Optional[float] = None
+    outcome_metric: str = ""
 
     @property
     def ran(self) -> bool:
@@ -90,6 +97,7 @@ class Variant:
             "scores": self.scores, "framework": self.framework,
             "problems": list(self.problems),
             "ran": self.ran, "scored": self.scored,
+            "outcome": self.outcome, "outcome_metric": self.outcome_metric,
         }
 
 
