@@ -134,8 +134,10 @@ bash scripts/check-no-company-data.sh --all # guardrail; also runs in CI
 
 As of September 2026, on a **pristine checkout of `main`**:
 
-- `agentic-cli` — 1186 pass, **28 fail**
-- `dashboard/backend` — 181 pass, **6 fail**
+- `agentic-cli` — 1312 pass, **28 fail**
+- `dashboard/backend` — 191 pass, **4 fail** (all `test_neo4j_preflight`, which
+  needs a live Neo4j — they pass nowhere without one, including CI, which is why
+  that file is excluded there)
 
 Down from 47 and 6. The triage that got there fixed three causes rather than
 individual tests: `pytest-asyncio` was missing from the `dev` extra, so fourteen
@@ -209,5 +211,10 @@ never hardcoded, because the guard file itself would then disclose them.
 
 ## Current work
 
-[`docs/KEELTRACE.md`](docs/KEELTRACE.md) — what has shipped, what is next, and
-the open decision blocking it.
+[`docs/KEELTRACE.md`](docs/KEELTRACE.md) — what has shipped (P1–P7: sensors,
+the read side, the eval feed, the playground, the retrieval seam, semantic
+drift, token accounting and cost) and what is genuinely left.
+
+Nothing is blocked on a decision now — the tier-two storage question that used
+to sit here was settled by building both backends and leaving the store off
+until an operator names one.
