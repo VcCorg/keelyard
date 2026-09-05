@@ -11,6 +11,7 @@ from agentic_cli.commands.project import project_app
 from agentic_cli.commands.init import init_app
 from agentic_cli.commands.kg import kg_app
 from agentic_cli.commands.data import data_app
+from agentic_cli.commands.guard import guard_app
 from agentic_cli.commands.mcp import mcp_app
 from agentic_cli.commands.agent import agent_app
 from agentic_cli.commands.skill import skill_app
@@ -66,6 +67,7 @@ app.add_typer(devin_app, name="devin")
 app.add_typer(retriever_app, name="retriever")
 app.add_typer(execution_app, name="execution")
 app.add_typer(context_app, name="context")
+app.add_typer(guard_app, name="guard")
 app.add_typer(governance_app, name="governance")
 app.add_typer(auth_app, name="auth")
 app.add_typer(admin_app, name="admin")
