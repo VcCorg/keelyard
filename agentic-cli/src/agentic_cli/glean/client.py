@@ -104,21 +104,37 @@ def search(query: str, page_size: int = 5, config: Optional[GleanConfig] = None,
 
     payload = {"query": query.strip(), "pageSize": max(1, min(page_size, 50))}
     headers = _auth_headers(cfg, user_token)
-    try:
-        with httpx.Client(timeout=15.0) as client:
-            resp = client.post(cfg.search_url, json=payload, headers=headers)
-    except Exception as exc:  # noqa: BLE001 - network/TLS/timeout
-        raise GleanError(f"Could not reach Glean at {cfg.api_url}: {exc}") from exc
 
-    if resp.status_code in (401, 403):
-        raise GleanError(f"Glean rejected the token ({resp.status_code}). Check GLEAN_API_TOKEN.")
-    if resp.status_code >= 400:
-        raise GleanError(f"Glean search failed ({resp.status_code}): {resp.text[:200]}")
-    try:
-        data = resp.json()
-    except Exception as exc:  # noqa: BLE001
-        raise GleanError("Glean returned a non-JSON response.") from exc
-    return parse_search_response(data)
+    def _run() -> List[GleanResult]:
+        try:
+            with httpx.Client(timeout=15.0) as client:
+                resp = client.post(cfg.search_url, json=payload, headers=headers)
+        except Exception as exc:  # noqa: BLE001 - network/TLS/timeout
+            raise GleanError(f"Could not reach Glean at {cfg.api_url}: {exc}") from exc
+
+        if resp.status_code in (401, 403):
+            raise GleanError(f"Glean rejected the token ({resp.status_code}). Check GLEAN_API_TOKEN.")
+        if resp.status_code >= 400:
+            raise GleanError(f"Glean search failed ({resp.status_code}): {resp.text[:200]}")
+        try:
+            data = resp.json()
+        except Exception as exc:  # noqa: BLE001
+            raise GleanError("Glean returned a non-JSON response.") from exc
+        return parse_search_response(data)
+
+    # The seam wraps only the round trip. The configuration checks above raise
+    # before anything is asked of Glean, and recording those would report reads
+    # that never happened — a misconfigured install would look like a busy one.
+    from agentic_cli import retrieval
+
+    return retrieval.search(
+        "glean", "search", _run, query=query,
+        # Counted on what an agent is handed, not on the parsed objects: a repr
+        # is neither the text that was sent nor a stable number, since it moves
+        # whenever a field is added to the result type.
+        text_of=lambda results: "\n\n".join(
+            r.as_text() for r in results if r.as_text().strip()),
+    )
 
 
 def search_text(query: str, limit: int = 5, config: Optional[GleanConfig] = None,

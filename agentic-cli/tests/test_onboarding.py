@@ -460,7 +460,11 @@ class TestDocTypeMigration:
         with sqlite3.connect(str(tracker.DB_PATH)) as conn:
             cols = {r[1] for r in conn.execute("PRAGMA table_info(domain_docs)")}
             version = conn.execute("SELECT version FROM schema_version").fetchone()[0]
-        assert version == 14
+        # Not `== 14`. A hardcoded literal breaks on every migration and nobody
+        # updates a test that is already red — test_domain.py carries the same
+        # note after this bit it at v8. What matters here is that the upgrade
+        # ran to completion, not which number it stopped at.
+        assert version == tracker._SCHEMA_VERSION
         assert {"doc_type", "doc_type_confidence", "live_version", "checked_at"} <= cols
 
     def test_stale_docs_needs_a_live_version(self, tmp_path, monkeypatch):
@@ -542,23 +546,33 @@ class TestRepoStaleness:
         after = sources.repo_documents(tmp_path, "svc")[0].citation.version
         assert before != after
 
-    def test_stale_check(self, tmp_path):
+    def test_stale_check(self, tmp_path, monkeypatch):
+        """The comparison lives in the retrieval seam, not in a second copy here."""
+        from agentic_cli import persona_workspace as pw, retrieval
         from agentic_cli.onboarding import sources
 
-        path = tmp_path / "CONTRIBUTING.md"
+        (tmp_path / "svc").mkdir()
+        path = tmp_path / "svc" / "CONTRIBUTING.md"
         path.write_text("original\n", encoding="utf-8")
         cited = sources.content_version("original\n")
+        monkeypatch.setattr(pw, "store_repo_path", lambda slug: tmp_path / slug)
 
-        assert sources.is_repo_citation_stale(tmp_path, "CONTRIBUTING.md", cited) is False
+        assert retrieval.is_stale("repo:svc/CONTRIBUTING.md", cited) is False
         path.write_text("changed\n", encoding="utf-8")
-        assert sources.is_repo_citation_stale(tmp_path, "CONTRIBUTING.md", cited) is True
+        assert retrieval.is_stale("repo:svc/CONTRIBUTING.md", cited) is True
 
-    def test_unreadable_source_is_unknown_not_stale(self, tmp_path):
+    def test_unreadable_source_is_unknown_not_stale(self, tmp_path, monkeypatch):
         """Unknown is never reported as fresh and never as stale."""
-        from agentic_cli.onboarding import sources
+        from agentic_cli import persona_workspace as pw, retrieval
 
-        assert sources.is_repo_citation_stale(tmp_path, "missing.md", "abc123") is None
-        assert sources.is_repo_citation_stale(tmp_path, "missing.md", "") is None
+        (tmp_path / "svc").mkdir()
+        monkeypatch.setattr(pw, "store_repo_path", lambda slug: tmp_path / slug)
+
+        assert retrieval.is_stale("repo:svc/missing.md", "abc123") is None
+        assert retrieval.is_stale("repo:svc/missing.md", "") is None
+        # A repository that is not in the store at all is unknown too — it is
+        # the case where we could not ask, which must never read as an answer.
+        assert retrieval.is_stale("repo:absent/CONTRIBUTING.md", "abc123") is None
 
     def test_stale_instructions_lower_freshness(self):
         accepted = proposal.Proposal(domain="d", entries=[
@@ -807,3 +821,68 @@ class TestMergeAmbiguity:
         two = extract.Candidate("Same words", extract.SETUP,
                                 extract.Citation("repo", "b/X.md", "v1"), 0.7)
         assert one.id != two.id
+
+
+# ── portfolio scoring (`domain score --all`) ─────────────────────────────────
+
+class TestScorePortfolio:
+    """`domain score --all` — the lead's morning question, ranked worst-first.
+
+    Both assertions here are about what the readout refuses to hide: a domain
+    with no meta-repo stays on the page (it is the most actionable row, not an
+    absent one), and the ordering puts the worst domain first rather than
+    listing registration order.
+    """
+
+    @staticmethod
+    def _run(monkeypatch, tmp_path, cards):
+        """Drive the command over ``cards``: slug → overall score, or None.
+
+        ``None`` means "registered but never initialised" — no meta-repo on disk.
+        """
+        from typer.testing import CliRunner
+
+        from agentic_cli import tracker
+        from agentic_cli.commands.domain import domain_app
+        from agentic_cli.meta_repo import detector
+        from agentic_cli.onboarding import readiness
+
+        monkeypatch.setattr(
+            tracker, "get_domains",
+            lambda: [{"name": slug, "product": "acme"} for slug in cards])
+        monkeypatch.setattr(
+            detector, "detect_domain_meta_repo",
+            lambda slug: None if cards[slug] is None else tmp_path / slug)
+        monkeypatch.setattr(
+            "agentic_cli.commands.domain_onboarding.gather",
+            lambda slug, meta: slug)
+
+        def _score(slug):
+            return readiness.Scorecard(
+                domain=slug,
+                dimensions=[readiness.Dimension(
+                    key="grounded", label="Groundedness",
+                    question="Is the context grounded in real sources?",
+                    status=readiness.OK, score=cards[slug])],
+            )
+
+        monkeypatch.setattr(
+            "agentic_cli.commands.domain_onboarding.readiness.score", _score)
+        return CliRunner().invoke(
+            domain_app, ["score", "--all", "--no-write", "--json"])
+
+    def test_domain_without_a_meta_repo_is_listed_not_skipped(
+            self, monkeypatch, tmp_path):
+        result = self._run(monkeypatch, tmp_path,
+                           {"ready-one": 96.0, "never-started": None})
+        assert result.exit_code == 0
+        slugs = [row["domain"] for row in json.loads(result.stdout)["domains"]]
+        assert "never-started" in slugs
+
+    def test_worst_domain_sorts_first_and_unscorable_sorts_above_it(
+            self, monkeypatch, tmp_path):
+        result = self._run(monkeypatch, tmp_path,
+                           {"good": 96.0, "poor": 41.0, "never-started": None})
+        assert result.exit_code == 0
+        slugs = [row["domain"] for row in json.loads(result.stdout)["domains"]]
+        assert slugs == ["never-started", "poor", "good"]

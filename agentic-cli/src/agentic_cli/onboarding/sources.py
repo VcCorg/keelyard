@@ -14,6 +14,14 @@ drift-checkable with machinery that already exists. Confluence is not.
 
 Neither reader retains a body: each returns text to :func:`~agentic_cli.
 onboarding.extract.extract`, which reduces it to candidates and drops it.
+
+Confluence reads go through :mod:`agentic_cli.retrieval`, so they leave a ledger
+row under ``onboarding``; the staleness comparison that used to live here went
+the same way, because a second copy of it is how the two drift back apart.
+Repository reads still walk the tree directly: enumerating which files *are* the
+onboarding corpus is discovery, not fetching one known ref, and forcing it
+through a by-address seam would have meant inventing an address for every file
+before knowing it existed.
 """
 from __future__ import annotations
 
@@ -21,7 +29,6 @@ import hashlib
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 from agentic_cli.onboarding.extract import Citation
 
@@ -72,30 +79,33 @@ class Document:
 
 
 def fetch_confluence(page_id: str, title: str = "") -> Document | None:
-    """Read one tracked page through the Confluence MCP server.
+    """Read one tracked page through the retrieval seam.
 
     Returns ``None`` when the page cannot be read: a source that is temporarily
     unreachable must not look like a source with nothing to say, because the
-    difference decides whether an approved instruction is flagged absent.
+    difference decides whether an approved instruction is flagged absent. The
+    seam draws that line as ``UNAVAILABLE`` versus ``MISSING``; this signature
+    predates it and still collapses both to ``None``, because a caller mid-read
+    has the same move either way — skip the page and say so.
+
+    Going through the seam is what puts extraction in the ledger. These reads
+    were invisible before: ``keel domain extract`` pulled every tracked page
+    from upstream and left no record that it had. They record under
+    ``onboarding``, not ``context`` — a page read to derive instructions was
+    never put in front of an agent, and filing it as context would corrupt the
+    one question the eval feed exists to answer.
     """
-    from agentic_cli.kg.okf.enrichment.sources.confluence import _html_to_text
-    from agentic_cli.mcp_tool_client import MCPToolError, confluence_get_page
+    from agentic_cli import retrieval
 
-    try:
-        page = confluence_get_page(str(page_id), include_body=True)
-    except MCPToolError:
+    fetched = retrieval.fetch(f"confluence:{page_id}",
+                              source=retrieval.ONBOARDING_SOURCE,
+                              operation_prefix="read")
+    if not fetched.resolved:
         return None
-    if not isinstance(page, dict):
-        return None
-
-    body = page.get("body_html") or page.get("body") or page.get("content") or ""
-    if isinstance(body, dict):
-        body = body.get("value", "") or body.get("storage", {}).get("value", "")
-
     return Document(
-        text=_html_to_text(str(body))[:MAX_BODY_CHARS],
-        citation=Citation("confluence", str(page_id), str(page.get("version") or "")),
-        title=str(page.get("title") or title),
+        text=fetched.text,
+        citation=Citation("confluence", str(page_id), fetched.version),
+        title=fetched.title or title,
     )
 
 
@@ -111,23 +121,6 @@ def content_version(text: str) -> str:
     checkout.
     """
     return hashlib.sha256((text or "").encode("utf-8")).hexdigest()[:12]
-
-
-def is_repo_citation_stale(repo_root: Path, rel_path: str, cited: str) -> Optional[bool]:
-    """Has the file behind a repo citation changed since we read it?
-
-    ``None`` means *unknown* — the file could not be read, or the citation
-    carried no version. Unknown is never reported as fresh and never as stale:
-    an unreadable source is a gap in our knowledge, not a verdict about it.
-    """
-    if not cited:
-        return None
-    path = Path(repo_root) / rel_path
-    try:
-        text = path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return None
-    return content_version(text[:MAX_BODY_CHARS]) != cited
 
 
 def repo_documents(repo_root: Path, slug: str = "") -> list[Document]:
@@ -202,5 +195,5 @@ def _repo_doc_paths(repo_root: Path) -> list[Path]:
 __all__ = [
     "MAX_BODY_CHARS", "REPO_DOC_NAMES", "REPO_DOC_DIRS", "Document",
     "DELIBERATIVE_DIRS", "fetch_confluence", "content_version",
-    "is_repo_citation_stale", "repo_documents",
+    "repo_documents",
 ]

@@ -48,6 +48,7 @@ class VertexAIProvider:
         self.location = location
         self.credentials_path = credentials_path
         self.system_instruction = system_instruction
+        self._last_usage = None
 
         # Initialize Vertex AI
         if credentials_path:
@@ -72,7 +73,12 @@ class VertexAIProvider:
             Generated text
         """
         response = self.model.generate_content(prompt)
+        self._last_usage = _usage_from(response, self.model_name)
         return response.text
+
+    def last_usage(self):
+        """What the last call consumed, as Vertex reported it."""
+        return self._last_usage
 
     async def generate_async(self, prompt: str) -> str:
         """Generate text response asynchronously.
@@ -115,3 +121,27 @@ class VertexAIProvider:
             Human-readable identifier
         """
         return f"google/{self.model_name}"
+
+
+def _usage_from(response, model_name):
+    """Read usage_metadata off a response, or None when it is absent."""
+    from agentic_cli.llm.base import Usage
+
+    meta = getattr(response, "usage_metadata", None)
+    if meta is None:
+        return None
+
+    def _get(name):
+        try:
+            return int(getattr(meta, name, 0) or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    cached = _get("cached_content_token_count")
+    found = Usage(
+        input_tokens=max(_get("prompt_token_count") - cached, 0),
+        output_tokens=_get("candidates_token_count"),
+        cache_read_tokens=cached,
+        model=model_name,
+    )
+    return None if found.empty else found

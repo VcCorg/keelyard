@@ -182,23 +182,24 @@ class LightRAGClient:
         Returns:
             Query results
         """
-        try:
-            payload = {
-                "query": query,
-                "mode": mode,
-                "top_k": top_k
-            }
-            
+        from agentic_cli import retrieval
+
+        def _run():
             response = self.client.post(
                 f"{self.base_url}/query",
-                json=payload
+                json={"query": query, "mode": mode, "top_k": top_k},
             )
             response.raise_for_status()
-            result = response.json()
-            
+            return response.json()
+
+        try:
+            # Through the search seam so the read reaches the ledger. These
+            # queries were invisible: a session answered entirely from the
+            # knowledge graph recorded nothing at all.
+            result = retrieval.search("lightrag", f"query/{mode}", _run,
+                                      query=query)
             logger.info(f"Query executed: {query[:50]}... (mode: {mode})")
             return result
-            
         except Exception as e:
             logger.error(f"Query failed: {e}")
             raise
@@ -214,22 +215,20 @@ class LightRAGClient:
         Returns:
             Search results
         """
-        try:
-            payload = {
-                "query": query,
-                "top_k": top_k
-            }
-            
+        from agentic_cli import retrieval
+
+        def _run():
             response = self.client.post(
                 f"{self.base_url}/search",
-                json=payload
+                json={"query": query, "top_k": top_k},
             )
             response.raise_for_status()
-            result = response.json()
-            
+            return response.json()
+
+        try:
+            result = retrieval.search("lightrag", "search", _run, query=query)
             logger.info(f"Search executed: {query[:50]}...")
             return result
-            
         except Exception as e:
             logger.error(f"Search failed: {e}")
             raise

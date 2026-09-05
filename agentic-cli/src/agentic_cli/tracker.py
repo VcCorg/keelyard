@@ -19,7 +19,7 @@ from typing import Any, Optional
 DB_DIR = Path.home() / ".agent-cli-agentic"
 DB_PATH = DB_DIR / "tracker.db"
 
-_SCHEMA_VERSION = 14
+_SCHEMA_VERSION = 17
 
 _SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -41,7 +41,15 @@ CREATE TABLE IF NOT EXISTS activity_log (
     entity_type    TEXT,          -- entity kind: project|skill|retriever|story|...
     entity_id      TEXT,          -- entity identifier (path/name/key)
     source         TEXT DEFAULT 'cli',  -- origin of the action: cli|dashboard
-    actor          TEXT           -- authenticated principal (email/subject) if known
+    actor          TEXT,          -- authenticated principal (email/subject) if known
+    domain         TEXT,          -- domain (project) this action was for, when known
+    bytes          INTEGER,       -- size of what was read/produced
+    tokens         INTEGER,       -- tokens IN: served by a read, or admitted by a call
+    tokens_out     INTEGER,       -- tokens OUT: what a model generated
+    cache_read     INTEGER,       -- of tokens IN, how many came from cache
+    cache_write    INTEGER,       -- of tokens IN, how many were written to cache
+    phase          TEXT,          -- 'build' | 'develop' - which work this was
+    token_basis    TEXT           -- 'measured' | 'estimated' - never assume
 );
 
 -- Central registry of onboarded repositories
@@ -307,6 +315,119 @@ ALTER TABLE domain_docs ADD COLUMN checked_at TEXT;
 CREATE INDEX IF NOT EXISTS idx_domain_docs_type ON domain_docs(doc_type);
 """
 
+_MIGRATION_V15 = """
+-- v15: attribute activity to a domain, and size it in tokens as well as bytes.
+--
+-- Rows carried a correlation_id (which session) but nothing saying which
+-- *project* a session was for, so "what did this competition cost me, against
+-- that one" could not be asked at all. domain is that key; product rolls up
+-- from it through the domains table rather than being denormalised here, so
+-- there is one place a domain can change hands.
+--
+-- bytes and tokens are columns rather than details JSON because the question
+-- changed. One session's ledger reads fine out of JSON; summing a fleet by
+-- project does not, and json_extract in a GROUP BY scans every row.
+--
+-- token_basis is not decoration. Most models have no tokenizer we can run, so
+-- most counts are estimates, and a total mixing the two is neither. Storing the
+-- basis per row is what lets a readout say so instead of presenting an estimate
+-- as a measurement.
+-- The columns themselves are added by _add_column_if_missing rather than by
+-- this script. SQLite has no ADD COLUMN IF NOT EXISTS, and a bare ALTER makes
+-- the migration single-use: it aborts on a database where the base schema
+-- already created the column, or where an earlier run was interrupted between
+-- the ALTER and the version bump. Aborting leaves the version behind, so the
+-- next start retries and aborts again — the failure is permanent, not transient.
+CREATE INDEX IF NOT EXISTS idx_activity_domain ON activity_log(domain);
+CREATE INDEX IF NOT EXISTS idx_activity_domain_entity
+    ON activity_log(domain, entity_type);
+
+-- Backfill bytes from where they have been living. Without this every existing
+-- row reads as zero and the first report understates history by exactly the
+-- amount already collected — which is the part most worth seeing.
+UPDATE activity_log
+   SET bytes = CAST(json_extract(details, '$.bytes') AS INTEGER)
+ WHERE bytes IS NULL
+   AND details IS NOT NULL
+   AND json_valid(details)
+   AND json_extract(details, '$.bytes') IS NOT NULL;
+"""
+
+
+_MIGRATION_V16 = """
+-- v16: what the model produced, beside what it was given.
+--
+-- `tokens` has always meant tokens *in* — what a read served, and now what a
+-- model call admitted. `tokens_out` is the other half, and it needs its own
+-- column for the same reason `tokens` did: summing generated output across a
+-- fleet is a GROUP BY, not a JSON scan.
+--
+-- Two columns rather than two rows per call. A row per direction would double
+-- the read count and make "how many model calls did this project make" a
+-- division, which is the kind of arithmetic that ends up wrong in a report.
+CREATE INDEX IF NOT EXISTS idx_activity_generation
+    ON activity_log(domain, entity_type) WHERE entity_type = 'generation';
+"""
+
+
+_MIGRATION_V17 = """
+-- v17: the cache split, and which phase of work a call belonged to.
+--
+-- Cache reads and writes are priced differently from fresh input — a read at a
+-- fraction, a write at a premium — so a cost query needs them apart. They were
+-- already recorded in the details JSON; as columns, costing stays one GROUP BY
+-- instead of parsing JSON for every model call a project ever made.
+--
+-- Cost is deliberately NOT stored. Rates change, and a cost frozen at record
+-- time can never be corrected — the ledger keeps tokens, and money is computed
+-- from whatever rate card is current when someone asks.
+--
+-- phase separates building a domain's context from working with it. Both spend
+-- real money on judge and agent calls, and "what did onboarding cost me versus
+-- what has development cost me" is the question a portfolio owner actually has.
+CREATE INDEX IF NOT EXISTS idx_activity_phase ON activity_log(domain, phase);
+"""
+
+_ENSURE_INDEXES = """
+-- Indexes over migration-added columns, created after the migration chain.
+--
+-- These could not live in _SCHEMA_SQL: it runs before migrations, and on an
+-- existing database CREATE TABLE IF NOT EXISTS is a no-op, so indexing a column
+-- that migration has not added yet aborts startup. That is why v13 and v14 put
+-- theirs in the migration script instead.
+--
+-- But a migration script only runs on an *upgrade*. A fresh install stamps the
+-- current version and skips the whole chain, so it received none of them —
+-- every index added since v13 was missing on exactly the installs most likely
+-- to grow large. Running them here, after the chain, is the one point where
+-- every column exists on every path. IF NOT EXISTS makes it a no-op for the
+-- upgrade path that already created them.
+CREATE INDEX IF NOT EXISTS idx_activity_actor ON activity_log(actor);
+CREATE INDEX IF NOT EXISTS idx_domain_docs_type ON domain_docs(doc_type);
+CREATE INDEX IF NOT EXISTS idx_activity_domain ON activity_log(domain);
+CREATE INDEX IF NOT EXISTS idx_activity_domain_entity
+    ON activity_log(domain, entity_type);
+CREATE INDEX IF NOT EXISTS idx_activity_generation
+    ON activity_log(domain, entity_type) WHERE entity_type = 'generation';
+CREATE INDEX IF NOT EXISTS idx_activity_phase ON activity_log(domain, phase);
+"""
+
+
+def _add_column_if_missing(conn: sqlite3.Connection, table: str,
+                           column: str, decl: str) -> None:
+    """Add a column unless the table already has it.
+
+    SQLite offers no ``ADD COLUMN IF NOT EXISTS``, which makes a plain ALTER in
+    a migration single-use. Two ordinary situations already break it: a database
+    whose base schema created the column while its version number lagged, and a
+    run interrupted between the ALTER and the version bump. Both leave the
+    version behind, so every subsequent start retries the same failing ALTER —
+    a permanently unopenable database, from a migration that had in fact worked.
+    """
+    existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+    if column not in existing:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+
 
 def _ensure_db() -> Path:
     """Create the database and schema if they don't exist. Run migrations."""
@@ -377,6 +498,31 @@ def _ensure_db() -> Path:
                 conn.executescript(_MIGRATION_V14)
                 conn.execute("UPDATE schema_version SET version = 14")
                 current_version = 14
+            if current_version < 15:
+                for _column, _decl in (("domain", "TEXT"), ("bytes", "INTEGER"),
+                                       ("tokens", "INTEGER"),
+                                       ("token_basis", "TEXT")):
+                    _add_column_if_missing(conn, "activity_log", _column, _decl)
+                conn.executescript(_MIGRATION_V15)
+                conn.execute("UPDATE schema_version SET version = 15")
+                current_version = 15
+            if current_version < 16:
+                _add_column_if_missing(conn, "activity_log", "tokens_out",
+                                       "INTEGER")
+                conn.executescript(_MIGRATION_V16)
+                conn.execute("UPDATE schema_version SET version = 16")
+                current_version = 16
+            if current_version < 17:
+                for _column, _decl in (("cache_read", "INTEGER"),
+                                       ("cache_write", "INTEGER"),
+                                       ("phase", "TEXT")):
+                    _add_column_if_missing(conn, "activity_log", _column, _decl)
+                conn.executescript(_MIGRATION_V17)
+                conn.execute("UPDATE schema_version SET version = 17")
+                current_version = 17
+        # After the chain, so it covers the fresh-install path too — see
+        # _ENSURE_INDEXES.
+        conn.executescript(_ENSURE_INDEXES)
         conn.commit()
     finally:
         conn.close()
@@ -473,6 +619,14 @@ def record_activity(
     entity_id: str = None,
     source: str = "cli",
     actor: str = None,
+    domain: str = None,
+    size_bytes: int = None,
+    tokens: int = None,
+    tokens_out: int = None,
+    cache_read: int = None,
+    cache_write: int = None,
+    phase: str = None,
+    token_basis: str = None,
 ) -> None:
     """Insert a row into the activity log (the central audit trail).
 
@@ -481,14 +635,37 @@ def record_activity(
     correlated (e.g. every action on a given project). ``source`` records
     whether the action originated from the CLI or the dashboard; ``actor``
     records the authenticated principal (email/subject) when known.
+
+    ``domain`` is which project the action was for. It falls back to whatever
+    the current session is bound to, so a read deep inside an engine is
+    attributed without every call site on the way down having to pass it —
+    the same reason ``correlation_id`` falls back to the session's.
+
+    ``tokens`` must arrive with its ``token_basis``. A count whose provenance
+    was dropped cannot be told apart later from one that was measured, and a
+    ledger that cannot say which is which can only be quoted carelessly.
     """
+    if domain is None or phase is None:
+        try:
+            from agentic_cli import tracing
+
+            domain = tracing.current_domain() if domain is None else domain
+            phase = tracing.current_phase() if phase is None else phase
+        except Exception:  # noqa: BLE001 - attribution is never load-bearing
+            pass
+    if tokens is not None and not token_basis:
+        # Refusing the number is the point: see the docstring.
+        tokens = None
     try:
         with _get_conn() as conn:
             conn.execute(
                 """INSERT INTO activity_log
                    (timestamp, command, subcommand, status, duration_ms, args,
-                    details, repo_path, correlation_id, entity_type, entity_id, source, actor)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    details, repo_path, correlation_id, entity_type, entity_id,
+                    source, actor, domain, bytes, tokens, tokens_out,
+                    cache_read, cache_write, phase, token_basis)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                           ?, ?, ?)""",
                 (
                     _now_iso(),
                     command,
@@ -503,10 +680,118 @@ def record_activity(
                     entity_id,
                     source or "cli",
                     actor,
+                    domain,
+                    size_bytes,
+                    tokens,
+                    tokens_out,
+                    cache_read,
+                    cache_write,
+                    phase,
+                    token_basis,
                 ),
             )
     except Exception:
         pass  # Never break the CLI
+
+
+def generation_by_model(domain: str = None) -> list[dict]:
+    """Model-call totals grouped by domain, model and phase — the costing input.
+
+    Separate from :func:`usage_by_domain` because pricing needs a different
+    grain: rates are per model, so the sum has to be per model before it can
+    become money. The token split (fresh input, cache read, cache write) comes
+    back apart, since each is billed at a different rate.
+    """
+    where, params = ["entity_type = 'generation'"], []
+    if domain is not None:
+        where.append("COALESCE(domain, '') = ?")
+        params.append(domain)
+    try:
+        with _get_conn() as conn:
+            rows = conn.execute(
+                f"""SELECT COALESCE(domain, '')   AS domain,
+                           COALESCE(entity_id, '') AS model,
+                           COALESCE(phase, '')     AS phase,
+                           COUNT(*)                AS calls,
+                           COALESCE(SUM(tokens), 0)      AS admitted,
+                           COALESCE(SUM(tokens_out), 0)  AS output_tokens,
+                           COALESCE(SUM(cache_read), 0)  AS cache_read_tokens,
+                           COALESCE(SUM(cache_write), 0) AS cache_write_tokens,
+                           SUM(CASE WHEN token_basis = 'measured' THEN 1 ELSE 0 END)
+                               AS measured
+                      FROM activity_log
+                     WHERE {' AND '.join(where)}
+                  GROUP BY COALESCE(domain, ''), COALESCE(entity_id, ''),
+                           COALESCE(phase, '')""",
+                params,
+            ).fetchall()
+            out = []
+            for row in rows:
+                item = dict(row)
+                # Fresh input is what is left after the cached parts. Storing it
+                # derived rather than separately keeps `tokens` meaning the same
+                # thing on every row: everything the model read.
+                item["input_tokens"] = max(
+                    item["admitted"] - item["cache_read_tokens"]
+                    - item["cache_write_tokens"], 0)
+                out.append(item)
+            return out
+    except Exception:
+        return []
+
+
+def usage_by_domain(domain: str = None, entity_type: str = None) -> list[dict]:
+    """Ledger totals grouped by domain and source, for the cost readout.
+
+    One aggregate query rather than a scan-and-sum in Python: the whole reason
+    ``bytes`` and ``tokens`` became columns is that this runs over a fleet's
+    history, and pulling every row across the process boundary to add it up
+    defeats the migration.
+
+    Rows with no domain are returned under ``""`` rather than dropped. Work that
+    was never attributed to a project is a real category — it is what an
+    unattributed session looks like — and hiding it makes the totals quietly
+    fail to add up to what the ledger holds.
+    """
+    where, params = ["1=1"], []
+    if domain is not None:
+        where.append("COALESCE(domain, '') = ?")
+        params.append(domain)
+    if entity_type:
+        where.append("entity_type = ?")
+        params.append(entity_type)
+    try:
+        with _get_conn() as conn:
+            rows = conn.execute(
+                f"""SELECT COALESCE(domain, '') AS domain,
+                           command            AS source,
+                           COUNT(*)           AS reads,
+                           COALESCE(SUM(bytes), 0)  AS bytes,
+                           COALESCE(SUM(tokens), 0) AS tokens,
+                           COALESCE(SUM(tokens_out), 0) AS tokens_out,
+                           SUM(CASE WHEN token_basis = 'measured' THEN 1 ELSE 0 END)
+                               AS measured,
+                           SUM(CASE WHEN token_basis = 'estimated' THEN 1 ELSE 0 END)
+                               AS estimated,
+                           -- Rows whose tokens were never counted. Summing them
+                           -- as zero makes an uncounted read indistinguishable
+                           -- from a free one, which is how a meter comes to
+                           -- report that tools cost nothing.
+                           SUM(CASE WHEN tokens IS NULL THEN 1 ELSE 0 END)
+                               AS uncounted,
+                           SUM(CASE WHEN entity_type = 'generation' THEN 1 ELSE 0 END)
+                               AS calls,
+                           MIN(timestamp) AS first_seen,
+                           MAX(timestamp) AS last_seen
+                      FROM activity_log
+                     WHERE {' AND '.join(where)}
+                  GROUP BY COALESCE(domain, ''), command
+                  ORDER BY tokens DESC""",
+                params,
+            ).fetchall()
+            return [dict(r) for r in rows]
+    except Exception:
+        return []
 
 
 def new_correlation_id() -> str:

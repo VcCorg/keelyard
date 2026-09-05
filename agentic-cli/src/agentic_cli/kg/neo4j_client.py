@@ -132,12 +132,24 @@ class Neo4jClient:
             return dict(record["r"]) if record else {}
     
     def execute_cypher(self, query: str, parameters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-        """Execute a Cypher query."""
+        """Execute a Cypher query, recording it as a context read.
+
+        This is the graph's read surface, so it goes through the search seam;
+        ``create_node`` and ``create_relationship`` deliberately do not. Those
+        are ingestion — text going *into* the graph — and filing them as context
+        reads would double-count the same knowledge on the way in and the way
+        out, and inflate a project's serve cost with the cost of building it.
+        """
+        from agentic_cli import retrieval
+
         params = parameters or {}
-        
-        with self._driver.session() as session:
-            result = session.run(query, **params)
-            return [dict(record) for record in result]
+
+        def _run():
+            with self._driver.session() as session:
+                result = session.run(query, **params)
+                return [dict(record) for record in result]
+
+        return retrieval.search("neo4j", "cypher", _run, query=query)
     
     def create_release_node(
         self,

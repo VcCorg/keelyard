@@ -116,6 +116,57 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def bind_domain(request, call_next):
+    """Attribute a request's context reads to the project it is about.
+
+    The CLI binds a domain around the command; the dashboard had no equivalent,
+    so every read it made landed unattributed — and only on that surface, which
+    is the worst way for a gap like this to behave: the CLI path keeps working,
+    so nothing looks broken while half the fleet's spend goes unattributed.
+
+    Read from the path rather than from a dependency because it has to cover
+    every route that names a domain, including ones added later. FastAPI has not
+    matched a route yet at middleware time, so ``request.path_params`` is empty
+    and the segment is taken from the URL itself.
+
+    Binding here is enough for work on the request's own task. A handler that
+    hops to another thread must still read the domain on this side and pass it
+    explicitly, exactly as the MCP client does for the session id — a ContextVar
+    does not cross that boundary.
+    """
+    from agentic_cli import tracing
+
+    slug = _domain_in_path(request.url.path)
+    token = tracing.set_domain(slug) if slug else None
+    try:
+        return await call_next(request)
+    finally:
+        if token is not None:
+            tracing.reset_domain(token)
+
+
+def _domain_in_path(path: str) -> str:
+    """The domain slug a request path names, or "" when it names none.
+
+    ``/api/domains/readiness/portfolio`` names no single domain, and neither do
+    the other collection routes under the same prefix. Attributing a
+    portfolio-wide read to a project called "readiness" would be worse than
+    leaving it unattributed, so known non-slug segments are excluded rather than
+    the first segment being trusted.
+    """
+    parts = [p for p in path.split("/") if p]
+    for i, part in enumerate(parts):
+        if part == "domains" and i + 1 < len(parts):
+            slug = parts[i + 1]
+            return "" if slug in _NOT_A_SLUG else slug
+    return ""
+
+
+#: Segments that sit where a slug would but name a collection, not a domain.
+_NOT_A_SLUG = frozenset({"readiness", "portfolio", "list", "search", "all"})
+
+
 # Register routers
 app.include_router(agents_router)
 app.include_router(mcp_router)

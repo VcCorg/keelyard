@@ -169,6 +169,18 @@ def extract_intent(
     _require_domain(slug)
     meta = _require_meta(slug)
 
+    # Everything read from here down is this project's context-building cost.
+    # Binding the domain around the whole command is what separates "what did
+    # it cost to build this context" from "what did it cost to use it" — the
+    # two meters that a single undifferentiated byte total cannot tell apart.
+    from agentic_cli import tracing
+
+    with tracing.session_scope(domain=slug, phase=tracing.BUILD):
+        _extract_intent(slug, meta, include_repos, all_types)
+
+
+def _extract_intent(slug: str, meta: Path, include_repos: bool,
+                    all_types: bool) -> None:
     docs = get_domain_docs(slug)
     documents: list[sources.Document] = []
     unreachable = 0
@@ -407,8 +419,91 @@ def _provenance_for(entries: list[proposal.Entry]) -> str:
 
 # ── score ───────────────────────────────────────────────────────────────────
 
+def _score_portfolio(
+    product: Optional[str], *, as_json: bool, write: bool, require: Optional[float]
+) -> None:
+    """Score every domain and rank them worst-first.
+
+    A domain without a meta-repo is listed rather than skipped: "not set up yet"
+    and "set up and scoring badly" are different problems, and a portfolio view
+    that silently omits the first one is the more misleading of the two.
+    """
+    from agentic_cli.meta_repo.detector import detect_domain_meta_repo
+    from agentic_cli.tracker import get_domains
+
+    domains = [
+        d for d in get_domains()
+        if not product or (d.get("product") or "").lower() == product.lower()
+    ]
+    if not domains:
+        console.print(f"[yellow]No domains registered"
+                      f"{f' for product {product}' if product else ''}.[/yellow]")
+        raise typer.Exit(0)
+
+    rows: list[dict] = []
+    for domain in domains:
+        slug = domain["name"]
+        meta = detect_domain_meta_repo(slug)
+        if meta is None:
+            rows.append({"domain": slug, "product": domain.get("product") or "",
+                         "overall": None, "grade": "—", "ready": False,
+                         "note": "no meta-repo — run `domain init`"})
+            continue
+        card = readiness.score(gather(slug, meta))
+        if write:
+            target = meta / ".platform" / "readiness.json"
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(json.dumps(card.to_dict(), indent=2) + "\n", encoding="utf-8")
+        weakest = sorted(
+            (d for d in card.dimensions if d.score is not None),
+            key=lambda d: d.score)[:2]
+        rows.append({
+            "domain": slug, "product": domain.get("product") or "",
+            "overall": card.overall, "grade": card.grade, "ready": card.ready(),
+            "note": ", ".join(f"{d.label} {d.score:.0f}" for d in weakest),
+        })
+
+    # Worst first: an unscorable domain sorts to the top, because it is the most
+    # actionable row on the page.
+    rows.sort(key=lambda r: (r["overall"] is not None, r["overall"] or 0))
+
+    if as_json:
+        console.print_json(json.dumps({"product": product, "domains": rows}))
+    else:
+        table = Table(title="Domain readiness" + (f" — {product}" if product else ""),
+                      show_lines=False)
+        table.add_column("Domain", no_wrap=True)
+        table.add_column("Grade", justify="center", no_wrap=True)
+        table.add_column("Overall", justify="right", no_wrap=True)
+        table.add_column("Weakest", overflow="fold")
+        for row in rows:
+            style = ("green" if row["ready"] else
+                     "dim" if row["overall"] is None else "yellow")
+            table.add_row(
+                row["domain"],
+                f"[{style}]{row['grade']}[/]",
+                "—" if row["overall"] is None else f"{row['overall']:.0f}",
+                row["note"],
+            )
+        console.print(table)
+        ready = sum(1 for r in rows if r["ready"])
+        console.print(f"[bold]{ready}[/bold]/{len(rows)} ready to build on")
+
+    record_activity(command="domain", subcommand="score",
+                    args={"product": product, "domains": len(rows),
+                          "ready": sum(1 for r in rows if r["ready"])})
+
+    lowest = min((r["overall"] for r in rows if r["overall"] is not None), default=None)
+    if require is not None and (lowest is None or lowest < require):
+        raise typer.Exit(1)
+
+
 def score(
-    slug: Annotated[str, typer.Argument(help="Domain slug")],
+    slug: Annotated[Optional[str], typer.Argument(help="Domain slug (omit with --all)")] = None,
+    all_domains: Annotated[bool, typer.Option(
+        "--all", help="Score every domain, worst first — the portfolio readout")] = False,
+    product: Annotated[Optional[str], typer.Option(
+        "--product", "-p", help="With --all, limit to one product's domains")] = None,
     as_json: Annotated[bool, typer.Option("--json", help="Emit the scorecard as JSON")] = False,
     write: Annotated[bool, typer.Option("--write/--no-write", help="Save to .platform/readiness.json")] = True,
     require: Annotated[Optional[float], typer.Option(
@@ -419,7 +514,18 @@ def score(
     Seven dimensions are deterministic. Answerability needs an LLM judge and
     reports SKIPPED without one — a missing credential must never look like an
     unready domain.
+
+    ``--all`` scores every domain worst-first, which is the question a lead
+    actually has: not "how is this one doing" but "which of mine needs attention
+    this morning".
     """
+    if all_domains:
+        _score_portfolio(product, as_json=as_json, write=write, require=require)
+        return
+    if not slug:
+        console.print("[red]✗ Give a domain slug, or --all for every domain.[/red]")
+        raise typer.Exit(1)
+
     _require_domain(slug)
     meta = _require_meta(slug)
     card = readiness.score(gather(slug, meta))
@@ -509,8 +615,13 @@ def stale_repo_entries(slug: str, review: proposal.Proposal) -> list[proposal.En
     staleness has to be recomputed, because the citation carries a digest of the
     file's content rather than a number someone else increments. Entries whose
     file cannot be read are left out entirely — unknown is not stale.
+
+    The comparison itself lives in :func:`agentic_cli.retrieval.is_stale`, which
+    is scheme-agnostic. The ``repo`` filter here is the caller's, not the seam's:
+    this feeds a signal labelled "changed repo files", and widening it to
+    Confluence would change what that number means without changing its name.
     """
-    from agentic_cli import persona_workspace as pw
+    from agentic_cli import retrieval
 
     stale: list[proposal.Entry] = []
     for entry in review.entries:
@@ -519,11 +630,55 @@ def stale_repo_entries(slug: str, review: proposal.Proposal) -> list[proposal.En
         citation = extract.Citation.parse(entry.citation)
         if citation.scheme != "repo" or "/" not in citation.ref:
             continue
-        repo_slug, _, rel = citation.ref.partition("/")
-        if sources.is_repo_citation_stale(pw.store_repo_path(repo_slug), rel,
-                                          citation.version) is True:
+        if retrieval.is_stale(f"repo:{citation.ref}", citation.version) is True:
             stale.append(entry)
     return stale
+
+
+def diff_domain(slug: str, review: proposal.Proposal, *,
+                provider=None) -> "differ.Report":
+    """Rule on what a source's move actually did to the instructions from it.
+
+    Two passes, cheap one first. The digest says *look* — it is one read and it
+    is right about whether anything moved. The differ says *what changed*, and
+    it costs a re-extraction, so it runs only over the sources the digest
+    flagged. On a domain where nothing moved this does one fetch per source and
+    no extraction at all, which is what makes it safe to hang off a drift poll.
+
+    Scheme-agnostic by construction: entries carry ``repo:`` and ``confluence:``
+    citations alike and both resolve through the retrieval seam, so this needed
+    no knowledge of either source.
+    """
+    from agentic_cli import retrieval
+    from agentic_cli.onboarding import differ
+
+    by_source: dict[str, list[proposal.Entry]] = {}
+    for entry in review.entries:
+        if entry.held or entry.status != proposal.ACCEPTED or not entry.text:
+            continue
+        citation = extract.Citation.parse(entry.citation)
+        if not citation.scheme or not citation.ref:
+            continue
+        by_source.setdefault(f"{citation.scheme}:{citation.ref}", []).append(entry)
+
+    reports: list[differ.Report] = []
+    for ref, entries in sorted(by_source.items()):
+        fetched = retrieval.fetch(ref, source=retrieval.ONBOARDING_SOURCE,
+                                  operation_prefix="diff", trace=False)
+        if not fetched.known or not fetched.text:
+            # We could not ask. Reporting these absent would retract the team's
+            # own approved context because a checkout was missing.
+            reports.append(differ.unknown_for(entries, ref))
+            continue
+        cited = {extract.Citation.parse(e.citation).version for e in entries}
+        if fetched.version and cited == {fetched.version}:
+            continue                    # nothing moved; no re-extraction needed
+
+        citation = extract.Citation(*ref.split(":", 1), fetched.version)
+        result = extract.extract(fetched.text, citation, classify.ONBOARDING)
+        reports.append(differ.diff(entries, result.candidates, provider=provider))
+
+    return differ.merge_reports(reports)
 
 
 def gather(slug: str, meta: Path) -> readiness.Inputs:
@@ -575,6 +730,370 @@ def gather(slug: str, meta: Path) -> readiness.Inputs:
     )
 
 
+# ── diff ────────────────────────────────────────────────────────────────────
+
+_VERDICT_STYLE = {
+    "unchanged": "dim",
+    "reworded": "yellow",
+    "contradicted": "red",
+    "absent": "red",
+    "unknown": "dim",
+}
+
+
+def _diff_judge():
+    """A provider for ruling on agreement, or None when there is no judge."""
+    if not _judge_available():
+        return None
+    try:
+        from agentic_cli.llm.factory import get_llm_provider
+
+        provider = get_llm_provider(
+            system_instruction="You compare instructions for agreement and "
+                               "reply with JSON only.")
+        # Test mode answers deterministically without a model. A confident
+        # "these agree" backed by nothing is worse here than no answer: it is
+        # the verdict that lets an instruction fast-forward unreviewed.
+        if provider.get_name().startswith("test-mode"):
+            return None
+        return provider
+    except Exception:  # noqa: BLE001 - no judge is a degraded run, not a failure
+        return None
+
+
+def diff_command(
+    slug: Annotated[str, typer.Argument(help="Domain slug")],
+    judge: Annotated[bool, typer.Option(
+        "--judge/--no-judge",
+        help="Ask a model whether a reworded source still agrees")] = True,
+    as_json: Annotated[bool, typer.Option("--json", help="Emit the report as JSON")] = False,
+) -> None:
+    """What did the source changes actually do to our approved instructions?
+
+    ``domain score`` and the drift signals tell you a source moved. This tells
+    you whether the move mattered: an instruction that came back unchanged, one
+    reworded, one the source now contradicts, and one it no longer supports are
+    four different problems, and only two of them are yours today.
+
+    Without a judge this still separates unchanged from moved and catches a
+    reversed instruction, but it will not certify a reword as safe — an
+    unverified reword is reported as needing a human, never fast-forwarded.
+
+    Exits non-zero when an instruction is contradicted or no longer supported,
+    so it can gate a pull request. An unverified reword does not fail the run.
+    """
+    from agentic_cli.onboarding import differ
+
+    _require_domain(slug)
+    meta = _require_meta(slug)
+    review = proposal.load(meta, slug)
+    if not review.accepted:
+        console.print(f"[yellow]No accepted instructions for '{slug}' yet. "
+                      f"Run `{CLI_NAME} domain review {slug}` first.[/yellow]")
+        raise typer.Exit(0)
+
+    from agentic_cli import tracing
+
+    provider = _diff_judge() if judge else None
+    with tracing.session_scope(domain=slug, phase=tracing.BUILD):
+        report = diff_domain(slug, review, provider=provider)
+    by_id = {e.id: e for e in review.entries}
+
+    if not report.verdicts and not as_json:
+        console.print(f"[green]✓[/green] Every source behind {len(review.accepted)} "
+                      f"accepted instruction(s) is unchanged.")
+        raise typer.Exit(0)
+
+    if as_json:
+        # Falls through to the exit gate rather than returning here: a pipeline
+        # reading the JSON is the caller most likely to be relying on the exit
+        # code, so it is the last place that should quietly always succeed.
+        console.print_json(json.dumps(report.to_dict()))
+        _exit_on_broken(report)
+        raise typer.Exit(0)
+
+    # Worst first. An unchanged instruction is not news and sorts last.
+    order = {differ.CONTRADICTED: 0, differ.ABSENT: 1, differ.REWORDED: 2,
+             differ.UNKNOWN: 3, differ.UNCHANGED: 4}
+    verdicts = sorted(report.verdicts,
+                      key=lambda v: (order.get(v.status, 9), -v.similarity))
+
+    table = Table(title=f"Source changes — {slug}", show_lines=True)
+    table.add_column("Verdict", no_wrap=True)
+    table.add_column("Approved instruction", overflow="fold")
+    table.add_column("Its source now says", overflow="fold")
+    for verdict in verdicts:
+        if verdict.status == differ.UNCHANGED:
+            continue                    # summarised in the footer instead
+        entry = by_id.get(verdict.entry_id)
+        label = verdict.status
+        if verdict.status == differ.REWORDED and not verdict.checked:
+            label += "\n[dim](unverified)[/dim]"
+        table.add_row(
+            f"[{_VERDICT_STYLE.get(verdict.status, '')}]{label}[/]",
+            (entry.text if entry else verdict.entry_id)[:220],
+            (verdict.replacement or f"[dim]{verdict.detail}[/dim]")[:220],
+        )
+    if table.row_count:
+        console.print(table)
+
+    counts = report.counts
+    console.print("  ".join(
+        f"[{_VERDICT_STYLE.get(k, '')}]{n} {k}[/]" for k, n in sorted(counts.items())))
+    if not provider:
+        console.print("[dim]No judge configured — rewordings are unverified. "
+                      "A contradiction is only caught when it flips a negation.[/dim]")
+    if report.unreadable:
+        console.print(f"[yellow]{len(report.unreadable)} source(s) could not be "
+                      f"read; their instructions are unknown, not absent.[/yellow]")
+
+    record_activity(command="domain", subcommand="diff",
+                    args={"domain": slug, "judged": bool(provider), **counts})
+
+    _exit_on_broken(report)
+
+
+def _exit_on_broken(report) -> None:
+    """Exit non-zero for instructions we have positive evidence are broken.
+
+    This is what makes ``domain diff`` usable as a CI gate: "did this pull
+    request contradict approved domain context?". An unverified reword is not
+    evidence of anything — on a domain with no judge *every* reword is
+    unverified, and failing on those would make the exit code mean "a source
+    changed", which the digest already said for free.
+    """
+    from agentic_cli.onboarding import differ
+
+    if report.of(differ.CONTRADICTED) or report.of(differ.ABSENT):
+        raise typer.Exit(1)
+
+
+# ── usage ───────────────────────────────────────────────────────────────────
+
+def _thousands(n: int) -> str:
+    """Compact a token count without losing the order of magnitude."""
+    if n >= 1_000_000:
+        return f"{n / 1_000_000:.1f}M"
+    if n >= 1_000:
+        return f"{n / 1_000:.1f}K"
+    return str(n)
+
+
+def usage_command(
+    slug: Annotated[Optional[str], typer.Argument(
+        help="Domain slug (omit with --all)")] = None,
+    all_projects: Annotated[bool, typer.Option(
+        "--all", help="Every project, biggest first — the portfolio readout")] = False,
+    as_json: Annotated[bool, typer.Option("--json", help="Emit the readout as JSON")] = False,
+    rates_init: Annotated[bool, typer.Option(
+        "--rates-init", help="Copy the example rate card so costs can be shown")] = False,
+) -> None:
+    """How much context each project built, served, and read from tools.
+
+    Split three ways on purpose. Building a domain's context is a one-off
+    investment; serving it is what recurs every session. A single total hides
+    which of the two a project is actually spending on, and two projects with
+    identical totals can be in opposite situations — one three days into
+    onboarding, one running daily off finished context.
+
+    Tokens are the unit a model window and a bill are denominated in, so that is
+    what this reports. Most are estimates, because no vendor tokenizer is
+    bundled, and every row says which — an estimate is fine for comparing two
+    projects, where a systematic bias cancels, and is not a statement about money.
+
+    A read that contributed no token count is shown as uncounted rather than as
+    zero, and a total containing one is prefixed ``≥``. A retrieval path that
+    records a size without the text behind it is not free, and a cost table is
+    exactly where a zero gets read as though it were.
+
+    Costs appear only when a rate card is configured — Keel ships no prices,
+    because a wrong price is worse than no price. They cover model calls alone:
+    retrieval is not billed by anyone, and context turns into money when a model
+    reads it, not when Keel fetches it.
+    """
+    from agentic_cli import usage
+
+    if rates_init:
+        _init_rate_card()
+        raise typer.Exit(0)
+
+    if not all_projects and not slug:
+        console.print("[red]✗ Give a domain slug, or --all for every project.[/red]")
+        raise typer.Exit(1)
+    if slug:
+        _require_domain(slug)
+
+    projects = usage.by_project(domain=None if all_projects else slug)
+    if not projects:
+        console.print(f"[yellow]Nothing recorded"
+                      f"{'' if all_projects else f' for {slug}'} yet.[/yellow]")
+        raise typer.Exit(0)
+
+    summary = usage.compare(projects)
+    if as_json:
+        console.print_json(json.dumps(
+            {"projects": [p.to_dict() for p in projects], "summary": summary}))
+        raise typer.Exit(0)
+
+    table = Table(title="Context usage" + ("" if all_projects else f" — {slug}"),
+                  show_lines=False)
+    table.add_column("Project", no_wrap=True)
+    table.add_column("Meter", no_wrap=True)
+    table.add_column("Reads", justify="right", no_wrap=True)
+    table.add_column("In", justify="right", no_wrap=True)
+    table.add_column("Out", justify="right", no_wrap=True)
+    table.add_column("Basis", no_wrap=True)
+
+    for project in projects:
+        first = True
+        for key in usage.METER_ORDER:
+            if key not in project.meters:
+                continue
+            meter = project.meters[key]
+            # A meter nothing was counted for shows a dash, never a zero. Zero
+            # reads as "this was free", which is the reading a cost table
+            # invites and the opposite of what an uncounted row means.
+            shown = "—" if not meter.counted else _thousands(meter.tokens)
+            style = "yellow" if not meter.complete else "dim"
+            # Only a model call has an output side. A dash elsewhere, never a
+            # zero: zero would read as a model that returned nothing rather than
+            # as a row that is not about a model.
+            out = _thousands(meter.tokens_out) if key == usage.GENERATE else "—"
+            table.add_row(
+                f"[bold]{project.named}[/bold]" if first else "",
+                meter.label,
+                f"{meter.reads:,}",
+                shown,
+                out,
+                f"[{style}]{meter.basis}[/{style}]",
+            )
+            first = False
+        share = project.build_share
+        total = _thousands(project.tokens)
+        if not project.complete:
+            # "at least" rather than a bare figure: some reads contributed
+            # nothing, so the number is a floor.
+            total = f"≥{total}"
+        table.add_row(
+            "" if not first else f"[bold]{project.named}[/bold]",
+            "[dim]total[/dim]",
+            f"[bold]{project.reads:,}[/bold]",
+            f"[bold]{total}[/bold]",
+            f"[bold]{_thousands(project.generated)}[/bold]"
+            if project.generated else "—",
+            "" if share is None else f"[dim]{share:.0%} building[/dim]",
+        )
+    console.print(table)
+    console.print(f"[dim]{summary['basis_note']}.[/dim]")
+    # Said only when both numbers exist, because the comparison is the point and
+    # a lone served figure invites being read as the prompt size.
+    served = sum(p.meter(usage.SERVE).tokens for p in projects)
+    admitted = sum(p.admitted for p in projects)
+    if served and admitted:
+        # The gap is named, never its direction. A prompt can be smaller than
+        # what Keel retrieved (dedup, truncation, a cache hit) or larger (system
+        # instructions, the question, conversation history) — asserting either
+        # way would be a claim about an engine's internals we cannot see.
+        console.print(
+            f"[dim]Keel served {_thousands(served)}; the models read "
+            f"{_thousands(admitted)}. The two differ by whatever the engine "
+            f"added or dropped on the way in — retrieved is not sent.[/dim]")
+    else:
+        console.print("[dim]Retrieval rows are what Keel served, not what an "
+                      "engine admitted to its prompt.[/dim]")
+
+    _print_cost(None if all_projects else slug)
+
+    record_activity(command="domain", subcommand="usage",
+                    args={"domain": slug or "*", "projects": len(projects),
+                          "tokens": summary["tokens"]})
+
+
+def _init_rate_card() -> None:
+    """Copy the example rate card into place, refusing to clobber an edited one."""
+    import shutil
+
+    from agentic_cli import pricing
+
+    target = pricing.card_path()
+    if target.exists():
+        console.print(f"[yellow]A rate card already exists at {target}.[/yellow]")
+        console.print("[dim]Edit it, or delete it and re-run to start from the "
+                      "example.[/dim]")
+        raise typer.Exit(1)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(pricing.example_path(), target)
+    console.print(f"[green]✓[/green] Rate card written to {target}")
+    console.print("[dim]Check the figures against your vendor's pricing page "
+                  "before trusting them, and update `as_of` when you do.[/dim]")
+
+
+def _print_cost(slug) -> None:
+    """The money half, kept apart from the token table on purpose.
+
+    Retrieval carries tokens and no cost — nobody bills for reading a file off
+    disk. Context becomes money when a model reads it, so putting a cost column
+    on the retrieval meters would have invited adding the two together.
+    """
+    from agentic_cli import pricing, usage
+
+    report = usage.cost_by_project(domain=slug)
+    card = report["card"]
+    if not card.configured:
+        console.print(
+            f"\n[dim]No rate card configured, so no costs are shown. "
+            f"`{CLI_NAME} domain usage --rates-init` writes one you can edit; "
+            f"Keel ships no prices of its own.[/dim]")
+        return
+    if not report["projects"]:
+        return
+
+    table = Table(title="Cost — model calls only", show_lines=False)
+    table.add_column("Project", no_wrap=True)
+    table.add_column("Phase", no_wrap=True)
+    table.add_column("Calls", justify="right", no_wrap=True)
+    # "In"/"Out", matching the usage table above. "Read"/"Wrote" would read as
+    # cache read and cache write in a table that is about billing, which is
+    # exactly the pair a reader is primed for here.
+    table.add_column("In", justify="right", no_wrap=True)
+    table.add_column("Out", justify="right", no_wrap=True)
+    table.add_column("Cost", justify="right", no_wrap=True)
+
+    total = 0.0
+    unpriced = 0
+    for project, phases in sorted(report["projects"].items()):
+        first = True
+        for phase in phases:
+            total += phase.cost
+            unpriced += phase.unpriced_calls
+            table.add_row(
+                f"[bold]{project or '(unattributed)'}[/bold]" if first else "",
+                phase.label,
+                f"{phase.calls:,}",
+                _thousands(phase.admitted),
+                _thousands(phase.generated),
+                # A phase with unpriced calls shows its cost as a floor, since
+                # the models the card does not name contributed nothing to it.
+                ("≥" if phase.unpriced_calls else "")
+                + pricing.money(phase.cost, card.currency),
+            )
+            first = False
+    console.print(table)
+    console.print(f"[bold]{('≥' if unpriced else '')}"
+                  f"{pricing.money(total, card.currency)}[/bold] total")
+
+    age = f"{card.age_days} days old" if card.age_days is not None else "undated"
+    style = "yellow" if card.stale else "dim"
+    console.print(f"[{style}]Rates from {card.path}, as of "
+                  f"{card.as_of or 'unknown'} ({age})"
+                  + (" — re-check them before quoting this." if card.stale else "")
+                  + f"[/{style}]")
+    if report["unpriced_models"]:
+        console.print(f"[yellow]{unpriced} call(s) on "
+                      f"{', '.join(report['unpriced_models'])} are not in the "
+                      f"rate card — they add nothing to the total.[/yellow]")
+
+
 def _judge_available() -> bool:
     """True when a model provider is configured for the answerability judge."""
     import os
@@ -592,8 +1111,11 @@ def register(domain_app: typer.Typer) -> None:
     domain_app.command("review")(review)
     domain_app.command("finalize")(finalize)
     domain_app.command("score")(score)
+    domain_app.command("diff")(diff_command)
+    domain_app.command("usage")(usage_command)
 
 
-__all__ = ["register", "gather", "stale_repo_entries", "KIND_FILES",
-           "FILE_KINDS", "classify_docs",
-           "extract_intent", "review", "finalize", "score"]
+__all__ = ["register", "gather", "stale_repo_entries", "diff_domain",
+           "KIND_FILES", "FILE_KINDS", "classify_docs",
+           "extract_intent", "review", "finalize", "score", "diff_command",
+           "usage_command"]
