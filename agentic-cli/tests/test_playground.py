@@ -265,3 +265,38 @@ class TestOfflineScoring:
         assert variant.scores
         assert variant.framework == "heuristic"
         assert any("fell back" in p for p in variant.problems)
+
+
+class TestSourceGranularity:
+    """Curated documents are separately ablatable; query results are not.
+
+    Found by running against a real domain: four finalized .domain/ files all
+    arrived under one operation and collapsed into a single toggle, which makes
+    the ablation useless for exactly the context a team curates by hand.
+    """
+
+    def test_curated_documents_split_per_file(self):
+        store = ps.get_store()
+        store.put("q", session_id="s3", source="session", operation="prompt")
+        for name in ("setup.md", "hazards.md", "glossary.md"):
+            store.put(f"body of {name}", session_id="s3", source="context",
+                      operation="resolve/domain", entity_id=f"domain://d/{name}")
+
+        keys = {s.key for s in playground.list_sources("s3")}
+        assert keys == {
+            "context/resolve/domain:setup.md",
+            "context/resolve/domain:hazards.md",
+            "context/resolve/domain:glossary.md",
+        }
+
+    def test_query_results_stay_grouped(self):
+        """Forty KG queries must not become forty switches."""
+        store = ps.get_store()
+        store.put("q", session_id="s4", source="session", operation="prompt")
+        for i in range(5):
+            store.put(f"result {i}", session_id="s4", source="kg",
+                      operation="query", entity_id=f"entity-{i}")
+
+        [source] = playground.list_sources("s4")
+        assert source.key == "kg/query"
+        assert source.payloads == 5

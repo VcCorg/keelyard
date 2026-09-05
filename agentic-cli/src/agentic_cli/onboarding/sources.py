@@ -18,6 +18,7 @@ onboarding.extract.extract`, which reduces it to candidates and drops it.
 from __future__ import annotations
 
 import hashlib
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -29,8 +30,27 @@ from agentic_cli.onboarding.extract import Citation
 MAX_BODY_CHARS = 40_000
 
 #: Filenames and directories that hold onboarding intent in a repository.
-REPO_DOC_NAMES = ("CONTRIBUTING.md", "README.md", "ONBOARDING.md", "DEVELOPMENT.md")
+#:
+#: CLAUDE.md and AGENTS.md lead deliberately: they are the files a team writes
+#: *for an agent*, which makes them the highest-signal onboarding material in
+#: any modern repo. Their absence from the first cut of this list was only
+#: visible once it ran against a real repository rather than a fixture.
+REPO_DOC_NAMES = (
+    "CLAUDE.md", "AGENTS.md", "CONTRIBUTING.md", "README.md",
+    "ONBOARDING.md", "DEVELOPMENT.md",
+)
 REPO_DOC_DIRS = ("docs", "doc", "adr", "adrs", "runbooks", "runbook", ".github")
+
+#: Directories holding *deliberative* writing — what we might do — rather than
+#: instructional writing — what you should do. Extracting imperatives from a
+#: plan produces instructions for work nobody did, and from a comparison of
+#: alternatives it produces instructions for the option that was rejected.
+#: Running against this repo, three such directories supplied the top six
+#: sources by volume before they were excluded.
+DELIBERATIVE_DIRS = frozenset({
+    "plans", "plan", "analysis", "analyses", "proposals", "proposal",
+    "rfc", "rfcs", "brainstorm", "archive", "drafts", "superpowers",
+})
 
 _SKIP_DIRS = {
     ".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build",
@@ -138,6 +158,22 @@ def repo_documents(repo_root: Path, slug: str = "") -> list[Document]:
     return documents
 
 
+_DELIBERATIVE_NAME = re.compile(
+    r"(^|[_\-])(plan|roadmap|proposal|analysis|comparison|alternatives|"
+    r"brainstorm|ideas|backlog|draft|notes|summary|index)([_\-]|$)",
+    re.IGNORECASE,
+)
+
+
+def _is_deliberative(stem: str) -> bool:
+    """True for a filename that names a plan or an analysis rather than guidance.
+
+    Directory placement catches most of it; this catches the ones that sit
+    loose in ``docs/`` — ``EVALUATION_FRAMEWORK_PLAN.md`` and friends.
+    """
+    return bool(_DELIBERATIVE_NAME.search(stem))
+
+
 def _repo_doc_paths(repo_root: Path) -> list[Path]:
     """Top-level onboarding files first, then the documentation directories."""
     found: list[Path] = []
@@ -152,7 +188,10 @@ def _repo_doc_paths(repo_root: Path) -> list[Path]:
         if not directory.is_dir():
             continue
         for path in sorted(directory.rglob("*.md")):
-            if any(part in _SKIP_DIRS for part in path.parts):
+            parts = set(path.parts)
+            if parts & _SKIP_DIRS or parts & DELIBERATIVE_DIRS:
+                continue
+            if _is_deliberative(path.stem):
                 continue
             if path not in found:
                 found.append(path)
@@ -162,6 +201,6 @@ def _repo_doc_paths(repo_root: Path) -> list[Path]:
 
 __all__ = [
     "MAX_BODY_CHARS", "REPO_DOC_NAMES", "REPO_DOC_DIRS", "Document",
-    "fetch_confluence", "content_version", "is_repo_citation_stale",
-    "repo_documents",
+    "DELIBERATIVE_DIRS", "fetch_confluence", "content_version",
+    "is_repo_citation_stale", "repo_documents",
 ]

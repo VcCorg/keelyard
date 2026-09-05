@@ -92,6 +92,19 @@ _FENCE_RE = re.compile(r"^\s*```")
 _MIN_LEN = 12
 _MAX_LEN = 400
 
+#: A line is not an instruction if it is really a fragment of one, or a label
+#: introducing something else. Running against a real repository turned up all
+#: three of these; a fixture never would:
+#:
+#:   "set to enforce) — that's the seam that decides..."   a wrapped continuation
+#:   "Use cases & benefits"                                a heading
+#:   "To configure the provider:"                          a label before a list
+_CONTINUATION = re.compile(r"^[^(\[]{0,40}[)\]]")
+_LABEL_END = re.compile(r":\s*$")
+_HEADINGISH = re.compile(r"\s&\s|\s\|\s")
+#: Fewer content words than this and there is no instruction in there.
+_MIN_CONTENT_WORDS = 3
+
 
 @dataclass(frozen=True)
 class Citation:
@@ -240,10 +253,22 @@ def _clean(raw: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+def _is_fragment(line: str) -> bool:
+    """True when a line cannot stand on its own as an instruction."""
+    if _CONTINUATION.search(line) or _LABEL_END.search(line):
+        return True
+    if _HEADINGISH.search(line):
+        return True
+    return len(re.findall(r"[A-Za-z]{3,}", line)) < _MIN_CONTENT_WORDS
+
+
 def _to_candidate(
     line: str, in_glossary: bool, default_kind: str, citation: Citation
 ) -> Candidate | None:
     """Decide what kind of instruction a line is, if any."""
+    if _is_fragment(line):
+        return None
+
     if in_glossary:
         match = _DEFINITION_RE.match(line)
         if match:

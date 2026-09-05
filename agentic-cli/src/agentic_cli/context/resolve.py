@@ -52,13 +52,22 @@ def locate_bundle_dir(domain: str) -> Optional[Path]:
 
 
 def _record(operation: str, ref: str, item: Optional[ContextItem]) -> None:
-    """Record one context read. Never raises — telemetry is not load-bearing."""
+    """Record one context read. Never raises — telemetry is not load-bearing.
+
+    The resolved body is offered to the tier-two store, which is off unless an
+    operator enables it. Without this the context Keel *assembles* was traced
+    but not retained, so a session built from a bundle could never be scored —
+    the eval feed would find a question and an answer with no context between
+    them.
+    """
+    body = item.body if item else ""
     tracing.record_context_read(
         source=TRACE_SOURCE,
         operation=operation,
         entity_id=ref,
-        size_bytes=tracing.measure(item.body if item else ""),
+        size_bytes=tracing.measure(body),
         status="success" if (item and item.resolved) else "empty",
+        payload=body or None,
     )
 
 

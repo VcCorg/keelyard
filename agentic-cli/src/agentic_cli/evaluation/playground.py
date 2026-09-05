@@ -156,8 +156,25 @@ def _split(payloads: list) -> tuple[Optional[Any], Optional[Any], list]:
     return prompt, response, contexts
 
 
+#: Sources whose entities are *curated documents* rather than query results.
+#: For these the file is the ablatable unit — "turn off the glossary" is a real
+#: question, and grouping them by operation collapses every domain file into one
+#: undifferentiated toggle.
+_ENTITY_GRAINED = frozenset({"context"})
+
+
 def source_key(payload) -> str:
-    return f"{payload.source}/{payload.operation}"
+    """The ablatable unit for one payload.
+
+    Grouped by ``(source, operation)`` by default, because a reviewer thinks
+    "turn off the KG", not "turn off retrieval number seven" — forty KG queries
+    should not become forty switches. Curated documents are the exception: each
+    one is separately owned and separately worth removing.
+    """
+    base = f"{payload.source}/{payload.operation}"
+    if payload.source in _ENTITY_GRAINED and payload.entity_id:
+        return f"{base}:{payload.entity_id.rsplit('/', 1)[-1]}"
+    return base
 
 
 def list_sources(session_id: str) -> list[Source]:
