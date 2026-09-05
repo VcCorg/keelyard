@@ -82,6 +82,7 @@ class _MeteredProvider:
         # Read on this thread, before anything the provider may do with threads.
         session_id = tracing.current_session_id()
         domain = tracing.current_domain()
+        phase = tracing.current_phase()
         started = time.perf_counter()
         try:
             completion = self._inner.generate(prompt)
@@ -90,7 +91,7 @@ class _MeteredProvider:
             # row is what stops a flaky provider looking like an unused one.
             tracing.record_generation(
                 model=_model_name(self._inner), usage=None, prompt=prompt,
-                session_id=session_id, domain=domain, status="error",
+                session_id=session_id, domain=domain, phase=phase, status="error",
                 duration_ms=int((time.perf_counter() - started) * 1000))
             raise
 
@@ -101,6 +102,7 @@ class _MeteredProvider:
             completion=completion or "",
             session_id=session_id,
             domain=domain,
+            phase=phase,
             duration_ms=int((time.perf_counter() - started) * 1000),
         )
         return completion

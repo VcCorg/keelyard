@@ -19,7 +19,7 @@ from typing import Any, Optional
 DB_DIR = Path.home() / ".agent-cli-agentic"
 DB_PATH = DB_DIR / "tracker.db"
 
-_SCHEMA_VERSION = 16
+_SCHEMA_VERSION = 17
 
 _SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -46,6 +46,9 @@ CREATE TABLE IF NOT EXISTS activity_log (
     bytes          INTEGER,       -- size of what was read/produced
     tokens         INTEGER,       -- tokens IN: served by a read, or admitted by a call
     tokens_out     INTEGER,       -- tokens OUT: what a model generated
+    cache_read     INTEGER,       -- of tokens IN, how many came from cache
+    cache_write    INTEGER,       -- of tokens IN, how many were written to cache
+    phase          TEXT,          -- 'build' | 'develop' - which work this was
     token_basis    TEXT           -- 'measured' | 'estimated' - never assume
 );
 
@@ -367,6 +370,24 @@ CREATE INDEX IF NOT EXISTS idx_activity_generation
 """
 
 
+_MIGRATION_V17 = """
+-- v17: the cache split, and which phase of work a call belonged to.
+--
+-- Cache reads and writes are priced differently from fresh input — a read at a
+-- fraction, a write at a premium — so a cost query needs them apart. They were
+-- already recorded in the details JSON; as columns, costing stays one GROUP BY
+-- instead of parsing JSON for every model call a project ever made.
+--
+-- Cost is deliberately NOT stored. Rates change, and a cost frozen at record
+-- time can never be corrected — the ledger keeps tokens, and money is computed
+-- from whatever rate card is current when someone asks.
+--
+-- phase separates building a domain's context from working with it. Both spend
+-- real money on judge and agent calls, and "what did onboarding cost me versus
+-- what has development cost me" is the question a portfolio owner actually has.
+CREATE INDEX IF NOT EXISTS idx_activity_phase ON activity_log(domain, phase);
+"""
+
 _ENSURE_INDEXES = """
 -- Indexes over migration-added columns, created after the migration chain.
 --
@@ -388,6 +409,7 @@ CREATE INDEX IF NOT EXISTS idx_activity_domain_entity
     ON activity_log(domain, entity_type);
 CREATE INDEX IF NOT EXISTS idx_activity_generation
     ON activity_log(domain, entity_type) WHERE entity_type = 'generation';
+CREATE INDEX IF NOT EXISTS idx_activity_phase ON activity_log(domain, phase);
 """
 
 
@@ -490,6 +512,14 @@ def _ensure_db() -> Path:
                 conn.executescript(_MIGRATION_V16)
                 conn.execute("UPDATE schema_version SET version = 16")
                 current_version = 16
+            if current_version < 17:
+                for _column, _decl in (("cache_read", "INTEGER"),
+                                       ("cache_write", "INTEGER"),
+                                       ("phase", "TEXT")):
+                    _add_column_if_missing(conn, "activity_log", _column, _decl)
+                conn.executescript(_MIGRATION_V17)
+                conn.execute("UPDATE schema_version SET version = 17")
+                current_version = 17
         # After the chain, so it covers the fresh-install path too — see
         # _ENSURE_INDEXES.
         conn.executescript(_ENSURE_INDEXES)
@@ -593,6 +623,9 @@ def record_activity(
     size_bytes: int = None,
     tokens: int = None,
     tokens_out: int = None,
+    cache_read: int = None,
+    cache_write: int = None,
+    phase: str = None,
     token_basis: str = None,
 ) -> None:
     """Insert a row into the activity log (the central audit trail).
@@ -612,13 +645,14 @@ def record_activity(
     was dropped cannot be told apart later from one that was measured, and a
     ledger that cannot say which is which can only be quoted carelessly.
     """
-    if domain is None:
+    if domain is None or phase is None:
         try:
-            from agentic_cli.tracing import current_domain
+            from agentic_cli import tracing
 
-            domain = current_domain()
+            domain = tracing.current_domain() if domain is None else domain
+            phase = tracing.current_phase() if phase is None else phase
         except Exception:  # noqa: BLE001 - attribution is never load-bearing
-            domain = None
+            pass
     if tokens is not None and not token_basis:
         # Refusing the number is the point: see the docstring.
         tokens = None
@@ -629,8 +663,9 @@ def record_activity(
                    (timestamp, command, subcommand, status, duration_ms, args,
                     details, repo_path, correlation_id, entity_type, entity_id,
                     source, actor, domain, bytes, tokens, tokens_out,
-                    token_basis)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    cache_read, cache_write, phase, token_basis)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                           ?, ?, ?)""",
                 (
                     _now_iso(),
                     command,
@@ -649,11 +684,60 @@ def record_activity(
                     size_bytes,
                     tokens,
                     tokens_out,
+                    cache_read,
+                    cache_write,
+                    phase,
                     token_basis,
                 ),
             )
     except Exception:
         pass  # Never break the CLI
+
+
+def generation_by_model(domain: str = None) -> list[dict]:
+    """Model-call totals grouped by domain, model and phase — the costing input.
+
+    Separate from :func:`usage_by_domain` because pricing needs a different
+    grain: rates are per model, so the sum has to be per model before it can
+    become money. The token split (fresh input, cache read, cache write) comes
+    back apart, since each is billed at a different rate.
+    """
+    where, params = ["entity_type = 'generation'"], []
+    if domain is not None:
+        where.append("COALESCE(domain, '') = ?")
+        params.append(domain)
+    try:
+        with _get_conn() as conn:
+            rows = conn.execute(
+                f"""SELECT COALESCE(domain, '')   AS domain,
+                           COALESCE(entity_id, '') AS model,
+                           COALESCE(phase, '')     AS phase,
+                           COUNT(*)                AS calls,
+                           COALESCE(SUM(tokens), 0)      AS admitted,
+                           COALESCE(SUM(tokens_out), 0)  AS output_tokens,
+                           COALESCE(SUM(cache_read), 0)  AS cache_read_tokens,
+                           COALESCE(SUM(cache_write), 0) AS cache_write_tokens,
+                           SUM(CASE WHEN token_basis = 'measured' THEN 1 ELSE 0 END)
+                               AS measured
+                      FROM activity_log
+                     WHERE {' AND '.join(where)}
+                  GROUP BY COALESCE(domain, ''), COALESCE(entity_id, ''),
+                           COALESCE(phase, '')""",
+                params,
+            ).fetchall()
+            out = []
+            for row in rows:
+                item = dict(row)
+                # Fresh input is what is left after the cached parts. Storing it
+                # derived rather than separately keeps `tokens` meaning the same
+                # thing on every row: everything the model read.
+                item["input_tokens"] = max(
+                    item["admitted"] - item["cache_read_tokens"]
+                    - item["cache_write_tokens"], 0)
+                out.append(item)
+            return out
+    except Exception:
+        return []
 
 
 def usage_by_domain(domain: str = None, entity_type: str = None) -> list[dict]:

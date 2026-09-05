@@ -1,0 +1,55 @@
+# Example rate card — NOT loaded by default. Copy it, check it, then use it.
+#
+#   keel domain usage --rates-init     # copies this to your config directory
+#
+# Keel ships no prices. This file is an example an operator adopts deliberately,
+# because a wrong price is worse than no price: rates change, and a number baked
+# into a release keeps being produced long after it stopped being true.
+#
+# `as_of` is load-bearing. Every report prints it, and a card older than 180
+# days is reported as stale rather than quietly quoted. Update the date only
+# when you have actually re-checked the figures against the source below.
+#
+# Costs are computed from usage a provider reported. A provider that reports no
+# usage produces an estimated token count, and an estimated count priced at an
+# exact rate is still an estimate — the readout says so.
+
+version: 1
+as_of: 2026-06-24
+currency: USD
+source: https://www.anthropic.com/pricing
+
+# Cache rates default to input × 0.1 (read) and input × 1.25 (write) when a
+# model does not name them. Those multipliers are not universal — set the
+# explicit per-model figure whenever your vendor publishes one, because a model
+# can price cache reads well below a tenth of its input rate.
+
+models:
+  claude-opus-5:
+    input_per_mtok: 5.00
+    output_per_mtok: 25.00
+  claude-opus-4-8:
+    input_per_mtok: 5.00
+    output_per_mtok: 25.00
+  claude-sonnet-5:
+    input_per_mtok: 2.00
+    output_per_mtok: 10.00
+  claude-sonnet-4-6:
+    input_per_mtok: 3.00
+    output_per_mtok: 15.00
+  claude-haiku-4-5:
+    input_per_mtok: 1.00
+    output_per_mtok: 5.00
+
+  # Add your own models here. Anything the card does not name is reported as
+  # unpriced — never costed at zero, because a total that silently omits a
+  # model reads as a cheaper project, and that is the error nobody looks for.
+  #
+  # Partner-operated platforms (Bedrock, Vertex) publish their own rates and are
+  # not the same numbers as above; price them under the id your provider
+  # reports, e.g.:
+  #
+  # my-vertex-deployment:
+  #   input_per_mtok: 0.00
+  #   output_per_mtok: 0.00
+  #   cache_read_per_mtok: 0.00

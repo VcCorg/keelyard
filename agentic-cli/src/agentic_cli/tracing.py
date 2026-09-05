@@ -73,6 +73,17 @@ _session_id: ContextVar[Optional[str]] = ContextVar("keel_session_id", default=N
 _session_domain: ContextVar[Optional[str]] = ContextVar(
     "keel_session_domain", default=None)
 
+# Which kind of work this is. Building a domain's context and working with it
+# both spend real money on model calls, and "what did onboarding cost me against
+# what development has cost me" is the question a portfolio owner actually has —
+# but the source family cannot answer it, because a judge call during extraction
+# and an agent call during a session are both generation rows.
+BUILD = "build"
+DEVELOP = "develop"
+
+_session_phase: ContextVar[Optional[str]] = ContextVar(
+    "keel_session_phase", default=None)
+
 # Tier-one rows record shape, not content. A single oversized value should not
 # be able to bloat the audit database through the details column.
 MAX_ENTITY_ID = 512
@@ -120,9 +131,15 @@ def reset_domain(token: Any) -> None:
         logger.debug("session domain not reset: %s", exc)
 
 
+def current_phase() -> Optional[str]:
+    """Which kind of work is running, or None when unattributed."""
+    return _session_phase.get()
+
+
 @contextlib.contextmanager
 def session_scope(session_id: Optional[str] = None,
-                  domain: Optional[str] = None) -> Iterator[str]:
+                  domain: Optional[str] = None,
+                  phase: Optional[str] = None) -> Iterator[str]:
     """Bind a session id — and the project it is for — for the block.
 
     Generates an id when not supplied, so callers that just want their reads
@@ -143,14 +160,17 @@ def session_scope(session_id: Optional[str] = None,
         session_id = new_correlation_id()
     token = _session_id.set(session_id)
     domain_token = _session_domain.set(domain or _session_domain.get())
+    phase_token = _session_phase.set(phase or _session_phase.get())
     try:
         yield session_id
     finally:
         _session_id.reset(token)
-        try:
-            _session_domain.reset(domain_token)
-        except (ValueError, LookupError) as exc:
-            logger.debug("session domain not reset: %s", exc)
+        for name, reset_token, var in (("domain", domain_token, _session_domain),
+                                       ("phase", phase_token, _session_phase)):
+            try:
+                var.reset(reset_token)
+            except (ValueError, LookupError) as exc:
+                logger.debug("session %s not reset: %s", name, exc)
 
 
 def digest_args(arguments: Optional[Dict[str, Any]]) -> str:
@@ -311,6 +331,7 @@ def record_generation(
     completion: str = "",
     session_id: Optional[str] = None,
     domain: Optional[str] = None,
+    phase: Optional[str] = None,
     duration_ms: Optional[int] = None,
     status: str = "success",
 ) -> None:
@@ -339,12 +360,18 @@ def record_generation(
         from agentic_cli.tracker import record_activity
 
         tokens_in = tokens_out = None
+        cache_read = cache_write = None
         basis = None
         details: Dict[str, Any] = {"model": model}
 
         if usage is not None and not getattr(usage, "empty", True):
             tokens_in = usage.admitted
             tokens_out = usage.output_tokens
+            # Split out for pricing: a cache read is billed at a fraction of
+            # fresh input and a cache write at a premium, so a cost computed off
+            # the total alone is wrong in both directions at once.
+            cache_read = usage.cache_read_tokens
+            cache_write = usage.cache_write_tokens
             basis = token_counter.MEASURED
             details.update(usage.to_dict())
         else:
@@ -370,6 +397,9 @@ def record_generation(
             size_bytes=measure(completion),
             tokens=tokens_in,
             tokens_out=tokens_out,
+            cache_read=cache_read,
+            cache_write=cache_write,
+            phase=phase,
             token_basis=basis,
         )
     except Exception as exc:  # noqa: BLE001 - telemetry is never load-bearing

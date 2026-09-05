@@ -259,6 +259,74 @@ class ProjectUsage:
         }
 
 
+@dataclass
+class PhaseCost:
+    """What one phase of work on one project cost."""
+
+    phase: str
+    calls: int = 0
+    admitted: int = 0
+    generated: int = 0
+    cost: float = 0.0
+    unpriced_calls: int = 0
+
+    @property
+    def label(self) -> str:
+        return {"build": "Building context",
+                "develop": "Development"}.get(self.phase, "Unattributed work")
+
+    def to_dict(self) -> dict:
+        return {"phase": self.phase, "label": self.label, "calls": self.calls,
+                "admitted": self.admitted, "generated": self.generated,
+                "cost": round(self.cost, 4),
+                "unpriced_calls": self.unpriced_calls}
+
+
+#: The order a cost report shows phases in, one-off before recurring.
+PHASE_ORDER = ("build", "develop", "")
+
+
+def cost_by_project(domain: Optional[str] = None, card=None) -> dict:
+    """What each project's model calls cost, split by phase.
+
+    Only model calls are priced. Retrieval carries tokens and no cost, because
+    nobody bills for reading a file — context becomes money when a model reads
+    it. That is why a project can show a large served figure and a small bill,
+    or the reverse, and why the two are never added together here.
+
+    Returns a mapping of project slug to its phases, plus a ``card`` summary so
+    a caller can say how old the prices are. A model the card does not name is
+    counted as unpriced, never as free.
+    """
+    from agentic_cli import pricing
+    from agentic_cli.tracker import generation_by_model
+
+    card = card if card is not None else pricing.load()
+    projects: dict[str, dict[str, PhaseCost]] = {}
+    unpriced_models: set[str] = set()
+
+    for row in generation_by_model(domain=domain):
+        slug = row.get("domain") or ""
+        phase = row.get("phase") or ""
+        bucket = projects.setdefault(slug, {})
+        entry = bucket.setdefault(phase, PhaseCost(phase))
+        entry.calls += int(row.get("calls") or 0)
+        entry.admitted += int(row.get("admitted") or 0)
+        entry.generated += int(row.get("output_tokens") or 0)
+
+        priced = pricing.price([row], card)
+        entry.cost += priced.cost
+        entry.unpriced_calls += priced.unpriced_calls
+        unpriced_models.update(priced.unpriced_models)
+
+    return {
+        "projects": {slug: [phases[k] for k in PHASE_ORDER if k in phases]
+                     for slug, phases in projects.items()},
+        "card": card,
+        "unpriced_models": sorted(unpriced_models),
+    }
+
+
 def by_project(domain: Optional[str] = None) -> list[ProjectUsage]:
     """Ledger usage per project, biggest first.
 

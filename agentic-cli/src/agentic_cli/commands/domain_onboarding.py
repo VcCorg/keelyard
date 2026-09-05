@@ -175,7 +175,7 @@ def extract_intent(
     # two meters that a single undifferentiated byte total cannot tell apart.
     from agentic_cli import tracing
 
-    with tracing.session_scope(domain=slug):
+    with tracing.session_scope(domain=slug, phase=tracing.BUILD):
         _extract_intent(slug, meta, include_repos, all_types)
 
 
@@ -795,7 +795,7 @@ def diff_command(
     from agentic_cli import tracing
 
     provider = _diff_judge() if judge else None
-    with tracing.session_scope(domain=slug):
+    with tracing.session_scope(domain=slug, phase=tracing.BUILD):
         report = diff_domain(slug, review, provider=provider)
     by_id = {e.id: e for e in review.entries}
 
@@ -885,6 +885,8 @@ def usage_command(
     all_projects: Annotated[bool, typer.Option(
         "--all", help="Every project, biggest first — the portfolio readout")] = False,
     as_json: Annotated[bool, typer.Option("--json", help="Emit the readout as JSON")] = False,
+    rates_init: Annotated[bool, typer.Option(
+        "--rates-init", help="Copy the example rate card so costs can be shown")] = False,
 ) -> None:
     """How much context each project built, served, and read from tools.
 
@@ -903,8 +905,17 @@ def usage_command(
     zero, and a total containing one is prefixed ``≥``. A retrieval path that
     records a size without the text behind it is not free, and a cost table is
     exactly where a zero gets read as though it were.
+
+    Costs appear only when a rate card is configured — Keel ships no prices,
+    because a wrong price is worse than no price. They cover model calls alone:
+    retrieval is not billed by anyone, and context turns into money when a model
+    reads it, not when Keel fetches it.
     """
     from agentic_cli import usage
+
+    if rates_init:
+        _init_rate_card()
+        raise typer.Exit(0)
 
     if not all_projects and not slug:
         console.print("[red]✗ Give a domain slug, or --all for every project.[/red]")
@@ -991,9 +1002,96 @@ def usage_command(
         console.print("[dim]Retrieval rows are what Keel served, not what an "
                       "engine admitted to its prompt.[/dim]")
 
+    _print_cost(None if all_projects else slug)
+
     record_activity(command="domain", subcommand="usage",
                     args={"domain": slug or "*", "projects": len(projects),
                           "tokens": summary["tokens"]})
+
+
+def _init_rate_card() -> None:
+    """Copy the example rate card into place, refusing to clobber an edited one."""
+    import shutil
+
+    from agentic_cli import pricing
+
+    target = pricing.card_path()
+    if target.exists():
+        console.print(f"[yellow]A rate card already exists at {target}.[/yellow]")
+        console.print("[dim]Edit it, or delete it and re-run to start from the "
+                      "example.[/dim]")
+        raise typer.Exit(1)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(pricing.example_path(), target)
+    console.print(f"[green]✓[/green] Rate card written to {target}")
+    console.print("[dim]Check the figures against your vendor's pricing page "
+                  "before trusting them, and update `as_of` when you do.[/dim]")
+
+
+def _print_cost(slug) -> None:
+    """The money half, kept apart from the token table on purpose.
+
+    Retrieval carries tokens and no cost — nobody bills for reading a file off
+    disk. Context becomes money when a model reads it, so putting a cost column
+    on the retrieval meters would have invited adding the two together.
+    """
+    from agentic_cli import pricing, usage
+
+    report = usage.cost_by_project(domain=slug)
+    card = report["card"]
+    if not card.configured:
+        console.print(
+            f"\n[dim]No rate card configured, so no costs are shown. "
+            f"`{CLI_NAME} domain usage --rates-init` writes one you can edit; "
+            f"Keel ships no prices of its own.[/dim]")
+        return
+    if not report["projects"]:
+        return
+
+    table = Table(title="Cost — model calls only", show_lines=False)
+    table.add_column("Project", no_wrap=True)
+    table.add_column("Phase", no_wrap=True)
+    table.add_column("Calls", justify="right", no_wrap=True)
+    # "In"/"Out", matching the usage table above. "Read"/"Wrote" would read as
+    # cache read and cache write in a table that is about billing, which is
+    # exactly the pair a reader is primed for here.
+    table.add_column("In", justify="right", no_wrap=True)
+    table.add_column("Out", justify="right", no_wrap=True)
+    table.add_column("Cost", justify="right", no_wrap=True)
+
+    total = 0.0
+    unpriced = 0
+    for project, phases in sorted(report["projects"].items()):
+        first = True
+        for phase in phases:
+            total += phase.cost
+            unpriced += phase.unpriced_calls
+            table.add_row(
+                f"[bold]{project or '(unattributed)'}[/bold]" if first else "",
+                phase.label,
+                f"{phase.calls:,}",
+                _thousands(phase.admitted),
+                _thousands(phase.generated),
+                # A phase with unpriced calls shows its cost as a floor, since
+                # the models the card does not name contributed nothing to it.
+                ("≥" if phase.unpriced_calls else "")
+                + pricing.money(phase.cost, card.currency),
+            )
+            first = False
+    console.print(table)
+    console.print(f"[bold]{('≥' if unpriced else '')}"
+                  f"{pricing.money(total, card.currency)}[/bold] total")
+
+    age = f"{card.age_days} days old" if card.age_days is not None else "undated"
+    style = "yellow" if card.stale else "dim"
+    console.print(f"[{style}]Rates from {card.path}, as of "
+                  f"{card.as_of or 'unknown'} ({age})"
+                  + (" — re-check them before quoting this." if card.stale else "")
+                  + f"[/{style}]")
+    if report["unpriced_models"]:
+        console.print(f"[yellow]{unpriced} call(s) on "
+                      f"{', '.join(report['unpriced_models'])} are not in the "
+                      f"rate card — they add nothing to the total.[/yellow]")
 
 
 def _judge_available() -> bool:

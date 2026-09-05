@@ -559,3 +559,213 @@ class TestGeneration:
             _MeteredProvider(_Reporting()).generate("prompt " * 500)
         after = usage.by_project(domain="titanic")[0].build_share
         assert before == after
+
+
+# ── pricing (L3) ────────────────────────────────────────────────────────────
+
+class TestRateCard:
+    """Keel ships no prices. A wrong price is worse than no price."""
+
+    def test_no_card_configured_means_costing_is_off(self, tmp_path, monkeypatch):
+        from agentic_cli import pricing
+
+        monkeypatch.setenv(pricing.ENV_RATE_CARD, str(tmp_path / "absent.yaml"))
+        card = pricing.load()
+        assert not card.configured
+        assert card.stale                  # undated, so never quotable
+
+    def test_the_shipped_example_is_data_not_a_default(self, tmp_path, monkeypatch):
+        """It exists, it is dated — and it is not what `load()` picks up."""
+        from agentic_cli import pricing
+
+        monkeypatch.setenv(pricing.ENV_RATE_CARD, str(tmp_path / "absent.yaml"))
+        assert not pricing.load().configured
+        example = pricing.load(pricing.example_path())
+        assert example.configured and example.as_of is not None
+
+    def test_an_undated_card_is_stale(self, tmp_path):
+        """Undated is not fresh — it is a card nobody can reason about."""
+        from agentic_cli import pricing
+
+        path = tmp_path / "rates.yaml"
+        path.write_text("models:\n  m:\n    input_per_mtok: 1.0\n", encoding="utf-8")
+        assert pricing.load(path).stale
+
+    def test_an_old_card_is_stale(self, tmp_path):
+        from datetime import date, timedelta
+
+        from agentic_cli import pricing
+
+        old = (date.today() - timedelta(days=pricing.STALE_AFTER_DAYS + 1))
+        path = tmp_path / "rates.yaml"
+        path.write_text(f"as_of: {old.isoformat()}\nmodels:\n  m:\n"
+                        f"    input_per_mtok: 1.0\n", encoding="utf-8")
+        assert pricing.load(path).stale
+
+    def test_unreadable_yaml_yields_no_card_not_a_partial_one(self, tmp_path):
+        """A card that silently dropped a model prices that model at nothing."""
+        from agentic_cli import pricing
+
+        path = tmp_path / "rates.yaml"
+        path.write_text("models: [this is not: a mapping\n", encoding="utf-8")
+        assert not pricing.load(path).configured
+
+    def test_a_malformed_entry_is_left_out_rather_than_zeroed(self, tmp_path):
+        from agentic_cli import pricing
+
+        path = tmp_path / "rates.yaml"
+        path.write_text(
+            "as_of: 2026-06-24\nmodels:\n"
+            "  good:\n    input_per_mtok: 1.0\n    output_per_mtok: 2.0\n"
+            "  bad:\n    input_per_mtok: not-a-number\n", encoding="utf-8")
+        card = pricing.load(path)
+        assert card.rate_for("good") is not None
+        assert card.rate_for("bad") is None      # unpriced, never free
+
+
+class TestRateMatching:
+    @staticmethod
+    def _card():
+        from agentic_cli import pricing
+
+        return pricing.load(pricing.example_path())
+
+    def test_a_provider_prefix_still_matches(self):
+        """get_name() returns whatever the provider calls itself."""
+        assert self._card().rate_for("anthropic/claude-sonnet-5").model == \
+            "claude-sonnet-5"
+
+    def test_a_date_suffix_still_matches(self):
+        assert self._card().rate_for("claude-opus-5-20260401").model == \
+            "claude-opus-5"
+
+    def test_the_longest_configured_id_wins(self, tmp_path):
+        """With both a family and a specific id, the specific one must price it."""
+        from agentic_cli import pricing
+
+        path = tmp_path / "rates.yaml"
+        path.write_text(
+            "as_of: 2026-06-24\nmodels:\n"
+            "  claude-opus:\n    input_per_mtok: 99.0\n"
+            "  claude-opus-5:\n    input_per_mtok: 5.0\n", encoding="utf-8")
+        assert pricing.load(path).rate_for("claude-opus-5").input_per_mtok == 5.0
+
+    def test_an_unknown_model_has_no_rate(self):
+        assert self._card().rate_for("some-local-model") is None
+
+
+class TestCostArithmetic:
+    def test_cache_reads_and_writes_are_priced_apart_from_fresh_input(self):
+        """A cost off the admitted total alone is wrong in both directions."""
+        from agentic_cli import pricing
+
+        rate = pricing.ModelRate("m", input_per_mtok=10.0, output_per_mtok=50.0)
+        # Defaults: read at a tenth, write at a premium.
+        assert rate.cache_read == 1.0
+        assert rate.cache_write == 12.5
+        cost = rate.cost(input_tokens=1_000_000, cache_read_tokens=1_000_000,
+                         cache_write_tokens=1_000_000, output_tokens=1_000_000)
+        assert cost == pytest.approx(10.0 + 1.0 + 12.5 + 50.0)
+
+    def test_an_explicit_cache_rate_beats_the_multiplier(self):
+        """Multipliers are fallbacks — a model can price reads far below a tenth."""
+        from agentic_cli import pricing
+
+        rate = pricing.ModelRate("m", input_per_mtok=10.0,
+                                 cache_read_per_mtok=0.25)
+        assert rate.cache_read == 0.25
+
+    def test_an_unpriced_model_is_counted_not_costed_at_zero(self):
+        """A total that silently omits a model reads as a cheaper project."""
+        from agentic_cli import pricing
+
+        card = pricing.load(pricing.example_path())
+        priced = pricing.price([
+            {"model": "claude-opus-5", "calls": 1, "input_tokens": 1_000_000},
+            {"model": "mystery-model", "calls": 3, "input_tokens": 9_000_000},
+        ], card)
+        assert priced.cost == pytest.approx(5.0)
+        assert priced.unpriced_calls == 3
+        assert priced.unpriced_models == ("mystery-model",)
+        assert not priced.complete
+
+
+class TestPhaseSplit:
+    """Building a context and working with it both spend real money."""
+
+    @staticmethod
+    def _call(domain, phase, model="claude-opus-5"):
+        from agentic_cli import tracing
+        from agentic_cli.llm.base import Usage
+        from agentic_cli.llm.factory import _MeteredProvider
+
+        class P:
+            def generate(self, prompt):
+                return "reply " * 20
+
+            def get_name(self):
+                return model
+
+            def last_usage(self):
+                return Usage(input_tokens=1000, output_tokens=500,
+                             cache_read_tokens=4000, model=model)
+
+        with tracing.session_scope(domain=domain, phase=phase):
+            _MeteredProvider(P()).generate("prompt")
+
+    def test_build_and_develop_are_costed_separately(self, temp_db):
+        from agentic_cli import pricing, tracing
+
+        self._call("titanic", tracing.BUILD)
+        for _ in range(3):
+            self._call("titanic", tracing.DEVELOP)
+
+        report = usage.cost_by_project(
+            domain="titanic", card=pricing.load(pricing.example_path()))
+        phases = {p.phase: p for p in report["projects"]["titanic"]}
+        assert phases["build"].calls == 1
+        assert phases["develop"].calls == 3
+        assert phases["develop"].cost > phases["build"].cost
+
+    def test_the_cache_split_survives_to_the_cost_query(self, temp_db):
+        """Recorded apart, aggregated apart — the whole reason for the columns."""
+        from agentic_cli import tracing
+        from agentic_cli.tracker import generation_by_model
+
+        self._call("titanic", tracing.DEVELOP)
+        [row] = generation_by_model(domain="titanic")
+        assert row["cache_read_tokens"] == 4000
+        assert row["input_tokens"] == 1000        # admitted minus the cached part
+        assert row["output_tokens"] == 500
+
+    def test_retrieval_is_never_priced(self, temp_db):
+        """Nobody bills for reading a file. Context becomes money when a model
+        reads it, which is the generation row."""
+        from agentic_cli import pricing, tracing
+
+        with tracing.session_scope(domain="titanic", phase=tracing.DEVELOP):
+            tracing.record_context_read(source="context", operation="resolve/domain",
+                                        size_bytes=4000, payload="x" * 4000)
+        report = usage.cost_by_project(
+            domain="titanic", card=pricing.load(pricing.example_path()))
+        assert report["projects"] == {}       # tokens recorded, nothing billable
+
+    def test_cost_is_not_stored_so_a_new_card_reprices_history(self, temp_db):
+        """Rates change. A cost frozen at record time can never be corrected."""
+        import sqlite3
+
+        from agentic_cli import pricing, tracing, tracker
+
+        self._call("titanic", tracing.DEVELOP)
+        conn = sqlite3.connect(str(tracker.DB_PATH))
+        columns = {r[1] for r in conn.execute("PRAGMA table_info(activity_log)")}
+        assert "cost" not in columns
+
+        cheap = pricing.RateCard(models={"claude-opus-5": pricing.ModelRate(
+            "claude-opus-5", input_per_mtok=1.0, output_per_mtok=1.0)})
+        dear = pricing.RateCard(models={"claude-opus-5": pricing.ModelRate(
+            "claude-opus-5", input_per_mtok=100.0, output_per_mtok=100.0)})
+        low = usage.cost_by_project(domain="titanic", card=cheap)
+        high = usage.cost_by_project(domain="titanic", card=dear)
+        assert high["projects"]["titanic"][0].cost > \
+            low["projects"]["titanic"][0].cost * 50

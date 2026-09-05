@@ -69,7 +69,8 @@ def create_session(spec: ExecutionSpec, engine: Optional[str] = None, *,
     # The domain is bound alongside the trace id, and for the same reason: it
     # has to be in place before the engine runs, because the reads it makes on
     # the way in are the ones that carry the project's context cost.
-    with tracing.session_scope(trace_id, domain=spec.domain):
+    with tracing.session_scope(trace_id, domain=spec.domain,
+                               phase=tracing.DEVELOP):
         eng = get_engine(engine)
         result = eng.create_session(spec)
 
@@ -134,7 +135,8 @@ def ask(spec: ExecutionSpec, engine: Optional[str] = None, *,
     from agentic_cli.tracker import new_correlation_id
 
     trace_id = new_correlation_id()
-    with tracing.session_scope(trace_id, domain=spec.domain):
+    with tracing.session_scope(trace_id, domain=spec.domain,
+                               phase=tracing.DEVELOP):
         result: AskResult = fn(spec)
     result.trace_id = trace_id
 
