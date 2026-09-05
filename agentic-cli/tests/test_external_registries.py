@@ -7,6 +7,7 @@ and agent tool registry system.
 """
 
 import subprocess
+import sys
 import tempfile
 import shutil
 from pathlib import Path
@@ -36,7 +37,7 @@ def test_agent_template_registry():
     
     # Test listing templates
     result = run_command([
-        "python", "-m", "agentic_cli.main", 
+        sys.executable, "-m", "agentic_cli.main", 
         "agent-template", "list", "--registry", "local-agent-templates"
     ])
     assert result.returncode == 0, f"Failed to list templates: {result.stderr}"
@@ -44,7 +45,7 @@ def test_agent_template_registry():
     
     # Test showing template details
     result = run_command([
-        "python", "-m", "agentic_cli.main", 
+        sys.executable, "-m", "agentic_cli.main", 
         "agent-template", "show", "adk-basic-agent", "--registry", "local-agent-templates"
     ])
     assert result.returncode == 0, f"Failed to show template: {result.stderr}"
@@ -52,7 +53,7 @@ def test_agent_template_registry():
     
     # Test listing frameworks
     result = run_command([
-        "python", "-m", "agentic_cli.main", 
+        sys.executable, "-m", "agentic_cli.main", 
         "agent-template", "frameworks", "--registry", "local-agent-templates"
     ])
     assert result.returncode == 0, f"Failed to list frameworks: {result.stderr}"
@@ -60,7 +61,7 @@ def test_agent_template_registry():
     
     # Test listing use cases
     result = run_command([
-        "python", "-m", "agentic_cli.main", 
+        sys.executable, "-m", "agentic_cli.main", 
         "agent-template", "use-cases", "--registry", "local-agent-templates"
     ])
     assert result.returncode == 0, f"Failed to list use cases: {result.stderr}"
@@ -74,7 +75,7 @@ def test_agent_tool_registry():
     
     # Test listing tools
     result = run_command([
-        "python", "-m", "agentic_cli.main", 
+        sys.executable, "-m", "agentic_cli.main", 
         "agent-tool", "list", "--registry", "local-agent-tools"
     ])
     assert result.returncode == 0, f"Failed to list tools: {result.stderr}"
@@ -82,7 +83,7 @@ def test_agent_tool_registry():
     
     # Test showing tool details
     result = run_command([
-        "python", "-m", "agentic_cli.main", 
+        sys.executable, "-m", "agentic_cli.main", 
         "agent-tool", "show", "jira-integration", "--registry", "local-agent-tools"
     ])
     assert result.returncode == 0, f"Failed to show tool: {result.stderr}"
@@ -90,7 +91,7 @@ def test_agent_tool_registry():
     
     # Test listing categories
     result = run_command([
-        "python", "-m", "agentic_cli.main", 
+        sys.executable, "-m", "agentic_cli.main", 
         "agent-tool", "categories", "--registry", "local-agent-tools"
     ])
     assert result.returncode == 0, f"Failed to list categories: {result.stderr}"
@@ -107,7 +108,7 @@ def test_project_creation():
         
         # Test project creation with external template only
         result = run_command([
-            "python", "-m", "agentic_cli.main", 
+            sys.executable, "-m", "agentic_cli.main", 
             "project", "create", "test-template-only",
             "--agent-template", "adk-basic-agent",
             "--force"
@@ -126,7 +127,7 @@ def test_project_creation():
         
         # Test project creation with external template and tools
         result = run_command([
-            "python", "-m", "agentic_cli.main", 
+            sys.executable, "-m", "agentic_cli.main", 
             "project", "create", "test-full-external",
             "--agent-template", "adk-basic-agent",
             "--agent-tools", "jira-integration",
@@ -149,14 +150,14 @@ def test_registry_management():
     
     # Test listing registries
     result = run_command([
-        "python", "-m", "agentic_cli.main", 
+        sys.executable, "-m", "agentic_cli.main", 
         "agent-template", "registry", "list"
     ])
     assert result.returncode == 0, f"Failed to list agent template registries: {result.stderr}"
     assert "local-agent-templates" in result.stdout, "Local agent templates registry not found"
     
     result = run_command([
-        "python", "-m", "agentic_cli.main", 
+        sys.executable, "-m", "agentic_cli.main", 
         "agent-tool", "registry", "list"
     ])
     assert result.returncode == 0, f"Failed to list agent tool registries: {result.stderr}"
@@ -170,7 +171,7 @@ def test_error_handling():
     
     # Test invalid template name
     result = run_command([
-        "python", "-m", "agentic_cli.main", 
+        sys.executable, "-m", "agentic_cli.main", 
         "agent-template", "show", "invalid-template", "--registry", "local-agent-templates"
     ])
     assert result.returncode != 0, "Should have failed for invalid template"
@@ -178,7 +179,7 @@ def test_error_handling():
     
     # Test invalid tool name
     result = run_command([
-        "python", "-m", "agentic_cli.main", 
+        sys.executable, "-m", "agentic_cli.main", 
         "agent-tool", "show", "invalid-tool", "--registry", "local-agent-tools"
     ])
     assert result.returncode != 0, "Should have failed for invalid tool"
@@ -186,7 +187,7 @@ def test_error_handling():
     
     # Test invalid registry name
     result = run_command([
-        "python", "-m", "agentic_cli.main", 
+        sys.executable, "-m", "agentic_cli.main", 
         "agent-template", "list", "--registry", "invalid-registry"
     ])
     assert result.returncode != 0, "Should have failed for invalid registry"

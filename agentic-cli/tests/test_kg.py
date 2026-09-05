@@ -361,3 +361,36 @@ class TestDataSourceIntegration:
         with patch("agentic_cli.commands.kg.CONFIG_FILE", config_file):
             with pytest.raises(typer.Exit):
                 resolve_data_source("any-source")
+
+
+class TestToolGeneratorCLIName:
+    """`generate_tool` interpolates the CLI's name into the code it emits.
+
+    The template is an f-string, so ``{CLI_NAME}`` resolves at generation time —
+    but the module never imported it, so generating any tool raised NameError.
+    The scaffold template had the mirror-image bug: a plain string, so
+    ``{CLI_NAME}`` survived verbatim and a user read "Run '{CLI_NAME} kg init'".
+    """
+
+    def test_generated_tool_names_the_cli(self):
+        from agentic_cli.config import CLI_NAME
+        from agentic_cli.kg.tool_generator import generate_tool
+
+        code = generate_tool("MyTool", ["search"])
+        assert f"{CLI_NAME} kg init" in code
+        assert "{CLI_NAME}" not in code
+
+    def test_generated_tool_compiles(self):
+        """A generator whose output does not parse has not generated anything."""
+        from agentic_cli.kg.tool_generator import generate_tool
+
+        compile(generate_tool("MyTool", ["search", "query"]), "<generated>", "exec")
+
+    def test_scaffold_resolves_the_name_at_its_own_runtime(self):
+        from agentic_cli.kg.tool_generator import generate_tool_template
+
+        template = generate_tool_template()
+        # It imports CLI_NAME, so its own message must be an f-string that uses it.
+        assert "from agentic_cli.config import CLI_NAME" in template
+        assert "f\"Neo4j is not configured. Run '{CLI_NAME} kg init' first.\"" in template
+        compile(template, "<scaffold>", "exec")

@@ -26,6 +26,9 @@ keel = "agentic_cli.main:app"
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
+    # Fourteen async tests could never pass without this: pytest reports
+    # "async def functions are not natively supported" and counts them failed.
+    "pytest-asyncio>=0.23.0",
     "ruff>=0.3.0",
 ]
 adk = [
@@ -93,3 +96,7 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --cov=agentic_cli --cov-report=term-missing"
+# "auto" rather than "strict": the async tests here are a mix of marked and
+# unmarked, and a missing marker silently reporting as a failure is exactly
+# the confusion this is fixing.
+asyncio_mode = "auto"

@@ -34,17 +34,32 @@ cd dashboard/frontend && npx tsc --noEmit
 bash scripts/check-no-company-data.sh --all # guardrail; also runs in CI
 ```
 
-### The test suites are not green, and that is expected
+### The test suites are not fully green, and CI knows which parts
 
-As of August 2026, on a **pristine checkout of `main`**:
+As of September 2026, on a **pristine checkout of `main`**:
 
-- `agentic-cli` — 937 pass, **47 fail**
-- `dashboard/backend` — 163 pass, **6 fail**
+- `agentic-cli` — 1186 pass, **28 fail**
+- `dashboard/backend` — 181 pass, **6 fail**
 
-These are pre-existing (several look environmental — `pytest-asyncio` not
-configured, `test_version` expecting an installed console script). There is
-deliberately **no CI workflow running the Python suites**, because a blocking
-job would go red on arrival; see the backlog note in `docs/KEELTRACE.md`.
+Down from 47 and 6. The triage that got there fixed three causes rather than
+individual tests: `pytest-asyncio` was missing from the `dev` extra, so fourteen
+async tests reported "async def functions are not natively supported" and counted
+as failures; `kg/tool_generator.py` referenced `CLI_NAME` in an f-string template
+without importing it, so generating any tool raised; and one suite shelled out to
+whatever `python` was on `PATH` instead of `sys.executable`.
+
+**There is now a blocking CI workflow** (`.github/workflows/tests.yml`). It
+excludes the eight files that still fail, by name, so the rest can gate a pull
+request honestly. Excluding a file is a visible debt entry; marking the whole job
+`continue-on-error` would have hidden every future regression alongside the known
+ones, which is worse than having no CI.
+
+Still excluded, and why, for whoever picks this up: `test_context_builder`,
+`test_domain_context`, `test_eval_commands`, `test_kg` (data-source and pipeline
+integration), `test_external_registries` and `test_project_commands` (need
+registry files discoverable from the working directory), `test_skill_evaluator`
+(wants a judge credential), and `test_version` (expects an installed console
+script under an older package name).
 
 **Before concluding you broke something, measure against a clean worktree:**
 
