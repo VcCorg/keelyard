@@ -635,6 +635,12 @@ def usage_by_domain(domain: str = None, entity_type: str = None) -> list[dict]:
                                AS measured,
                            SUM(CASE WHEN token_basis = 'estimated' THEN 1 ELSE 0 END)
                                AS estimated,
+                           -- Rows whose tokens were never counted. Summing them
+                           -- as zero makes an uncounted read indistinguishable
+                           -- from a free one, which is how a meter comes to
+                           -- report that tools cost nothing.
+                           SUM(CASE WHEN tokens IS NULL THEN 1 ELSE 0 END)
+                               AS uncounted,
                            MIN(timestamp) AS first_seen,
                            MAX(timestamp) AS last_seen
                       FROM activity_log

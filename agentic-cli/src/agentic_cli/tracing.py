@@ -186,6 +186,33 @@ def measure(value: Any) -> int:
             return 0
 
 
+def as_text(value: Any) -> str:
+    """The retrieved value as the text an agent would actually receive.
+
+    Counterpart to :func:`measure`, which answers the same question in bytes.
+    Tools return dicts and lists, not strings, and a token count needs the
+    serialisation the agent sees rather than a repr — so this is the one place
+    that decides what "the text of a tool result" means, and both the MCP client
+    and the search seam use it rather than each picking their own.
+
+    Never raises. A value that cannot be serialised counts as no text, which
+    records as uncounted rather than as zero.
+    """
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (bytes, bytearray)):
+        try:
+            return value.decode("utf-8", errors="replace")
+        except Exception:  # noqa: BLE001
+            return ""
+    try:
+        return json.dumps(value, default=str)
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 def record_context_read(
     *,
     source: str,

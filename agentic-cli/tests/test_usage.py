@@ -216,3 +216,187 @@ class TestRollup:
     def test_the_portfolio_note_names_the_basis(self, temp_db):
         _read("titanic", "context", "y" * 100)
         assert "estimated" in usage.compare(usage.by_project())["basis_note"]
+
+
+# ── tool and search coverage ────────────────────────────────────────────────
+
+class TestToolCoverage:
+    """Tool reads used to record a size and no tokens, so the meter read zero.
+
+    A cost table is exactly where a zero is taken to mean "free", and the tools
+    meter is where the largest single read in a session usually lands.
+    """
+
+    def test_a_tool_result_is_counted_in_tokens(self, temp_db):
+        from agentic_cli import tracing
+
+        with tracing.session_scope(domain="titanic"):
+            tracing.record_context_read(
+                source="mcp", operation="jira/get_issue", size_bytes=4096,
+                payload="ticket body " * 340)
+        [project] = usage.by_project(domain="titanic")
+        meter = project.meter(usage.TOOLS)
+        assert meter.tokens > 0
+        assert meter.complete
+
+    def test_an_uncounted_read_is_not_reported_as_free(self, temp_db):
+        from agentic_cli import tracing
+
+        with tracing.session_scope(domain="titanic"):
+            tracing.record_context_read(source="mcp", operation="confluence/get_page",
+                                        size_bytes=9000)
+        [project] = usage.by_project(domain="titanic")
+        meter = project.meter(usage.TOOLS)
+        assert meter.uncounted == 1
+        assert not meter.complete
+        assert meter.basis == "uncounted"
+        assert not project.complete
+
+    def test_partial_coverage_says_how_partial(self, temp_db):
+        from agentic_cli import tracing
+
+        with tracing.session_scope(domain="titanic"):
+            tracing.record_context_read(source="mcp", operation="a", size_bytes=10,
+                                        payload="counted text here")
+            tracing.record_context_read(source="mcp", operation="b", size_bytes=10)
+        [project] = usage.by_project(domain="titanic")
+        assert project.meter(usage.TOOLS).basis == "partial (1/2)"
+
+    def test_the_portfolio_note_leads_with_incomplete_coverage(self, temp_db):
+        """Incomplete coverage outranks how the counted part was reached."""
+        from agentic_cli import tracing
+
+        with tracing.session_scope(domain="titanic"):
+            tracing.record_context_read(source="mcp", operation="a", size_bytes=10)
+        note = usage.compare(usage.by_project())["basis_note"]
+        assert note.startswith("1 read(s) contributed no token count")
+        assert "floor" in note
+
+
+class TestAsText:
+    def test_a_dict_result_becomes_the_text_an_agent_would_see(self):
+        from agentic_cli import tracing
+
+        assert tracing.as_text({"body": "hello"}) == '{"body": "hello"}'
+
+    def test_a_string_passes_through(self):
+        from agentic_cli import tracing
+
+        assert tracing.as_text("plain") == "plain"
+
+    def test_an_unserialisable_value_counts_as_no_text(self):
+        """Which records as uncounted, not as zero."""
+        from agentic_cli import tracing
+
+        class Hostile:
+            def __repr__(self):
+                raise RuntimeError("no")
+
+        assert tracing.as_text(Hostile()) == ""
+
+
+class TestSearchSeam:
+    """KG, LightRAG, Neo4j and Glean recorded nothing at all before this."""
+
+    def test_a_search_is_recorded_and_its_result_returned(self, temp_db):
+        from agentic_cli import retrieval, tracing
+
+        with tracing.session_scope(domain="titanic"):
+            out = retrieval.search("lightrag", "query/hybrid",
+                                   lambda: {"results": [{"text": "chunk " * 50}]},
+                                   query="how do I deploy")
+        assert out["results"]
+        [project] = usage.by_project(domain="titanic")
+        assert project.meter(usage.TOOLS).tokens > 0
+
+    def test_the_query_text_is_fingerprinted_never_stored(self, temp_db):
+        """A search string has the same disclosure profile as tool arguments."""
+        import sqlite3
+
+        from agentic_cli import retrieval, tracker, tracing
+
+        secret = "why did acmecorp-internal-host reject my token"
+        with tracing.session_scope(domain="titanic"):
+            retrieval.search("glean", "search", lambda: [], query=secret)
+        conn = sqlite3.connect(str(tracker.DB_PATH))
+        blob = " ".join(str(v) for row in conn.execute(
+            "SELECT * FROM activity_log") for v in row)
+        assert "acmecorp-internal-host" not in blob
+
+    def test_a_failed_search_is_recorded_then_re_raised(self, temp_db):
+        """A search that failed still cost a round trip."""
+        import sqlite3
+
+        from agentic_cli import retrieval, tracker, tracing
+
+        def boom():
+            raise RuntimeError("the index is down")
+
+        with tracing.session_scope(domain="titanic"):
+            with pytest.raises(RuntimeError):
+                retrieval.search("lightrag", "query/hybrid", boom)
+        conn = sqlite3.connect(str(tracker.DB_PATH))
+        assert conn.execute(
+            "SELECT status FROM activity_log").fetchone()[0] == "error"
+
+    def test_hits_are_recorded_beside_the_size(self, temp_db):
+        """Bytes say what it cost; hits say whether it found anything."""
+        import json as _json
+        import sqlite3
+
+        from agentic_cli import retrieval, tracker, tracing
+
+        with tracing.session_scope(domain="titanic"):
+            retrieval.search("lightrag", "search",
+                             lambda: {"results": [1, 2, 3]}, query="q")
+        conn = sqlite3.connect(str(tracker.DB_PATH))
+        details = _json.loads(conn.execute(
+            "SELECT details FROM activity_log").fetchone()[0])
+        assert details["hits"] == 3
+
+    def test_a_renderer_decides_what_text_is_counted(self, temp_db):
+        """A client returning parsed objects must not be counted on their repr."""
+        from agentic_cli import retrieval, tracing
+
+        class Hit:
+            def as_text(self):
+                return "the body an agent actually receives " * 20
+
+        with tracing.session_scope(domain="titanic"):
+            retrieval.search(
+                "glean", "search", lambda: [Hit(), Hit()], query="q",
+                text_of=lambda hits: "\n\n".join(h.as_text() for h in hits))
+        [project] = usage.by_project(domain="titanic")
+        assert project.meter(usage.TOOLS).tokens > 100
+
+    def test_a_broken_renderer_falls_back_rather_than_failing_the_search(
+            self, temp_db):
+        from agentic_cli import retrieval, tracing
+
+        def bad(_):
+            raise ValueError("renderer is wrong")
+
+        with tracing.session_scope(domain="titanic"):
+            out = retrieval.search("glean", "search", lambda: [{"a": 1}],
+                                   query="q", text_of=bad)
+        assert out == [{"a": 1}]
+        [project] = usage.by_project(domain="titanic")
+        assert project.meter(usage.TOOLS).reads == 1
+
+
+class TestIngestionIsNotARead:
+    def test_graph_writes_are_not_filed_as_context_reads(self):
+        """Ingestion is text going *into* the graph, not context served from it.
+
+        Tracing both would double-count the same knowledge on the way in and the
+        way out, and inflate a project's serve cost with the cost of building it.
+        """
+        import inspect
+
+        from agentic_cli.kg import neo4j_client
+
+        source = inspect.getsource(neo4j_client.Neo4jClient)
+        assert "retrieval.search" in source            # the read path is traced
+        for writer in ("create_node", "create_relationship"):
+            body = inspect.getsource(getattr(neo4j_client.Neo4jClient, writer))
+            assert "retrieval.search" not in body

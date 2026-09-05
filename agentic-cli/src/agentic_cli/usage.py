@@ -85,14 +85,37 @@ class Meter:
     tokens: int = 0
     measured: int = 0
     estimated: int = 0
+    #: Reads whose tokens were never counted — a path that records a size
+    #: without the text behind it. Tracked separately because adding them in as
+    #: zero is indistinguishable from them being free, and that is exactly the
+    #: reading a cost table invites.
+    uncounted: int = 0
 
     @property
     def label(self) -> str:
         return METER_LABELS.get(self.key, self.key)
 
     @property
+    def counted(self) -> int:
+        return self.reads - self.uncounted
+
+    @property
+    def complete(self) -> bool:
+        """True when every read behind this meter contributed a token count."""
+        return self.uncounted == 0
+
+    @property
     def basis(self) -> str:
-        """``measured``, ``estimated``, or ``mixed`` — never silently one."""
+        """How the number was reached, including whether it is even complete.
+
+        ``partial`` and ``uncounted`` come first because they outrank the
+        measured/estimated distinction: an estimate over all the reads is a
+        usable comparison, and an exact count over half of them is not.
+        """
+        if self.reads and self.uncounted == self.reads:
+            return "uncounted"
+        if self.uncounted:
+            return f"partial ({self.counted}/{self.reads})"
         if self.measured and self.estimated:
             return "mixed"
         return "measured" if self.measured else "estimated"
@@ -103,12 +126,14 @@ class Meter:
         self.tokens += int(row.get("tokens") or 0)
         self.measured += int(row.get("measured") or 0)
         self.estimated += int(row.get("estimated") or 0)
+        self.uncounted += int(row.get("uncounted") or 0)
 
     def to_dict(self) -> dict:
         return {"meter": self.key, "label": self.label, "reads": self.reads,
                 "bytes": self.bytes, "tokens": self.tokens,
                 "basis": self.basis, "measured": self.measured,
-                "estimated": self.estimated}
+                "estimated": self.estimated, "uncounted": self.uncounted,
+                "complete": self.complete}
 
 
 @dataclass
@@ -137,9 +162,19 @@ class ProjectUsage:
         return sum(m.bytes for m in self.meters.values())
 
     @property
+    def uncounted(self) -> int:
+        return sum(m.uncounted for m in self.meters.values())
+
+    @property
+    def complete(self) -> bool:
+        return self.uncounted == 0
+
+    @property
     def basis(self) -> str:
         measured = sum(m.measured for m in self.meters.values())
         estimated = sum(m.estimated for m in self.meters.values())
+        if self.uncounted:
+            return f"partial ({self.reads - self.uncounted}/{self.reads})"
         if measured and estimated:
             return "mixed"
         return "measured" if measured else "estimated"
@@ -151,6 +186,10 @@ class ProjectUsage:
         ``None`` when nothing was counted — an unstarted project has no ratio,
         and reporting 0% would read as "all of this was serve cost", which is a
         claim about a project that has not spent anything yet.
+
+        A ratio over partial coverage is still returned, because it is still the
+        best available answer; :attr:`complete` is what says whether to trust it,
+        and the readout shows both rather than suppressing the number.
         """
         total = self.tokens
         if not total:
@@ -167,6 +206,8 @@ class ProjectUsage:
             "bytes": self.bytes,
             "tokens": self.tokens,
             "basis": self.basis,
+            "uncounted": self.uncounted,
+            "complete": self.complete,
             "build_share": (None if self.build_share is None
                             else round(self.build_share, 3)),
             "first_seen": self.first_seen,
@@ -208,13 +249,22 @@ def compare(projects: list[ProjectUsage]) -> dict:
 
     measured = sum(m.measured for p in projects for m in p.meters.values())
     estimated = sum(m.estimated for p in projects for m in p.meters.values())
+    uncounted = sum(p.uncounted for p in projects)
+    note = token_counter.summarise(
+        {token_counter.MEASURED: measured, token_counter.ESTIMATED: estimated})
+    if uncounted:
+        # Said before the basis, not after: incomplete coverage matters more
+        # than how the counted part was reached.
+        note = (f"{uncounted} read(s) contributed no token count — the totals "
+                f"are a floor, not a total; {note}")
     return {
         "projects": len(projects),
         "reads": sum(p.reads for p in projects),
         "tokens": sum(p.tokens for p in projects),
         "bytes": sum(p.bytes for p in projects),
-        "basis_note": token_counter.summarise(
-            {token_counter.MEASURED: measured, token_counter.ESTIMATED: estimated}),
+        "uncounted": uncounted,
+        "complete": uncounted == 0,
+        "basis_note": note,
     }
 
 

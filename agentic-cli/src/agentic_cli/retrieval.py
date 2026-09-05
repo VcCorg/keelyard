@@ -27,6 +27,11 @@ search indexes (FAISS, FTS, KG) that an agent binds to and queries. A retriever
 answers "what is relevant to this question" and returns many hits; a fetcher
 here answers "what is at this address" and returns one document.
 
+:func:`search` is the recording half of that other seam, and lives here because
+both operations put text in front of an agent and both must reach the ledger —
+not because a query is a ref. It does not pretend to be one: it takes a question
+and a callable, never an address.
+
 Five outcomes, because collapsing them loses the distinction the rest of the
 platform is built on. ``fetch_confluence`` already carried the comment that a
 temporarily unreachable source must not look like a source with nothing to
@@ -51,6 +56,7 @@ them should fail because one source is misconfigured.
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, Optional
@@ -282,6 +288,105 @@ def is_stale(raw_ref: str, cited: str = "", *, trace: bool = False,
     return now != cited
 
 
+# ── searching ───────────────────────────────────────────────────────────────
+
+#: Ledger source family for search-shaped reads.
+RETRIEVER_SOURCE = "retriever"
+
+
+def search(retriever: str, operation: str, run: Callable[[], Any], *,
+           query: str = "", source: str = RETRIEVER_SOURCE,
+           domain: Optional[str] = None,
+           text_of: Optional[Callable[[Any], str]] = None) -> Any:
+    """Run one search and record it, returning whatever ``run`` returns.
+
+    A *fetch* resolves an address to one document; a *search* answers a question
+    with many hits. They are different operations — that is the fetcher/retriever
+    distinction the glossary draws — so forcing a KG query through
+    :func:`fetch` would have meant inventing an address for a question. What
+    they share is that both put text in front of an agent and both must land in
+    the ledger, which is what this provides: the recording half of the retriever
+    seam, without pretending a query is a ref.
+
+    Before this, the KG, LightRAG, Neo4j and Glean clients recorded nothing at
+    all. A session answered entirely from the knowledge graph showed as having
+    read nothing — the ledger's central claim, "this is what Keel put in front
+    of the agent", was simply false for those paths.
+
+    The query text is fingerprinted, never stored: a search string carries the
+    same disclosure profile as tool arguments, which ``digest_args`` already
+    refuses to keep. The *result* is counted in tokens and offered to the
+    tier-two store, which is off unless an operator turns it on.
+
+    An exception is recorded as an error row and then re-raised. A search that
+    failed still consumed a round trip, and losing the row would make an
+    unreliable source look like an unused one.
+
+    ``text_of`` renders the result into the text an agent actually receives, for
+    callers whose return value is not that text. A client returning parsed
+    objects would otherwise be counted on their repr, which is neither what was
+    sent to a model nor a stable number — it would move when a field was added.
+    """
+    from agentic_cli import tracing
+
+    session_id = tracing.current_session_id()
+    if domain is None:
+        # Read on this thread, before any hop the callee may make — the same
+        # reason the MCP client reads it here rather than at record time.
+        domain = tracing.current_domain()
+    started = time.perf_counter()
+
+    def _record(status: str, result: Any) -> None:
+        try:
+            text = ""
+            if result is not None:
+                try:
+                    text = (text_of(result) if text_of
+                            else tracing.as_text(result))
+                except Exception:  # noqa: BLE001 - a renderer must not break the read
+                    text = tracing.as_text(result)
+            tracing.record_context_read(
+                source=source,
+                operation=f"{retriever}/{operation}",
+                session_id=session_id,
+                domain=domain,
+                entity_id=tracing.digest_args({"q": query})[:64] if query else "",
+                size_bytes=tracing.measure(result),
+                duration_ms=int((time.perf_counter() - started) * 1000),
+                status=status,
+                payload=text or None,
+                extra={"hits": _hit_count(result)} if result is not None else None,
+            )
+        except Exception as exc:  # noqa: BLE001 - telemetry is never load-bearing
+            logger.debug("search of %s not recorded: %s", retriever, exc)
+
+    try:
+        result = run()
+    except Exception:
+        _record("error", None)
+        raise
+    _record("success" if result else "empty", result)
+    return result
+
+
+def _hit_count(result: Any) -> int:
+    """How many results came back, best-effort.
+
+    Bytes say how much a search cost; hits say whether it found anything, and a
+    retriever returning nothing repeatedly is a different problem from one
+    returning too much. Zero for a shape we do not recognise — a wrong count
+    would be worse than an absent one.
+    """
+    if isinstance(result, list):
+        return len(result)
+    if isinstance(result, dict):
+        for key in ("results", "hits", "documents", "chunks", "data", "matches"):
+            value = result.get(key)
+            if isinstance(value, list):
+                return len(value)
+    return 0
+
+
 # ── Built-in fetchers ───────────────────────────────────────────────────────
 
 def _domain_meta(slug: str):
@@ -510,4 +615,5 @@ __all__ = [
     "CONTEXT_SOURCE", "ONBOARDING_SOURCE", "Ref", "Fetched", "Fetcher",
     "parse_ref", "register_fetcher", "schemes", "fetch", "fetch_many",
     "current_version", "is_stale", "locate_bundle_dir",
+    "RETRIEVER_SOURCE", "search",
 ]

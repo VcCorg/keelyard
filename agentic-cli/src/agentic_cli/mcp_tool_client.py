@@ -154,12 +154,18 @@ def call_mcp_tool(
     from agentic_cli import tracing
 
     session_id = tracing.current_session_id()
+    # The domain is read here for the same reason as the session id, and the
+    # comment above applies to it identically: _run_async hops threads under the
+    # dashboard, and a ContextVar read after that hop yields None. Every MCP read
+    # from the dashboard would land unattributed — the one surface where nobody
+    # would notice, because the CLI path would keep working.
+    domain = tracing.current_domain()
     started = time.perf_counter()
 
     def _elapsed_ms() -> int:
         return int((time.perf_counter() - started) * 1000)
 
-    def _record(status: str, size: int) -> None:
+    def _record(status: str, size: int, result: Any = None) -> None:
         # record_context_read guards itself, but belt-and-braces here too: a
         # telemetry fault must never surface as a retrieval failure.
         try:
@@ -167,11 +173,19 @@ def call_mcp_tool(
                 source="mcp",
                 operation=f"{_server_label(sse_url)}/{tool_name}",
                 session_id=session_id,
+                domain=domain,
                 entity_id=tracing.digest_args(arguments)[:64] if arguments else "",
                 size_bytes=size,
                 duration_ms=_elapsed_ms(),
                 status=status,
                 arguments=arguments,
+                # The result text, so the read is counted in tokens rather than
+                # showing as a free row. It is counted in memory and handed to
+                # the tier-two store, which is off unless an operator turns it
+                # on — the same contract the retrieval seam passes bodies under.
+                # Without this a 4KB ticket body reported zero tokens, and the
+                # tools meter read as though tools cost nothing.
+                payload=tracing.as_text(result) or None,
             )
         except Exception:  # noqa: BLE001
             logger.debug("MCP context read not recorded", exc_info=True)
@@ -200,7 +214,7 @@ def call_mcp_tool(
             )
         raise MCPToolError(f"MCP call failed: {msg}")
 
-    _record("success", tracing.measure(result))
+    _record("success", tracing.measure(result), result)
     return result
 
 

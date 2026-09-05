@@ -898,6 +898,11 @@ def usage_command(
     what this reports. Most are estimates, because no vendor tokenizer is
     bundled, and every row says which — an estimate is fine for comparing two
     projects, where a systematic bias cancels, and is not a statement about money.
+
+    A read that contributed no token count is shown as uncounted rather than as
+    zero, and a total containing one is prefixed ``≥``. A retrieval path that
+    records a size without the text behind it is not free, and a cost table is
+    exactly where a zero gets read as though it were.
     """
     from agentic_cli import usage
 
@@ -933,20 +938,30 @@ def usage_command(
             if key not in project.meters:
                 continue
             meter = project.meters[key]
+            # A meter nothing was counted for shows a dash, never a zero. Zero
+            # reads as "this was free", which is the reading a cost table
+            # invites and the opposite of what an uncounted row means.
+            shown = "—" if not meter.counted else _thousands(meter.tokens)
+            style = "yellow" if not meter.complete else "dim"
             table.add_row(
                 f"[bold]{project.named}[/bold]" if first else "",
                 meter.label,
                 f"{meter.reads:,}",
-                _thousands(meter.tokens),
-                f"[dim]{meter.basis}[/dim]",
+                shown,
+                f"[{style}]{meter.basis}[/{style}]",
             )
             first = False
         share = project.build_share
+        total = _thousands(project.tokens)
+        if not project.complete:
+            # "at least" rather than a bare figure: some reads contributed
+            # nothing, so the number is a floor.
+            total = f"≥{total}"
         table.add_row(
             "" if not first else f"[bold]{project.named}[/bold]",
             "[dim]total[/dim]",
             f"[bold]{project.reads:,}[/bold]",
-            f"[bold]{_thousands(project.tokens)}[/bold]",
+            f"[bold]{total}[/bold]",
             "" if share is None else f"[dim]{share:.0%} building[/dim]",
         )
     console.print(table)

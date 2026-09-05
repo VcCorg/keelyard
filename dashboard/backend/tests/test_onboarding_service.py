@@ -166,3 +166,42 @@ class TestPortfolio:
 
         assert [r.domain for r in svc.get_portfolio(product="ACME")] == [slug]
         assert svc.get_portfolio(product="NOPE") == []
+
+
+class TestDomainAttribution:
+    """The dashboard had no equivalent of the CLI's domain binding.
+
+    That is the worst shape for a gap like this: the CLI path keeps working, so
+    nothing looks broken while half the fleet's context spend goes unattributed.
+    """
+
+    @staticmethod
+    def _in_path(path):
+        from src.api.main import _domain_in_path
+
+        return _domain_in_path(path)
+
+    def test_a_domain_route_names_its_project(self):
+        assert self._in_path("/api/domains/titanic/readiness") == "titanic"
+        assert self._in_path("/api/domains/house-prices/drift") == "house-prices"
+
+    def test_a_collection_route_names_no_project(self):
+        """Attributing a portfolio read to a project called "readiness" would be
+        worse than leaving it unattributed."""
+        assert self._in_path("/api/domains/readiness/portfolio") == ""
+        assert self._in_path("/api/domains") == ""
+
+    def test_an_unrelated_route_names_no_project(self):
+        assert self._in_path("/api/skills") == ""
+        assert self._in_path("/health") == ""
+
+    def test_the_binding_is_released_after_the_request(self):
+        from fastapi.testclient import TestClient
+
+        from agentic_cli import tracing
+        from src.api.main import app
+
+        with TestClient(app) as client:
+            client.get("/api/domains/titanic/readiness")
+        # A leaked binding would misattribute every later request on the worker.
+        assert tracing.current_domain() is None
