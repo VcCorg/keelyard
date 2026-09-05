@@ -226,6 +226,47 @@ could not measure this before" and "this got worse" must not render the same.
   finalized instruction set fit the target model's window with room left to
   actually work?
 
+- **Competition-style work: many projects, many contexts.** Kaggle and
+  hackathons are the same shape as the enterprise case with the labels changed —
+  a competition maps to a domain, a portfolio of them to a product — and most of
+  what that needs already exists. Doc typing is exactly the problem a competition
+  poses (a data dictionary, the metric definition, the rules, and a thousand
+  forum threads are not the same kind of document). Drift is real rather than
+  theoretical: organisers revise data, clarify metrics, and post leakage
+  warnings mid-competition, and a solution built on the old wording is wrong in
+  a way nothing currently notices.
+
+  **The interesting part is the replay core.** `replay(session, exclude=...,
+  model=...)` already varies one dimension and re-scores. Competition work
+  varies a different dimension — a feature set, a fold split, a hyperparameter —
+  and its outcome is a number from outside the system. Generalising *what
+  varies* to an arbitrary variant dimension, and letting a variant carry an
+  externally supplied score, turns the ablation harness into an experiment
+  tracker without a second engine.
+
+  **What would differentiate it is not the tracking.** MLflow and Weights &
+  Biases record parameters and metrics well, and we should integrate with one
+  rather than rebuild it. What none of them record is *the context the agent
+  read when it wrote the run* — so "which forum insight led to the feature that
+  gained 0.003?" is unanswerable today, and it is exactly the join the ledger
+  already makes for coding sessions.
+
+  Two concrete gaps, both small:
+
+  - **No run-with-outcome object.** Nothing in the codebase models an experiment
+    with a numeric result. `Variant` is the closest and is one field short.
+  - **No cross-domain readiness view.** `governance status --all` spans a
+    product's domains; `domain score` does not. A `--all` there is a portfolio
+    readout — which of my competitions has context worth building on this
+    morning — and it serves the enterprise case identically, so it is not
+    speculative work for one use case. Cheapest first step by some distance.
+
+  **Where it does not fit, and should not be forced.** Keel scores *context*
+  quality; a leaderboard scores *model* performance, and that number is ground
+  truth arriving from outside. Do not grow a metric tracker inside this. The
+  claim worth making is narrower and defensible: every run records what informed
+  it.
+
 - **Test CI.** Wired — `.github/workflows/tests.yml` blocks on the suites, with
   the eight still-failing files excluded by name. Triage took `agentic-cli` from
   47 failures to 28 by fixing three causes rather than individual tests (a
