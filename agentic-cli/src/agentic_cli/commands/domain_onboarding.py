@@ -929,7 +929,8 @@ def usage_command(
     table.add_column("Project", no_wrap=True)
     table.add_column("Meter", no_wrap=True)
     table.add_column("Reads", justify="right", no_wrap=True)
-    table.add_column("Tokens", justify="right", no_wrap=True)
+    table.add_column("In", justify="right", no_wrap=True)
+    table.add_column("Out", justify="right", no_wrap=True)
     table.add_column("Basis", no_wrap=True)
 
     for project in projects:
@@ -943,11 +944,16 @@ def usage_command(
             # invites and the opposite of what an uncounted row means.
             shown = "—" if not meter.counted else _thousands(meter.tokens)
             style = "yellow" if not meter.complete else "dim"
+            # Only a model call has an output side. A dash elsewhere, never a
+            # zero: zero would read as a model that returned nothing rather than
+            # as a row that is not about a model.
+            out = _thousands(meter.tokens_out) if key == usage.GENERATE else "—"
             table.add_row(
                 f"[bold]{project.named}[/bold]" if first else "",
                 meter.label,
                 f"{meter.reads:,}",
                 shown,
+                out,
                 f"[{style}]{meter.basis}[/{style}]",
             )
             first = False
@@ -962,11 +968,28 @@ def usage_command(
             "[dim]total[/dim]",
             f"[bold]{project.reads:,}[/bold]",
             f"[bold]{total}[/bold]",
+            f"[bold]{_thousands(project.generated)}[/bold]"
+            if project.generated else "—",
             "" if share is None else f"[dim]{share:.0%} building[/dim]",
         )
     console.print(table)
-    console.print(f"[dim]{summary['basis_note']}. Tokens are what Keel served, "
-                  f"not what an engine admitted to its prompt.[/dim]")
+    console.print(f"[dim]{summary['basis_note']}.[/dim]")
+    # Said only when both numbers exist, because the comparison is the point and
+    # a lone served figure invites being read as the prompt size.
+    served = sum(p.meter(usage.SERVE).tokens for p in projects)
+    admitted = sum(p.admitted for p in projects)
+    if served and admitted:
+        # The gap is named, never its direction. A prompt can be smaller than
+        # what Keel retrieved (dedup, truncation, a cache hit) or larger (system
+        # instructions, the question, conversation history) — asserting either
+        # way would be a claim about an engine's internals we cannot see.
+        console.print(
+            f"[dim]Keel served {_thousands(served)}; the models read "
+            f"{_thousands(admitted)}. The two differ by whatever the engine "
+            f"added or dropped on the way in — retrieved is not sent.[/dim]")
+    else:
+        console.print("[dim]Retrieval rows are what Keel served, not what an "
+                      "engine admitted to its prompt.[/dim]")
 
     record_activity(command="domain", subcommand="usage",
                     args={"domain": slug or "*", "projects": len(projects),

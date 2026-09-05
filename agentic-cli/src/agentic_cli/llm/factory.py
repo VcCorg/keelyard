@@ -24,6 +24,111 @@ def get_llm_provider(
     provider_type: Optional[str] = None,
     system_instruction: Optional[str] = None,
 ) -> LLMProvider:
+    """Return a provider that records what it generates.
+
+    The factory is the single construction point for every model call Keel makes
+    itself, which makes it the one place a generation sensor belongs. Recording
+    in each caller instead would have meant remembering at every site, and the
+    sites that got forgotten would be exactly the ones nobody was watching.
+
+    The wrapper is transparent: it forwards everything it does not handle, so a
+    provider gains a sensor without gaining an interface.
+    """
+    return _MeteredProvider(_build_provider(model_name, provider_type,
+                                            system_instruction))
+
+
+class _MeteredProvider:
+    """Wraps a provider so every completed call lands in the ledger.
+
+    Attribute access falls through, so a caller sees the provider it asked for.
+    Only :meth:`generate` is intercepted — the async and streaming paths are
+    left alone deliberately rather than half-instrumented: a streamed reply has
+    no usage until the final chunk, and pretending otherwise would file a
+    measured zero, which is worse than a visible gap. They are the next thing to
+    do here, not something this quietly half-does.
+    """
+
+    def __init__(self, inner):
+        self._inner = inner
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)
+
+    @property
+    def __class__(self):
+        """Report the wrapped provider's type, so ``isinstance`` still holds.
+
+        ``get_llm_provider`` is public API and its job is choosing a provider,
+        so ``isinstance(provider, LocalProvider)`` is a fair thing for a caller
+        to ask — six tests in this repo ask it, and adding a sensor should not
+        silently change the answer. That break would surface far from its cause.
+
+        The transparency is not total and pretending otherwise would be the
+        worse trap: ``type(provider)`` still returns ``_MeteredProvider``. Use
+        :meth:`unwrap` when the real object is what you need.
+        """
+        return type(self._inner)
+
+    def unwrap(self):
+        """The provider underneath, for code that needs the object itself."""
+        return self._inner
+
+    def generate(self, prompt: str) -> str:
+        import time
+
+        from agentic_cli import tracing
+
+        # Read on this thread, before anything the provider may do with threads.
+        session_id = tracing.current_session_id()
+        domain = tracing.current_domain()
+        started = time.perf_counter()
+        try:
+            completion = self._inner.generate(prompt)
+        except Exception:
+            # A failed call still consumed a round trip, and often tokens. The
+            # row is what stops a flaky provider looking like an unused one.
+            tracing.record_generation(
+                model=_model_name(self._inner), usage=None, prompt=prompt,
+                session_id=session_id, domain=domain, status="error",
+                duration_ms=int((time.perf_counter() - started) * 1000))
+            raise
+
+        tracing.record_generation(
+            model=_model_name(self._inner),
+            usage=_usage_of(self._inner),
+            prompt=prompt,
+            completion=completion or "",
+            session_id=session_id,
+            domain=domain,
+            duration_ms=int((time.perf_counter() - started) * 1000),
+        )
+        return completion
+
+
+def _model_name(provider) -> str:
+    try:
+        return provider.get_name() or ""
+    except Exception:  # noqa: BLE001 - naming must not break a call
+        return ""
+
+
+def _usage_of(provider):
+    """The provider's reported usage, or None when it does not report one."""
+    reader = getattr(provider, "last_usage", None)
+    if reader is None:
+        return None
+    try:
+        return reader()
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _build_provider(
+    model_name: Optional[str] = None,
+    provider_type: Optional[str] = None,
+    system_instruction: Optional[str] = None,
+) -> LLMProvider:
     """Factory function to initialize the right LLM provider.
 
     Provider selection priority:

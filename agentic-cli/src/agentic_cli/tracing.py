@@ -302,6 +302,80 @@ def record_context_read(
         logger.debug("context read not recorded: %s", exc)
 
 
+def record_generation(
+    *,
+    model: str,
+    operation: str = "generate",
+    usage: Any = None,
+    prompt: str = "",
+    completion: str = "",
+    session_id: Optional[str] = None,
+    domain: Optional[str] = None,
+    duration_ms: Optional[int] = None,
+    status: str = "success",
+) -> None:
+    """Record one model call: what it was given, and what it produced.
+
+    The generated half of a project's cost had nothing behind it at all — every
+    provider SDK reports usage on the response and every provider here discarded
+    it. This is where it lands.
+
+    ``usage`` is a :class:`~agentic_cli.llm.base.Usage` when the provider could
+    report one, and the row is then ``measured``. When it could not, the counts
+    are estimated from the prompt and the reply and the row says so — a local
+    model that reports nothing must still show up as spend, because the
+    alternative is a meter that reads zero for a run that plainly did work.
+
+    The input figure is the model's *admitted* context, which is a different
+    number from the tokens Keel served: an engine dedups, truncates, reorders
+    and caches on the way in. Recorded here as a separate entity type so it
+    never lands in the context ledger — the two answer different questions and a
+    reader who added them together would be double-counting the same text.
+
+    Never raises.
+    """
+    try:
+        from agentic_cli import tokens as token_counter
+        from agentic_cli.tracker import record_activity
+
+        tokens_in = tokens_out = None
+        basis = None
+        details: Dict[str, Any] = {"model": model}
+
+        if usage is not None and not getattr(usage, "empty", True):
+            tokens_in = usage.admitted
+            tokens_out = usage.output_tokens
+            basis = token_counter.MEASURED
+            details.update(usage.to_dict())
+        else:
+            # No report. Estimate rather than record nothing, and label it.
+            if prompt:
+                tokens_in = token_counter.count(prompt, model).tokens
+            if completion:
+                tokens_out = token_counter.count(completion, model).tokens
+            if tokens_in is not None or tokens_out is not None:
+                basis = token_counter.ESTIMATED
+                details["usage_reported"] = False
+
+        record_activity(
+            "generation",
+            operation,
+            entity_type="generation",
+            entity_id=model[:MAX_ENTITY_ID],
+            correlation_id=session_id if session_id is not None else current_session_id(),
+            domain=domain,
+            duration_ms=duration_ms,
+            status=status,
+            details=details,
+            size_bytes=measure(completion),
+            tokens=tokens_in,
+            tokens_out=tokens_out,
+            token_basis=basis,
+        )
+    except Exception as exc:  # noqa: BLE001 - telemetry is never load-bearing
+        logger.debug("generation not recorded: %s", exc)
+
+
 def session_chain(session_id: str, limit: int = 500) -> list[dict]:
     """Every audited action in a session, oldest first - reads and the rest."""
     try:

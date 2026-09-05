@@ -44,6 +44,7 @@ class AnthropicProvider:
 
         self.model_name = model_name
         self.system_instruction = system_instruction
+        self._last_usage = None
         self.client = Anthropic(api_key=api_key)
 
     def generate(self, prompt: str) -> str:
@@ -63,7 +64,12 @@ class AnthropicProvider:
                 {"role": "user", "content": prompt}
             ]
         )
+        self._last_usage = _usage_from(response, self.model_name)
         return response.content[0].text
+
+    def last_usage(self):
+        """What the last call consumed, as Anthropic reported it."""
+        return self._last_usage
 
     async def generate_async(self, prompt: str) -> str:
         """Generate text response asynchronously.
@@ -116,3 +122,32 @@ class AnthropicProvider:
             Human-readable identifier
         """
         return f"anthropic/{self.model_name}"
+
+
+def _usage_from(response, model_name):
+    """Read usage off a response, or None when it is not there.
+
+    None rather than a zeroed Usage: a measured zero from a call that plainly
+    did work suppresses a whole meter, where None falls back to an estimate that
+    is at least labelled.
+    """
+    from agentic_cli.llm.base import Usage
+
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return None
+
+    def _get(name):
+        try:
+            return int(getattr(usage, name, 0) or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    found = Usage(
+        input_tokens=_get("input_tokens"),
+        output_tokens=_get("output_tokens"),
+        cache_read_tokens=_get("cache_read_input_tokens"),
+        cache_write_tokens=_get("cache_creation_input_tokens"),
+        model=getattr(response, "model", "") or model_name,
+    )
+    return None if found.empty else found

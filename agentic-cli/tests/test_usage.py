@@ -170,6 +170,26 @@ class TestMigration:
                             "ORDER BY id").fetchall()
         assert rows == [("context", 1200), ("kg", None)]
 
+    def test_a_fresh_install_has_the_indexes_the_migrations_create(self, temp_db):
+        """A fresh install skips the whole migration chain.
+
+        It stamps the current version and runs none of the scripts, so every
+        index added since v13 was missing on exactly the installs most likely to
+        grow large — including the one the portfolio query was added for. They
+        are created after the chain now, which is the one point where every
+        column exists on every path.
+        """
+        import sqlite3
+
+        from agentic_cli import tracker
+
+        conn = sqlite3.connect(str(tracker.DB_PATH))
+        indexes = {r[0] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='index'")}
+        assert {"idx_activity_domain", "idx_activity_domain_entity",
+                "idx_activity_generation", "idx_domain_docs_type",
+                "idx_activity_actor"} <= indexes
+
     def test_a_fresh_install_has_the_same_columns_as_a_migrated_one(self, temp_db):
         from agentic_cli import tracker
 
@@ -400,3 +420,142 @@ class TestIngestionIsNotARead:
         for writer in ("create_node", "create_relationship"):
             body = inspect.getsource(getattr(neo4j_client.Neo4jClient, writer))
             assert "retrieval.search" not in body
+
+
+# ── generation (L2) ─────────────────────────────────────────────────────────
+
+class _Reporting:
+    """A provider whose SDK hands back usage, as the real ones do."""
+
+    def __init__(self, usage=None):
+        from agentic_cli.llm.base import Usage
+
+        self._usage = usage if usage is not None else Usage(
+            input_tokens=900, output_tokens=1400, cache_read_tokens=4000,
+            model="claude-sonnet-5")
+
+    def generate(self, prompt):
+        return "the reply " * 40
+
+    def get_name(self):
+        return "claude-sonnet-5"
+
+    def last_usage(self):
+        return self._usage
+
+
+class _Silent:
+    """A provider that cannot report — a local model, a stub."""
+
+    def generate(self, prompt):
+        return "a local reply " * 20
+
+    def get_name(self):
+        return "local/tiny"
+
+
+class TestGeneration:
+    def test_reported_usage_is_recorded_as_measured(self, temp_db):
+        from agentic_cli import tracing
+        from agentic_cli.llm.factory import _MeteredProvider
+
+        with tracing.session_scope(domain="titanic"):
+            _MeteredProvider(_Reporting()).generate("prompt " * 50)
+        [project] = usage.by_project(domain="titanic")
+        meter = project.meter(usage.GENERATE)
+        assert meter.tokens == 4900        # 900 input + 4000 cache read
+        assert meter.tokens_out == 1400
+        assert meter.basis == "measured"
+
+    def test_cached_input_counts_toward_what_the_model_read(self, temp_db):
+        """A cached token was still read. Excluding it understates the context.
+
+        The split is kept in the details for pricing, where a cache read is
+        billed at a fraction — but "how much did the model see" is the sum.
+        """
+        from agentic_cli.llm.base import Usage
+
+        u = Usage(input_tokens=100, output_tokens=10, cache_read_tokens=5000)
+        assert u.admitted == 5100
+
+    def test_a_provider_that_cannot_report_still_shows_as_spend(self, temp_db):
+        """A meter reading zero for a run that plainly did work is the failure."""
+        from agentic_cli import tracing
+        from agentic_cli.llm.factory import _MeteredProvider
+
+        with tracing.session_scope(domain="titanic"):
+            _MeteredProvider(_Silent()).generate("prompt " * 50)
+        [project] = usage.by_project(domain="titanic")
+        meter = project.meter(usage.GENERATE)
+        assert meter.tokens > 0 and meter.tokens_out > 0
+        assert meter.basis == "estimated"   # and it says so
+
+    def test_a_failed_call_is_recorded_then_re_raised(self, temp_db):
+        """A flaky provider must not look like an unused one."""
+        import sqlite3
+
+        from agentic_cli import tracing, tracker
+        from agentic_cli.llm.factory import _MeteredProvider
+
+        class Broken:
+            def generate(self, prompt):
+                raise RuntimeError("rate limited")
+
+            def get_name(self):
+                return "claude-sonnet-5"
+
+        with tracing.session_scope(domain="titanic"):
+            with pytest.raises(RuntimeError):
+                _MeteredProvider(Broken()).generate("prompt")
+        conn = sqlite3.connect(str(tracker.DB_PATH))
+        assert conn.execute("SELECT status FROM activity_log "
+                            "WHERE entity_type='generation'").fetchone()[0] == "error"
+
+    def test_generation_never_lands_in_the_context_ledger(self, temp_db):
+        """Adding served context and prompt tokens double-counts the same text."""
+        from agentic_cli import tracing
+        from agentic_cli.llm.factory import _MeteredProvider
+
+        with tracing.session_scope(domain="titanic"):
+            tracing.record_context_read(source="context", operation="resolve/domain",
+                                        size_bytes=100, payload="x" * 100)
+            _MeteredProvider(_Reporting()).generate("prompt")
+        import sqlite3
+
+        from agentic_cli import tracker
+
+        conn = sqlite3.connect(str(tracker.DB_PATH))
+        kinds = {r[0] for r in conn.execute(
+            "SELECT DISTINCT entity_type FROM activity_log")}
+        assert kinds == {"context", "generation"}
+
+        project = usage.by_project(domain="titanic")[0]
+        assert project.meter(usage.SERVE).tokens > 0
+        assert project.meter(usage.GENERATE).tokens > 0
+        # Separate meters, so nothing sums them into one "context" figure.
+        assert project.admitted == project.meter(usage.GENERATE).tokens
+
+    def test_the_wrapper_is_transparent(self, temp_db):
+        """A caller sees the provider it asked for, sensor or no sensor."""
+        from agentic_cli.llm.factory import _MeteredProvider
+
+        inner = _Reporting()
+        wrapped = _MeteredProvider(inner)
+        assert wrapped.get_name() == inner.get_name()
+        assert wrapped.last_usage() == inner.last_usage()
+
+    def test_build_share_ignores_model_calls(self, temp_db):
+        """A prompt is largely the served context again; folding it in
+        double-counts and shrinks the ratio for purely arithmetic reasons."""
+        from agentic_cli import tracing
+        from agentic_cli.llm.factory import _MeteredProvider
+
+        with tracing.session_scope(domain="titanic"):
+            tracing.record_context_read(source="onboarding", operation="read/repo",
+                                        size_bytes=400, payload="d" * 400)
+            tracing.record_context_read(source="context", operation="resolve/domain",
+                                        size_bytes=400, payload="c" * 400)
+            before = usage.by_project(domain="titanic")[0].build_share
+            _MeteredProvider(_Reporting()).generate("prompt " * 500)
+        after = usage.by_project(domain="titanic")[0].build_share
+        assert before == after

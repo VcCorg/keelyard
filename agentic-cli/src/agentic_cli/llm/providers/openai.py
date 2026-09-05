@@ -44,6 +44,7 @@ class OpenAIProvider:
 
         self.model_name = model_name
         self.system_instruction = system_instruction
+        self._last_usage = None
         self.client = OpenAI(api_key=api_key)
 
     def generate(self, prompt: str) -> str:
@@ -63,7 +64,12 @@ class OpenAIProvider:
                 {"role": "user", "content": prompt}
             ]
         )
+        self._last_usage = _usage_from(response, self.model_name)
         return response.choices[0].message.content
+
+    def last_usage(self):
+        """What the last call consumed, as OpenAI reported it."""
+        return self._last_usage
 
     async def generate_async(self, prompt: str) -> str:
         """Generate text response asynchronously.
@@ -118,3 +124,36 @@ class OpenAIProvider:
             Human-readable identifier
         """
         return f"openai/{self.model_name}"
+
+
+def _usage_from(response, model_name):
+    """Read usage off a response, or None when it is not there.
+
+    OpenAI names the fields differently from Anthropic and reports cached input
+    nested under prompt_tokens_details, so the mapping lives here rather than in
+    a shared helper pretending the two SDKs agree.
+    """
+    from agentic_cli.llm.base import Usage
+
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return None
+
+    def _get(obj, name):
+        try:
+            return int(getattr(obj, name, 0) or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    cached = _get(getattr(usage, "prompt_tokens_details", None), "cached_tokens")
+    prompt = _get(usage, "prompt_tokens")
+    found = Usage(
+        # prompt_tokens is the total including cached, where Anthropic's
+        # input_tokens excludes them. Subtracting keeps `admitted` meaning the
+        # same thing across providers instead of double-counting the cache here.
+        input_tokens=max(prompt - cached, 0),
+        output_tokens=_get(usage, "completion_tokens"),
+        cache_read_tokens=cached,
+        model=getattr(response, "model", "") or model_name,
+    )
+    return None if found.empty else found

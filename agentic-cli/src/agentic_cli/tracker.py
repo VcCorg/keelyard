@@ -19,7 +19,7 @@ from typing import Any, Optional
 DB_DIR = Path.home() / ".agent-cli-agentic"
 DB_PATH = DB_DIR / "tracker.db"
 
-_SCHEMA_VERSION = 15
+_SCHEMA_VERSION = 16
 
 _SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -44,7 +44,8 @@ CREATE TABLE IF NOT EXISTS activity_log (
     actor          TEXT,          -- authenticated principal (email/subject) if known
     domain         TEXT,          -- domain (project) this action was for, when known
     bytes          INTEGER,       -- size of what was read/produced
-    tokens         INTEGER,       -- the same size in the unit a model charges for
+    tokens         INTEGER,       -- tokens IN: served by a read, or admitted by a call
+    tokens_out     INTEGER,       -- tokens OUT: what a model generated
     token_basis    TEXT           -- 'measured' | 'estimated' - never assume
 );
 
@@ -350,6 +351,46 @@ UPDATE activity_log
 """
 
 
+_MIGRATION_V16 = """
+-- v16: what the model produced, beside what it was given.
+--
+-- `tokens` has always meant tokens *in* — what a read served, and now what a
+-- model call admitted. `tokens_out` is the other half, and it needs its own
+-- column for the same reason `tokens` did: summing generated output across a
+-- fleet is a GROUP BY, not a JSON scan.
+--
+-- Two columns rather than two rows per call. A row per direction would double
+-- the read count and make "how many model calls did this project make" a
+-- division, which is the kind of arithmetic that ends up wrong in a report.
+CREATE INDEX IF NOT EXISTS idx_activity_generation
+    ON activity_log(domain, entity_type) WHERE entity_type = 'generation';
+"""
+
+
+_ENSURE_INDEXES = """
+-- Indexes over migration-added columns, created after the migration chain.
+--
+-- These could not live in _SCHEMA_SQL: it runs before migrations, and on an
+-- existing database CREATE TABLE IF NOT EXISTS is a no-op, so indexing a column
+-- that migration has not added yet aborts startup. That is why v13 and v14 put
+-- theirs in the migration script instead.
+--
+-- But a migration script only runs on an *upgrade*. A fresh install stamps the
+-- current version and skips the whole chain, so it received none of them —
+-- every index added since v13 was missing on exactly the installs most likely
+-- to grow large. Running them here, after the chain, is the one point where
+-- every column exists on every path. IF NOT EXISTS makes it a no-op for the
+-- upgrade path that already created them.
+CREATE INDEX IF NOT EXISTS idx_activity_actor ON activity_log(actor);
+CREATE INDEX IF NOT EXISTS idx_domain_docs_type ON domain_docs(doc_type);
+CREATE INDEX IF NOT EXISTS idx_activity_domain ON activity_log(domain);
+CREATE INDEX IF NOT EXISTS idx_activity_domain_entity
+    ON activity_log(domain, entity_type);
+CREATE INDEX IF NOT EXISTS idx_activity_generation
+    ON activity_log(domain, entity_type) WHERE entity_type = 'generation';
+"""
+
+
 def _add_column_if_missing(conn: sqlite3.Connection, table: str,
                            column: str, decl: str) -> None:
     """Add a column unless the table already has it.
@@ -443,6 +484,15 @@ def _ensure_db() -> Path:
                 conn.executescript(_MIGRATION_V15)
                 conn.execute("UPDATE schema_version SET version = 15")
                 current_version = 15
+            if current_version < 16:
+                _add_column_if_missing(conn, "activity_log", "tokens_out",
+                                       "INTEGER")
+                conn.executescript(_MIGRATION_V16)
+                conn.execute("UPDATE schema_version SET version = 16")
+                current_version = 16
+        # After the chain, so it covers the fresh-install path too — see
+        # _ENSURE_INDEXES.
+        conn.executescript(_ENSURE_INDEXES)
         conn.commit()
     finally:
         conn.close()
@@ -542,6 +592,7 @@ def record_activity(
     domain: str = None,
     size_bytes: int = None,
     tokens: int = None,
+    tokens_out: int = None,
     token_basis: str = None,
 ) -> None:
     """Insert a row into the activity log (the central audit trail).
@@ -577,8 +628,9 @@ def record_activity(
                 """INSERT INTO activity_log
                    (timestamp, command, subcommand, status, duration_ms, args,
                     details, repo_path, correlation_id, entity_type, entity_id,
-                    source, actor, domain, bytes, tokens, token_basis)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    source, actor, domain, bytes, tokens, tokens_out,
+                    token_basis)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     _now_iso(),
                     command,
@@ -596,6 +648,7 @@ def record_activity(
                     domain,
                     size_bytes,
                     tokens,
+                    tokens_out,
                     token_basis,
                 ),
             )
@@ -631,6 +684,7 @@ def usage_by_domain(domain: str = None, entity_type: str = None) -> list[dict]:
                            COUNT(*)           AS reads,
                            COALESCE(SUM(bytes), 0)  AS bytes,
                            COALESCE(SUM(tokens), 0) AS tokens,
+                           COALESCE(SUM(tokens_out), 0) AS tokens_out,
                            SUM(CASE WHEN token_basis = 'measured' THEN 1 ELSE 0 END)
                                AS measured,
                            SUM(CASE WHEN token_basis = 'estimated' THEN 1 ELSE 0 END)
@@ -641,6 +695,8 @@ def usage_by_domain(domain: str = None, entity_type: str = None) -> list[dict]:
                            -- report that tools cost nothing.
                            SUM(CASE WHEN tokens IS NULL THEN 1 ELSE 0 END)
                                AS uncounted,
+                           SUM(CASE WHEN entity_type = 'generation' THEN 1 ELSE 0 END)
+                               AS calls,
                            MIN(timestamp) AS first_seen,
                            MAX(timestamp) AS last_seen
                       FROM activity_log

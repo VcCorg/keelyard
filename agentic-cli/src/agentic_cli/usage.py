@@ -39,6 +39,7 @@ from typing import Optional
 BUILD = "build"
 SERVE = "serve"
 TOOLS = "tools"
+GENERATE = "generate"
 
 #: Ledger source families, grouped into the meter each belongs to.
 #:
@@ -52,16 +53,22 @@ _METER_OF = {
     "context": SERVE,
     "mcp": TOOLS,
     "retriever": TOOLS,
+    "generation": GENERATE,
 }
 
 METER_LABELS = {
     BUILD: "Context built",
     SERVE: "Context served",
     TOOLS: "Tools & retrieval",
+    GENERATE: "Model calls",
 }
 
-#: Order a report shows meters in: the one-off first, then the recurring.
-METER_ORDER = (BUILD, SERVE, TOOLS)
+#: Order a report shows meters in: the one-off first, then the recurring, then
+#: what the model actually did with it. ``GENERATE`` sits last on purpose — it
+#: is the only meter whose input figure is what a model *admitted* rather than
+#: what Keel served, and reading it directly under the served row is how the
+#: difference between the two becomes visible.
+METER_ORDER = (BUILD, SERVE, TOOLS, GENERATE)
 
 
 def meter_for(source: str) -> str:
@@ -83,6 +90,13 @@ class Meter:
     reads: int = 0
     bytes: int = 0
     tokens: int = 0
+    #: Tokens a model produced. Only ever set on the generation meter — a
+    #: retrieval has no output side, and a zero there would read as a model that
+    #: returned nothing rather than as a row that is not about a model at all.
+    tokens_out: int = 0
+    #: Model calls behind this meter, so "how much per call" is available
+    #: without dividing by a read count that counts different things.
+    calls: int = 0
     measured: int = 0
     estimated: int = 0
     #: Reads whose tokens were never counted — a path that records a size
@@ -124,16 +138,22 @@ class Meter:
         self.reads += int(row.get("reads") or 0)
         self.bytes += int(row.get("bytes") or 0)
         self.tokens += int(row.get("tokens") or 0)
+        self.tokens_out += int(row.get("tokens_out") or 0)
+        self.calls += int(row.get("calls") or 0)
         self.measured += int(row.get("measured") or 0)
         self.estimated += int(row.get("estimated") or 0)
         self.uncounted += int(row.get("uncounted") or 0)
 
     def to_dict(self) -> dict:
-        return {"meter": self.key, "label": self.label, "reads": self.reads,
-                "bytes": self.bytes, "tokens": self.tokens,
-                "basis": self.basis, "measured": self.measured,
-                "estimated": self.estimated, "uncounted": self.uncounted,
-                "complete": self.complete}
+        out = {"meter": self.key, "label": self.label, "reads": self.reads,
+               "bytes": self.bytes, "tokens": self.tokens,
+               "basis": self.basis, "measured": self.measured,
+               "estimated": self.estimated, "uncounted": self.uncounted,
+               "complete": self.complete}
+        if self.key == GENERATE:
+            out["tokens_out"] = self.tokens_out
+            out["calls"] = self.calls
+        return out
 
 
 @dataclass
@@ -160,6 +180,22 @@ class ProjectUsage:
     @property
     def bytes(self) -> int:
         return sum(m.bytes for m in self.meters.values())
+
+    @property
+    def generated(self) -> int:
+        """Tokens the models produced for this project."""
+        return sum(m.tokens_out for m in self.meters.values())
+
+    @property
+    def admitted(self) -> int:
+        """Tokens the models actually read, as they reported it.
+
+        Distinct from the served total, and the gap between them is the point:
+        an engine dedups, truncates, reorders and caches, so what Keel put in
+        front of it is an upper bound on what it took in. Zero when no model
+        call was recorded, which is not the same as a model that read nothing.
+        """
+        return self.meter(GENERATE).tokens
 
     @property
     def uncounted(self) -> int:
@@ -191,10 +227,14 @@ class ProjectUsage:
         best available answer; :attr:`complete` is what says whether to trust it,
         and the readout shows both rather than suppressing the number.
         """
-        total = self.tokens
+        # Over retrieval only. A model call's input is largely the same text
+        # already counted as served, so folding it in would double-count that
+        # context and shrink the build share for reasons that are pure
+        # arithmetic rather than anything about the project.
+        total = sum(self.meter(k).tokens for k in (BUILD, SERVE, TOOLS))
         if not total:
             return None
-        return self.meters.get(BUILD, Meter(BUILD)).tokens / total
+        return self.meter(BUILD).tokens / total
 
     def meter(self, key: str) -> Meter:
         return self.meters.get(key, Meter(key))
@@ -206,6 +246,8 @@ class ProjectUsage:
             "bytes": self.bytes,
             "tokens": self.tokens,
             "basis": self.basis,
+            "generated": self.generated,
+            "admitted": self.admitted,
             "uncounted": self.uncounted,
             "complete": self.complete,
             "build_share": (None if self.build_share is None
@@ -261,6 +303,7 @@ def compare(projects: list[ProjectUsage]) -> dict:
         "projects": len(projects),
         "reads": sum(p.reads for p in projects),
         "tokens": sum(p.tokens for p in projects),
+        "generated": sum(p.generated for p in projects),
         "bytes": sum(p.bytes for p in projects),
         "uncounted": uncounted,
         "complete": uncounted == 0,
@@ -268,5 +311,5 @@ def compare(projects: list[ProjectUsage]) -> dict:
     }
 
 
-__all__ = ["BUILD", "SERVE", "TOOLS", "METER_LABELS", "METER_ORDER",
+__all__ = ["BUILD", "SERVE", "TOOLS", "GENERATE", "METER_LABELS", "METER_ORDER",
            "meter_for", "Meter", "ProjectUsage", "by_project", "compare"]
