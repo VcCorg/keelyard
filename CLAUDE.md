@@ -94,6 +94,15 @@ instruction whose source no longer yields it.
 generation baseline and a fresh render of the current template, which is what
 separates a template change from a local edit.
 
+**Semantic drift** — what a source's change *did* to the instructions drawn from
+it: unchanged, reworded, contradicted, or no longer supported there. A digest
+says a file moved; only this says whether the move mattered. `keel domain diff`.
+
+**Unverified reword** — a source that says an approved instruction again, in
+different words, with nothing having ruled on whether the two still agree. Token
+overlap cannot tell agreement from contradiction, so this asks a human and never
+fast-forwards.
+
 **Readiness score** — the eight-dimension answer to "could a competent new
 teammate ship from this domain?", produced by `keel domain score`.
 

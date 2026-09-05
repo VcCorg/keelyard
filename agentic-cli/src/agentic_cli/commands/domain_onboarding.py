@@ -623,6 +623,52 @@ def stale_repo_entries(slug: str, review: proposal.Proposal) -> list[proposal.En
     return stale
 
 
+def diff_domain(slug: str, review: proposal.Proposal, *,
+                provider=None) -> "differ.Report":
+    """Rule on what a source's move actually did to the instructions from it.
+
+    Two passes, cheap one first. The digest says *look* — it is one read and it
+    is right about whether anything moved. The differ says *what changed*, and
+    it costs a re-extraction, so it runs only over the sources the digest
+    flagged. On a domain where nothing moved this does one fetch per source and
+    no extraction at all, which is what makes it safe to hang off a drift poll.
+
+    Scheme-agnostic by construction: entries carry ``repo:`` and ``confluence:``
+    citations alike and both resolve through the retrieval seam, so this needed
+    no knowledge of either source.
+    """
+    from agentic_cli import retrieval
+    from agentic_cli.onboarding import differ
+
+    by_source: dict[str, list[proposal.Entry]] = {}
+    for entry in review.entries:
+        if entry.held or entry.status != proposal.ACCEPTED or not entry.text:
+            continue
+        citation = extract.Citation.parse(entry.citation)
+        if not citation.scheme or not citation.ref:
+            continue
+        by_source.setdefault(f"{citation.scheme}:{citation.ref}", []).append(entry)
+
+    reports: list[differ.Report] = []
+    for ref, entries in sorted(by_source.items()):
+        fetched = retrieval.fetch(ref, source=retrieval.ONBOARDING_SOURCE,
+                                  operation_prefix="diff", trace=False)
+        if not fetched.known or not fetched.text:
+            # We could not ask. Reporting these absent would retract the team's
+            # own approved context because a checkout was missing.
+            reports.append(differ.unknown_for(entries, ref))
+            continue
+        cited = {extract.Citation.parse(e.citation).version for e in entries}
+        if fetched.version and cited == {fetched.version}:
+            continue                    # nothing moved; no re-extraction needed
+
+        citation = extract.Citation(*ref.split(":", 1), fetched.version)
+        result = extract.extract(fetched.text, citation, classify.ONBOARDING)
+        reports.append(differ.diff(entries, result.candidates, provider=provider))
+
+    return differ.merge_reports(reports)
+
+
 def gather(slug: str, meta: Path) -> readiness.Inputs:
     """Collect every signal the rubric needs. The only part that touches I/O."""
     import yaml
@@ -672,6 +718,141 @@ def gather(slug: str, meta: Path) -> readiness.Inputs:
     )
 
 
+# ── diff ────────────────────────────────────────────────────────────────────
+
+_VERDICT_STYLE = {
+    "unchanged": "dim",
+    "reworded": "yellow",
+    "contradicted": "red",
+    "absent": "red",
+    "unknown": "dim",
+}
+
+
+def _diff_judge():
+    """A provider for ruling on agreement, or None when there is no judge."""
+    if not _judge_available():
+        return None
+    try:
+        from agentic_cli.llm.factory import get_llm_provider
+
+        provider = get_llm_provider(
+            system_instruction="You compare instructions for agreement and "
+                               "reply with JSON only.")
+        # Test mode answers deterministically without a model. A confident
+        # "these agree" backed by nothing is worse here than no answer: it is
+        # the verdict that lets an instruction fast-forward unreviewed.
+        if provider.get_name().startswith("test-mode"):
+            return None
+        return provider
+    except Exception:  # noqa: BLE001 - no judge is a degraded run, not a failure
+        return None
+
+
+def diff_command(
+    slug: Annotated[str, typer.Argument(help="Domain slug")],
+    judge: Annotated[bool, typer.Option(
+        "--judge/--no-judge",
+        help="Ask a model whether a reworded source still agrees")] = True,
+    as_json: Annotated[bool, typer.Option("--json", help="Emit the report as JSON")] = False,
+) -> None:
+    """What did the source changes actually do to our approved instructions?
+
+    ``domain score`` and the drift signals tell you a source moved. This tells
+    you whether the move mattered: an instruction that came back unchanged, one
+    reworded, one the source now contradicts, and one it no longer supports are
+    four different problems, and only two of them are yours today.
+
+    Without a judge this still separates unchanged from moved and catches a
+    reversed instruction, but it will not certify a reword as safe — an
+    unverified reword is reported as needing a human, never fast-forwarded.
+
+    Exits non-zero when an instruction is contradicted or no longer supported,
+    so it can gate a pull request. An unverified reword does not fail the run.
+    """
+    from agentic_cli.onboarding import differ
+
+    _require_domain(slug)
+    meta = _require_meta(slug)
+    review = proposal.load(meta, slug)
+    if not review.accepted:
+        console.print(f"[yellow]No accepted instructions for '{slug}' yet. "
+                      f"Run `{CLI_NAME} domain review {slug}` first.[/yellow]")
+        raise typer.Exit(0)
+
+    provider = _diff_judge() if judge else None
+    report = diff_domain(slug, review, provider=provider)
+    by_id = {e.id: e for e in review.entries}
+
+    if not report.verdicts and not as_json:
+        console.print(f"[green]✓[/green] Every source behind {len(review.accepted)} "
+                      f"accepted instruction(s) is unchanged.")
+        raise typer.Exit(0)
+
+    if as_json:
+        # Falls through to the exit gate rather than returning here: a pipeline
+        # reading the JSON is the caller most likely to be relying on the exit
+        # code, so it is the last place that should quietly always succeed.
+        console.print_json(json.dumps(report.to_dict()))
+        _exit_on_broken(report)
+        raise typer.Exit(0)
+
+    # Worst first. An unchanged instruction is not news and sorts last.
+    order = {differ.CONTRADICTED: 0, differ.ABSENT: 1, differ.REWORDED: 2,
+             differ.UNKNOWN: 3, differ.UNCHANGED: 4}
+    verdicts = sorted(report.verdicts,
+                      key=lambda v: (order.get(v.status, 9), -v.similarity))
+
+    table = Table(title=f"Source changes — {slug}", show_lines=True)
+    table.add_column("Verdict", no_wrap=True)
+    table.add_column("Approved instruction", overflow="fold")
+    table.add_column("Its source now says", overflow="fold")
+    for verdict in verdicts:
+        if verdict.status == differ.UNCHANGED:
+            continue                    # summarised in the footer instead
+        entry = by_id.get(verdict.entry_id)
+        label = verdict.status
+        if verdict.status == differ.REWORDED and not verdict.checked:
+            label += "\n[dim](unverified)[/dim]"
+        table.add_row(
+            f"[{_VERDICT_STYLE.get(verdict.status, '')}]{label}[/]",
+            (entry.text if entry else verdict.entry_id)[:220],
+            (verdict.replacement or f"[dim]{verdict.detail}[/dim]")[:220],
+        )
+    if table.row_count:
+        console.print(table)
+
+    counts = report.counts
+    console.print("  ".join(
+        f"[{_VERDICT_STYLE.get(k, '')}]{n} {k}[/]" for k, n in sorted(counts.items())))
+    if not provider:
+        console.print("[dim]No judge configured — rewordings are unverified. "
+                      "A contradiction is only caught when it flips a negation.[/dim]")
+    if report.unreadable:
+        console.print(f"[yellow]{len(report.unreadable)} source(s) could not be "
+                      f"read; their instructions are unknown, not absent.[/yellow]")
+
+    record_activity(command="domain", subcommand="diff",
+                    args={"domain": slug, "judged": bool(provider), **counts})
+
+    _exit_on_broken(report)
+
+
+def _exit_on_broken(report) -> None:
+    """Exit non-zero for instructions we have positive evidence are broken.
+
+    This is what makes ``domain diff`` usable as a CI gate: "did this pull
+    request contradict approved domain context?". An unverified reword is not
+    evidence of anything — on a domain with no judge *every* reword is
+    unverified, and failing on those would make the exit code mean "a source
+    changed", which the digest already said for free.
+    """
+    from agentic_cli.onboarding import differ
+
+    if report.of(differ.CONTRADICTED) or report.of(differ.ABSENT):
+        raise typer.Exit(1)
+
+
 def _judge_available() -> bool:
     """True when a model provider is configured for the answerability judge."""
     import os
@@ -689,8 +870,9 @@ def register(domain_app: typer.Typer) -> None:
     domain_app.command("review")(review)
     domain_app.command("finalize")(finalize)
     domain_app.command("score")(score)
+    domain_app.command("diff")(diff_command)
 
 
-__all__ = ["register", "gather", "stale_repo_entries", "KIND_FILES",
-           "FILE_KINDS", "classify_docs",
-           "extract_intent", "review", "finalize", "score"]
+__all__ = ["register", "gather", "stale_repo_entries", "diff_domain",
+           "KIND_FILES", "FILE_KINDS", "classify_docs",
+           "extract_intent", "review", "finalize", "score", "diff_command"]

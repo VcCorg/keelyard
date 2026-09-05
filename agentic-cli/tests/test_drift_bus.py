@@ -18,7 +18,7 @@ from agentic_cli.onboarding import drift
 
 class TestDriftRegistry:
     def test_builtin_detectors_are_registered(self):
-        assert {"docs", "instructions", "repo-sources", "template",
+        assert {"docs", "instructions", "repo-sources", "semantic", "template",
                 "placeholder"} <= set(drift.detector_keys())
 
     def test_a_failing_detector_becomes_a_signal_not_an_exception(self):

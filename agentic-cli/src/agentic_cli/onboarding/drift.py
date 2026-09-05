@@ -173,7 +173,14 @@ def instructions_detector(slug: str) -> Optional[DriftSignal]:
 
 
 def repo_sources_detector(slug: str) -> Optional[DriftSignal]:
-    """Accepted instructions whose repo file has changed since extraction."""
+    """Accepted instructions whose repo file has changed since extraction.
+
+    Warns rather than fails, now that ``semantic`` can say what the change did.
+    A moved digest means *look here* — a typo fix moves it exactly as far as a
+    reversed step — and calling that a failure spent the loudest severity on the
+    question nobody can act on. The failure belongs to the detector that knows
+    whether the instruction survived.
+    """
     from agentic_cli.commands.domain_onboarding import stale_repo_entries
 
     review = _review(slug)
@@ -184,11 +191,62 @@ def repo_sources_detector(slug: str) -> Optional[DriftSignal]:
     return DriftSignal(
         key="repo-sources", label="Accepted instructions over changed repo files",
         count=len(stale), total=len(accepted),
-        severity=FAIL if stale else OK,
+        severity=WARN if stale else OK,
         detail=(f"{len(stale)} instruction(s) we vouched for cite a file that "
                 "has changed since" if stale
                 else f"all {len(accepted)} accepted instruction(s) match their source"),
-        fix=f"Re-run `keel domain extract {slug}`; changed files re-propose.",
+        fix=f"`keel domain diff {slug}` says which of them the change touched.",
+    )
+
+
+def semantic_detector(slug: str) -> Optional[DriftSignal]:
+    """Of the sources that moved, which moves actually broke an instruction?
+
+    Runs without a judge on purpose. This is called from a dashboard page load
+    and a watcher poll, where a model call is latency nobody asked for and cost
+    nobody approved. Offline it still catches the case worth catching — a
+    negation appearing or disappearing — and everything else it can only call an
+    unverified reword, which asks a human rather than guessing.
+    """
+    from agentic_cli.commands.domain_onboarding import diff_domain
+    from agentic_cli.onboarding import differ
+
+    review = _review(slug)
+    if not review.accepted:
+        return None
+    report = diff_domain(slug, review)
+    if not report.verdicts:
+        # Nothing moved. Distinct from "moved and turned out fine", which is why
+        # this says nothing rather than reporting a clean sweep of zero.
+        return None
+
+    contradicted = report.of(differ.CONTRADICTED)
+    absent = report.of(differ.ABSENT)
+    unverified = [v for v in report.of(differ.REWORDED) if not v.checked]
+    unknown = report.of(differ.UNKNOWN)
+
+    parts = []
+    if contradicted:
+        parts.append(f"{len(contradicted)} contradicted by their source")
+    if absent:
+        parts.append(f"{len(absent)} no longer supported there")
+    if unverified:
+        parts.append(f"{len(unverified)} reworded, unverified")
+    if unknown:
+        parts.append(f"{len(unknown)} unreadable")
+    settled = len(report.settled)
+    if settled:
+        parts.append(f"{settled} unaffected")
+
+    return DriftSignal(
+        key="semantic", label="What the source changes did to our instructions",
+        count=len(contradicted) + len(absent) + len(unverified),
+        total=len(report.verdicts),
+        severity=(FAIL if (contradicted or absent)
+                  else (WARN if unverified else OK)),
+        detail="; ".join(parts),
+        fix=f"`keel domain diff {slug}` shows each one beside its source's "
+            f"current wording.",
     )
 
 
@@ -239,6 +297,7 @@ for _key, _fn in (
     ("docs", docs_detector),
     ("instructions", instructions_detector),
     ("repo-sources", repo_sources_detector),
+    ("semantic", semantic_detector),
     ("template", template_detector),
     ("placeholder", placeholder_detector),
 ):
