@@ -65,6 +65,14 @@ logger = logging.getLogger(__name__)
 # less useful than one with, but far more useful than a missing row.
 _session_id: ContextVar[Optional[str]] = ContextVar("keel_session_id", default=None)
 
+# Which project (domain) the current work belongs to. Separate from the session
+# id because the two have different lifetimes: a domain outlives any one session
+# — `domain extract` binds it for a command that mints no session at all — and a
+# session can legitimately have no domain, which is a category worth counting
+# rather than a gap to fill in.
+_session_domain: ContextVar[Optional[str]] = ContextVar(
+    "keel_session_domain", default=None)
+
 # Tier-one rows record shape, not content. A single oversized value should not
 # be able to bloat the audit database through the details column.
 MAX_ENTITY_ID = 512
@@ -94,25 +102,55 @@ def reset_session_id(token: Any) -> None:
         logger.debug("session id not reset: %s", exc)
 
 
-@contextlib.contextmanager
-def session_scope(session_id: Optional[str] = None) -> Iterator[str]:
-    """Bind a session id for the duration of the block.
+def current_domain() -> Optional[str]:
+    """Which project the current work is for, or None when unattributed."""
+    return _session_domain.get()
 
-    Generates one when not supplied, so callers that just want their reads
+
+def set_domain(domain: Optional[str]) -> Any:
+    """Bind a domain to the current context. Returns a reset token."""
+    return _session_domain.set(domain or None)
+
+
+def reset_domain(token: Any) -> None:
+    """Restore the domain bound before :func:`set_domain` returned *token*."""
+    try:
+        _session_domain.reset(token)
+    except (ValueError, LookupError) as exc:
+        logger.debug("session domain not reset: %s", exc)
+
+
+@contextlib.contextmanager
+def session_scope(session_id: Optional[str] = None,
+                  domain: Optional[str] = None) -> Iterator[str]:
+    """Bind a session id — and the project it is for — for the block.
+
+    Generates an id when not supplied, so callers that just want their reads
     grouped do not have to mint ids themselves::
 
-        with session_scope() as sid:
-            ...          # every context read in here carries sid
+        with session_scope(domain="titanic") as sid:
+            ...          # every read in here carries sid AND the domain
+
+    ``domain`` is what makes "what did this project cost" answerable. It rides
+    a ContextVar for the same reason the session id does: the read that matters
+    happens several frames down, inside a fetcher or an MCP client, and
+    threading a project name through every signature on the way is how the
+    attribution ends up missing from exactly the paths nobody remembered.
     """
     if not session_id:
         from agentic_cli.tracker import new_correlation_id
 
         session_id = new_correlation_id()
     token = _session_id.set(session_id)
+    domain_token = _session_domain.set(domain or _session_domain.get())
     try:
         yield session_id
     finally:
         _session_id.reset(token)
+        try:
+            _session_domain.reset(domain_token)
+        except (ValueError, LookupError) as exc:
+            logger.debug("session domain not reset: %s", exc)
 
 
 def digest_args(arguments: Optional[Dict[str, Any]]) -> str:
@@ -161,6 +199,8 @@ def record_context_read(
     payload: Optional[str] = None,
     payload_ref: Optional[str] = None,
     extra: Optional[Dict[str, Any]] = None,
+    domain: Optional[str] = None,
+    model: str = "",
 ) -> None:
     """Record one context read against the active (or given) session.
 
@@ -178,6 +218,13 @@ def record_context_read(
     one that was never offered. Callers with a ref already in hand keep passing
     ``payload_ref``.
 
+    It is also what the token count is taken from — and only what. A caller that
+    passes ``size_bytes`` without ``payload`` gets no token count rather than a
+    count inferred from the byte total: bytes-to-tokens is a second estimate
+    stacked on the first, and the row would claim a precision nothing supports.
+    ``payload`` never has to be *stored* for this; the text is counted in memory
+    and handed to a store that is off by default.
+
     This function never raises. Telemetry must not be able to break retrieval:
     a failure to record is logged at debug and swallowed.
     """
@@ -188,6 +235,12 @@ def record_context_read(
         from agentic_cli.tracker import record_activity
 
         details: Dict[str, Any] = {"bytes": int(size_bytes)}
+        # Counted from the text itself, in memory, whether or not it is stored.
+        counted = None
+        if payload:
+            from agentic_cli import tokens as token_counter
+
+            counted = token_counter.count(payload, model or "")
         digest = digest_args(arguments)
         if digest:
             details["args_digest"] = digest
@@ -213,6 +266,10 @@ def record_context_read(
             duration_ms=duration_ms,
             status=status,
             details=details,
+            domain=domain,          # None falls back to the bound session domain
+            size_bytes=int(size_bytes),
+            tokens=counted.tokens if counted else None,
+            token_basis=counted.basis if counted else None,
         )
     except Exception as exc:  # noqa: BLE001 - telemetry is never load-bearing
         logger.debug("context read not recorded: %s", exc)

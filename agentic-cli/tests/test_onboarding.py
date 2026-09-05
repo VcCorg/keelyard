@@ -460,7 +460,11 @@ class TestDocTypeMigration:
         with sqlite3.connect(str(tracker.DB_PATH)) as conn:
             cols = {r[1] for r in conn.execute("PRAGMA table_info(domain_docs)")}
             version = conn.execute("SELECT version FROM schema_version").fetchone()[0]
-        assert version == 14
+        # Not `== 14`. A hardcoded literal breaks on every migration and nobody
+        # updates a test that is already red — test_domain.py carries the same
+        # note after this bit it at v8. What matters here is that the upgrade
+        # ran to completion, not which number it stopped at.
+        assert version == tracker._SCHEMA_VERSION
         assert {"doc_type", "doc_type_confidence", "live_version", "checked_at"} <= cols
 
     def test_stale_docs_needs_a_live_version(self, tmp_path, monkeypatch):

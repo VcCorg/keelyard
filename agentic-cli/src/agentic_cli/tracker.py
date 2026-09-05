@@ -19,7 +19,7 @@ from typing import Any, Optional
 DB_DIR = Path.home() / ".agent-cli-agentic"
 DB_PATH = DB_DIR / "tracker.db"
 
-_SCHEMA_VERSION = 14
+_SCHEMA_VERSION = 15
 
 _SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -41,7 +41,11 @@ CREATE TABLE IF NOT EXISTS activity_log (
     entity_type    TEXT,          -- entity kind: project|skill|retriever|story|...
     entity_id      TEXT,          -- entity identifier (path/name/key)
     source         TEXT DEFAULT 'cli',  -- origin of the action: cli|dashboard
-    actor          TEXT           -- authenticated principal (email/subject) if known
+    actor          TEXT,          -- authenticated principal (email/subject) if known
+    domain         TEXT,          -- domain (project) this action was for, when known
+    bytes          INTEGER,       -- size of what was read/produced
+    tokens         INTEGER,       -- the same size in the unit a model charges for
+    token_basis    TEXT           -- 'measured' | 'estimated' - never assume
 );
 
 -- Central registry of onboarded repositories
@@ -307,6 +311,60 @@ ALTER TABLE domain_docs ADD COLUMN checked_at TEXT;
 CREATE INDEX IF NOT EXISTS idx_domain_docs_type ON domain_docs(doc_type);
 """
 
+_MIGRATION_V15 = """
+-- v15: attribute activity to a domain, and size it in tokens as well as bytes.
+--
+-- Rows carried a correlation_id (which session) but nothing saying which
+-- *project* a session was for, so "what did this competition cost me, against
+-- that one" could not be asked at all. domain is that key; product rolls up
+-- from it through the domains table rather than being denormalised here, so
+-- there is one place a domain can change hands.
+--
+-- bytes and tokens are columns rather than details JSON because the question
+-- changed. One session's ledger reads fine out of JSON; summing a fleet by
+-- project does not, and json_extract in a GROUP BY scans every row.
+--
+-- token_basis is not decoration. Most models have no tokenizer we can run, so
+-- most counts are estimates, and a total mixing the two is neither. Storing the
+-- basis per row is what lets a readout say so instead of presenting an estimate
+-- as a measurement.
+-- The columns themselves are added by _add_column_if_missing rather than by
+-- this script. SQLite has no ADD COLUMN IF NOT EXISTS, and a bare ALTER makes
+-- the migration single-use: it aborts on a database where the base schema
+-- already created the column, or where an earlier run was interrupted between
+-- the ALTER and the version bump. Aborting leaves the version behind, so the
+-- next start retries and aborts again — the failure is permanent, not transient.
+CREATE INDEX IF NOT EXISTS idx_activity_domain ON activity_log(domain);
+CREATE INDEX IF NOT EXISTS idx_activity_domain_entity
+    ON activity_log(domain, entity_type);
+
+-- Backfill bytes from where they have been living. Without this every existing
+-- row reads as zero and the first report understates history by exactly the
+-- amount already collected — which is the part most worth seeing.
+UPDATE activity_log
+   SET bytes = CAST(json_extract(details, '$.bytes') AS INTEGER)
+ WHERE bytes IS NULL
+   AND details IS NOT NULL
+   AND json_valid(details)
+   AND json_extract(details, '$.bytes') IS NOT NULL;
+"""
+
+
+def _add_column_if_missing(conn: sqlite3.Connection, table: str,
+                           column: str, decl: str) -> None:
+    """Add a column unless the table already has it.
+
+    SQLite offers no ``ADD COLUMN IF NOT EXISTS``, which makes a plain ALTER in
+    a migration single-use. Two ordinary situations already break it: a database
+    whose base schema created the column while its version number lagged, and a
+    run interrupted between the ALTER and the version bump. Both leave the
+    version behind, so every subsequent start retries the same failing ALTER —
+    a permanently unopenable database, from a migration that had in fact worked.
+    """
+    existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+    if column not in existing:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+
 
 def _ensure_db() -> Path:
     """Create the database and schema if they don't exist. Run migrations."""
@@ -377,6 +435,14 @@ def _ensure_db() -> Path:
                 conn.executescript(_MIGRATION_V14)
                 conn.execute("UPDATE schema_version SET version = 14")
                 current_version = 14
+            if current_version < 15:
+                for _column, _decl in (("domain", "TEXT"), ("bytes", "INTEGER"),
+                                       ("tokens", "INTEGER"),
+                                       ("token_basis", "TEXT")):
+                    _add_column_if_missing(conn, "activity_log", _column, _decl)
+                conn.executescript(_MIGRATION_V15)
+                conn.execute("UPDATE schema_version SET version = 15")
+                current_version = 15
         conn.commit()
     finally:
         conn.close()
@@ -473,6 +539,10 @@ def record_activity(
     entity_id: str = None,
     source: str = "cli",
     actor: str = None,
+    domain: str = None,
+    size_bytes: int = None,
+    tokens: int = None,
+    token_basis: str = None,
 ) -> None:
     """Insert a row into the activity log (the central audit trail).
 
@@ -481,14 +551,34 @@ def record_activity(
     correlated (e.g. every action on a given project). ``source`` records
     whether the action originated from the CLI or the dashboard; ``actor``
     records the authenticated principal (email/subject) when known.
+
+    ``domain`` is which project the action was for. It falls back to whatever
+    the current session is bound to, so a read deep inside an engine is
+    attributed without every call site on the way down having to pass it —
+    the same reason ``correlation_id`` falls back to the session's.
+
+    ``tokens`` must arrive with its ``token_basis``. A count whose provenance
+    was dropped cannot be told apart later from one that was measured, and a
+    ledger that cannot say which is which can only be quoted carelessly.
     """
+    if domain is None:
+        try:
+            from agentic_cli.tracing import current_domain
+
+            domain = current_domain()
+        except Exception:  # noqa: BLE001 - attribution is never load-bearing
+            domain = None
+    if tokens is not None and not token_basis:
+        # Refusing the number is the point: see the docstring.
+        tokens = None
     try:
         with _get_conn() as conn:
             conn.execute(
                 """INSERT INTO activity_log
                    (timestamp, command, subcommand, status, duration_ms, args,
-                    details, repo_path, correlation_id, entity_type, entity_id, source, actor)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    details, repo_path, correlation_id, entity_type, entity_id,
+                    source, actor, domain, bytes, tokens, token_basis)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     _now_iso(),
                     command,
@@ -503,10 +593,59 @@ def record_activity(
                     entity_id,
                     source or "cli",
                     actor,
+                    domain,
+                    size_bytes,
+                    tokens,
+                    token_basis,
                 ),
             )
     except Exception:
         pass  # Never break the CLI
+
+
+def usage_by_domain(domain: str = None, entity_type: str = None) -> list[dict]:
+    """Ledger totals grouped by domain and source, for the cost readout.
+
+    One aggregate query rather than a scan-and-sum in Python: the whole reason
+    ``bytes`` and ``tokens`` became columns is that this runs over a fleet's
+    history, and pulling every row across the process boundary to add it up
+    defeats the migration.
+
+    Rows with no domain are returned under ``""`` rather than dropped. Work that
+    was never attributed to a project is a real category — it is what an
+    unattributed session looks like — and hiding it makes the totals quietly
+    fail to add up to what the ledger holds.
+    """
+    where, params = ["1=1"], []
+    if domain is not None:
+        where.append("COALESCE(domain, '') = ?")
+        params.append(domain)
+    if entity_type:
+        where.append("entity_type = ?")
+        params.append(entity_type)
+    try:
+        with _get_conn() as conn:
+            rows = conn.execute(
+                f"""SELECT COALESCE(domain, '') AS domain,
+                           command            AS source,
+                           COUNT(*)           AS reads,
+                           COALESCE(SUM(bytes), 0)  AS bytes,
+                           COALESCE(SUM(tokens), 0) AS tokens,
+                           SUM(CASE WHEN token_basis = 'measured' THEN 1 ELSE 0 END)
+                               AS measured,
+                           SUM(CASE WHEN token_basis = 'estimated' THEN 1 ELSE 0 END)
+                               AS estimated,
+                           MIN(timestamp) AS first_seen,
+                           MAX(timestamp) AS last_seen
+                      FROM activity_log
+                     WHERE {' AND '.join(where)}
+                  GROUP BY COALESCE(domain, ''), command
+                  ORDER BY tokens DESC""",
+                params,
+            ).fetchall()
+            return [dict(r) for r in rows]
+    except Exception:
+        return []
 
 
 def new_correlation_id() -> str:

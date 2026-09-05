@@ -169,6 +169,18 @@ def extract_intent(
     _require_domain(slug)
     meta = _require_meta(slug)
 
+    # Everything read from here down is this project's context-building cost.
+    # Binding the domain around the whole command is what separates "what did
+    # it cost to build this context" from "what did it cost to use it" — the
+    # two meters that a single undifferentiated byte total cannot tell apart.
+    from agentic_cli import tracing
+
+    with tracing.session_scope(domain=slug):
+        _extract_intent(slug, meta, include_repos, all_types)
+
+
+def _extract_intent(slug: str, meta: Path, include_repos: bool,
+                    all_types: bool) -> None:
     docs = get_domain_docs(slug)
     documents: list[sources.Document] = []
     unreachable = 0
@@ -780,8 +792,11 @@ def diff_command(
                       f"Run `{CLI_NAME} domain review {slug}` first.[/yellow]")
         raise typer.Exit(0)
 
+    from agentic_cli import tracing
+
     provider = _diff_judge() if judge else None
-    report = diff_domain(slug, review, provider=provider)
+    with tracing.session_scope(domain=slug):
+        report = diff_domain(slug, review, provider=provider)
     by_id = {e.id: e for e in review.entries}
 
     if not report.verdicts and not as_json:
@@ -853,6 +868,96 @@ def _exit_on_broken(report) -> None:
         raise typer.Exit(1)
 
 
+# ── usage ───────────────────────────────────────────────────────────────────
+
+def _thousands(n: int) -> str:
+    """Compact a token count without losing the order of magnitude."""
+    if n >= 1_000_000:
+        return f"{n / 1_000_000:.1f}M"
+    if n >= 1_000:
+        return f"{n / 1_000:.1f}K"
+    return str(n)
+
+
+def usage_command(
+    slug: Annotated[Optional[str], typer.Argument(
+        help="Domain slug (omit with --all)")] = None,
+    all_projects: Annotated[bool, typer.Option(
+        "--all", help="Every project, biggest first — the portfolio readout")] = False,
+    as_json: Annotated[bool, typer.Option("--json", help="Emit the readout as JSON")] = False,
+) -> None:
+    """How much context each project built, served, and read from tools.
+
+    Split three ways on purpose. Building a domain's context is a one-off
+    investment; serving it is what recurs every session. A single total hides
+    which of the two a project is actually spending on, and two projects with
+    identical totals can be in opposite situations — one three days into
+    onboarding, one running daily off finished context.
+
+    Tokens are the unit a model window and a bill are denominated in, so that is
+    what this reports. Most are estimates, because no vendor tokenizer is
+    bundled, and every row says which — an estimate is fine for comparing two
+    projects, where a systematic bias cancels, and is not a statement about money.
+    """
+    from agentic_cli import usage
+
+    if not all_projects and not slug:
+        console.print("[red]✗ Give a domain slug, or --all for every project.[/red]")
+        raise typer.Exit(1)
+    if slug:
+        _require_domain(slug)
+
+    projects = usage.by_project(domain=None if all_projects else slug)
+    if not projects:
+        console.print(f"[yellow]Nothing recorded"
+                      f"{'' if all_projects else f' for {slug}'} yet.[/yellow]")
+        raise typer.Exit(0)
+
+    summary = usage.compare(projects)
+    if as_json:
+        console.print_json(json.dumps(
+            {"projects": [p.to_dict() for p in projects], "summary": summary}))
+        raise typer.Exit(0)
+
+    table = Table(title="Context usage" + ("" if all_projects else f" — {slug}"),
+                  show_lines=False)
+    table.add_column("Project", no_wrap=True)
+    table.add_column("Meter", no_wrap=True)
+    table.add_column("Reads", justify="right", no_wrap=True)
+    table.add_column("Tokens", justify="right", no_wrap=True)
+    table.add_column("Basis", no_wrap=True)
+
+    for project in projects:
+        first = True
+        for key in usage.METER_ORDER:
+            if key not in project.meters:
+                continue
+            meter = project.meters[key]
+            table.add_row(
+                f"[bold]{project.named}[/bold]" if first else "",
+                meter.label,
+                f"{meter.reads:,}",
+                _thousands(meter.tokens),
+                f"[dim]{meter.basis}[/dim]",
+            )
+            first = False
+        share = project.build_share
+        table.add_row(
+            "" if not first else f"[bold]{project.named}[/bold]",
+            "[dim]total[/dim]",
+            f"[bold]{project.reads:,}[/bold]",
+            f"[bold]{_thousands(project.tokens)}[/bold]",
+            "" if share is None else f"[dim]{share:.0%} building[/dim]",
+        )
+    console.print(table)
+    console.print(f"[dim]{summary['basis_note']}. Tokens are what Keel served, "
+                  f"not what an engine admitted to its prompt.[/dim]")
+
+    record_activity(command="domain", subcommand="usage",
+                    args={"domain": slug or "*", "projects": len(projects),
+                          "tokens": summary["tokens"]})
+
+
 def _judge_available() -> bool:
     """True when a model provider is configured for the answerability judge."""
     import os
@@ -871,8 +976,10 @@ def register(domain_app: typer.Typer) -> None:
     domain_app.command("finalize")(finalize)
     domain_app.command("score")(score)
     domain_app.command("diff")(diff_command)
+    domain_app.command("usage")(usage_command)
 
 
 __all__ = ["register", "gather", "stale_repo_entries", "diff_domain",
            "KIND_FILES", "FILE_KINDS", "classify_docs",
-           "extract_intent", "review", "finalize", "score", "diff_command"]
+           "extract_intent", "review", "finalize", "score", "diff_command",
+           "usage_command"]

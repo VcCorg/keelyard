@@ -66,12 +66,12 @@ def create_session(spec: ExecutionSpec, engine: Optional[str] = None, *,
     from agentic_cli.tracker import new_correlation_id
 
     trace_id = new_correlation_id()
-    token = tracing.set_session_id(trace_id)
-    try:
+    # The domain is bound alongside the trace id, and for the same reason: it
+    # has to be in place before the engine runs, because the reads it makes on
+    # the way in are the ones that carry the project's context cost.
+    with tracing.session_scope(trace_id, domain=spec.domain):
         eng = get_engine(engine)
         result = eng.create_session(spec)
-    finally:
-        tracing.reset_session_id(token)
 
     try:
         from agentic_cli.tracker import record_action
@@ -134,11 +134,8 @@ def ask(spec: ExecutionSpec, engine: Optional[str] = None, *,
     from agentic_cli.tracker import new_correlation_id
 
     trace_id = new_correlation_id()
-    token = tracing.set_session_id(trace_id)
-    try:
+    with tracing.session_scope(trace_id, domain=spec.domain):
         result: AskResult = fn(spec)
-    finally:
-        tracing.reset_session_id(token)
     result.trace_id = trace_id
 
     # The question and the answer go to the tier-two store, not the audit row.
