@@ -1430,3 +1430,106 @@ def list_custom_metrics() -> None:
         preview = (m.prompt[:50] + "…") if len(m.prompt) > 50 else m.prompt
         table.add_row(m.name, f"{m.scale_min:g}-{m.scale_max:g}", m.description or "—", preview)
     console.print(table)
+
+
+@eval_app.command("session")
+def eval_session(
+    session: Annotated[str, typer.Argument(help="Session / correlation id (see `keel context trace`)")],
+    reference: Annotated[Optional[str], typer.Option("--reference", help="Ground-truth answer, if you have one — unlocks ContextRecall")] = None,
+    metrics: Annotated[Optional[str], typer.Option("--metrics", help="Comma-separated metric names (default: the reference-free set)")] = None,
+    framework: Annotated[str, typer.Option("--framework", help="Evaluation framework")] = "ragas",
+    as_json: Annotated[bool, typer.Option("--json", help="Emit scores as JSON")] = False,
+) -> None:
+    """Score a real session against the context it actually retrieved.
+
+    This is the eval feed: ``EvalRow.retrieved_contexts`` is built from the
+    tier-two payload store, so metrics that need retrieved context finally have
+    some. Until now they scored against an empty list.
+
+    Reads the split diagnosis a single number cannot express — low precision
+    means the retriever brought junk, low faithfulness means the agent had the
+    context and ignored it.
+    """
+    import json as _json
+
+    from agentic_cli.evaluation import session_feed
+
+    feed = session_feed.build(session, reference=reference or "")
+
+    if not feed.scorable:
+        console.print(f"[yellow]Session [bold]{session}[/bold] cannot be scored.[/yellow]")
+        for problem in feed.problems:
+            console.print(f"  [yellow]•[/yellow] {problem}")
+        raise typer.Exit(1)
+
+    names = ([m.strip() for m in metrics.split(",") if m.strip()]
+             if metrics else session_feed.metrics_for(reference or ""))
+
+    console.print(
+        f"Scoring [bold]{session}[/bold] over [bold]{feed.contexts}[/bold] "
+        f"retrieved context(s) with: {', '.join(names)}")
+    if feed.lossy:
+        console.print(
+            f"[yellow]⚠ Some context was masked before storage "
+            f"({', '.join(feed.masked_kinds)}). Scores are computed over text "
+            f"the agent did not literally see.[/yellow]")
+
+    from rich.markup import escape
+
+    from agentic_cli.evaluation.frameworks import get_framework
+
+    def _unavailable(exc: Exception) -> None:
+        # Exception text carries "pip install 'agentic-cli[eval]'", and Rich
+        # reads [eval] as a style tag and swallows it — leaving advice that
+        # tells the user to install what they already have.
+        console.print(f"[red]✗ {escape(str(exc))}[/red]")
+        console.print("[dim]Context metrics need an LLM judge, so they cannot run "
+                      "in test mode or without the optional extra.[/dim]")
+
+    try:
+        engine = get_framework(framework)
+    except Exception as exc:  # noqa: BLE001
+        _unavailable(exc)
+        raise typer.Exit(1)
+
+    try:
+        scores = engine.evaluate([feed.row], names)
+    except ImportError as exc:
+        _unavailable(exc)
+        raise typer.Exit(1)
+    except Exception as exc:  # noqa: BLE001
+        console.print(f"[red]✗ Evaluation failed: {escape(str(exc))}[/red]")
+        raise typer.Exit(1)
+
+    if as_json:
+        payload = scores.to_dict()
+        payload["feed"] = feed.to_dict()
+        console.print_json(_json.dumps(payload))
+        raise typer.Exit(0)
+
+    table = Table(title=f"Context evaluation — {session}", show_lines=False)
+    table.add_column("Metric", no_wrap=True)
+    table.add_column("Score", justify="right")
+    table.add_column("Reads as", overflow="fold")
+
+    for name, value in (scores.aggregate or {}).items():
+        table.add_row(name, f"{value:.2f}" if isinstance(value, (int, float)) else str(value),
+                      _DIAGNOSIS.get(name.lower(), ""))
+    console.print(table)
+
+    for error in scores.errors or []:
+        console.print(f"[yellow]⚠ {error}[/yellow]")
+
+    record_activity(command="eval", subcommand="session",
+                    args={"session": session, "metrics": names,
+                          "contexts": feed.contexts, "lossy": feed.lossy})
+
+
+#: What a low score on each metric points at — the split diagnosis a single
+#: number cannot express, and the reason the feed was worth building.
+_DIAGNOSIS = {
+    "faithfulness": "low → the agent had the context and ignored it (prompt or skill)",
+    "responserelevancy": "low → the answer drifted from the question",
+    "contextprecisionwithoutreference": "low → the retriever brought junk (retriever / KG query)",
+    "contextrecall": "low → the right source was never retrieved (ingestion coverage)",
+}

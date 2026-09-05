@@ -105,10 +105,38 @@ rather than argued about in advance.
 
 ## Next
 
-**P3 — eval feed.** Build `EvalRow` from a session with `retrieved_contexts`
-populated, then run the existing Ragas adapter. No new metric code needed —
-`Faithfulness`, `ContextPrecision`, `ContextRecall` already resolve. Needs an
-LLM judge credential; test mode cannot compute these.
+**P3 — eval feed (shipped).** `agentic_cli/evaluation/session_feed.py` builds an
+`EvalRow` from a session, with `retrieved_contexts` populated from the tier-two
+store, and `keel eval session <id>` runs it through the existing Ragas adapter.
+
+Building it corrected a claim made here. Two of the three metrics named below
+need a **reference answer**, which a live session by definition does not have:
+
+| Metric | Reference needed | Usable on a session |
+|---|---|---|
+| Faithfulness | no | yes |
+| ResponseRelevancy | no | yes |
+| ContextPrecision *without reference* | no | yes — added to the adapter |
+| ContextRecall | **yes** | no — only for dataset-driven evaluation |
+
+So the session default is the reference-free set, and `--reference` widens it
+when ground truth exists. Asking for ContextRecall on a bare session would score
+it against an empty reference and return a confident zero, which is worse than
+declining.
+
+Two gaps closed on the way:
+
+- **`ask()` never bound a trace id.** `create_session` minted one before the
+  engine ran; `ask` did not, so the one flow that has both a question and an
+  answer had its retrieval orphaned from the answer it produced.
+- **The question and answer were not stored anywhere.** They now go to the
+  tier-two store rather than the audit row: both are free text with the same
+  disclosure profile as a retrieved document, so they belong under the same cap,
+  mask and TTL rather than in a second at-rest path with its own rules.
+
+A session that cannot be scored says which of several reasons applies — store
+disabled, no answer recorded, nothing retrieved — because they have different
+fixes and one exception would flatten them into one.
 
 The payoff is the split diagnosis a single score cannot express:
 

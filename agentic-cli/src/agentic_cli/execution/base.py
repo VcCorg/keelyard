@@ -72,6 +72,10 @@ class AskResult:
     # What actually answered. The local engine runs a provider here, so unlike
     # create_session (which only prepares a bundle) there is a real model to name.
     model: Optional[str] = None
+    # Correlation id this answer was produced under. Everything the engine read
+    # on the way is filed against it, which is what makes the answer scorable
+    # afterwards — `keel eval session <trace_id>`.
+    trace_id: str = ""
 
 
 @dataclass

@@ -33,6 +33,10 @@ _RAGAS_METRICS: Dict[str, Dict[str, Any]] = {
     "answerrelevancy": {"attr": "ResponseRelevancy", "needs_reference": False, "needs_contexts": True},
     "responserelevancy": {"attr": "ResponseRelevancy", "needs_reference": False, "needs_contexts": True},
     "contextprecision": {"attr": "LLMContextPrecisionWithReference", "needs_reference": True, "needs_contexts": True},
+    # The reference-free variant, which is what a live session can actually
+    # use: it judges usefulness against the response instead of a ground truth
+    # answer nobody has when the session is real rather than a dataset row.
+    "contextprecisionwithoutreference": {"attr": "LLMContextPrecisionWithoutReference", "needs_reference": False, "needs_contexts": True},
     "contextrecall": {"attr": "LLMContextRecall", "needs_reference": True, "needs_contexts": True},
     "answercorrectness": {"attr": "AnswerCorrectness", "needs_reference": True, "needs_contexts": False},
     "factualcorrectness": {"attr": "FactualCorrectness", "needs_reference": True, "needs_contexts": False},
