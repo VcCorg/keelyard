@@ -41,6 +41,11 @@ _SESSION_SOURCE = "session"
 #: why ContextRecall is absent.
 DEFAULT_METRICS = ("faithfulness", "responserelevancy", "contextprecisionwithoutreference")
 
+#: What the offline framework computes. Deliberately disjoint from the Ragas
+#: names — a lexical overlap score is not a judgement about faithfulness, and a
+#: table that mixed the two under one heading would invite exactly that reading.
+HEURISTIC_METRICS = ("context_utilization", "context_contribution")
+
 
 @dataclass
 class FeedResult:
@@ -151,8 +156,11 @@ def _first(payloads: list, operation: str):
     return None
 
 
-def metrics_for(reference: str = "") -> list[str]:
-    """The metric set a session supports, widened when a reference is supplied."""
+def metrics_for(reference: str = "", framework: str = "ragas") -> list[str]:
+    """The metric set a session supports, for the framework about to score it."""
+    if framework.lower() in ("heuristic", "offline"):
+        # No judge, so a reference buys nothing here.
+        return list(HEURISTIC_METRICS)
     metrics = list(DEFAULT_METRICS)
     if reference:
         # With ground truth the reference-bound metrics become meaningful.
@@ -160,7 +168,30 @@ def metrics_for(reference: str = "") -> list[str]:
     return metrics
 
 
+def resolve_framework(preferred: str = "ragas") -> tuple[str, str]:
+    """Pick a framework that can actually run. Returns ``(name, note)``.
+
+    Falls back to the offline metrics when the judge-backed framework is
+    unavailable, and returns a note saying so. The fallback is never silent:
+    a heuristic reported under a Ragas heading would be read as a judgement it
+    is not.
+    """
+    from agentic_cli.evaluation.frameworks import get_framework
+
+    if preferred.lower() in ("heuristic", "offline"):
+        return "heuristic", ""
+    try:
+        if get_framework(preferred).available():
+            return preferred, ""
+        reason = "its optional dependencies are not installed"
+    except Exception as exc:  # noqa: BLE001 - unavailable, not broken
+        reason = str(exc)
+    return "heuristic", (
+        f"{preferred} unavailable ({reason}); scored with offline heuristics "
+        f"instead. These measure lexical grounding, not faithfulness.")
+
+
 __all__ = [
-    "PROMPT_OP", "RESPONSE_OP", "DEFAULT_METRICS", "FeedResult", "build",
-    "metrics_for",
+    "PROMPT_OP", "RESPONSE_OP", "DEFAULT_METRICS", "HEURISTIC_METRICS",
+    "FeedResult", "build", "metrics_for", "resolve_framework",
 ]

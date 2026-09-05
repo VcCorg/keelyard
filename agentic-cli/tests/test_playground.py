@@ -189,17 +189,79 @@ class TestCompare:
 
 
 class TestScoringDegradation:
-    def test_an_unscorable_variant_keeps_its_answer(self, provider):
-        """No judge degrades the instrument; it does not disable it."""
+    def test_no_judge_now_scores_offline_rather_than_not_at_all(self, provider):
+        """Previously this asserted the variant went unscored. Offline metrics
+        changed that on purpose — an ablation showing nothing moving is a broken
+        instrument — but the fallback still announces itself."""
         _seed()
         variant = playground.replay("s1", exclude=["kg/query"])
         playground.score(variant)
-        assert variant.ran
-        assert not variant.scored
-        assert variant.problems
+        assert variant.ran and variant.scored
+        assert variant.framework == "heuristic"
+        assert any("lexical grounding" in p for p in variant.problems)
 
     def test_scoring_an_unstored_variant_says_so(self, provider):
         _seed()
         variant = playground.replay("s1", store_variant=False)
         playground.score(variant)
         assert any("not stored" in p for p in variant.problems)
+
+
+class TestOfflineScoring:
+    """The playground must produce numbers without a judge, or the pivot beat
+    of the whole demo shows an empty table."""
+
+    def test_variants_score_offline_and_say_which_framework(self, provider):
+        _seed()
+        comparison = playground.compare("s1", ablations=[["kg/query"]])
+        for variant in [comparison.baseline] + comparison.variants:
+            assert variant.scores, variant.problems
+            assert variant.framework == "heuristic"
+
+    def test_deltas_are_produced_without_a_judge(self, provider):
+        _seed()
+        comparison = playground.compare("s1", ablations=[["kg/query"]])
+        [delta] = comparison.deltas()
+        assert delta["delta"]
+
+    def test_removing_an_unused_source_raises_contribution(self, monkeypatch):
+        """The dead-weight finding: context nobody's answer touched.
+
+        Needs a provider that quotes its context — the echo fixture above names
+        the source keys instead, which share no words with the chunk bodies.
+        """
+        class _Quoting:
+            def generate(self, prompt):
+                body = prompt.split("Context:", 1)[-1]
+                setup = [l for l in body.splitlines() if l.startswith("Setup:")]
+                return setup[0] if setup else "no setup instructions were provided"
+
+            def get_name(self):
+                return "quoting/model-1"
+
+        monkeypatch.setattr("agentic_cli.llm.factory.get_llm_provider",
+                            lambda **kw: _Quoting())
+        from agentic_cli.evaluation.frameworks.heuristic import CONTRIBUTION
+
+        _seed()
+        comparison = playground.compare("s1", ablations=[["kg/query"]])
+        base = comparison.baseline.scores[CONTRIBUTION]
+        after = comparison.variants[0].scores[CONTRIBUTION]
+        assert after > base, (base, after)
+
+    def test_a_judge_that_installs_but_cannot_run_falls_back(self, provider, monkeypatch):
+        """A missing credential or a rate limit must not lose the experiment."""
+        from agentic_cli.evaluation.frameworks import ragas_adapter
+
+        monkeypatch.setattr(ragas_adapter.RagasFramework, "available", lambda self: True)
+        monkeypatch.setattr(
+            ragas_adapter.RagasFramework, "evaluate",
+            lambda self, rows, metrics, **kw: (_ for _ in ()).throw(RuntimeError("no credential")))
+
+        _seed()
+        variant = playground.replay("s1", exclude=["kg/query"])
+        playground.score(variant, framework="ragas")
+
+        assert variant.scores
+        assert variant.framework == "heuristic"
+        assert any("fell back" in p for p in variant.problems)

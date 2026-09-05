@@ -212,7 +212,14 @@ class TestAskIntegration:
 class TestCommandWiring:
     """The last mile: the command hands the built row to the framework."""
 
-    def _run(self, monkeypatch, **kwargs):
+    def _run(self, monkeypatch, judge_available=True, **kwargs):
+        """Drive the command with a stub framework.
+
+        ``judge_available`` models the two states the command branches on: a
+        judge that can run, and one that cannot and must fall back. The stub
+        plays both the judge being probed and the framework doing the scoring,
+        so it has to answer the probe honestly or the fallback never triggers.
+        """
         from agentic_cli.commands import eval as eval_cmd
         from agentic_cli.evaluation.frameworks.base import EvalScores
 
@@ -220,6 +227,9 @@ class TestCommandWiring:
 
         class _Framework:
             name = "stub"
+
+            def available(self):
+                return judge_available
 
             def evaluate(self, rows, metrics, **_):
                 seen["rows"] = rows
@@ -254,12 +264,24 @@ class TestCommandWiring:
         seen = self._run(monkeypatch, reference=None, metrics="faithfulness", as_json=False)
         assert seen["metrics"] == ["faithfulness"]
 
-    def test_a_reference_widens_the_metric_set(self, monkeypatch):
+    def test_a_reference_widens_the_metric_set_when_a_judge_is_there(self, monkeypatch):
         monkeypatch.setenv(ps.ENV_BACKEND, "memory")
         ps.reset_store()
         _seed()
         seen = self._run(monkeypatch, reference="ground truth", metrics=None, as_json=False)
         assert "contextrecall" in seen["metrics"]
+
+    def test_a_reference_widens_nothing_without_a_judge(self, monkeypatch):
+        """ContextRecall needs a judge as well as ground truth; the offline
+        metrics cannot compute it, so a reference buys nothing."""
+        from agentic_cli.evaluation.frameworks.heuristic import METRICS
+
+        monkeypatch.setenv(ps.ENV_BACKEND, "memory")
+        ps.reset_store()
+        _seed()
+        seen = self._run(monkeypatch, judge_available=False,
+                         reference="ground truth", metrics=None, as_json=False)
+        assert seen["metrics"] == list(METRICS)
 
     def test_an_unscorable_session_never_reaches_the_framework(self, monkeypatch):
         monkeypatch.setenv(ps.ENV_BACKEND, "memory")

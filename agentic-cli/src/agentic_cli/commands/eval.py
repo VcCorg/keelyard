@@ -1462,12 +1462,15 @@ def eval_session(
             console.print(f"  [yellow]•[/yellow] {problem}")
         raise typer.Exit(1)
 
+    resolved, note = session_feed.resolve_framework(framework)
     names = ([m.strip() for m in metrics.split(",") if m.strip()]
-             if metrics else session_feed.metrics_for(reference or ""))
+             if metrics else session_feed.metrics_for(reference or "", framework=resolved))
 
     console.print(
         f"Scoring [bold]{session}[/bold] over [bold]{feed.contexts}[/bold] "
         f"retrieved context(s) with: {', '.join(names)}")
+    if note:
+        console.print(f"[yellow]⚠ {note}[/yellow]")
     if feed.lossy:
         console.print(
             f"[yellow]⚠ Some context was masked before storage "
@@ -1487,7 +1490,7 @@ def eval_session(
                       "in test mode or without the optional extra.[/dim]")
 
     try:
-        engine = get_framework(framework)
+        engine = get_framework(resolved)
     except Exception as exc:  # noqa: BLE001
         _unavailable(exc)
         raise typer.Exit(1)
@@ -1507,7 +1510,7 @@ def eval_session(
         console.print_json(_json.dumps(payload))
         raise typer.Exit(0)
 
-    table = Table(title=f"Context evaluation — {session}", show_lines=False)
+    table = Table(title=f"Context evaluation — {session} ({resolved})", show_lines=False)
     table.add_column("Metric", no_wrap=True)
     table.add_column("Score", justify="right")
     table.add_column("Reads as", overflow="fold")
@@ -1521,7 +1524,7 @@ def eval_session(
         console.print(f"[yellow]⚠ {error}[/yellow]")
 
     record_activity(command="eval", subcommand="session",
-                    args={"session": session, "metrics": names,
+                    args={"session": session, "metrics": names, "framework": resolved,
                           "contexts": feed.contexts, "lossy": feed.lossy})
 
 
@@ -1532,6 +1535,8 @@ _DIAGNOSIS = {
     "responserelevancy": "low → the answer drifted from the question",
     "contextprecisionwithoutreference": "low → the retriever brought junk (retriever / KG query)",
     "contextrecall": "low → the right source was never retrieved (ingestion coverage)",
+    "context_utilization": "low → the answer is not carried by the retrieved context",
+    "context_contribution": "low → sources were retrieved that the answer never used",
 }
 
 
@@ -1603,12 +1608,15 @@ def eval_playground(
     rows = [comparison.baseline] + comparison.variants if comparison.baseline else comparison.variants
     metric_names = sorted({m for r in rows for m in r.scores})
 
+    # The answer rides under the variant name rather than in its own column:
+    # with two metric columns at 80 characters Rich collapses it to nothing,
+    # and the answer changing is the finding when no judge is configured.
     table = Table(title=f"Context playground — {session}", show_lines=True)
-    table.add_column("Variant", no_wrap=True)
+    table.add_column("Variant", overflow="fold", min_width=30, ratio=1)
     table.add_column("Ctx", justify="right", no_wrap=True)
     for name in metric_names:
-        table.add_column(name[:14], justify="right", no_wrap=True)
-    table.add_column("Answer", overflow="fold")
+        # Strip the shared prefix; the framework note below names the family.
+        table.add_column(name.replace("context_", "")[:13], justify="right", no_wrap=True)
 
     baseline_scores = comparison.baseline.scores if comparison.baseline else {}
     for variant in rows:
@@ -1625,14 +1633,24 @@ def eval_playground(
                 delta = value - base
                 style = "red" if delta < -0.01 else ("green" if delta > 0.01 else "dim")
                 cells.append(f"{value:.2f}\n[{style}]{delta:+.2f}[/{style}]")
-        answer = variant.answer or f"[dim]{escape('; '.join(variant.problems))}[/dim]"
-        table.add_row(variant.label, str(variant.contexts), *cells, answer[:220])
+        answer = variant.answer or "; ".join(variant.problems)
+        label = f"{variant.label}\n[dim]{escape(answer[:180])}[/dim]"
+        table.add_row(label, str(variant.contexts), *cells)
 
     console.print(table)
 
-    if not metric_names:
-        console.print("[dim]No scores — re-run only. Scoring needs Ragas and a judge; "
-                      "the answer column still shows what each source was contributing.[/dim]")
+    frameworks = {v.framework for v in rows if v.framework}
+    if metric_names and frameworks:
+        used = ", ".join(sorted(frameworks))
+        console.print(f"[dim]Scored with: {used}.[/dim]")
+        if "heuristic" in frameworks:
+            console.print(
+                "[yellow]⚠ Offline heuristics — these measure lexical grounding, not "
+                "faithfulness. Utilization falling means the answer stopped being "
+                "carried by the remaining context.[/yellow]")
+    elif not metric_names:
+        console.print("[dim]No scores — re-run only. The answer column still shows "
+                      "what each source was contributing.[/dim]")
 
     record_activity(command="eval", subcommand="playground",
                     args={"session": session, "variants": len(comparison.variants),

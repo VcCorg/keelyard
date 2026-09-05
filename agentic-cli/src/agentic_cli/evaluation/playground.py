@@ -71,6 +71,7 @@ class Variant:
     answer: str = ""
     model: str = ""
     scores: dict[str, float] = field(default_factory=dict)
+    framework: str = ""
     problems: list[str] = field(default_factory=list)
 
     @property
@@ -86,7 +87,8 @@ class Variant:
             "label": self.label, "trace_id": self.trace_id,
             "excluded": list(self.excluded), "contexts": self.contexts,
             "answer": self.answer, "model": self.model,
-            "scores": self.scores, "problems": list(self.problems),
+            "scores": self.scores, "framework": self.framework,
+            "problems": list(self.problems),
             "ran": self.ran, "scored": self.scored,
         }
 
@@ -262,7 +264,13 @@ def _render(payloads: list) -> str:
 
 def score(variant: Variant, metrics: Optional[list[str]] = None,
           framework: str = "ragas") -> Variant:
-    """Score a stored variant in place. Leaves it unscored rather than failing."""
+    """Score a stored variant in place. Leaves it unscored rather than failing.
+
+    Falls back to the offline heuristics when the judge-backed framework is
+    unavailable, and records which one ran — an ablation that shows nothing
+    moving is a broken instrument, and a heuristic presented as a judgement is
+    a dishonest one.
+    """
     from agentic_cli.evaluation import session_feed
     from agentic_cli.evaluation.frameworks import get_framework
 
@@ -275,13 +283,31 @@ def score(variant: Variant, metrics: Optional[list[str]] = None,
         variant.problems.extend(feed.problems)
         return variant
 
-    try:
-        engine = get_framework(framework)
-        result = engine.evaluate([feed.row], metrics or list(session_feed.DEFAULT_METRICS))
-    except Exception as exc:  # noqa: BLE001 - no judge is not a failed experiment
-        variant.problems.append(f"Not scored: {exc}")
-        return variant
+    resolved, note = session_feed.resolve_framework(framework)
+    if note:
+        variant.problems.append(note)
 
+    try:
+        engine = get_framework(resolved)
+        result = engine.evaluate(
+            [feed.row], metrics or session_feed.metrics_for(framework=resolved))
+    except Exception as exc:  # noqa: BLE001 - a judge failing is not a failed experiment
+        if resolved == "heuristic":
+            variant.problems.append(f"Not scored: {exc}")
+            return variant
+        # The judge was installed but could not run — a missing credential, a
+        # rate limit. Salvage the comparison rather than losing the ablation.
+        variant.problems.append(
+            f"{resolved} could not score ({exc}); fell back to offline heuristics.")
+        resolved = "heuristic"
+        try:
+            result = get_framework(resolved).evaluate(
+                [feed.row], session_feed.metrics_for(framework=resolved))
+        except Exception as inner:  # noqa: BLE001
+            variant.problems.append(f"Not scored: {inner}")
+            return variant
+
+    variant.framework = resolved
     variant.scores = {k: float(v) for k, v in (result.aggregate or {}).items()
                       if isinstance(v, (int, float))}
     return variant

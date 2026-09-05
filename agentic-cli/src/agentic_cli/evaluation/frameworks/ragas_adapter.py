@@ -88,6 +88,11 @@ class RagasFramework(EvalFramework):
         self.embedding_model = embedding_model or "text-embedding-005"
         self.max_retries = max(1, max_retries)
 
+    def available(self) -> bool:
+        """True when ragas is importable. Credentials are checked at evaluate
+        time by the provider, and a failure there falls back the same way."""
+        return ragas_available()
+
     def supported_metrics(self) -> List[str]:
         """Return canonical names for all mappable Ragas + aspect metrics."""
         names = set(_RAGAS_METRICS.keys()) | set(_ASPECT_CRITICS.keys())
