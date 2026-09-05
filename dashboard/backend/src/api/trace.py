@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, Query
 
+from src.services import trace_service as svc
 from src.services.trace_service import (
     SessionLedger,
     SessionRef,
@@ -33,3 +34,21 @@ async def api_get_ledger(session_id: str, limit: int = Query(500, ge=1, le=2000)
         return get_ledger(session_id, limit=limit)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+# Context Playground — run a task, toggle a source off, watch the scores move.
+# ---------------------------------------------------------------------------
+
+@router.get("/sessions/{session_id}/playground/sources",
+            response_model=list[svc.PlaygroundSource])
+async def api_playground_sources(session_id: str):
+    """Context slices this session's replay can switch off."""
+    return svc.playground_sources(session_id)
+
+
+@router.post("/sessions/{session_id}/playground",
+             response_model=svc.PlaygroundComparison)
+async def api_playground_run(session_id: str, body: svc.PlaygroundRequest):
+    """Replay the session's question with context removed, and score the result."""
+    return svc.playground_run(session_id, body)

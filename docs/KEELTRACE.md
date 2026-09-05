@@ -146,9 +146,34 @@ The payoff is the split diagnosis a single score cannot express:
 | ContextRecall low | missed the right source | ingestion coverage |
 | Faithfulness low | had it, ignored it | prompt or skill |
 
-**P4 — Context Playground.** One surface: run a task, watch the ledger stream,
-score it, then **toggle a source off and re-run to watch the scores move**.
-Ablation is what makes it an instrument rather than a report.
+**P4 — Context Playground (shipped).**
+`agentic_cli/evaluation/playground.py`, `keel eval playground <session>`, and a
+panel under the ledger on the Context Trace page.
+
+Switch a source off, re-run the same question, watch the scores move. A score
+says a session went badly; only removing a source and re-running says *that
+source was why* — which is the difference between a report and an instrument.
+
+**This is the replay core**, not a one-off surface. Holding the model fixed and
+varying the context is ablation; holding the context fixed and varying the model
+is the model-fit question in the backlog below. Both are `replay()` with a
+different argument, so neither needs its own harness — and a drift replay ("did
+this context change alter past answers?") is the same call again.
+
+Two properties worth keeping:
+
+- **A variant is filed as a session in its own right**, with its own trace id
+  and payloads, so `session_feed` cannot tell it from an original. Scoring a
+  replay through a parallel path would have let the two drift apart.
+- **Re-running and scoring degrade separately.** Replay needs a provider;
+  scoring needs Ragas and a judge. Without a judge the answers still change,
+  which is often the finding — seeing an answer lose a fact when the KG is
+  switched off tells you what the KG was contributing.
+
+One variant per switched-off source rather than one with all of them removed, so
+each source's contribution is attributable on its own. And a metric the baseline
+could not score is omitted from the deltas rather than shown as a drop: "we
+could not measure this before" and "this got worse" must not render the same.
 
 ## Related backlog
 

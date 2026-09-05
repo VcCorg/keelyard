@@ -5,8 +5,9 @@ order, how much came back, and how long each retrieval took. The rows come
 from the same audit trail everything else writes to, keyed by the session's
 correlation id.
 
-Reads only. Nothing here writes to the tracker — the sensors do that, at the
-point of retrieval (see ``agentic_cli.tracing``).
+Reads only, except the Context Playground at the foot of this module: replaying
+a session writes new payloads by design, because a variant has to be a session
+in its own right to be scorable by the same path as the original.
 """
 
 from typing import Optional
@@ -109,4 +110,84 @@ def get_ledger(session_id: str, limit: int = 500) -> SessionLedger:
             for src, v in sorted(summary.get("by_source", {}).items())
         ],
         entries=[_to_read(r) for r in rows],
+    )
+
+
+# ---------------------------------------------------------------------------
+# Context Playground (KeelTrace P4)
+#
+# Delegates to agentic_cli.evaluation.playground so the surface and the CLI
+# cannot disagree about what an ablation is.
+# ---------------------------------------------------------------------------
+
+class PlaygroundSource(BaseModel):
+    key: str
+    source: str
+    operation: str
+    payloads: int = 0
+    bytes: int = 0
+
+
+class PlaygroundVariant(BaseModel):
+    label: str
+    trace_id: str = ""
+    excluded: list[str] = []
+    contexts: int = 0
+    answer: str = ""
+    model: str = ""
+    scores: dict[str, float] = {}
+    problems: list[str] = []
+    ran: bool = False
+    scored: bool = False
+
+
+class PlaygroundRequest(BaseModel):
+    """One experiment: a baseline plus a variant per ablation and per model."""
+
+    ablations: list[list[str]] = []
+    models: list[str] = []
+    metrics: list[str] = []
+    score: bool = True
+
+
+class PlaygroundComparison(BaseModel):
+    session_id: str
+    baseline: Optional[PlaygroundVariant] = None
+    variants: list[PlaygroundVariant] = []
+    deltas: list[dict] = []
+    store_enabled: bool = True
+
+
+def playground_sources(session_id: str) -> list[PlaygroundSource]:
+    """Context slices a replay can switch off."""
+    from agentic_cli.evaluation import playground
+
+    return [PlaygroundSource(**s.to_dict()) for s in playground.list_sources(session_id)]
+
+
+def playground_run(session_id: str, request: PlaygroundRequest) -> PlaygroundComparison:
+    """Run the experiment. Never raises for a missing judge or provider.
+
+    A replay that ran but could not be scored is still the useful half of the
+    instrument — the answer changing is often enough to see what a source was
+    contributing — so failures land on the variant rather than on the response.
+    """
+    from agentic_cli import payload_store
+    from agentic_cli.evaluation import playground
+
+    store_enabled = not isinstance(payload_store.get_store(), payload_store.NullStore)
+    comparison = playground.compare(
+        session_id,
+        ablations=request.ablations or None,
+        models=request.models or None,
+        metrics=request.metrics or None,
+        do_score=request.score,
+    )
+    data = comparison.to_dict()
+    return PlaygroundComparison(
+        session_id=session_id,
+        baseline=PlaygroundVariant(**data["baseline"]) if data["baseline"] else None,
+        variants=[PlaygroundVariant(**v) for v in data["variants"]],
+        deltas=data["deltas"],
+        store_enabled=store_enabled,
     )

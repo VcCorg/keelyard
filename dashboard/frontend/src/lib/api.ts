@@ -764,6 +764,37 @@ export interface DocInfo {
 
 /* ---- Domain onboarding: classify → extract → review → finalize → score ---- */
 
+/* ---- Context Playground (KeelTrace P4) ---- */
+
+export interface PlaygroundSource {
+  key: string;
+  source: string;
+  operation: string;
+  payloads: number;
+  bytes: number;
+}
+
+export interface PlaygroundVariant {
+  label: string;
+  trace_id: string;
+  excluded: string[];
+  contexts: number;
+  answer: string;
+  model: string;
+  scores: Record<string, number>;
+  problems: string[];
+  ran: boolean;
+  scored: boolean;
+}
+
+export interface PlaygroundComparison {
+  session_id: string;
+  baseline: PlaygroundVariant | null;
+  variants: PlaygroundVariant[];
+  deltas: { label: string; excluded: string[]; delta: Record<string, number> }[];
+  store_enabled: boolean;
+}
+
 export interface DocClassification {
   source_page_id: string;
   title?: string;
@@ -1987,6 +2018,27 @@ class APIClient {
   }
 
   /* ---- Domain onboarding readiness ---- */
+
+  /* ---- Context Playground ---- */
+
+  async listPlaygroundSources(sessionId: string): Promise<PlaygroundSource[]> {
+    return this.request(`/trace/sessions/${encodeURIComponent(sessionId)}/playground/sources`);
+  }
+
+  async runPlayground(
+    sessionId: string,
+    body: { ablations?: string[][]; models?: string[]; metrics?: string[]; score?: boolean }
+  ): Promise<PlaygroundComparison> {
+    return this.request(`/trace/sessions/${encodeURIComponent(sessionId)}/playground`, {
+      method: "POST",
+      body: JSON.stringify({
+        ablations: body.ablations ?? [],
+        models: body.models ?? [],
+        metrics: body.metrics ?? [],
+        score: body.score ?? true,
+      }),
+    });
+  }
 
   async listClassifiedDocs(slug: string): Promise<DocClassification[]> {
     return this.request(`/domains/${slug}/onboarding/docs`);

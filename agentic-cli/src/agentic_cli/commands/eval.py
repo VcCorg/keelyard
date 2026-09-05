@@ -1533,3 +1533,107 @@ _DIAGNOSIS = {
     "contextprecisionwithoutreference": "low → the retriever brought junk (retriever / KG query)",
     "contextrecall": "low → the right source was never retrieved (ingestion coverage)",
 }
+
+
+@eval_app.command("playground")
+def eval_playground(
+    session: Annotated[str, typer.Argument(help="Session to replay (see `keel context trace`)")],
+    without: Annotated[Optional[list[str]], typer.Option("--without", help="Source key to switch off, e.g. kg/query. Repeatable — one variant each.")] = None,
+    model: Annotated[Optional[list[str]], typer.Option("--model", help="Also replay with this model, context unchanged. Repeatable.")] = None,
+    metrics: Annotated[Optional[str], typer.Option("--metrics", help="Comma-separated metrics (default: the reference-free set)")] = None,
+    no_score: Annotated[bool, typer.Option("--no-score", help="Re-run without scoring — shows the answer change only")] = False,
+    sources: Annotated[bool, typer.Option("--sources", help="List what can be switched off, and stop")] = False,
+    as_json: Annotated[bool, typer.Option("--json", help="Emit the comparison as JSON")] = False,
+) -> None:
+    """Re-run a session's question against a different context, and watch it move.
+
+    A score tells you a session went badly; removing a source and re-running
+    tells you that source was why. Ablation is what makes the ledger an
+    instrument rather than a report.
+
+    Scoring needs a judge, re-running only needs a provider — so without Ragas
+    this still shows the answer changing, which is often enough to see what a
+    source was contributing.
+    """
+    import json as _json
+
+    from rich.markup import escape
+
+    from agentic_cli.evaluation import playground
+
+    available = playground.list_sources(session)
+    if not available:
+        console.print(f"[yellow]No stored context for session [bold]{session}[/bold].[/yellow]")
+        console.print("[dim]Enable KEEL_PAYLOAD_STORE before the session runs, or the "
+                      "payloads may have expired.[/dim]")
+        raise typer.Exit(1)
+
+    if sources:
+        table = Table(title=f"Ablatable sources — {session}", show_lines=False)
+        table.add_column("Key", no_wrap=True)
+        table.add_column("Payloads", justify="right")
+        table.add_column("Bytes", justify="right")
+        for src in available:
+            table.add_row(src.key, str(src.payloads), str(src.bytes))
+        console.print(table)
+        console.print(f"[dim]Switch one off: {CLI_NAME} eval playground {session} "
+                      f"--without {available[0].key}[/dim]")
+        raise typer.Exit(0)
+
+    known = {s.key for s in available}
+    unknown = [w for w in (without or []) if w not in known]
+    if unknown:
+        console.print(f"[red]✗ Unknown source(s): {', '.join(unknown)}[/red]")
+        console.print(f"[dim]Available: {', '.join(sorted(known))}[/dim]")
+        raise typer.Exit(1)
+
+    names = [m.strip() for m in metrics.split(",") if m.strip()] if metrics else None
+    comparison = playground.compare(
+        session,
+        ablations=[[w] for w in (without or [])],
+        models=list(model or []),
+        metrics=names,
+        do_score=not no_score,
+    )
+
+    if as_json:
+        console.print_json(_json.dumps(comparison.to_dict()))
+        raise typer.Exit(0)
+
+    rows = [comparison.baseline] + comparison.variants if comparison.baseline else comparison.variants
+    metric_names = sorted({m for r in rows for m in r.scores})
+
+    table = Table(title=f"Context playground — {session}", show_lines=True)
+    table.add_column("Variant", no_wrap=True)
+    table.add_column("Ctx", justify="right", no_wrap=True)
+    for name in metric_names:
+        table.add_column(name[:14], justify="right", no_wrap=True)
+    table.add_column("Answer", overflow="fold")
+
+    baseline_scores = comparison.baseline.scores if comparison.baseline else {}
+    for variant in rows:
+        cells = []
+        for name in metric_names:
+            value = variant.scores.get(name)
+            if value is None:
+                cells.append("[dim]—[/dim]")
+                continue
+            base = baseline_scores.get(name)
+            if variant is comparison.baseline or base is None:
+                cells.append(f"{value:.2f}")
+            else:
+                delta = value - base
+                style = "red" if delta < -0.01 else ("green" if delta > 0.01 else "dim")
+                cells.append(f"{value:.2f}\n[{style}]{delta:+.2f}[/{style}]")
+        answer = variant.answer or f"[dim]{escape('; '.join(variant.problems))}[/dim]"
+        table.add_row(variant.label, str(variant.contexts), *cells, answer[:220])
+
+    console.print(table)
+
+    if not metric_names:
+        console.print("[dim]No scores — re-run only. Scoring needs Ragas and a judge; "
+                      "the answer column still shows what each source was contributing.[/dim]")
+
+    record_activity(command="eval", subcommand="playground",
+                    args={"session": session, "variants": len(comparison.variants),
+                          "scored": bool(metric_names)})
