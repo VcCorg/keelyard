@@ -45,3 +45,4 @@ __all__ = [
 # Preload built-in adapters so callers see them via list_triggers() without
 # an explicit import.
 from .triggers import bitbucket_pr  # noqa: F401,E402
+from .triggers import drift  # noqa: F401,E402

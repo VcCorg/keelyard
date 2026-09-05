@@ -30,6 +30,12 @@ class ExecutionSpec:
     engine_options: Dict[str, Any] = field(default_factory=dict)
     idempotent: bool = False
     dry_run: bool = False
+    # Model the caller asked for. None means "engine's choice" — most callers
+    # do not pin one. What actually ran is reported back on ExecutionResult,
+    # and the two are recorded separately: a requested model can be ignored,
+    # substituted, or fall back, and a comparison built on the request rather
+    # than the answer would be measuring the wrong thing.
+    model: Optional[str] = None
 
 
 @dataclass
@@ -42,6 +48,10 @@ class ExecutionResult:
     reused: bool = False          # engine reused an existing session (idempotent hit)
     dry_run: bool = False
     raw: Dict[str, Any] = field(default_factory=dict)
+    # What the engine actually ran, when it can say. Empty is honest for an
+    # engine that chooses server-side and does not report back (a hosted agent,
+    # an IDE handoff); it must not be filled in with the request as a guess.
+    model: Optional[str] = None
 
 
 @dataclass
@@ -59,6 +69,13 @@ class AskResult:
     session_id: Optional[str] = None
     url: Optional[str] = None
     raw: Dict[str, Any] = field(default_factory=dict)
+    # What actually answered. The local engine runs a provider here, so unlike
+    # create_session (which only prepares a bundle) there is a real model to name.
+    model: Optional[str] = None
+    # Correlation id this answer was produced under. Everything the engine read
+    # on the way is filed against it, which is what makes the answer scorable
+    # afterwards — `keel eval session <trace_id>`.
+    trace_id: str = ""
 
 
 @dataclass

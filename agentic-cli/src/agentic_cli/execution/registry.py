@@ -84,6 +84,15 @@ def create_session(spec: ExecutionSpec, engine: Optional[str] = None, *,
             "url": result.url,
             "trace_id": trace_id,
         }
+        # The engine was always recorded; the model never was, so there was
+        # nothing to group a "which model did better on this context?" question
+        # by. Requested and served are kept apart deliberately — a request can
+        # be ignored, substituted, or fall back mid-session, and attributing a
+        # result to the request would silently measure the wrong thing.
+        if spec.model:
+            details["model_requested"] = spec.model
+        if result.model:
+            details["model_served"] = result.model
         if policy.tagged:
             details.update(policy.audit_details())
         record_action(
@@ -117,16 +126,51 @@ def ask(spec: ExecutionSpec, engine: Optional[str] = None, *,
             engine=eng.name, authoritative=False,
             answer=f"The '{eng.name}' engine can't answer questions directly — "
                    "open it and ask there.")
-    result: AskResult = fn(spec)
+    # Bind a trace id before the engine runs, exactly as create_session does.
+    # Without this an ask's retrieval was orphaned: the reads happened, and
+    # nothing tied them to the answer they produced, so the one flow that has
+    # both a question and an answer could never be scored.
+    from agentic_cli import tracing
+    from agentic_cli.tracker import new_correlation_id
+
+    trace_id = new_correlation_id()
+    token = tracing.set_session_id(trace_id)
+    try:
+        result: AskResult = fn(spec)
+    finally:
+        tracing.reset_session_id(token)
+    result.trace_id = trace_id
+
+    # The question and the answer go to the tier-two store, not the audit row.
+    # Both are free text with the same disclosure profile as a retrieved
+    # document, so they belong under the same cap, mask and TTL rather than in
+    # a second at-rest path with its own rules. With the store off, nothing is
+    # written and the session simply is not scorable — which is honest: you
+    # cannot evaluate against context you chose not to keep.
+    try:
+        from agentic_cli import payload_store
+
+        store = payload_store.get_store()
+        store.put(spec.prompt, session_id=trace_id, source="session",
+                  operation="prompt", entity_id=spec.jira or "")
+        store.put(result.answer, session_id=trace_id, source="session",
+                  operation="response", entity_id=spec.jira or "")
+    except Exception:  # noqa: BLE001 - never break an answer over telemetry
+        pass
+
     try:
         from agentic_cli.tracker import record_action
 
         record_action(
             "execution", "ask",
             entity_type="session", entity_id=result.session_id or spec.jira or "",
+            correlation_id=trace_id,
             source=source, actor=actor,
             details={"engine": eng.name, "domain": spec.domain,
-                     "authoritative": result.authoritative},
+                     "authoritative": result.authoritative,
+                     "trace_id": trace_id,
+                     **({"model_requested": spec.model} if spec.model else {}),
+                     **({"model_served": result.model} if result.model else {})},
         )
     except Exception:  # noqa: BLE001 - never break on audit
         pass

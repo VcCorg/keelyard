@@ -19,7 +19,7 @@ from typing import Any, Optional
 DB_DIR = Path.home() / ".agent-cli-agentic"
 DB_PATH = DB_DIR / "tracker.db"
 
-_SCHEMA_VERSION = 13
+_SCHEMA_VERSION = 14
 
 _SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -133,6 +133,10 @@ CREATE TABLE IF NOT EXISTS domain_docs (
     managed_page_id   TEXT,                 -- page ID in managed space (after republish)
     source_version    INTEGER DEFAULT 0,    -- version at time of last sync
     synced_at         TEXT,
+    doc_type          TEXT,                 -- onboarding | runbook | adr | ...
+    doc_type_confidence REAL DEFAULT 0,     -- low confidence escalates to a reviewer
+    live_version      INTEGER DEFAULT 0,    -- version upstream at last check (0 = unchecked)
+    checked_at        TEXT,
     UNIQUE(domain_id, source_page_id)
 );
 
@@ -284,6 +288,25 @@ ALTER TABLE activity_log ADD COLUMN actor TEXT;
 CREATE INDEX IF NOT EXISTS idx_activity_actor ON activity_log(actor);
 """
 
+_MIGRATION_V14 = """
+-- v14: type and freshness for tracked domain docs.
+--
+-- Docs were an undifferentiated bag: an onboarding runbook and a meeting note
+-- produced identical concept refs, so nothing downstream could weight them.
+-- doc_type carries the verdict from agentic_cli.onboarding.classify, and its
+-- confidence, so a low-confidence call can be escalated to a reviewer.
+--
+-- live_version is the freshness half. source_version was already recorded at
+-- sync time and never compared against anything; storing the last observed
+-- upstream version beside it makes "this doc moved since we read it" a query
+-- rather than a round-trip.
+ALTER TABLE domain_docs ADD COLUMN doc_type TEXT;
+ALTER TABLE domain_docs ADD COLUMN doc_type_confidence REAL DEFAULT 0;
+ALTER TABLE domain_docs ADD COLUMN live_version INTEGER DEFAULT 0;
+ALTER TABLE domain_docs ADD COLUMN checked_at TEXT;
+CREATE INDEX IF NOT EXISTS idx_domain_docs_type ON domain_docs(doc_type);
+"""
+
 
 def _ensure_db() -> Path:
     """Create the database and schema if they don't exist. Run migrations."""
@@ -350,6 +373,10 @@ def _ensure_db() -> Path:
                 conn.executescript(_MIGRATION_V13)
                 conn.execute("UPDATE schema_version SET version = 13")
                 current_version = 13
+            if current_version < 14:
+                conn.executescript(_MIGRATION_V14)
+                conn.execute("UPDATE schema_version SET version = 14")
+                current_version = 14
         conn.commit()
     finally:
         conn.close()
@@ -1186,8 +1213,14 @@ def add_domain_doc(
     title: str = None,
     managed_page_id: str = None,
     source_version: int = 0,
+    doc_type: str = None,
+    doc_type_confidence: float = 0.0,
 ) -> bool:
-    """Track a Confluence doc source for a domain."""
+    """Track a Confluence doc source for a domain.
+
+    ``doc_type`` is left alone on update when not supplied, so re-syncing a doc
+    never silently discards a classification a reviewer corrected by hand.
+    """
     with _get_conn() as conn:
         dom = conn.execute("SELECT id FROM domains WHERE name = ?", (domain_name,)).fetchone()
         if not dom:
@@ -1196,10 +1229,12 @@ def add_domain_doc(
             conn.execute(
                 """INSERT INTO domain_docs
                    (domain_id, source_page_id, source_space_key, title,
-                    managed_page_id, source_version, synced_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                    managed_page_id, source_version, synced_at,
+                    doc_type, doc_type_confidence)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (dom["id"], source_page_id, source_space_key, title,
-                 managed_page_id, source_version, _now_iso()),
+                 managed_page_id, source_version, _now_iso(),
+                 doc_type, doc_type_confidence),
             )
             return True
         except sqlite3.IntegrityError:
@@ -1207,10 +1242,14 @@ def add_domain_doc(
             conn.execute(
                 """UPDATE domain_docs SET
                        source_space_key=?, title=?, managed_page_id=?,
-                       source_version=?, synced_at=?
+                       source_version=?, synced_at=?,
+                       doc_type=COALESCE(?, doc_type),
+                       doc_type_confidence=COALESCE(?, doc_type_confidence)
                    WHERE domain_id=? AND source_page_id=?""",
                 (source_space_key, title, managed_page_id,
-                 source_version, _now_iso(), dom["id"], source_page_id),
+                 source_version, _now_iso(),
+                 doc_type, doc_type_confidence or None,
+                 dom["id"], source_page_id),
             )
             return True
 
@@ -1226,6 +1265,54 @@ def get_domain_docs(domain_name: str) -> list[dict]:
             (dom["id"],),
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def set_domain_doc_type(
+    domain_name: str, source_page_id: str, doc_type: str, confidence: float = 1.0
+) -> bool:
+    """Record what a tracked doc is for. A reviewer's correction lands here."""
+    with _get_conn() as conn:
+        dom = conn.execute("SELECT id FROM domains WHERE name = ?", (domain_name,)).fetchone()
+        if not dom:
+            return False
+        cur = conn.execute(
+            """UPDATE domain_docs SET doc_type=?, doc_type_confidence=?
+               WHERE domain_id=? AND source_page_id=?""",
+            (doc_type, confidence, dom["id"], source_page_id),
+        )
+        return cur.rowcount > 0
+
+
+def set_domain_doc_live_version(
+    domain_name: str, source_page_id: str, live_version: int
+) -> bool:
+    """Record the version a doc currently has upstream.
+
+    Compared against ``source_version`` — what it had when we last read it — this
+    is the doc half of drift. See :func:`stale_domain_docs`.
+    """
+    with _get_conn() as conn:
+        dom = conn.execute("SELECT id FROM domains WHERE name = ?", (domain_name,)).fetchone()
+        if not dom:
+            return False
+        cur = conn.execute(
+            """UPDATE domain_docs SET live_version=?, checked_at=?
+               WHERE domain_id=? AND source_page_id=?""",
+            (live_version, _now_iso(), dom["id"], source_page_id),
+        )
+        return cur.rowcount > 0
+
+
+def stale_domain_docs(domain_name: str) -> list[dict]:
+    """Tracked docs whose upstream version has moved past what we read.
+
+    Only docs actually checked (``live_version > 0``) can be stale; an unchecked
+    doc is unknown, not fresh, and must not be counted as either.
+    """
+    return [
+        d for d in get_domain_docs(domain_name)
+        if (d.get("live_version") or 0) > (d.get("source_version") or 0)
+    ]
 
 
 def remove_domain_doc(domain_name: str, source_page_id: str) -> bool:

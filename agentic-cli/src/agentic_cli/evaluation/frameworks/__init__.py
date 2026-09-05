@@ -15,7 +15,7 @@ from agentic_cli.evaluation.frameworks.base import (
 from agentic_cli.evaluation.frameworks.builtin import BuiltinFramework
 
 #: Frameworks that are always available (no optional dependencies).
-_BUILTIN_FRAMEWORKS = {"builtin"}
+_BUILTIN_FRAMEWORKS = {"builtin", "heuristic"}
 
 #: Frameworks that require optional dependencies (loaded lazily).
 _OPTIONAL_FRAMEWORKS = {"ragas"}
@@ -47,6 +47,11 @@ def get_framework(name: str, **kwargs) -> EvalFramework:
         judge_type = kwargs.get("judge_type", "none")
         custom_metrics = kwargs.get("custom_metrics")
         return BuiltinFramework(judge_type=judge_type, custom_metrics=custom_metrics)
+
+    if key in ("heuristic", "offline"):
+        from agentic_cli.evaluation.frameworks.heuristic import HeuristicFramework
+
+        return HeuristicFramework()
 
     if key == "ragas":
         try:

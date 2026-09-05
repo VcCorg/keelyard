@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { ContextPlayground } from "@/components/ContextPlayground";
 import { useSearchParams } from "react-router-dom";
 import { Radio, AlertTriangle, Database, Server, Search as SearchIcon } from "lucide-react";
 import { api, type SessionLedger, type TraceSessionRef, type ContextRead } from "@/lib/api";
@@ -258,6 +259,12 @@ export function ContextTrace() {
                   </table>
                 </div>
               )}
+
+              {/* The ablation surface. Placed under the ledger on purpose: you
+                  read what a session used, then ask what happens without it. */}
+              <div className="border-t border-gray-200 dark:border-gray-800">
+                <ContextPlayground sessionId={ledger.session_id} />
+              </div>
             </>
           )}
         </div>

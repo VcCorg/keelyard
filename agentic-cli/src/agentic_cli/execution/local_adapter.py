@@ -53,7 +53,7 @@ class LocalContextEngine:
                                "provided context. Be concise; ground your answer in the context.")
         answer = provider.generate(f"Question: {spec.prompt}\n\nContext:\n{context_md}")
         name = provider.get_name()
-        return AskResult(engine=self.name, answer=answer,
+        return AskResult(engine=self.name, answer=answer, model=name,
                          authoritative=not name.startswith("test-mode"),
                          raw={"provider": name, "item_count": len(items)})
 

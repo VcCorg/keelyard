@@ -33,6 +33,10 @@ _RAGAS_METRICS: Dict[str, Dict[str, Any]] = {
     "answerrelevancy": {"attr": "ResponseRelevancy", "needs_reference": False, "needs_contexts": True},
     "responserelevancy": {"attr": "ResponseRelevancy", "needs_reference": False, "needs_contexts": True},
     "contextprecision": {"attr": "LLMContextPrecisionWithReference", "needs_reference": True, "needs_contexts": True},
+    # The reference-free variant, which is what a live session can actually
+    # use: it judges usefulness against the response instead of a ground truth
+    # answer nobody has when the session is real rather than a dataset row.
+    "contextprecisionwithoutreference": {"attr": "LLMContextPrecisionWithoutReference", "needs_reference": False, "needs_contexts": True},
     "contextrecall": {"attr": "LLMContextRecall", "needs_reference": True, "needs_contexts": True},
     "answercorrectness": {"attr": "AnswerCorrectness", "needs_reference": True, "needs_contexts": False},
     "factualcorrectness": {"attr": "FactualCorrectness", "needs_reference": True, "needs_contexts": False},
@@ -83,6 +87,11 @@ class RagasFramework(EvalFramework):
         self.llm_model = llm_model or "gemini-2.5-flash"
         self.embedding_model = embedding_model or "text-embedding-005"
         self.max_retries = max(1, max_retries)
+
+    def available(self) -> bool:
+        """True when ragas is importable. Credentials are checked at evaluate
+        time by the provider, and a failure there falls back the same way."""
+        return ragas_available()
 
     def supported_metrics(self) -> List[str]:
         """Return canonical names for all mappable Ragas + aspect metrics."""

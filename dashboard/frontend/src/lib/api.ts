@@ -762,6 +762,136 @@ export interface DocInfo {
   source_version: number;
 }
 
+/* ---- Domain onboarding: classify → extract → review → finalize → score ---- */
+
+/* ---- Context Playground (KeelTrace P4) ---- */
+
+export interface PlaygroundSource {
+  key: string;
+  source: string;
+  operation: string;
+  payloads: number;
+  bytes: number;
+}
+
+export interface PlaygroundVariant {
+  label: string;
+  trace_id: string;
+  excluded: string[];
+  contexts: number;
+  answer: string;
+  model: string;
+  scores: Record<string, number>;
+  problems: string[];
+  ran: boolean;
+  scored: boolean;
+}
+
+export interface PlaygroundComparison {
+  session_id: string;
+  baseline: PlaygroundVariant | null;
+  variants: PlaygroundVariant[];
+  deltas: { label: string; excluded: string[]; delta: Record<string, number> }[];
+  store_enabled: boolean;
+}
+
+export interface DocClassification {
+  source_page_id: string;
+  title?: string;
+  doc_type: string;
+  confidence: number;
+  operational: boolean;
+  stale: boolean;
+  source_version: number;
+  live_version: number;
+}
+
+/** A held entry carries risk kinds and never text — see the extraction contract. */
+export interface ReviewEntry {
+  id: string;
+  kind: string;
+  status: "unreviewed" | "accepted" | "rejected" | "stale";
+  citation: string;
+  confidence: number;
+  text: string;
+  proposed_text: string;
+  risks: string[];
+  reason: string;
+  held: boolean;
+  pending: boolean;
+  source_absent: boolean;
+}
+
+export interface ReviewProposal {
+  domain: string;
+  generated_at: string;
+  exists: boolean;
+  counts: Record<string, number>;
+  entries: ReviewEntry[];
+}
+
+export interface VerdictResult {
+  changed: number;
+  counts: Record<string, number>;
+}
+
+export interface ReadinessDimension {
+  key: string;
+  label: string;
+  question: string;
+  status: "ok" | "warn" | "fail" | "skipped";
+  score: number | null;
+  detail: string;
+  fix: string;
+}
+
+export interface ReadinessCard {
+  schema: string;
+  domain: string;
+  generated_at: string;
+  overall: number | null;
+  grade: string;
+  ready: boolean;
+  counts: Record<string, number>;
+  dimensions: ReadinessDimension[];
+}
+
+export interface DriftSignal {
+  key: string;
+  label: string;
+  count: number;
+  total: number;
+  severity: "ok" | "warn" | "fail";
+  detail: string;
+  fix: string;
+}
+
+export interface KnowledgeNode {
+  id: string;
+  label: string;
+  group: "source" | "kind" | "artifact";
+  scheme: string;
+  count: number;
+  reviewed: boolean;
+  stale: boolean;
+  held: number;
+  pending: number;
+}
+
+export interface KnowledgeFlow {
+  source: string;
+  target: string;
+  count: number;
+  stale: boolean;
+}
+
+export interface KnowledgeMap {
+  domain: string;
+  nodes: KnowledgeNode[];
+  flows: KnowledgeFlow[];
+  totals: Record<string, number>;
+}
+
 export interface DomainInfo {
   name: string;
   product: string;
@@ -1885,6 +2015,70 @@ class APIClient {
     q.append("graphify", String(opts?.graphify ?? false));
     if (opts?.editor) q.append("editor", opts.editor);
     return this.streamUrl(`/workspaces/open/stream?${q.toString()}`);
+  }
+
+  /* ---- Domain onboarding readiness ---- */
+
+  /* ---- Context Playground ---- */
+
+  async listPlaygroundSources(sessionId: string): Promise<PlaygroundSource[]> {
+    return this.request(`/trace/sessions/${encodeURIComponent(sessionId)}/playground/sources`);
+  }
+
+  async runPlayground(
+    sessionId: string,
+    body: { ablations?: string[][]; models?: string[]; metrics?: string[]; score?: boolean }
+  ): Promise<PlaygroundComparison> {
+    return this.request(`/trace/sessions/${encodeURIComponent(sessionId)}/playground`, {
+      method: "POST",
+      body: JSON.stringify({
+        ablations: body.ablations ?? [],
+        models: body.models ?? [],
+        metrics: body.metrics ?? [],
+        score: body.score ?? true,
+      }),
+    });
+  }
+
+  async listClassifiedDocs(slug: string): Promise<DocClassification[]> {
+    return this.request(`/domains/${slug}/onboarding/docs`);
+  }
+
+  async setDocType(
+    slug: string,
+    pageId: string,
+    docType: string
+  ): Promise<{ ok: boolean; message?: string }> {
+    return this.request(`/domains/${slug}/onboarding/docs/${pageId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ doc_type: docType }),
+    });
+  }
+
+  async getReviewProposal(slug: string): Promise<ReviewProposal> {
+    return this.request(`/domains/${slug}/onboarding/proposal`);
+  }
+
+  async recordVerdicts(
+    slug: string,
+    body: { accept?: string[]; reject?: string[] }
+  ): Promise<VerdictResult> {
+    return this.request(`/domains/${slug}/onboarding/verdicts`, {
+      method: "POST",
+      body: JSON.stringify({ accept: body.accept ?? [], reject: body.reject ?? [] }),
+    });
+  }
+
+  async getReadiness(slug: string): Promise<ReadinessCard> {
+    return this.request(`/domains/${slug}/readiness`);
+  }
+
+  async getDomainDrift(slug: string): Promise<DriftSignal[]> {
+    return this.request(`/domains/${slug}/drift`);
+  }
+
+  async getKnowledgeMap(slug: string): Promise<KnowledgeMap> {
+    return this.request(`/domains/${slug}/knowledge-map`);
   }
 
   async getDomain(slug: string): Promise<DomainDetail> {

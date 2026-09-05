@@ -16,6 +16,7 @@ from agentic_cli.commands.agent import agent_app
 from agentic_cli.commands.skill import skill_app
 from agentic_cli.commands.code import code_app
 from agentic_cli.commands.domain import domain_app
+from agentic_cli.commands.governance import governance_app
 from agentic_cli.commands.product import product_app
 from agentic_cli.commands.workspace import workspace_app
 from agentic_cli.commands.history import history_app
@@ -65,6 +66,7 @@ app.add_typer(devin_app, name="devin")
 app.add_typer(retriever_app, name="retriever")
 app.add_typer(execution_app, name="execution")
 app.add_typer(context_app, name="context")
+app.add_typer(governance_app, name="governance")
 app.add_typer(auth_app, name="auth")
 app.add_typer(admin_app, name="admin")
 app.add_typer(glean_app, name="glean")

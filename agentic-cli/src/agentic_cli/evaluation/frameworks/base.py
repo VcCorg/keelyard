@@ -69,6 +69,15 @@ class EvalFramework(ABC):
     #: Short, unique framework name (e.g. "builtin", "ragas").
     name: str = "base"
 
+    def available(self) -> bool:
+        """True when this framework can actually score right now.
+
+        Distinct from constructing it. Optional frameworks import their heavy
+        dependencies lazily, so the constructor succeeds and only ``evaluate``
+        fails — which is too late for a caller deciding whether to fall back.
+        """
+        return True
+
     @abstractmethod
     def supported_metrics(self) -> List[str]:
         """Return the list of metric names this framework can compute."""

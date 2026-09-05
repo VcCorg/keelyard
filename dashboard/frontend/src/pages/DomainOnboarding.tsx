@@ -15,6 +15,8 @@ import {
   Package,
   ShieldCheck,
   AlertTriangle,
+  ClipboardCheck,
+  Gauge,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +33,8 @@ import {
   type ScaffoldPaths,
 } from "@/lib/api";
 import { PersonaSkillsPanel } from "@/components/PersonaSkillsPanel";
+import { DomainReviewPanel } from "@/components/DomainReviewPanel";
+import { DomainReadinessPanel } from "@/components/DomainReadinessPanel";
 import { OpenInIdeButton } from "@/components/OpenInIdeButton";
 import { cn } from "@/lib/utils";
 
@@ -154,6 +158,11 @@ const STEPS = [
   { key: "docs", label: "Docs", icon: FileText },
   { key: "skills", label: "Skills", icon: Sparkles },
   { key: "scaffold", label: "Scaffold", icon: FolderGit2 },
+  // Review and Readiness come last because both read the meta-repo the
+  // scaffold step creates: extraction writes its proposal there, and the
+  // score is over what review put into .domain/.
+  { key: "review", label: "Review", icon: ClipboardCheck },
+  { key: "readiness", label: "Readiness", icon: Gauge },
 ] as const;
 
 type StepKey = (typeof STEPS)[number]["key"];
@@ -291,6 +300,15 @@ export function DomainOnboarding() {
       {step === "scaffold" && active && (
         <ScaffoldStep slug={active.name} product={active.product} />
       )}
+
+      {step === "review" && active && (
+        <DomainReviewPanel
+          slug={active.name}
+          onFinalized={() => setStep("readiness")}
+        />
+      )}
+
+      {step === "readiness" && active && <DomainReadinessPanel slug={active.name} />}
     </div>
   );
 }

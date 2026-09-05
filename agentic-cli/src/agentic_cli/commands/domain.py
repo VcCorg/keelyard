@@ -45,6 +45,7 @@ from agentic_cli.tracker import (
     register_workspace,
 )
 from agentic_cli import persona_workspace as pw
+from agentic_cli.commands.domain_onboarding import register as register_onboarding
 from agentic_cli.commands.domain_template import template_app
 from agentic_cli.meta_repo.detector import detect_domain_meta_repo
 from agentic_cli.skill_generator import (
@@ -62,6 +63,11 @@ domain_app = typer.Typer(
 # `domain template ...` — track a generated meta-repo against the template that
 # produced it (drift detection today; upgrade/promote build on it).
 domain_app.add_typer(template_app, name="template")
+
+# `domain classify-docs | extract | review | finalize | score` — the onboarding
+# review loop. Flat commands rather than a sub-app: they are steps in the same
+# sequence as add-docs and init, not a separate noun.
+register_onboarding(domain_app)
 
 console = Console()
 

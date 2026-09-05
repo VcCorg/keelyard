@@ -1430,3 +1430,228 @@ def list_custom_metrics() -> None:
         preview = (m.prompt[:50] + "…") if len(m.prompt) > 50 else m.prompt
         table.add_row(m.name, f"{m.scale_min:g}-{m.scale_max:g}", m.description or "—", preview)
     console.print(table)
+
+
+@eval_app.command("session")
+def eval_session(
+    session: Annotated[str, typer.Argument(help="Session / correlation id (see `keel context trace`)")],
+    reference: Annotated[Optional[str], typer.Option("--reference", help="Ground-truth answer, if you have one — unlocks ContextRecall")] = None,
+    metrics: Annotated[Optional[str], typer.Option("--metrics", help="Comma-separated metric names (default: the reference-free set)")] = None,
+    framework: Annotated[str, typer.Option("--framework", help="Evaluation framework")] = "ragas",
+    as_json: Annotated[bool, typer.Option("--json", help="Emit scores as JSON")] = False,
+) -> None:
+    """Score a real session against the context it actually retrieved.
+
+    This is the eval feed: ``EvalRow.retrieved_contexts`` is built from the
+    tier-two payload store, so metrics that need retrieved context finally have
+    some. Until now they scored against an empty list.
+
+    Reads the split diagnosis a single number cannot express — low precision
+    means the retriever brought junk, low faithfulness means the agent had the
+    context and ignored it.
+    """
+    import json as _json
+
+    from agentic_cli.evaluation import session_feed
+
+    feed = session_feed.build(session, reference=reference or "")
+
+    if not feed.scorable:
+        console.print(f"[yellow]Session [bold]{session}[/bold] cannot be scored.[/yellow]")
+        for problem in feed.problems:
+            console.print(f"  [yellow]•[/yellow] {problem}")
+        raise typer.Exit(1)
+
+    resolved, note = session_feed.resolve_framework(framework)
+    names = ([m.strip() for m in metrics.split(",") if m.strip()]
+             if metrics else session_feed.metrics_for(reference or "", framework=resolved))
+
+    console.print(
+        f"Scoring [bold]{session}[/bold] over [bold]{feed.contexts}[/bold] "
+        f"retrieved context(s) with: {', '.join(names)}")
+    if note:
+        console.print(f"[yellow]⚠ {note}[/yellow]")
+    if feed.lossy:
+        console.print(
+            f"[yellow]⚠ Some context was masked before storage "
+            f"({', '.join(feed.masked_kinds)}). Scores are computed over text "
+            f"the agent did not literally see.[/yellow]")
+
+    from rich.markup import escape
+
+    from agentic_cli.evaluation.frameworks import get_framework
+
+    def _unavailable(exc: Exception) -> None:
+        # Exception text carries "pip install 'agentic-cli[eval]'", and Rich
+        # reads [eval] as a style tag and swallows it — leaving advice that
+        # tells the user to install what they already have.
+        console.print(f"[red]✗ {escape(str(exc))}[/red]")
+        console.print("[dim]Context metrics need an LLM judge, so they cannot run "
+                      "in test mode or without the optional extra.[/dim]")
+
+    try:
+        engine = get_framework(resolved)
+    except Exception as exc:  # noqa: BLE001
+        _unavailable(exc)
+        raise typer.Exit(1)
+
+    try:
+        scores = engine.evaluate([feed.row], names)
+    except ImportError as exc:
+        _unavailable(exc)
+        raise typer.Exit(1)
+    except Exception as exc:  # noqa: BLE001
+        console.print(f"[red]✗ Evaluation failed: {escape(str(exc))}[/red]")
+        raise typer.Exit(1)
+
+    if as_json:
+        payload = scores.to_dict()
+        payload["feed"] = feed.to_dict()
+        console.print_json(_json.dumps(payload))
+        raise typer.Exit(0)
+
+    table = Table(title=f"Context evaluation — {session} ({resolved})", show_lines=False)
+    table.add_column("Metric", no_wrap=True)
+    table.add_column("Score", justify="right")
+    table.add_column("Reads as", overflow="fold")
+
+    for name, value in (scores.aggregate or {}).items():
+        table.add_row(name, f"{value:.2f}" if isinstance(value, (int, float)) else str(value),
+                      _DIAGNOSIS.get(name.lower(), ""))
+    console.print(table)
+
+    for error in scores.errors or []:
+        console.print(f"[yellow]⚠ {error}[/yellow]")
+
+    record_activity(command="eval", subcommand="session",
+                    args={"session": session, "metrics": names, "framework": resolved,
+                          "contexts": feed.contexts, "lossy": feed.lossy})
+
+
+#: What a low score on each metric points at — the split diagnosis a single
+#: number cannot express, and the reason the feed was worth building.
+_DIAGNOSIS = {
+    "faithfulness": "low → the agent had the context and ignored it (prompt or skill)",
+    "responserelevancy": "low → the answer drifted from the question",
+    "contextprecisionwithoutreference": "low → the retriever brought junk (retriever / KG query)",
+    "contextrecall": "low → the right source was never retrieved (ingestion coverage)",
+    "context_utilization": "low → the answer is not carried by the retrieved context",
+    "context_contribution": "low → sources were retrieved that the answer never used",
+}
+
+
+@eval_app.command("playground")
+def eval_playground(
+    session: Annotated[str, typer.Argument(help="Session to replay (see `keel context trace`)")],
+    without: Annotated[Optional[list[str]], typer.Option("--without", help="Source key to switch off, e.g. kg/query. Repeatable — one variant each.")] = None,
+    model: Annotated[Optional[list[str]], typer.Option("--model", help="Also replay with this model, context unchanged. Repeatable.")] = None,
+    metrics: Annotated[Optional[str], typer.Option("--metrics", help="Comma-separated metrics (default: the reference-free set)")] = None,
+    no_score: Annotated[bool, typer.Option("--no-score", help="Re-run without scoring — shows the answer change only")] = False,
+    sources: Annotated[bool, typer.Option("--sources", help="List what can be switched off, and stop")] = False,
+    as_json: Annotated[bool, typer.Option("--json", help="Emit the comparison as JSON")] = False,
+) -> None:
+    """Re-run a session's question against a different context, and watch it move.
+
+    A score tells you a session went badly; removing a source and re-running
+    tells you that source was why. Ablation is what makes the ledger an
+    instrument rather than a report.
+
+    Scoring needs a judge, re-running only needs a provider — so without Ragas
+    this still shows the answer changing, which is often enough to see what a
+    source was contributing.
+    """
+    import json as _json
+
+    from rich.markup import escape
+
+    from agentic_cli.evaluation import playground
+
+    available = playground.list_sources(session)
+    if not available:
+        console.print(f"[yellow]No stored context for session [bold]{session}[/bold].[/yellow]")
+        console.print("[dim]Enable KEEL_PAYLOAD_STORE before the session runs, or the "
+                      "payloads may have expired.[/dim]")
+        raise typer.Exit(1)
+
+    if sources:
+        table = Table(title=f"Ablatable sources — {session}", show_lines=False)
+        table.add_column("Key", no_wrap=True)
+        table.add_column("Payloads", justify="right")
+        table.add_column("Bytes", justify="right")
+        for src in available:
+            table.add_row(src.key, str(src.payloads), str(src.bytes))
+        console.print(table)
+        console.print(f"[dim]Switch one off: {CLI_NAME} eval playground {session} "
+                      f"--without {available[0].key}[/dim]")
+        raise typer.Exit(0)
+
+    known = {s.key for s in available}
+    unknown = [w for w in (without or []) if w not in known]
+    if unknown:
+        console.print(f"[red]✗ Unknown source(s): {', '.join(unknown)}[/red]")
+        console.print(f"[dim]Available: {', '.join(sorted(known))}[/dim]")
+        raise typer.Exit(1)
+
+    names = [m.strip() for m in metrics.split(",") if m.strip()] if metrics else None
+    comparison = playground.compare(
+        session,
+        ablations=[[w] for w in (without or [])],
+        models=list(model or []),
+        metrics=names,
+        do_score=not no_score,
+    )
+
+    if as_json:
+        console.print_json(_json.dumps(comparison.to_dict()))
+        raise typer.Exit(0)
+
+    rows = [comparison.baseline] + comparison.variants if comparison.baseline else comparison.variants
+    metric_names = sorted({m for r in rows for m in r.scores})
+
+    # The answer rides under the variant name rather than in its own column:
+    # with two metric columns at 80 characters Rich collapses it to nothing,
+    # and the answer changing is the finding when no judge is configured.
+    table = Table(title=f"Context playground — {session}", show_lines=True)
+    table.add_column("Variant", overflow="fold", min_width=30, ratio=1)
+    table.add_column("Ctx", justify="right", no_wrap=True)
+    for name in metric_names:
+        # Strip the shared prefix; the framework note below names the family.
+        table.add_column(name.replace("context_", "")[:13], justify="right", no_wrap=True)
+
+    baseline_scores = comparison.baseline.scores if comparison.baseline else {}
+    for variant in rows:
+        cells = []
+        for name in metric_names:
+            value = variant.scores.get(name)
+            if value is None:
+                cells.append("[dim]—[/dim]")
+                continue
+            base = baseline_scores.get(name)
+            if variant is comparison.baseline or base is None:
+                cells.append(f"{value:.2f}")
+            else:
+                delta = value - base
+                style = "red" if delta < -0.01 else ("green" if delta > 0.01 else "dim")
+                cells.append(f"{value:.2f}\n[{style}]{delta:+.2f}[/{style}]")
+        answer = variant.answer or "; ".join(variant.problems)
+        label = f"{variant.label}\n[dim]{escape(answer[:180])}[/dim]"
+        table.add_row(label, str(variant.contexts), *cells)
+
+    console.print(table)
+
+    frameworks = {v.framework for v in rows if v.framework}
+    if metric_names and frameworks:
+        used = ", ".join(sorted(frameworks))
+        console.print(f"[dim]Scored with: {used}.[/dim]")
+        if "heuristic" in frameworks:
+            console.print(
+                "[yellow]⚠ Offline heuristics — these measure lexical grounding, not "
+                "faithfulness. Utilization falling means the answer stopped being "
+                "carried by the remaining context.[/yellow]")
+    elif not metric_names:
+        console.print("[dim]No scores — re-run only. The answer column still shows "
+                      "what each source was contributing.[/dim]")
+
+    record_activity(command="eval", subcommand="playground",
+                    args={"session": session, "variants": len(comparison.variants),
+                          "scored": bool(metric_names)})
