@@ -542,23 +542,33 @@ class TestRepoStaleness:
         after = sources.repo_documents(tmp_path, "svc")[0].citation.version
         assert before != after
 
-    def test_stale_check(self, tmp_path):
+    def test_stale_check(self, tmp_path, monkeypatch):
+        """The comparison lives in the retrieval seam, not in a second copy here."""
+        from agentic_cli import persona_workspace as pw, retrieval
         from agentic_cli.onboarding import sources
 
-        path = tmp_path / "CONTRIBUTING.md"
+        (tmp_path / "svc").mkdir()
+        path = tmp_path / "svc" / "CONTRIBUTING.md"
         path.write_text("original\n", encoding="utf-8")
         cited = sources.content_version("original\n")
+        monkeypatch.setattr(pw, "store_repo_path", lambda slug: tmp_path / slug)
 
-        assert sources.is_repo_citation_stale(tmp_path, "CONTRIBUTING.md", cited) is False
+        assert retrieval.is_stale("repo:svc/CONTRIBUTING.md", cited) is False
         path.write_text("changed\n", encoding="utf-8")
-        assert sources.is_repo_citation_stale(tmp_path, "CONTRIBUTING.md", cited) is True
+        assert retrieval.is_stale("repo:svc/CONTRIBUTING.md", cited) is True
 
-    def test_unreadable_source_is_unknown_not_stale(self, tmp_path):
+    def test_unreadable_source_is_unknown_not_stale(self, tmp_path, monkeypatch):
         """Unknown is never reported as fresh and never as stale."""
-        from agentic_cli.onboarding import sources
+        from agentic_cli import persona_workspace as pw, retrieval
 
-        assert sources.is_repo_citation_stale(tmp_path, "missing.md", "abc123") is None
-        assert sources.is_repo_citation_stale(tmp_path, "missing.md", "") is None
+        (tmp_path / "svc").mkdir()
+        monkeypatch.setattr(pw, "store_repo_path", lambda slug: tmp_path / slug)
+
+        assert retrieval.is_stale("repo:svc/missing.md", "abc123") is None
+        assert retrieval.is_stale("repo:svc/missing.md", "") is None
+        # A repository that is not in the store at all is unknown too — it is
+        # the case where we could not ask, which must never read as an answer.
+        assert retrieval.is_stale("repo:absent/CONTRIBUTING.md", "abc123") is None
 
     def test_stale_instructions_lower_freshness(self):
         accepted = proposal.Proposal(domain="d", entries=[

@@ -603,8 +603,13 @@ def stale_repo_entries(slug: str, review: proposal.Proposal) -> list[proposal.En
     staleness has to be recomputed, because the citation carries a digest of the
     file's content rather than a number someone else increments. Entries whose
     file cannot be read are left out entirely — unknown is not stale.
+
+    The comparison itself lives in :func:`agentic_cli.retrieval.is_stale`, which
+    is scheme-agnostic. The ``repo`` filter here is the caller's, not the seam's:
+    this feeds a signal labelled "changed repo files", and widening it to
+    Confluence would change what that number means without changing its name.
     """
-    from agentic_cli import persona_workspace as pw
+    from agentic_cli import retrieval
 
     stale: list[proposal.Entry] = []
     for entry in review.entries:
@@ -613,9 +618,7 @@ def stale_repo_entries(slug: str, review: proposal.Proposal) -> list[proposal.En
         citation = extract.Citation.parse(entry.citation)
         if citation.scheme != "repo" or "/" not in citation.ref:
             continue
-        repo_slug, _, rel = citation.ref.partition("/")
-        if sources.is_repo_citation_stale(pw.store_repo_path(repo_slug), rel,
-                                          citation.version) is True:
+        if retrieval.is_stale(f"repo:{citation.ref}", citation.version) is True:
             stale.append(entry)
     return stale
 

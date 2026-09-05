@@ -60,6 +60,15 @@ protocol, never added as a branch in a dispatch chain.
 **Engine** — an execution backend (Devin, Devin CLI, local, an IDE) selected
 through `execution.registry`, which is the single build-governance seam.
 
+**Fetcher** — an adapter in `retrieval.py` that resolves one *reference* to the
+content and version behind it. Registered against a scheme (`domain`, `repo`,
+`confluence`, `okf`, `governance`), never branched on.
+
+**Retriever** — a named search index (FAISS, FTS, KG) an agent binds to and
+queries, registered in `retrievers.py`. Distinct from a fetcher: a retriever
+answers "what is relevant to this question" and returns many hits; a fetcher
+answers "what is at this address" and returns one document.
+
 **Context read** — one row in the KeelTrace ledger: source, operation, entity,
 bytes, latency, status. Tier one, and safe to retain.
 
@@ -168,6 +177,13 @@ an agent read (`agentic_cli/tracing.py`). If you add a retrieval path, it
 should record. See [`docs/KEELTRACE.md`](docs/KEELTRACE.md) — particularly the
 ContextVar/thread constraint, which is subtle and only fails from the
 dashboard.
+
+**Fetching a ref goes through the seam.** `retrieval.fetch()` is the one place
+a reference becomes content, and it records the read for you. Add a fetcher for
+a new scheme; do not add a fourth place that knows how to read a source. Its
+five outcomes are not decorative — `UNAVAILABLE` (we could not ask) must never
+collapse into `MISSING` (nothing is there), because that difference decides
+whether an approved instruction gets flagged absent.
 
 **Never commit** secrets, internal hostnames, employer-specific identifiers,
 or real domain/KG data. The pre-commit hook and CI enforce this. Site-specific

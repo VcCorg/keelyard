@@ -189,14 +189,26 @@ class TestContextSensor:
         assert operations == ["resolve/okf", "resolve/domain", "resolve/external"]
         assert all(r["source"] == resolve.TRACE_SOURCE for r in recorded)
 
-    def test_an_unresolvable_ref_is_recorded_as_empty_not_skipped(self, monkeypatch):
-        """A missing source should show up as a gap, not as silence."""
+    def test_an_unresolvable_ref_is_recorded_not_skipped(self, monkeypatch):
+        """A missing source should show up as a gap, not as silence.
+
+        Which *kind* of gap is the distinction the seam exists to keep: an OKF
+        bundle that was never exported is a source we could not ask, and it
+        records as an error, where a ref with nothing behind it records empty.
+        Collapsing the two is how an unreachable source comes to look like a
+        source with nothing to say.
+        """
         from agentic_cli.context import resolve
 
         recorded = []
         monkeypatch.setattr(resolve.tracing, "record_context_read",
                             lambda **kw: recorded.append(kw))
         resolve.resolve_refs(["okf://nope/nothing"])
+        assert recorded[0]["status"] == "error"
+        assert recorded[0]["extra"]["outcome"] == "unavailable"
+
+        recorded.clear()
+        resolve.resolve_refs(["plain-ref"])
         assert recorded[0]["status"] == "empty"
 
     def test_domain_context_refs_lists_finalized_files(self, tmp_path, monkeypatch):
