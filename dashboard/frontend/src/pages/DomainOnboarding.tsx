@@ -272,7 +272,6 @@ export function DomainOnboarding() {
           products={products}
           activeProduct={activeProduct}
           onSelectProduct={setActiveProduct}
-          onChanged={refreshLists}
           onError={setError}
           onContinue={() => setStep("domain")}
         />
@@ -1387,69 +1386,38 @@ function ProductStep({
   products,
   activeProduct,
   onSelectProduct,
-  onChanged,
   onError,
   onContinue,
 }: {
   products: ProductInfo[];
   activeProduct: string | null;
   onSelectProduct: (name: string) => void;
-  onChanged: () => Promise<void> | void;
   onError: (e: string) => void;
   onContinue: () => void;
 }) {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [creating, setCreating] = useState(false);
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [overwrite, setOverwrite] = useState(true);
 
-  const create = async () => {
-    if (!name.trim()) return;
-    setCreating(true);
-    try {
-      await api.createProduct({ name: name.trim(), description: description.trim() || undefined });
-      setName("");
-      setDescription("");
-      await onChanged();
-      onSelectProduct(name.trim().toUpperCase());
-    } catch (e) {
-      onError(String(e));
-    } finally {
-      setCreating(false);
-    }
-  };
-
   return (
     <div className="space-y-4">
-      {/* Create product */}
-      <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-        <h2 className="font-semibold mb-3">Register a product</h2>
-        <div className="flex flex-col sm:flex-row gap-2">
-          <Input
-            placeholder="Product name (e.g. ABC)"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="sm:w-48"
-          />
-          <Input
-            placeholder="Description (optional)"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="flex-1"
-          />
-          <Button onClick={create} disabled={creating || !name.trim()}>
-            {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            Create
-          </Button>
-        </div>
-      </div>
-
-      {/* Select product */}
+      {/* Select product. Registration moved to KG Onboarding: a product's
+          knowledge is loaded before the governance written against it, so the
+          product exists by the time anyone reaches this wizard. */}
       <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-4">
         <h2 className="font-semibold mb-3">Select a product</h2>
         {products.length === 0 ? (
-          <p className="text-sm text-gray-400">No products yet — create one above.</p>
+          <div className="space-y-2">
+            <p className="text-sm text-gray-400">
+              No products registered yet. A domain is governed under a product, so
+              one has to exist first.
+            </p>
+            <a
+              href="/kg/onboard"
+              className="inline-flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 underline"
+            >
+              <Package className="h-4 w-4" /> Register one in KG Onboarding
+            </a>
+          </div>
         ) : (
           <div className="flex flex-wrap gap-2">
             {products.map((p) => (
@@ -1481,6 +1449,13 @@ function ProductStep({
               Creates <code>product-{activeProduct.toLowerCase()}-meta</code> with the
               shared outer-loop governance, the inner↔outer crosswalk, and the
               exceptions ledger. Pins the org-wide methodology (inner loop) as a submodule.
+            </p>
+            <p className="text-xs text-gray-400 mb-3">
+              This stays here rather than in KG Onboarding on purpose: registering a
+              product and loading its knowledge is a knowledge activity, but this
+              creates the governance floor every domain under{" "}
+              <code>{activeProduct}</code> is measured against — and that is what this
+              wizard is for.
             </p>
             <Button
               variant="outline"

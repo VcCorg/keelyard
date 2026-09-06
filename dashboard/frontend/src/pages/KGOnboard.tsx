@@ -1,17 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Wand2, GitBranch, User, Boxes, ChevronRight, ChevronLeft, Play,
-  ShieldCheck, FlaskConical, Database, FolderOpen, Globe,
+  ShieldCheck, FlaskConical, Database, FolderOpen, Globe, Package, Plus, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StreamConsole } from "@/components/StreamConsole";
 import { useUser } from "@/context/UserContext";
-import { api, type IngestableDomain, type IngestSubmitParams } from "@/lib/api";
+import {
+  api,
+  type IngestableDomain,
+  type IngestSubmitParams,
+  type ProductInfo,
+} from "@/lib/api";
 
 /**
- * KG Onboarding Wizard — guided knowledge-graph loading with two scopes:
+ * KG Onboarding Wizard — guided knowledge-graph loading with three scopes:
  *
+ *  - PRODUCT scope (lead activity): the first thing onboarded. A product is
+ *    registered here and its product-level knowledge loaded into the shared
+ *    graph, before any domain exists to govern. Registration lives here rather
+ *    than in domain onboarding because knowledge comes before the governance
+ *    rules written against it.
  *  - DOMAIN scope (lead activity): builds the domain's shared graph from its
  *    tracked docs — the knowledge every role in the domain queries. Loaded as
  *    part of domain onboarding.
@@ -20,7 +30,7 @@ import { api, type IngestableDomain, type IngestSubmitParams } from "@/lib/api";
  *    without touching shared graphs, then throw it away or re-load anytime.
  */
 
-type Scope = "domain" | "session";
+type Scope = "product" | "domain" | "session";
 type Step = "scope" | "source" | "options" | "run";
 
 const STEPS: Step[] = ["scope", "source", "options", "run"];
@@ -34,6 +44,106 @@ const STEP_LABELS: Record<Step, string> = {
 function slugify(s: string): string {
   return (s || "user").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
 }
+
+/**
+ * Pick a registered product, or register one without leaving the wizard.
+ *
+ * This replaced a free-text field that was passed straight through to the
+ * ingest as a label, so a typo produced a graph tied to a product that did not
+ * exist. Registration lives here because product knowledge is onboarded before
+ * the domains and governance written against it — domain onboarding selects
+ * from what this created, and says so when there is nothing to select.
+ */
+function ProductPicker({
+  products,
+  value,
+  onChange,
+  onRegistered,
+  allowCreate,
+}: {
+  products: ProductInfo[];
+  value: string;
+  onChange: (name: string) => void;
+  onRegistered: () => Promise<void> | void;
+  allowCreate: boolean;
+}) {
+  const [newName, setNewName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState("");
+
+  const create = async () => {
+    const name = newName.trim();
+    if (!name) return;
+    setCreating(true);
+    setError("");
+    try {
+      await api.createProduct({ name });
+      await onRegistered();
+      // Products are stored upper-cased; select what was actually created.
+      onChange(name.toUpperCase());
+      setNewName("");
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <div className="sm:col-span-2 space-y-2">
+      <label className="text-xs text-gray-500 block">Product (required)</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+      >
+        <option value="">Select a product…</option>
+        {products.map((p) => (
+          <option key={p.name} value={p.name}>
+            {p.name}
+            {p.domain_count ? ` — ${p.domain_count} domains` : " — no domains yet"}
+          </option>
+        ))}
+      </select>
+
+      {allowCreate && (
+        <div className="flex gap-2">
+          <Input
+            placeholder="Or register a new product (e.g. ACME)"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void create();
+              }
+            }}
+          />
+          <Button
+            variant="outline"
+            onClick={create}
+            disabled={creating || !newName.trim()}
+          >
+            {creating ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Plus className="h-4 w-4" />
+            )}
+            Register
+          </Button>
+        </div>
+      )}
+      {products.length === 0 && (
+        <p className="text-[11px] text-gray-400">
+          No products registered yet
+          {allowCreate ? " — register one above." : " — ask a tech lead to register one."}
+        </p>
+      )}
+      {error && <p className="text-[11px] text-red-500">{error}</p>}
+    </div>
+  );
+}
+
 
 export function KGOnboard() {
   const { user } = useUser();
@@ -49,7 +159,8 @@ export function KGOnboard() {
   const [depth, setDepth] = useState(3);
   const [top, setTop] = useState<number | "">("");
 
-  // Session scope
+    // Product + session scopes both name a product and a source.
+  const [products, setProducts] = useState<ProductInfo[]>([]);
   const [sourceKind, setSourceKind] = useState<"path" | "source">("path");
   const [path, setPath] = useState("");
   const [sourceName, setSourceName] = useState("");
@@ -59,17 +170,27 @@ export function KGOnboard() {
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
+  const loadProducts = () =>
+    api.listProducts().then(setProducts).catch(() => setProducts([]));
+
   useEffect(() => {
     api.listIngestableDomains().then(setDomains).catch(() => setDomains([]));
+    loadProducts();
   }, []);
 
   const stepIndex = STEPS.indexOf(step);
 
   const canNext = useMemo(() => {
-    if (step === "scope") return scope !== null && (scope !== "domain" || isLead);
+    if (step === "scope") {
+      if (scope === null) return false;
+      // Registering a product and loading a domain's shared graph are both
+      // lead activities; a session workspace is every role's to use.
+      return scope === "session" || isLead;
+    }
     if (step === "source") {
       if (scope === "domain") return !!domain;
-      return sourceKind === "path" ? !!path.trim() && !!product.trim() : !!sourceName.trim() && !!product.trim();
+      const named = sourceKind === "path" ? !!path.trim() : !!sourceName.trim();
+      return named && !!product.trim();
     }
     return true;
   }, [step, scope, domain, sourceKind, path, sourceName, product, isLead]);
@@ -81,13 +202,17 @@ export function KGOnboard() {
       params.depth = depth;
       if (top) params.top = Number(top);
     } else {
-      // Session scope: isolated LightRAG workspace, personal to this user.
-      params.workspace = sessionWorkspace;
-      params.provider = "lightrag";
       params.product = product.trim();
       if (sourceKind === "path") params.path = path.trim();
       else params.source = sourceName.trim();
       if (format.trim()) params.format = format.trim();
+      if (scope === "session") {
+        // Isolated LightRAG workspace, personal to this user.
+        params.workspace = sessionWorkspace;
+        params.provider = "lightrag";
+      }
+      // Product scope deliberately sets neither: no workspace means the shared
+      // graph, which is the point — product knowledge is what everyone reads.
     }
     setDone(false);
     setStreamUrl(api.kgIngestStreamUrl(params));
@@ -138,7 +263,24 @@ export function KGOnboard() {
         {step === "scope" && (
           <div className="space-y-4">
             <h2 className="text-sm font-semibold">Who is this knowledge for?</h2>
-            <div className="grid sm:grid-cols-2 gap-4">
+            <div className="grid sm:grid-cols-3 gap-4">
+              <button className={cardCls(scope === "product", !isLead)} onClick={() => isLead && setScope("product")}>
+                <div className="flex items-center gap-2 font-semibold text-sm">
+                  <Package className="h-4 w-4 text-violet-500" /> Product KG
+                  <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-violet-50 text-violet-600 dark:bg-violet-900/30 dark:text-violet-300 inline-flex items-center gap-1">
+                    <ShieldCheck className="h-3 w-3" /> lead
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Start here. Register a product and load the knowledge that spans it,
+                  into the shared graph — before any domain exists to govern.
+                </p>
+                {!isLead && (
+                  <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-2">
+                    Registering a product is a tech-lead activity.
+                  </p>
+                )}
+              </button>
               <button className={cardCls(scope === "domain", !isLead)} onClick={() => isLead && setScope("domain")}>
                 <div className="flex items-center gap-2 font-semibold text-sm">
                   <Boxes className="h-4 w-4 text-blue-500" /> Domain KG
@@ -195,9 +337,13 @@ export function KGOnboard() {
             </p>
           </div>
         )}
-        {step === "source" && scope === "session" && (
+        {step === "source" && (scope === "session" || scope === "product") && (
           <div className="space-y-4">
-            <h2 className="text-sm font-semibold">What should your session workspace load?</h2>
+            <h2 className="text-sm font-semibold">
+              {scope === "product"
+                ? "Which product, and what should it load?"
+                : "What should your session workspace load?"}
+            </h2>
             <div className="flex gap-2">
               {(["path", "source"] as const).map((k) => (
                 <button
@@ -220,10 +366,13 @@ export function KGOnboard() {
               <Input placeholder="Data source name (keel kg config)" value={sourceName} onChange={(e) => setSourceName(e.target.value)} />
             )}
             <div className="grid sm:grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-gray-500 block mb-1">Product (required)</label>
-                <Input placeholder="e.g. CWOW" value={product} onChange={(e) => setProduct(e.target.value)} />
-              </div>
+              <ProductPicker
+                products={products}
+                value={product}
+                onChange={setProduct}
+                onRegistered={loadProducts}
+                allowCreate={isLead}
+              />
               <div>
                 <label className="text-xs text-gray-500 block mb-1">Format override (optional)</label>
                 <Input placeholder="markdown | pdf | html …" value={format} onChange={(e) => setFormat(e.target.value)} />
@@ -249,18 +398,35 @@ export function KGOnboard() {
               </div>
             ) : (
               <div className="rounded-lg bg-gray-50 dark:bg-gray-800/50 p-4 text-xs text-gray-500 space-y-1.5">
-                <p className="flex items-center gap-1.5">
-                  <Database className="h-3.5 w-3.5" /> Provider: <code className="font-mono">lightrag</code> —
-                  session scope uses isolated LightRAG workspaces.
-                </p>
-                <p className="flex items-center gap-1.5">
-                  <User className="h-3.5 w-3.5" /> Workspace: <code className="font-mono">{sessionWorkspace}</code> —
-                  private to you; shared graphs are never touched.
-                </p>
-                <p>
-                  Reload anytime to replace it, or clear it with{" "}
-                  <code className="font-mono">keel kg workspace</code> commands in the Terminal.
-                </p>
+                {scope === "product" ? (
+                  <>
+                    <p className="flex items-center gap-1.5">
+                      <Package className="h-3.5 w-3.5" /> Product:{" "}
+                      <code className="font-mono">{product}</code> — loads into the
+                      shared graph, not a private workspace.
+                    </p>
+                    <p>
+                      Every role reads this. Domains registered under{" "}
+                      <code className="font-mono">{product}</code> inherit it as the
+                      knowledge their governance is written against.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="flex items-center gap-1.5">
+                      <Database className="h-3.5 w-3.5" /> Provider: <code className="font-mono">lightrag</code> —
+                      session scope uses isolated LightRAG workspaces.
+                    </p>
+                    <p className="flex items-center gap-1.5">
+                      <User className="h-3.5 w-3.5" /> Workspace: <code className="font-mono">{sessionWorkspace}</code> —
+                      private to you; shared graphs are never touched.
+                    </p>
+                    <p>
+                      Reload anytime to replace it, or clear it with{" "}
+                      <code className="font-mono">keel kg workspace</code> commands in the Terminal.
+                    </p>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -273,7 +439,13 @@ export function KGOnboard() {
             <div className="rounded-lg bg-gray-50 dark:bg-gray-800/50 p-4 text-xs text-gray-600 dark:text-gray-300 font-mono">
               {scope === "domain"
                 ? `keel kg ingest submit --domain ${domain} --depth ${depth}${top ? ` --top ${top}` : ""}`
-                : `keel kg ingest submit ${sourceKind === "path" ? `--path ${path}` : `--source ${sourceName}`} --product ${product} --provider lightrag --workspace ${sessionWorkspace}${format ? ` --format ${format}` : ""}`}
+                : `keel kg ingest submit ${
+                    sourceKind === "path" ? `--path ${path}` : `--source ${sourceName}`
+                  } --product ${product}${
+                    scope === "session"
+                      ? ` --provider lightrag --workspace ${sessionWorkspace}`
+                      : ""
+                  }${format ? ` --format ${format}` : ""}`}
             </div>
             {!streamUrl && (
               <Button onClick={start}>
@@ -289,6 +461,12 @@ export function KGOnboard() {
                 <p className="text-xs">
                   {scope === "domain" ? (
                     <>Explore it in <a className="underline" href="/kg">KG Context</a> — every role in '{domain}' can now query it.</>
+                  ) : scope === "product" ? (
+                    <>
+                      <code className="font-mono">{product}</code> is registered and its
+                      knowledge is in the shared graph. Next, set up a domain under it in{" "}
+                      <a className="underline" href="/onboarding">Domain onboarding</a>.
+                    </>
                   ) : (
                     <>Your session workspace <code className="font-mono">{sessionWorkspace}</code> is ready —
                     it will serve your builds/queries until you replace or clear it.</>

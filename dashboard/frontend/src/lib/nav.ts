@@ -134,7 +134,29 @@ export const navGroups: NavGroup[] = [
       { to: "/audit", icon: ScrollText, label: "Audit History", minRole: "lead" },
     ],
   },
-  // Governance right after the dashboard: guardrails frame everything below.
+  // Knowledge comes first because product-level knowledge is onboarded before
+  // the governance rules that are written against it — you survey what you know,
+  // then decide how it is governed.
+  //
+  // READS are for everyone (devs consume KG context while building); WRITES stay
+  // gated at the item level (ingest: lead, OKF: admin). Ordered as a lifecycle:
+  // onboard → overview → connect sources → ingest → export → visualize.
+  {
+    label: "Knowledge",
+    items: [
+      // The wizard leads: it is where a product is registered and its knowledge
+      // first loaded, so it is the entry point to the platform rather than a
+      // reference page. Everything below it reads what it produced.
+      { to: "/kg/onboard", icon: Wand2, label: "KG Onboarding" },
+      { to: "/kg", icon: GitBranch, label: "Dashboard" },
+      { to: "/data", icon: Database, label: "Data Sources" },
+      { to: "/kg/ingest", icon: DatabaseZap, label: "KG Ingest", minRole: "lead" },
+      { to: "/kg/okf", icon: FileStack, label: "OKF Generation", minRole: "admin" },
+      { to: "/kg/graph", icon: Share2, label: "Graph" },
+    ],
+  },
+  // Governance follows Knowledge: a domain's guardrails are written against the
+  // product knowledge onboarded above it, and frame everything below.
   {
     label: "Governance",
     minRole: "lead",
@@ -143,22 +165,6 @@ export const navGroups: NavGroup[] = [
       { to: "/workspaces", icon: FolderOpen, label: "Workspaces" },
       { to: "/skills/personas", icon: Sparkles, label: "Persona Skills" },
       { to: "/marketplace", icon: Store, label: "Marketplace" },
-    ],
-  },
-  // Knowledge READS are for everyone (devs consume KG context while building);
-  // WRITES stay gated at the item level (ingest: lead, OKF: admin). Ordered as
-  // a lifecycle: overview → connect sources → onboard → ingest → export →
-  // visualize.
-  {
-    label: "Knowledge",
-    items: [
-      { to: "/kg", icon: GitBranch, label: "Dashboard" },
-      { to: "/data", icon: Database, label: "Data Sources" },
-      { to: "/kg/ingest", icon: DatabaseZap, label: "KG Ingest", minRole: "lead" },
-      { to: "/kg/okf", icon: FileStack, label: "OKF Generation", minRole: "admin" },
-      { to: "/kg/graph", icon: Share2, label: "Graph" },
-      // Wizard (one-time setup) sits last — reference/entry, not a daily step.
-      { to: "/kg/onboard", icon: Wand2, label: "KG Onboarding" },
     ],
   },
   // Ideate follows Knowledge: capture requirements against the knowledge you
@@ -183,6 +189,20 @@ export const navGroups: NavGroup[] = [
       { to: "/devin", icon: DevinBot, label: "Build Sessions" },
       { to: "/execution", icon: Cpu, label: "Execution & Context" },
       { to: "/snapshots", icon: Camera, label: "Snapshots", minRole: "lead" },
+    ],
+  },
+  // Quality — QA persona's home — closes the core journey: build, then judge
+  // what was built, before the platform-adjacent groups below. Evaluation lives
+  // here only (no longer duplicated in Agent Builder); the `qa` persona tag
+  // gives member-level QA users a direct home while leads/admins always see it.
+  {
+    label: "Quality",
+    items: [
+      { to: "/skills/trials", icon: FlaskConical, label: "Skill Trials" },
+      { to: "/eval", icon: FlaskConical, label: "Evaluation", personas: ["qa"] },
+      // Context Trace is a measurement instrument: it shows what a run
+      // actually retrieved, which is what makes retrieval quality gradeable.
+      { to: "/trace", icon: Waypoints, label: "Context Trace" },
     ],
   },
   // Agent Builder sits directly above Platform: agent construction is a
@@ -214,19 +234,6 @@ export const navGroups: NavGroup[] = [
           { to: "/skills", icon: Package, label: "Skills" },
         ],
       },
-    ],
-  },
-  // Quality — QA persona's home — sits after Agent Builder. Evaluation lives
-  // here only (no longer duplicated in Agent Builder); the `qa` persona tag
-  // gives member-level QA users a direct home while leads/admins always see it.
-  {
-    label: "Quality",
-    items: [
-      { to: "/skills/trials", icon: FlaskConical, label: "Skill Trials" },
-      { to: "/eval", icon: FlaskConical, label: "Evaluation", personas: ["qa"] },
-      // Context Trace is a measurement instrument: it shows what a run
-      // actually retrieved, which is what makes retrieval quality gradeable.
-      { to: "/trace", icon: Waypoints, label: "Context Trace" },
     ],
   },
   {
