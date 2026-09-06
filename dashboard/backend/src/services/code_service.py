@@ -7,11 +7,13 @@ shells out to the real `keel code onboard ...` and streams its output.
 
 import asyncio
 import os
-import shutil
-import sys
 from typing import AsyncGenerator, Optional
 
 from pydantic import BaseModel
+
+# One implementation, in cli_invocation: it knows about the frozen
+# sidecar, where `-m` silently starts a second backend.
+from src.services.cli_invocation import resolve_cli_command  # noqa: F401
 
 
 class OnboardOptions(BaseModel):
@@ -29,13 +31,6 @@ class OnboardOptions(BaseModel):
     okf_enrich: bool = False            # generate/enrich the domain OKF bundle
     okf_no_confluence: bool = False     # skip the Confluence enrichment pass
     okf_model: Optional[str] = None     # Vertex AI model for the (LLM) enrichment pass
-
-
-def resolve_cli_command() -> list[str]:
-    keel = shutil.which("keel")
-    if keel:
-        return [keel]
-    return [sys.executable, "-m", "agentic_cli.main"]
 
 
 def build_onboard_args(opts: OnboardOptions) -> list[str]:

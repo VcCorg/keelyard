@@ -6,12 +6,14 @@ to the real `keel data ...` CLI so all validation lives in exactly one place.
 """
 
 import os
-import shutil
 import subprocess
-import sys
 from typing import Optional
 
 from pydantic import BaseModel
+
+# One implementation, in cli_invocation: it knows about the frozen
+# sidecar, where `-m` silently starts a second backend.
+from src.services.cli_invocation import resolve_cli_command  # noqa: F401
 
 
 class DataSourceInfo(BaseModel):
@@ -36,13 +38,6 @@ class CommandResult(BaseModel):
 def _load_config() -> dict:
     from agentic_cli.commands.data import load_config
     return load_config() or {}
-
-
-def resolve_cli_command() -> list[str]:
-    keel = shutil.which("keel")
-    if keel:
-        return [keel]
-    return [sys.executable, "-m", "agentic_cli.main"]
 
 
 def list_data_sources() -> list[DataSourceInfo]:

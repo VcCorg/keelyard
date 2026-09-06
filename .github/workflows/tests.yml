@@ -78,6 +78,33 @@ jobs:
             --ignore=tests/test_neo4j_preflight.py \
             --ignore=tests/test_governance_api.py
 
+  windows-cli-invocation:
+    # A beachhead, not Windows coverage. Two bugs shipped because the dashboard
+    # built its CLI command with POSIX assumptions and nothing ever ran on
+    # Windows: `shlex` ate every backslash in a path, and the frozen sidecar's
+    # `-m` fallback started a second backend. Both presented as success.
+    #
+    # Scoped to the tests that assert those two things because the rest of the
+    # suite has never run on Windows and nobody has triaged what fails there —
+    # a blanket job would go red on unrelated pre-existing breakage and get
+    # ignored, which is worse than no job. Widening it is its own piece of work.
+    name: windows / cli invocation
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ./agentic-cli
+          pip install -e ./dashboard/backend
+          pip install pytest
+      - name: Test
+        working-directory: dashboard/backend
+        run: python -m pytest tests/test_cli_invocation.py -q -o addopts=""
+
   frontend:
     name: dashboard/frontend
     runs-on: ubuntu-latest

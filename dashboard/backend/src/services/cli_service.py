@@ -6,9 +6,13 @@ command groups may be invoked, and obviously destructive subcommands are
 blocked.
 """
 
-import shlex
-import shutil
-import sys
+
+# One implementation, in cli_invocation: it knows about the frozen
+# sidecar, where `-m` silently starts a second backend.
+from src.services.cli_invocation import (  # noqa: F401
+    resolve_cli_command,
+    split_command,
+)
 
 # Top-level `keel` command groups that may be invoked from the dashboard.
 ALLOWED_GROUPS = {
@@ -25,13 +29,6 @@ class CommandNotAllowed(Exception):
     pass
 
 
-def resolve_cli_command() -> list[str]:
-    keel = shutil.which("keel")
-    if keel:
-        return [keel]
-    return [sys.executable, "-m", "agentic_cli.main"]
-
-
 def parse_and_validate(command: str, allow_destructive: bool = False) -> list[str]:
     """Split a raw command string and validate it against the whitelist.
 
@@ -41,7 +38,14 @@ def parse_and_validate(command: str, allow_destructive: bool = False) -> list[st
     When ``allow_destructive`` is True, the blocked-subcommand check is skipped
     (the dashboard "danger mode" toggle); the group whitelist still applies.
     """
-    tokens = shlex.split(command.strip())
+    # Platform-aware: POSIX splitting eats Windows path separators,
+    # which produced a command that ran fine against the wrong path.
+    try:
+        tokens = split_command(command.strip())
+    except ValueError as e:
+        # An unterminated quote. Caught here rather than in split_command so the
+        # splitter stays a splitter — this is the layer that owns the 400.
+        raise CommandNotAllowed(f"Could not parse the command: {e}") from e
     if not tokens:
         raise CommandNotAllowed("Empty command.")
 

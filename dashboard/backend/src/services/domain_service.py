@@ -12,10 +12,13 @@ Design principle (per project requirement):
 import asyncio
 import os
 import shutil
-import sys
 from typing import AsyncGenerator, Optional
 
 from pydantic import BaseModel
+
+# One implementation, in cli_invocation: it knows about the frozen
+# sidecar, where `-m` silently starts a second backend.
+from src.services.cli_invocation import resolve_cli_command  # noqa: F401
 
 
 # ── Errors ──────────────────────────────────────────────────────────────────
@@ -104,18 +107,6 @@ def _tracker():
 def _slugify(product: str, domain: str) -> str:
     """Mirror the CLI slug rule (product-domain, lowercase)."""
     return f"{product.lower()}-{domain.lower().replace(' ', '-')}"
-
-
-def resolve_cli_command() -> list[str]:
-    """Resolve how to invoke the keel CLI for subprocess streaming.
-
-    Prefers the installed `keel` console script, falls back to running the
-    module with the current interpreter.
-    """
-    keel = shutil.which("keel")
-    if keel:
-        return [keel]
-    return [sys.executable, "-m", "agentic_cli.main"]
 
 
 # ── Reads (library import) ──────────────────────────────────────────────────

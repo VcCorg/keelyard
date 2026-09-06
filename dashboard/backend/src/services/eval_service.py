@@ -8,13 +8,15 @@ stream output, so all evaluation logic lives in exactly one place.
 
 import asyncio
 import os
-import shutil
 import subprocess
-import sys
 from pathlib import Path
 from typing import AsyncGenerator, Optional
 
 from pydantic import BaseModel
+
+# One implementation, in cli_invocation: it knows about the frozen
+# sidecar, where `-m` silently starts a second backend.
+from src.services.cli_invocation import resolve_cli_command  # noqa: F401
 
 # Directory where HTML reports are written so the dashboard can serve them.
 REPORTS_DIR = Path.home() / ".agentic-cli" / "dashboard-reports"
@@ -67,13 +69,6 @@ def _eval_mod():
     """Import the CLI eval command module (holds the module-level managers)."""
     from agentic_cli.commands import eval as eval_cmd
     return eval_cmd
-
-
-def resolve_cli_command() -> list[str]:
-    keel = shutil.which("keel")
-    if keel:
-        return [keel]
-    return [sys.executable, "-m", "agentic_cli.main"]
 
 
 # ── Reads (library import) ──────────────────────────────────────────────────

@@ -26,6 +26,10 @@ from pydantic import BaseModel
 # inside function bodies, so there is no import cycle.
 from src.services.template_service import TemplateDriftSummary
 
+# One implementation, in cli_invocation: it knows about the frozen
+# sidecar, where `-m` silently starts a second backend.
+from src.services.cli_invocation import resolve_cli_command  # noqa: F401
+
 
 # ── Models ───────────────────────────────────────────────────────────────────
 
@@ -74,13 +78,6 @@ def _tracker():
 def _pw():
     from agentic_cli import persona_workspace
     return persona_workspace
-
-
-def resolve_cli_command() -> list[str]:
-    keel = shutil.which("keel")
-    if keel:
-        return [keel]
-    return [sys.executable, "-m", "agentic_cli.main"]
 
 
 # ── Persona → tier mapping ─────────────────────────────────────────────────--

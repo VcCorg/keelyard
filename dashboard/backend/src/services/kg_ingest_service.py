@@ -12,13 +12,15 @@ Design principle (mirrors domain_service.py):
 import asyncio
 import json
 import os
-import shutil
-import sys
 from typing import Any, AsyncGenerator, Optional
 
 from pydantic import BaseModel
 
 from src.services.kg_ingest_progress import ProgressParser
+
+# One implementation, in cli_invocation: it knows about the frozen
+# sidecar, where `-m` silently starts a second backend.
+from src.services.cli_invocation import resolve_cli_command  # noqa: F401
 
 
 # ── Pydantic models (transport shapes only — not logic) ─────────────────────
@@ -61,14 +63,6 @@ def _tracker():
 def _manager():
     from agentic_cli.kg.async_ingest import get_manager
     return get_manager()
-
-
-def resolve_cli_command() -> list[str]:
-    """Resolve how to invoke the keel CLI for subprocess streaming."""
-    keel = shutil.which("keel")
-    if keel:
-        return [keel]
-    return [sys.executable, "-m", "agentic_cli.main"]
 
 
 def _iso(dt) -> Optional[str]:

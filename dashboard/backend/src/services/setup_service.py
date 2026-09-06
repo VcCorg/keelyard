@@ -17,10 +17,13 @@ from __future__ import annotations
 
 import os
 import shutil
-import sys
 from typing import Optional
 
 from pydantic import BaseModel
+
+# One implementation, in cli_invocation: it knows about the frozen
+# sidecar, where `-m` silently starts a second backend.
+from src.services.cli_invocation import resolve_cli_command  # noqa: F401
 
 
 class SetupItem(BaseModel):
@@ -40,13 +43,6 @@ class SetupStatus(BaseModel):
 
     def item(self, key: str) -> Optional[SetupItem]:
         return next((i for i in self.items if i.key == key), None)
-
-
-def resolve_cli_command() -> list[str]:
-    keel = shutil.which("keel")
-    if keel:
-        return [keel]
-    return [sys.executable, "-m", "agentic_cli.main"]
 
 
 def _cli_available() -> tuple[bool, str]:
