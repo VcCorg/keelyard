@@ -111,6 +111,11 @@ fast-forwards.
 on it: which domains it lands in unattended, which owe a human a decision, and
 which could not be ruled on. `keel domain plan`.
 
+**Review queue** — the escalations from a fan-out plan, addressed to the owner
+recorded in each domain's own `domain.yaml`. One owner gets one queue across
+every domain and source; a domain recording no owner is reported, never
+assigned. `keel domain queue`.
+
 **Finding** — one statement about one component's own surface (a shared
 credential, model egress), carrying what it does *not* claim. Never composed
 into a session-level judgement; that composition is the governance floor's.
@@ -146,7 +151,7 @@ bash scripts/check-no-company-data.sh --all # guardrail; also runs in CI
 
 As of September 2026, on a **pristine checkout of `main`**:
 
-- `agentic-cli` — 1415 pass, **28 fail**
+- `agentic-cli` — 1433 pass, **28 fail**
 - `dashboard/backend` — 193 pass, **4 fail** (all `test_neo4j_preflight`, which
   needs a live Neo4j — they pass nowhere without one, including CI, which is why
   that file is excluded there)

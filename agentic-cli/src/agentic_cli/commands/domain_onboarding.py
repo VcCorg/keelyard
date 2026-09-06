@@ -1299,6 +1299,98 @@ def plan_command(
                           "blocked": counts["blocked"]})
 
 
+# ── queue (whose decision each escalation is) ───────────────────────────────
+
+def queue_command(
+    refs: Annotated[list[str], typer.Argument(
+        help="One or more source refs — a commit touches more than one file")],
+    product: Annotated[Optional[str], typer.Option(
+        "--product", "-p", help="Limit to one product's domains")] = None,
+    owner: Annotated[Optional[str], typer.Option(
+        "--owner", "-o", help="Show only this owner's queue")] = None,
+    as_json: Annotated[bool, typer.Option("--json", help="Emit the routing as JSON")] = False,
+) -> None:
+    """Who has to look at what, if these sources changed.
+
+    `plan` says a domain owes somebody a decision; this says who. The reviewer
+    is the **domain owner**, read from the domain's own
+    `.platform/config/domain.yaml` — the same kind of git-visible, reviewed fact
+    as the instructions being reviewed, rather than a routing table in a local
+    database that nobody reads as a pull request.
+
+    One owner gets one queue across every domain and every source named here.
+    That consolidation is the point: without it, "the domain owner" is a column
+    in the plan rather than an answer.
+
+    There is no default owner. A domain that records none is reported unowned,
+    never quietly assigned — to the product owner, who never agreed to decide
+    for a team that named no reviewer, or to whoever happened to run this. Where
+    a product owner exists they are named as somebody to ask, which is not the
+    same as being given the work.
+
+    This routes and does not decide. Nothing is written.
+    """
+    from agentic_cli.onboarding import queue as router
+
+    routing = router.route_refs(refs, product=product or "",
+                                provider=_diff_judge())
+
+    if as_json:
+        console.print_json(json.dumps(routing.to_dict()))
+        raise typer.Exit(0)
+
+    queues = routing.queues
+    if owner:
+        found = routing.for_owner(owner)
+        queues = [found] if found else []
+        if not found:
+            console.print(f"[yellow]Nothing queued for {owner}.[/yellow]")
+
+    for entry in queues:
+        table = Table(title=f"{entry.owner} — {len(entry.items)} item(s) across "
+                            f"{len(entry.domains)} domain(s)", show_lines=False)
+        table.add_column("Domain", no_wrap=True)
+        table.add_column("Source", overflow="fold")
+        table.add_column("Why", overflow="fold")
+        for item in sorted(entry.items, key=lambda i: (i.domain, i.ref)):
+            why = (f"[red]{item.status}[/red]" if item.reason == router.ESCALATION
+                   else "[yellow]nothing could be ruled on[/yellow]")
+            detail = f" [dim]{item.detail}[/dim]" if item.detail else ""
+            cited = (f" [dim](approved at {item.cited_version})[/dim]"
+                     if item.cited_version else "")
+            table.add_row(item.domain, item.ref, why + detail + cited)
+        console.print(table)
+
+    if not queues and not owner:
+        console.print("[green]✓[/green] Nothing needs a decision from anyone.")
+
+    counts = routing.counts
+    console.print(f"  [bold]{counts['owners']}[/bold] owner(s)  "
+                  f"[bold]{counts['routed']}[/bold] routed  "
+                  f"[bold]{counts['unowned'] + counts['unknown']}[/bold] unrouted")
+
+    if routing.unowned:
+        # Reported, never assigned: the tempting fallbacks all hand somebody
+        # else's decision to a person who never agreed to make it.
+        domains = sorted({i.domain for i in routing.unowned})
+        console.print(f"[yellow]{len(routing.unowned)} item(s) have no owner[/yellow] "
+                      f"[dim]— {', '.join(domains)} record none. Set `owner:` in "
+                      f".platform/config/domain.yaml.[/dim]")
+    if routing.unknown:
+        console.print(f"[yellow]{len(routing.unknown)} item(s) could not be "
+                      f"routed[/yellow] [dim]— those domains' configs could not "
+                      f"be read, so we do not know whether an owner exists.[/dim]")
+    for domain, contact in sorted(routing.fallback_contacts.items()):
+        console.print(f"[dim]  {domain}: product owner {contact} is somebody to "
+                      f"ask — not an assignment.[/dim]")
+
+    console.print("[dim](routing only — nothing written, nothing decided)[/dim]")
+    record_activity(command="domain", subcommand="queue",
+                    args={"refs": len(refs), "owners": counts["owners"],
+                          "routed": counts["routed"],
+                          "unrouted": routing.unrouted})
+
+
 def _warn_unreadable_names(names: list) -> None:
     """Unreadable is not unused — see `sources`."""
     if names:
@@ -1327,9 +1419,10 @@ def register(domain_app: typer.Typer) -> None:
     domain_app.command("usage")(usage_command)
     domain_app.command("sources")(sources_command)
     domain_app.command("plan")(plan_command)
+    domain_app.command("queue")(queue_command)
 
 
 __all__ = ["register", "gather", "stale_repo_entries", "diff_domain",
            "KIND_FILES", "FILE_KINDS", "classify_docs",
            "extract_intent", "review", "finalize", "score", "diff_command",
-           "usage_command", "sources_command", "plan_command"]
+           "usage_command", "sources_command", "plan_command", "queue_command"]
