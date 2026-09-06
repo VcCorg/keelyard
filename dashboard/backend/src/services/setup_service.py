@@ -33,6 +33,17 @@ class SetupItem(BaseModel):
     required: bool           # blocks core workflows when False
     detail: str = ""
     fix_hint: str = ""
+    #: Items that satisfy one requirement between them. Keel runs on Vertex, a
+    #: local runtime, or the downloadable built-in model, and the wizard has
+    #: always said so — but marking Vertex `required` forced an all-of check, so
+    #: a working Ollama setup still read as "not ready" and pointed the user at
+    #: a Google Cloud project they did not need. A group says "one of these"
+    #: without claiming any particular one is mandatory.
+    group: str = ""
+
+
+#: Groups where at least one member must be configured for the app to be ready.
+REQUIRED_GROUPS = ("model",)
 
 
 class SetupStatus(BaseModel):
@@ -171,13 +182,14 @@ def get_setup_status() -> SetupStatus:
             fix_hint="keel init workspace --code <dir> --docs <dir>",
         ),
         SetupItem(
-            key="vertex_ai", label="Vertex AI (LLM)", configured=vertex_ok, required=True,
+            key="vertex_ai", label="Vertex AI (LLM)", configured=vertex_ok,
+            required=False, group="model",
             detail=(f"project: {google.get('project_id')}" if vertex_ok else "Google Cloud project not set"),
             fix_hint="keel init vertex-ai --project-id <id> --location <region>",
         ),
         SetupItem(
             key="local_model", label="Local model (Ollama / LM Studio)", configured=local_ok,
-            required=False,
+            required=False, group="model",
             detail=(f"{local_model} @ {local_url}" if local_ok else
                     "No local model — the built-in test-mode provider answers when "
                     "no model is configured (deterministic, clearly labeled)"),
@@ -186,6 +198,7 @@ def get_setup_status() -> SetupStatus:
         SetupItem(
             key="builtin_model", label="Built-in model (download on first use)",
             configured=builtin_downloaded and builtin_sdk, required=False,
+            group="model",
             detail=(f"{builtin_label} — downloaded, serves when no other model is configured"
                     if builtin_downloaded and builtin_sdk else
                     ("downloaded, but llama-cpp-python is unavailable in this install"
@@ -219,13 +232,34 @@ def get_setup_status() -> SetupStatus:
             extra_env="BITBUCKET_DEFAULT_PROJECT",
         ),
         _integration_item(
+            key="github", label="GitHub (Repos / PRs)",
+            url_env="GITHUB_SERVER_URL", token_env="GITHUB_PERSONAL_ACCESS_TOKEN",
+            extra_env="GITHUB_DEFAULT_ORG",
+        ),
+        _integration_item(
             key="confluence", label="Confluence (Docs)",
             url_env="CONFLUENCE_SERVER_URL", token_env="CONFLUENCE_PERSONAL_ACCESS_TOKEN",
             extra_env="CONFLUENCE_DEFAULT_SPACE",
         ),
     ]
-    ready = cli_available and all(i.configured for i in items if i.required)
+    ready = cli_available and _requirements_met(items)
     return SetupStatus(cli_available=cli_available, cli_version=cli_version, ready=ready, items=items)
+
+
+def _requirements_met(items: list[SetupItem]) -> bool:
+    """Every individually-required item, plus one member of each required group.
+
+    The group half is what keeps this honest after Vertex stopped being
+    mandatory: without it, dropping `required` would have made "ready" stop
+    checking for a model at all.
+    """
+    if not all(i.configured for i in items if i.required):
+        return False
+    for group in REQUIRED_GROUPS:
+        members = [i for i in items if i.group == group]
+        if members and not any(i.configured for i in members):
+            return False
+    return True
 
 
 # ── Diagnostics (keel doctor, structured for the frontend) ───────────────────

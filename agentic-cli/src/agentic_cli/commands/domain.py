@@ -110,6 +110,8 @@ def create(
     jira_project: Annotated[str, typer.Option("--jira", help="Jira project key")] = None,
     bitbucket_project: Annotated[str, typer.Option("--bb", help="Bitbucket project key")] = None,
     bitbucket_url: Annotated[str, typer.Option("--bb-url", help="Bitbucket project/repo URL")] = None,
+    github_org: Annotated[str, typer.Option("--gh", help="GitHub org/owner")] = None,
+    github_url: Annotated[str, typer.Option("--gh-url", help="GitHub org/repo URL")] = None,
     confluence_space: Annotated[str, typer.Option("--confluence", help="Source Confluence space key")] = None,
     jira_dashboard: Annotated[str, typer.Option("--jira-dashboard", help="Jira dashboard URL")] = None,
     jira_board: Annotated[str, typer.Option("--jira-board", help="Jira board name/ID")] = None,
@@ -154,6 +156,8 @@ def create(
         jira_board=jira_board,
         bitbucket_project=bitbucket_project,
         bitbucket_url=bitbucket_url,
+        github_org=github_org,
+        github_url=github_url,
         confluence_space=confluence_space,
         jira_dashboard=jira_dashboard,
         confluence_url=confluence_url,
@@ -359,6 +363,8 @@ def update(
     jira_project: Annotated[str, typer.Option("--jira", help="Update Jira project key")] = None,
     bitbucket_project: Annotated[str, typer.Option("--bb", help="Update Bitbucket project key")] = None,
     bitbucket_url: Annotated[str, typer.Option("--bb-url", help="Update Bitbucket project/repo URL")] = None,
+    github_org: Annotated[str, typer.Option("--gh", help="Update GitHub org/owner")] = None,
+    github_url: Annotated[str, typer.Option("--gh-url", help="Update GitHub org/repo URL")] = None,
     confluence_space: Annotated[str, typer.Option("--confluence", help="Update Confluence space key")] = None,
     jira_dashboard: Annotated[str, typer.Option("--jira-dashboard", help="Jira dashboard URL")] = None,
     jira_board: Annotated[str, typer.Option("--jira-board", help="Jira board name/ID")] = None,
@@ -392,6 +398,10 @@ def update(
         fields["bitbucket_project"] = bitbucket_project
     if bitbucket_url:
         fields["bitbucket_url"] = bitbucket_url
+    if github_org:
+        fields["github_org"] = github_org
+    if github_url:
+        fields["github_url"] = github_url
     if confluence_space:
         fields["confluence_space"] = confluence_space
     if jira_dashboard:

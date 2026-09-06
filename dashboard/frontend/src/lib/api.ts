@@ -910,6 +910,8 @@ export interface DomainInfo {
   jira_board?: string;
   bitbucket_project?: string;
   bitbucket_url?: string;
+  github_org?: string;
+  github_url?: string;
   confluence_space?: string;
   confluence_url?: string;
   jira_dashboard?: string;
@@ -1038,6 +1040,8 @@ export interface CreateDomainBody {
   jira_board?: string;
   bitbucket_project?: string;
   bitbucket_url?: string;
+  github_org?: string;
+  github_url?: string;
   confluence_space?: string;
   confluence_url?: string;
   jira_dashboard?: string;
@@ -1326,6 +1330,10 @@ export interface SetupItem {
   required: boolean;
   detail: string;
   fix_hint: string;
+  /** Items sharing a group satisfy one requirement between them — Keel runs on
+   *  Vertex, a local runtime, or the built-in model, so any one of them counts.
+   *  Older backends omit this. */
+  group?: string;
 }
 
 export interface SetupStatus {

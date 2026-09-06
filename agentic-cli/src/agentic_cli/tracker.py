@@ -19,7 +19,7 @@ from typing import Any, Optional
 DB_DIR = Path.home() / ".agent-cli-agentic"
 DB_PATH = DB_DIR / "tracker.db"
 
-_SCHEMA_VERSION = 18
+_SCHEMA_VERSION = 19
 
 _SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -109,6 +109,8 @@ CREATE TABLE IF NOT EXISTS domains (
     jira_board              TEXT,                      -- Jira board name/ID
     bitbucket_project       TEXT,                      -- Bitbucket project key, e.g. 'CGF'
     bitbucket_url           TEXT,                      -- Bitbucket project/repo URL
+    github_org              TEXT,                      -- GitHub org/owner, e.g. 'acme'
+    github_url              TEXT,                      -- GitHub org/repo URL
     confluence_space        TEXT,                      -- source Confluence space, e.g. 'MTT'
     managed_confluence_space TEXT,                     -- agent-owned space, e.g. 'KEELCWOWFAC'
     jira_dashboard          TEXT,                      -- Jira dashboard URL
@@ -408,6 +410,25 @@ UPDATE domain_docs
  WHERE source_ref IS NULL OR source_ref = '';
 """
 
+
+_MIGRATION_V19 = """
+-- v19: a domain's code lives on Bitbucket *or* GitHub.
+--
+-- Registration required a Bitbucket coordinate, which made GitHub-hosted teams
+-- unable to create a domain at all. Both are now accepted and at least one is
+-- required, because a domain with no repository anywhere has nothing to onboard.
+--
+-- Columns rather than a provider-neutral coordinate, deliberately and with a
+-- known cost: this is the second hardcoded pair, and a third (GitLab, Azure
+-- DevOps) should not become a fourth column pair plus a longer `or` chain. The
+-- neutral model is tracked in docs/plans/SOURCE_CONTROL_PROVIDERS.md; this
+-- migration is the stopgap that unblocks GitHub users now, and the columns it
+-- adds are the ones that migration will read from.
+--
+-- No backfill: an existing domain's GitHub fields are genuinely empty, and
+-- inventing a value from the Bitbucket one would assert a mirror nobody set up.
+"""
+
 _ENSURE_INDEXES = """
 -- Indexes over migration-added columns, created after the migration chain.
 --
@@ -545,6 +566,12 @@ def _ensure_db() -> Path:
                 conn.executescript(_MIGRATION_V18)
                 conn.execute("UPDATE schema_version SET version = 18")
                 current_version = 18
+            if current_version < 19:
+                for _column in ("github_org", "github_url"):
+                    _add_column_if_missing(conn, "domains", _column, "TEXT")
+                conn.executescript(_MIGRATION_V19)
+                conn.execute("UPDATE schema_version SET version = 19")
+                current_version = 19
         # After the chain, so it covers the fresh-install path too — see
         # _ENSURE_INDEXES.
         conn.executescript(_ENSURE_INDEXES)
@@ -1290,6 +1317,8 @@ def register_domain(
     jira_board: str = None,
     bitbucket_project: str = None,
     bitbucket_url: str = None,
+    github_org: str = None,
+    github_url: str = None,
     confluence_space: str = None,
     managed_confluence_space: str = None,
     jira_dashboard: str = None,
@@ -1306,12 +1335,14 @@ def register_domain(
                 """UPDATE domains SET
                        product=?, domain=?, description=?,
                        jira_project=?, jira_board=?, bitbucket_project=?, bitbucket_url=?,
+                       github_org=?, github_url=?,
                        confluence_space=?, managed_confluence_space=?,
                        jira_dashboard=?, confluence_url=?, tags=?, kg_ingested=?, updated_at=?
                    WHERE name=?""",
                 (
                     product, domain, description,
                     jira_project, jira_board, bitbucket_project, bitbucket_url,
+                    github_org, github_url,
                     confluence_space, managed_confluence_space,
                     jira_dashboard, confluence_url, _json_dumps(tags), kg_ingested, now, name,
                 ),
@@ -1321,12 +1352,14 @@ def register_domain(
             cur = conn.execute(
                 """INSERT INTO domains
                    (name, product, domain, description, jira_project, jira_board,
-                    bitbucket_project, bitbucket_url, confluence_space, managed_confluence_space,
+                    bitbucket_project, bitbucket_url, github_org, github_url,
+                    confluence_space, managed_confluence_space,
                     jira_dashboard, confluence_url, tags, kg_ingested, created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     name, product, domain, description,
                     jira_project, jira_board, bitbucket_project, bitbucket_url,
+                    github_org, github_url,
                     confluence_space, managed_confluence_space,
                     jira_dashboard, confluence_url, _json_dumps(tags), kg_ingested, now, now,
                 ),
@@ -1369,7 +1402,8 @@ def update_domain(name: str, **fields) -> bool:
     """Update specific fields on a domain."""
     allowed = {
         "product", "domain", "description", "jira_project", "jira_board",
-        "bitbucket_project", "bitbucket_url", "confluence_space", "managed_confluence_space",
+        "bitbucket_project", "bitbucket_url", "github_org", "github_url",
+        "confluence_space", "managed_confluence_space",
         "jira_dashboard", "confluence_url", "tags", "kg_ingested",
     }
     updates = {k: v for k, v in fields.items() if k in allowed and v is not None}

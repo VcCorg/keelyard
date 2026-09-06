@@ -30,6 +30,8 @@ class CreateDomainRequest(BaseModel):
     jira_board: Optional[str] = None
     bitbucket_project: Optional[str] = None
     bitbucket_url: Optional[str] = None
+    github_org: Optional[str] = None
+    github_url: Optional[str] = None
     confluence_space: Optional[str] = None
     confluence_url: Optional[str] = None
     jira_dashboard: Optional[str] = None
@@ -55,6 +57,8 @@ class UpdateDomainRequest(BaseModel):
     jira_board: Optional[str] = None
     bitbucket_project: Optional[str] = None
     bitbucket_url: Optional[str] = None
+    github_org: Optional[str] = None
+    github_url: Optional[str] = None
     confluence_space: Optional[str] = None
     confluence_url: Optional[str] = None
     jira_dashboard: Optional[str] = None

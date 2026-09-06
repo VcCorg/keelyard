@@ -48,8 +48,10 @@ const STEPS: Step[] = [
   {
     id: "integrations",
     title: "Integrations",
-    blurb: "Connect Devin, Glean, Jira, Bitbucket and Confluence. All optional.",
-    keys: ["devin", "glean", "jira", "bitbucket", "confluence"],
+    blurb:
+      "Connect Devin, Glean, Jira, Confluence and your code host — Bitbucket or " +
+      "GitHub. All optional.",
+    keys: ["devin", "glean", "jira", "bitbucket", "github", "confluence"],
     optional: true,
   },
 ];

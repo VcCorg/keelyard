@@ -67,6 +67,8 @@ class DomainInfo(BaseModel):
     jira_board: Optional[str] = None
     bitbucket_project: Optional[str] = None
     bitbucket_url: Optional[str] = None
+    github_org: Optional[str] = None
+    github_url: Optional[str] = None
     confluence_space: Optional[str] = None
     confluence_url: Optional[str] = None
     jira_dashboard: Optional[str] = None
@@ -156,6 +158,8 @@ def _to_domain_info(d: dict, t) -> DomainInfo:
         jira_board=d.get("jira_board"),
         bitbucket_project=d.get("bitbucket_project"),
         bitbucket_url=d.get("bitbucket_url"),
+        github_org=d.get("github_org"),
+        github_url=d.get("github_url"),
         confluence_space=d.get("confluence_space"),
         confluence_url=d.get("confluence_url"),
         jira_dashboard=d.get("jira_dashboard"),
@@ -341,24 +345,29 @@ def create_domain(
     jira_board: Optional[str] = None,
     bitbucket_project: Optional[str] = None,
     bitbucket_url: Optional[str] = None,
+    github_org: Optional[str] = None,
+    github_url: Optional[str] = None,
     confluence_space: Optional[str] = None,
     confluence_url: Optional[str] = None,
     jira_dashboard: Optional[str] = None,
     tags: Optional[list[str]] = None,
 ) -> DomainDetail:
-    """Register a domain. Raises ValueError if the product is unknown or if
-    neither a Bitbucket project key nor a Bitbucket URL is provided."""
+    """Register a domain. Raises ValueError if the product is unknown or if no
+    source-control coordinate is given on either Bitbucket or GitHub."""
     t = _tracker()
     product_upper = product.upper()
     if not t.get_product(product_upper):
         raise ValueError(
             f"Product '{product_upper}' not found. Register it first via 'keel product create {product_upper}'."
         )
-    if not (bitbucket_project and bitbucket_project.strip()) and not (
-        bitbucket_url and bitbucket_url.strip()
-    ):
+    # One coordinate on either host. A domain with no repository anywhere has
+    # nothing to onboard, so this stays required — it just stopped being
+    # Bitbucket-specific, which was blocking GitHub teams entirely.
+    if not any((v or "").strip() for v in
+               (bitbucket_project, bitbucket_url, github_org, github_url)):
         raise ValueError(
-            "A Bitbucket project key or a Bitbucket repo/project URL is required."
+            "A source-control coordinate is required: a Bitbucket project key or "
+            "URL, or a GitHub org or repo URL."
         )
     slug = _slugify(product_upper, domain)
     t.register_domain(
@@ -370,6 +379,8 @@ def create_domain(
         jira_board=jira_board,
         bitbucket_project=bitbucket_project,
         bitbucket_url=bitbucket_url,
+        github_org=github_org,
+        github_url=github_url,
         confluence_space=confluence_space,
         jira_dashboard=jira_dashboard,
         confluence_url=confluence_url,

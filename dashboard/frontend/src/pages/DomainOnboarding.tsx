@@ -151,6 +151,21 @@ function StreamConsole({
   );
 }
 
+/** A domain needs one source-control coordinate, on either host.
+ *
+ *  It stays required — a domain with no repository anywhere has nothing to
+ *  onboard — but it stopped being Bitbucket-specific, which was blocking
+ *  GitHub-hosted teams from creating a domain at all. */
+function hasRepoCoordinate(form: {
+  bitbucket_project: string;
+  bitbucket_url: string;
+  github_org: string;
+  github_url: string;
+}): boolean {
+  return [form.bitbucket_project, form.bitbucket_url, form.github_org, form.github_url]
+    .some((v) => v.trim().length > 0);
+}
+
 const STEPS = [
   { key: "product", label: "Product", icon: Package },
   { key: "domain", label: "Domain", icon: Boxes },
@@ -575,13 +590,15 @@ function DomainRow({
     jira_project: domain.jira_project ?? "",
     bitbucket_project: domain.bitbucket_project ?? "",
     bitbucket_url: domain.bitbucket_url ?? "",
+    github_org: domain.github_org ?? "",
+    github_url: domain.github_url ?? "",
     confluence_space: domain.confluence_space ?? "",
     confluence_url: domain.confluence_url ?? "",
   });
 
   const save = async () => {
-    if (!form.bitbucket_project.trim() && !form.bitbucket_url.trim()) {
-      onError("A Bitbucket project key or a Bitbucket repo/project URL is required.");
+    if (!hasRepoCoordinate(form)) {
+      onError("A source-control coordinate is required: a Bitbucket project key or URL, or a GitHub org or repo URL.");
       return;
     }
     setBusy(true);
@@ -592,6 +609,8 @@ function DomainRow({
         jira_project: form.jira_project,
         bitbucket_project: form.bitbucket_project,
         bitbucket_url: form.bitbucket_url,
+        github_org: form.github_org,
+        github_url: form.github_url,
         confluence_space: form.confluence_space,
         confluence_url: form.confluence_url,
       });
@@ -668,8 +687,10 @@ function DomainRow({
           <Field label="Description" value={form.description} onChange={(v) => setForm({ ...form, description: v })} />
           <Field label="Jira project" value={form.jira_project} onChange={(v) => setForm({ ...form, jira_project: v })} />
           <div className="grid grid-cols-2 gap-2">
-            <Field label="Bitbucket project key *" value={form.bitbucket_project} onChange={(v) => setForm({ ...form, bitbucket_project: v })} />
-            <Field label="Bitbucket URL *" value={form.bitbucket_url} onChange={(v) => setForm({ ...form, bitbucket_url: v })} />
+            <Field label="Bitbucket project key" value={form.bitbucket_project} onChange={(v) => setForm({ ...form, bitbucket_project: v })} />
+            <Field label="Bitbucket URL" value={form.bitbucket_url} onChange={(v) => setForm({ ...form, bitbucket_url: v })} />
+            <Field label="GitHub org/owner" value={form.github_org} onChange={(v) => setForm({ ...form, github_org: v })} />
+            <Field label="GitHub repo/org URL" value={form.github_url} onChange={(v) => setForm({ ...form, github_url: v })} />
           </div>
           <p className="text-xs text-gray-400">Provide a Bitbucket project key or a repo/project URL.</p>
           <Field label="Confluence space" value={form.confluence_space} onChange={(v) => setForm({ ...form, confluence_space: v })} />
@@ -712,6 +733,8 @@ function DomainStep({
     jira_project: "",
     bitbucket_project: "",
     bitbucket_url: "",
+    github_org: "",
+    github_url: "",
     confluence_space: "",
     confluence_url: "",
   });
@@ -722,8 +745,8 @@ function DomainStep({
       onError("Product and Domain name are required.");
       return;
     }
-    if (!form.bitbucket_project.trim() && !form.bitbucket_url.trim()) {
-      onError("A Bitbucket project key or a Bitbucket repo/project URL is required.");
+    if (!hasRepoCoordinate(form)) {
+      onError("A source-control coordinate is required: a Bitbucket project key or URL, or a GitHub org or repo URL.");
       return;
     }
     setSaving(true);
@@ -735,6 +758,8 @@ function DomainStep({
         jira_project: form.jira_project || undefined,
         bitbucket_project: form.bitbucket_project || undefined,
         bitbucket_url: form.bitbucket_url || undefined,
+        github_org: form.github_org || undefined,
+        github_url: form.github_url || undefined,
         confluence_space: form.confluence_space || undefined,
         confluence_url: form.confluence_url || undefined,
       });
@@ -807,6 +832,10 @@ function DomainStep({
               onChange={(v) => setForm({ ...form, bitbucket_project: v })} />
             <Field label="Bitbucket repo/project URL" value={form.bitbucket_url}
               onChange={(v) => setForm({ ...form, bitbucket_url: v })} />
+            <Field label="GitHub org/owner (e.g. acme)" value={form.github_org}
+              onChange={(v) => setForm({ ...form, github_org: v })} />
+            <Field label="GitHub repo/org URL" value={form.github_url}
+              onChange={(v) => setForm({ ...form, github_url: v })} />
           </div>
           <div className="rounded-md border border-gray-200 dark:border-gray-800 p-3 space-y-2">
             <p className="text-xs font-medium text-gray-600 dark:text-gray-300">
@@ -929,7 +958,8 @@ function ReposStep({
       <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-4">
         <h2 className="font-semibold mb-1">Linked repos ({domain.repos.length})</h2>
         <p className="text-xs text-gray-500 mb-3">
-          Bitbucket: {domain.bitbucket_project || domain.bitbucket_url || "— (set it in step 1)"}
+          Code host: {domain.bitbucket_project || domain.bitbucket_url ||
+            domain.github_org || domain.github_url || "— (set it in step 1)"}
         </p>
         <div className="space-y-2 max-h-96 overflow-y-auto">
           {domain.repos.length === 0 && (
