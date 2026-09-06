@@ -7,9 +7,10 @@ model.
 
 Neither composes those into a session-level judgement. Whether a set of
 components adds up to a refusal is policy, and policy belongs where every other
-governance dial lives: a product sets a floor, a domain may tighten it. That
-arithmetic is a separate phase and needs a decision about how an organisation
-works rather than a default invented here.
+governance dial lives: a product sets a floor, a domain may tighten it. ``check`` is phase three: that arithmetic, composed against the product's
+governance floor — which a domain may tighten freely and may loosen only with a
+recorded exception. It is the one place a session-level verdict is reached, and
+it never turns "could not establish" into a pass.
 """
 from __future__ import annotations
 
@@ -186,3 +187,93 @@ def guard_findings(
     record_activity(command="guard", subcommand="findings",
                     args={"domain": domain or "*", "findings": len(result.findings),
                           "complete": result.complete})
+
+
+@guard_app.command("check")
+def guard_check(
+    domain: Annotated[str, typer.Argument(help="Domain to judge")],
+    session: Annotated[Optional[str], typer.Option(
+        "--session", "-s", help="A session id, so an idle credential can be spotted")] = None,
+    as_json: Annotated[bool, typer.Option("--json", help="Emit the judgement as JSON")] = False,
+) -> None:
+    """Judge this domain's agent surface against its product's governance floor.
+
+    The one place a session-level verdict is reached. `inventory` says what is
+    reachable, `findings` says what is true about each piece, and this says
+    whether the floor permits it — a floor the product sets, a domain may
+    tighten freely, and a domain may loosen only with a recorded exception.
+
+    **Where a domain loosened the floor with nothing on record, the floor
+    applies.** Judging a session against a policy its owner had no authority to
+    set would let anyone pass by editing their own governance.yaml.
+
+    **Undetermined is not a soft pass.** If a section could not be enumerated, or
+    where inference is served from could not be established, the answer is
+    undetermined — we might be failing and cannot tell. Passing there would
+    certify exactly what was never examined.
+
+    Exit status: 0 pass, 1 fail, 2 undetermined — so a pipeline can tell a
+    refusal from a gap without parsing the output.
+    """
+    from agentic_cli import guard, guard_findings as assessor, guard_floor
+
+    inventory = guard.collect(domain=domain, session_id=session or "")
+    judgement = guard_floor.compose(assessor.assess(inventory), domain)
+
+    if as_json:
+        console.print_json(json.dumps(judgement.to_dict()))
+        raise typer.Exit(_exit_for(judgement))
+
+    style = {guard_floor.PASS: "green", guard_floor.FAIL: "red",
+             guard_floor.UNDETERMINED: "yellow"}[judgement.verdict]
+    console.print(f"[bold {style}]{judgement.verdict.upper()}[/bold {style}] "
+                  f"— {domain}")
+    if judgement.detail:
+        console.print(f"[dim]{judgement.detail}[/dim]")
+
+    if judgement.rulings:
+        table = Table(show_lines=False)
+        table.add_column("Component", no_wrap=True)
+        table.add_column("Finding", no_wrap=True)
+        table.add_column("Outcome", no_wrap=True)
+        table.add_column("Why", overflow="fold")
+        for ruling in judgement.rulings:
+            colour = {guard_floor.DENIED: "red",
+                      guard_floor.INDETERMINATE: "yellow",
+                      guard_floor.WAIVED: "cyan",
+                      guard_floor.UNGOVERNED: "dim"}.get(ruling.outcome, "green")
+            why = ruling.detail or ""
+            if ruling.exception_id:
+                why += f" [dim](exception {ruling.exception_id})[/dim]"
+            if ruling.disregarded_domain_value:
+                # The loosening is itself the violation, and it is the fleet
+                # report that carries it — say where to look.
+                why += ("\n[dim]This domain set a looser value with nothing on "
+                        "record permitting it, so the floor applied. See "
+                        f"`{CLI_NAME} governance fleet`.[/dim]")
+            table.add_row(ruling.component, ruling.code,
+                          f"[{colour}]{ruling.outcome}[/{colour}]",
+                          why or "[dim]—[/dim]")
+        console.print(table)
+
+    if judgement.unruled:
+        console.print(f"[yellow]Could not rule on: "
+                      f"{', '.join(judgement.unruled)}.[/yellow] "
+                      f"[dim]Not a pass — we might be failing and cannot tell.[/dim]")
+    if judgement.ungoverned:
+        console.print(f"[dim]{len(judgement.ungoverned)} finding(s) the floor "
+                      f"makes no rule about. A gap in the policy, not a "
+                      f"violation.[/dim]")
+
+    record_activity(command="guard", subcommand="check",
+                    args={"domain": domain, "verdict": judgement.verdict,
+                          "violations": len(judgement.violations)})
+    raise typer.Exit(_exit_for(judgement))
+
+
+def _exit_for(judgement) -> int:
+    """0 pass, 1 fail, 2 undetermined — a refusal and a gap are different."""
+    from agentic_cli import guard_floor
+
+    return {guard_floor.PASS: 0, guard_floor.FAIL: 1,
+            guard_floor.UNDETERMINED: 2}[judgement.verdict]

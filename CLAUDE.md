@@ -126,6 +126,10 @@ teammate ship from this domain?", produced by `keel domain score`.
 **Governance floor** — the product-level governance values a domain may tighten
 freely and may not loosen without a recorded exception.
 
+**Floor arithmetic** — the one composition of per-component findings into a
+session verdict, against the floor in force. Pass, fail, or *undetermined* —
+never a pass for what could not be established. `keel guard check`.
+
 **Exception** — an auditable waiver in the product meta-repo's `exceptions/`
 ledger, permitting one domain to sit below the floor for a stated reason.
 
@@ -151,7 +155,7 @@ bash scripts/check-no-company-data.sh --all # guardrail; also runs in CI
 
 As of September 2026, on a **pristine checkout of `main`**:
 
-- `agentic-cli` — 1433 pass, **28 fail**
+- `agentic-cli` — 1450 pass, **28 fail**
 - `dashboard/backend` — 193 pass, **4 fail** (all `test_neo4j_preflight`, which
   needs a live Neo4j — they pass nowhere without one, including CI, which is why
   that file is excluded there)
@@ -235,3 +239,11 @@ drift, token accounting and cost) and what is genuinely left.
 Nothing is blocked on a decision now — the tier-two storage question that used
 to sit here was settled by building both backends and leaving the store off
 until an operator names one.
+
+The two questions that replaced it have since been answered, and both answers
+are now load-bearing rather than defaults: a fan-out escalation goes to the
+**domain owner** recorded in that domain's own `domain.yaml`, and per-component
+findings compose against the **product's governance floor**, which a domain may
+tighten freely and loosen only through the `exceptions/` ledger. Neither has a
+fallback: an unowned domain is reported rather than assigned, and a check that
+could not establish something answers *undetermined* rather than passing.

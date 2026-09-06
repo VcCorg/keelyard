@@ -45,6 +45,11 @@ _NUMERIC_UP = frozenset({"min_reviewers", "test_coverage_min"})
 _BOOL_UP = frozenset({
     "require_pre_push_hook", "require_ci_gates", "require_code_review",
     "require_tests",
+    # Agent-surface rules. Listed here rather than compared separately so a
+    # domain forbidding what the product permits reads as *stricter* through
+    # the same path as every other field, and a domain permitting what the
+    # product forbids needs a recorded exception like anything else.
+    "forbid_shared_credentials", "forbid_external_egress",
 })
 #: Ordered enums, least strict first.
 _ORDINAL: dict[str, tuple[str, ...]] = {
@@ -223,6 +228,14 @@ def _covering_exception(exceptions: list, domain: str, rule: str) -> str:
         if scope in (f"domain:{domain}", "domain:*", "product", ""):
             return getattr(entry, "id", "") or "recorded"
     return ""
+
+
+#: Public aliases. The exception ledger is the one place that decides whether a
+#: waiver is in force, and the agent-surface floor needs exactly that decision —
+#: a second implementation of expiry and scope matching is how two answers to
+#: "is this waived" start disagreeing.
+active_exceptions = _active_exceptions
+covering_exception = _covering_exception
 
 
 def compare_domain(
