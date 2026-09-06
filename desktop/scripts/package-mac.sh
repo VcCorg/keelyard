@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# package-mac.sh — Node 22 + install + build/pack the Keel desktop app on macOS.
+# package-mac.sh — Node + install + build/pack the Keel desktop app on macOS.
 # Run from the desktop/ directory: ./scripts/package-mac.sh
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -48,20 +48,20 @@ if ! command -v pyinstaller >/dev/null 2>&1; then
     fi
 fi
 
-# Ensure Node 22 is active (use nvm if available, otherwise validate system node)
+# Node: prefer nvm at the repo's pinned version, otherwise accept anything the
+# toolchain actually supports. The old fallback demanded major 22 exactly, which
+# refused the Node 20 that CI packages with — the scripts and CI disagreed about
+# what a buildable machine looked like.
+# shellcheck source=../../scripts/lib/require-node.sh
+source "$SCRIPT_DIR/../../scripts/lib/require-node.sh"
+
 if [ -s "$HOME/.nvm/nvm.sh" ]; then
     # shellcheck source=/dev/null
     source "$HOME/.nvm/nvm.sh"
     nvm install 22
     nvm use 22
-else
-    NODE_MAJOR=$(node --version 2>/dev/null | cut -d'v' -f2 | cut -d'.' -f1 || true)
-    if [ "${NODE_MAJOR:-}" != "22" ]; then
-        echo "ERROR: Node.js 22 is required and nvm is not available." >&2
-        echo "Install Node 22 (or nvm) and re-run this script." >&2
-        exit 1
-    fi
 fi
+keel_require_node
 
 cleanup_stale_builds() {
     # Eject stray Keel/electron-builder temp disk images.

@@ -39,7 +39,7 @@ The Electron shell picks a free port, spawns the frozen FastAPI+CLI sidecar
 
 - **Install:** download the `.dmg` (macOS) or `.exe` (Windows) from the CI release
   artifacts (`.github/workflows/desktop-build.yml`).
-- **Build locally:** Node 22 (nvm) + Python 3.12; then
+- **Build locally:** Node 22 (nvm; `^20.19.0 || >=22.12.0` accepted) + Python 3.12; then
   `cd desktop && npm install && npm run package:mac` (or `package:win`).
 - **First run:** creates `~/.keel/` (env store, admin settings, role/persona data);
   the tracker SQLite DB is initialized on demand. Landing page is the Setup panel
@@ -50,7 +50,8 @@ The Electron shell picks a free port, spawns the frozen FastAPI+CLI sidecar
 
 ### 2. Dev workspace (CLI + web dashboard)
 
-Prereqs: [`uv`](https://docs.astral.sh/uv/) (Python 3.12), Node 22, and Docker
+Prereqs: [`uv`](https://docs.astral.sh/uv/) (Python 3.12), Node 22 (see
+`dashboard/frontend/.nvmrc`), and Docker
 (optional — only if you want the MCP stack running locally).
 
 ```bash

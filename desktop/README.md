@@ -21,9 +21,12 @@ The backend serves the SPA itself (`KEEL_SERVE_FRONTEND`), so the UI's relative
 
 ## Prerequisites (build machine only)
 
-- Node 22+ (the project is validated on Node 22 via nvm; system Node 18 will fail
-  the frontend build with `SyntaxError: The requested module 'node:util' does not
-  provide an export named 'styleText'`):
+- Node `^20.19.0 || >=22.12.0` — the range `dashboard/frontend/package.json`
+  declares, taken from vite and rolldown. 22 is what CI and `.nvmrc` use, so it
+  is the version to install if you have no reason to prefer another. Node 18
+  fails the frontend build with `SyntaxError: The requested module 'node:util'
+  does not provide an export named 'styleText'`, and an install on 18 can fail
+  earlier still, in a way that reads like a registry problem:
   ```bash
   nvm install 22
   nvm use 22

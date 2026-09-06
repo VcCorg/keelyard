@@ -4,7 +4,8 @@ Thanks for your interest. This guide covers what you need to get a change landed
 
 ## Getting set up
 
-You need [`uv`](https://docs.astral.sh/uv/) (Python 3.12), Node 22, and optionally
+You need [`uv`](https://docs.astral.sh/uv/) (Python 3.12), Node 22 (see
+`dashboard/frontend/.nvmrc`; the toolchain accepts `^20.19.0 || >=22.12.0`), and optionally
 Docker for the MCP/KG stack.
 
 ```bash

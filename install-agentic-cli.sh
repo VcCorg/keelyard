@@ -343,6 +343,8 @@ if [ -z "$SKIP_DASHBOARD" ]; then
     fi
 
     # Frontend (Node) — the Vite app needs its npm deps (@xyflow/react, elkjs, …).
+    # shellcheck source=scripts/lib/require-node.sh
+    source "$ROOT_DIR/scripts/lib/require-node.sh"
     FRONTEND_DIR="$ROOT_DIR/dashboard/frontend"
     if [ -d "$FRONTEND_DIR" ]; then
         # If nvm is installed, use Node 22 (and its npm) for the frontend.
@@ -356,7 +358,13 @@ if [ -z "$SKIP_DASHBOARD" ]; then
             fi
         fi
 
-        if command -v npm &> /dev/null; then
+        # Warn rather than exit: the CLI itself installs fine without Node, and
+        # only the dashboard frontend needs it. But say so plainly here, because
+        # the alternative is npm failing several steps later for reasons that
+        # never mention the runtime.
+        if ! keel_require_node --warn; then
+            log_warn "Skipping dashboard frontend deps — Node ${KEEL_NODE_RANGE} required."
+        elif command -v npm &> /dev/null; then
             # Force latest npm to avoid warnings and get current npx behavior.
             log_info "Updating npm to latest..."
             if npm install -g npm@latest >/dev/null 2>&1; then
@@ -372,7 +380,7 @@ if [ -z "$SKIP_DASHBOARD" ]; then
                 log_warn "npm install failed — run manually: ( cd dashboard/frontend && npm install )"
             fi
         else
-            log_warn "npm not found — install Node.js 18+, then run: ( cd dashboard/frontend && npm install )"
+            log_warn "npm not found — install Node.js ${KEEL_NODE_RANGE}, then run: ( cd dashboard/frontend && npm install )"
         fi
     fi
 fi

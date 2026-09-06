@@ -15,6 +15,13 @@ NC='\033[0m'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FRONTEND_DIR="$SCRIPT_DIR/dashboard/frontend"
 
+# The version gate goes before npm touches anything: on an unsupported Node the
+# install fails partway through with a message about the registry, not the
+# runtime, which is a long way from the actual cause.
+# shellcheck source=scripts/lib/require-node.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scripts/lib/require-node.sh"
+keel_require_node
+
 # Check if node_modules exists
 if [ ! -d "$FRONTEND_DIR/node_modules" ]; then
     echo -e "${BLUE}▸${NC} node_modules not found. Installing dependencies..."

@@ -105,13 +105,13 @@ else
 fi
 
 load_nvm
-NODE_VERSION=$(node --version 2>/dev/null || echo "none")
-if [[ "$NODE_VERSION" == "none" ]] || [[ "${NODE_VERSION%%.*}" < "v20" ]]; then
-    err "Node.js 20+ required (found: $NODE_VERSION)"
-    err "Run: nvm install 22"
-    exit 1
-fi
-ok "Node.js $NODE_VERSION"
+# Numeric, and against the toolchain's real range. The previous check compared
+# version strings lexically, so "v8" sorted after "v20" and Node 8 or 9 passed a
+# gate that existed to require 20+.
+# shellcheck source=lib/require-node.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/require-node.sh"
+keel_require_node
+ok "Node.js $(node --version)"
 
 # ─── Step 1: MCP Servers ─────────────────────────────────────────────────
 if [ "$SKIP_MCP" = false ]; then

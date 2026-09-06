@@ -1,6 +1,6 @@
 ﻿<#
 package-win.ps1 - Windows equivalent of package-mac.sh.
-Node 22 + install + build/pack the Keel desktop app on Windows.
+Node + install + build/pack the Keel desktop app on Windows.
 
 Run from the desktop\ directory:
 
@@ -109,20 +109,45 @@ if ($LASTEXITCODE -ne 0) {
     if ($LASTEXITCODE -ne 0) { Write-Warning "pywinpty install failed; terminal PTY will not work in the packaged app." }
 }
 
-# ---- Node 22 --------------------------------------------------------------
-# Prefer nvm-windows if installed; otherwise validate the ambient node.
+# ---- Node -----------------------------------------------------------------
+# Range mirrors dashboard/frontend/package.json `engines.node`, which comes from
+# the toolchain: vite 8 and rolldown both declare ^20.19.0 || >=22.12.0. The old
+# check demanded major 22 exactly and so refused the Node 20 that CI packages
+# with; it also compared the major as a string. This is the PowerShell twin of
+# scripts/lib/require-node.sh — the two cannot share code, so they are kept
+# deliberately parallel.
+$KeelNodeRange = '^20.19.0 || >=22.12.0'
+
+function Test-KeelNode([string]$Version) {
+    if (-not $Version) { return $false }
+    $parts = ($Version -replace '^v', '').Split('.')
+    if ($parts.Count -lt 2) { return $false }
+    $major = 0; $minor = 0
+    if (-not [int]::TryParse($parts[0], [ref]$major)) { return $false }
+    if (-not [int]::TryParse($parts[1], [ref]$minor)) { return $false }
+
+    if ($major -eq 20) { return $minor -ge 19 }
+    if ($major -eq 21) { return $false }      # odd release line, outside the range
+    if ($major -eq 22) { return $minor -ge 12 }
+    return $major -gt 22
+}
+
 $nvm = Get-Command nvm -ErrorAction SilentlyContinue
 if ($nvm) {
     & nvm install 22.0.0 | Out-Null
     & nvm use 22.0.0     | Out-Null
-} else {
-    $nodeVersion = ''
-    try { $nodeVersion = (& node --version) 2>$null } catch {}
-    $major = ($nodeVersion -replace '^v','').Split('.')[0]
-    if ($major -ne '22') {
-        Write-Error "Node.js 22 is required and nvm-windows is not available. Install Node 22 (or nvm-windows) and re-run this script. Current node: $nodeVersion"
-        exit 1
-    }
+}
+
+$nodeVersion = ''
+try { $nodeVersion = (& node --version) 2>$null } catch {}
+if (-not (Test-KeelNode $nodeVersion)) {
+    Write-Error @"
+Node.js $KeelNodeRange is required. Current node: $(if ($nodeVersion) { $nodeVersion } else { 'not found' })
+vite and rolldown refuse to run below it; npm only warns, then the install fails
+later in a way that looks like a network problem.
+Fix: install Node 22 (or nvm-windows) and re-run. See dashboard/frontend/.nvmrc
+"@
+    exit 1
 }
 
 # ---- Stale-build cleanup --------------------------------------------------

@@ -89,7 +89,10 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # Matches dashboard/frontend/.nvmrc and the tests workflow. It was 20
+          # while the packaging scripts demanded 22 exactly, so CI and the
+          # documented local path built with different runtimes.
+          node-version: "22"
 
       - uses: actions/setup-python@v5
         with:
