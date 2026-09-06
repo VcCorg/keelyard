@@ -137,6 +137,14 @@ class GovernanceConfig:
     inner_loop_floor: list[str] = field(
         default_factory=lambda: ["spec-first", "tdd", "two-stage-review"]
     )
+    # Agent-surface floor: what a session is permitted to carry. Named
+    # `forbid_*` rather than `allow_*` so that True is the stricter value, which
+    # is the convention every other boolean here follows and the one
+    # governance_fleet.compare_field already encodes. An `allow_*` spelling
+    # would invert the ordering for two fields out of a dozen and make
+    # "tightened" mean the opposite depending on which one you read.
+    forbid_shared_credentials: bool = False
+    forbid_external_egress: bool = False
     # Per-domain build-governance dial: how strictly this domain's builds
     # (code onboard + engine sessions) are held to the governed workflow.
     #   off     — sandbox: anything goes, still audited/attributed
@@ -155,6 +163,9 @@ class GovernanceConfig:
             min_reviewers=data.get("min_reviewers", 1),
             require_tests=data.get("require_tests", True),
             test_coverage_min=data.get("test_coverage_min", 80.0),
+            forbid_shared_credentials=bool(
+                data.get("forbid_shared_credentials", False)),
+            forbid_external_egress=bool(data.get("forbid_external_egress", False)),
             promotion_path=data.get("promotion_path", _default_promotion_path()),
             checkpoint_gate_map=data.get(
                 "checkpoint_gate_map", _default_checkpoint_gate_map()
