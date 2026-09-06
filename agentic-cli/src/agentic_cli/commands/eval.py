@@ -195,6 +195,137 @@ def show_dataset(
         console.print(table)
 
 
+@dataset_app.command("pull")
+def pull_hub_dataset(
+    repo_id: Annotated[
+        str,
+        typer.Argument(help="Hugging Face dataset repo, e.g. squad or org/name"),
+    ],
+    input_field: Annotated[
+        str,
+        typer.Option("--input", help="Column holding the model input"),
+    ],
+    expected_field: Annotated[
+        str,
+        typer.Option("--expected", help="Column holding the expected output"),
+    ],
+    split: Annotated[
+        str, typer.Option("--split", help="Split to read"),
+    ] = "test",
+    config: Annotated[
+        str, typer.Option("--config", help="Dataset config/subset name, when it has one"),
+    ] = "",
+    limit: Annotated[
+        int, typer.Option("--limit", "-n", help="Max rows to take (0 = all)"),
+    ] = 200,
+    dataset_id: Annotated[
+        str, typer.Option("--as", help="Local dataset id (default: derived from the repo)"),
+    ] = "",
+) -> None:
+    """Pull a Hugging Face dataset into a local evaluation dataset.
+
+    The field mapping is required and has no default on purpose. Hub datasets
+    name their columns anything at all — question/answer, prompt/completion,
+    text/label — and guessing produces a dataset that loads, runs, scores, and
+    is measuring the wrong column. Naming them is one flag each and makes the
+    mapping part of the record.
+
+    The dataset card is fetched through the retrieval seam first, which is what
+    puts the pull in the ledger and pins the commit sha: a dataset that says
+    where its rows came from and at which revision can be re-pulled and
+    compared, one that only says "squad" cannot.
+
+    Examples:
+        {CLI_NAME} eval dataset pull squad --input question --expected answers --split validation
+        {CLI_NAME} eval dataset pull org/support-qa --input prompt --expected reply --limit 50
+    """.format(CLI_NAME=CLI_NAME)
+    from agentic_cli import retrieval
+    from agentic_cli.evaluation.datasets import EvaluationSample
+
+    # The card first: it carries the licence and the intended use, and it is
+    # also how we learn the revision. A pull with no provenance is a pile of
+    # rows.
+    card = retrieval.fetch(f"hf://dataset/{repo_id}",
+                           source=retrieval.ONBOARDING_SOURCE,
+                           operation_prefix="read")
+    if card.status == retrieval.UNAVAILABLE:
+        console.print(f"[yellow]⚠ Could not read the dataset card: {card.detail}[/yellow]")
+        console.print("[dim]Continuing — the card is provenance, not the rows.[/dim]")
+    elif card.status == retrieval.MISSING:
+        console.print(f"[red]✗ The hub has no dataset '{repo_id}'.[/red]")
+        raise typer.Exit(1)
+
+    try:
+        from datasets import load_dataset
+    except ImportError:
+        console.print("[red]✗ The `datasets` library is not installed.[/red]")
+        console.print("[dim]Install it with: pip install 'agentic-cli\\[eval]'[/dim]")
+        raise typer.Exit(1)
+
+    console.print(f"[cyan]Loading {repo_id} ({split})...[/cyan]")
+    try:
+        rows = load_dataset(repo_id, config or None, split=split)
+    except Exception as e:  # noqa: BLE001 - the hub reports many distinct failures
+        console.print(f"[red]✗ Could not load the dataset: {e}[/red]")
+        raise typer.Exit(1)
+
+    columns = list(getattr(rows, "column_names", []) or [])
+    missing = [c for c in (input_field, expected_field) if columns and c not in columns]
+    if missing:
+        console.print(f"[red]✗ No such column(s): {', '.join(missing)}[/red]")
+        console.print(f"[dim]This split has: {', '.join(columns)}[/dim]")
+        raise typer.Exit(1)
+
+    local_id = dataset_id or repo_id.replace("/", "-").lower()
+    dataset = dataset_manager.create_dataset(
+        dataset_id=local_id,
+        name=repo_id,
+        description=f"Pulled from Hugging Face dataset {repo_id} ({split})",
+        tags=["huggingface", split],
+        metadata={
+            "hub": "huggingface",
+            "repo_id": repo_id,
+            "revision": card.version,
+            "split": split,
+            "config": config,
+            # The mapping is metadata, not a footnote: it is the only thing that
+            # says which column each side of a score was actually read from.
+            "input_field": input_field,
+            "expected_field": expected_field,
+        },
+    )
+
+    taken = 0
+    for row in rows:
+        if limit and taken >= limit:
+            break
+        dataset.add_sample(EvaluationSample(
+            input=str(row.get(input_field, "")),
+            expected_output=str(row.get(expected_field, "")),
+        ))
+        taken += 1
+    dataset_manager.save_dataset(dataset)
+
+    record_activity(
+        command="eval",
+        subcommand="dataset-pull",
+        args={"repo_id": repo_id, "split": split, "rows": taken,
+              "revision": card.version},
+        repo_path=str(Path.cwd()),
+    )
+    console.print(
+        Panel.fit(
+            f"[bold green]✓ Dataset Pulled[/bold green]\n\n"
+            f"[bold]Local ID:[/bold] {local_id}\n"
+            f"[bold]Source:[/bold] {repo_id} ({split})\n"
+            f"[bold]Revision:[/bold] {card.version or 'unknown'}\n"
+            f"[bold]Rows:[/bold] {taken}\n"
+            f"[bold]Mapping:[/bold] {input_field} → {expected_field}",
+            border_style="green",
+        )
+    )
+
+
 @dataset_app.command("register")
 def register_csv_dataset(
     name: Annotated[

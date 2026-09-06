@@ -15,8 +15,8 @@ drift-checkable with machinery that already exists. Confluence is not.
 Neither reader retains a body: each returns text to :func:`~agentic_cli.
 onboarding.extract.extract`, which reduces it to candidates and drops it.
 
-Confluence reads go through :mod:`agentic_cli.retrieval`, so they leave a ledger
-row under ``onboarding``; the staleness comparison that used to live here went
+Tracked-source reads go through :mod:`agentic_cli.retrieval` by ref, so the
+scheme decides the reader and each leaves a ledger row under ``onboarding``; the staleness comparison that used to live here went
 the same way, because a second copy of it is how the two drift back apart.
 Repository reads still walk the tree directly: enumerating which files *are* the
 onboarding corpus is discovery, not fetching one known ref, and forcing it
@@ -78,35 +78,45 @@ class Document:
     doc_type: str = ""
 
 
-def fetch_confluence(page_id: str, title: str = "") -> Document | None:
-    """Read one tracked page through the retrieval seam.
+def fetch_source(ref: str, title: str = "") -> Document | None:
+    """Read one tracked source through the retrieval seam, whatever it is.
 
-    Returns ``None`` when the page cannot be read: a source that is temporarily
-    unreachable must not look like a source with nothing to say, because the
-    difference decides whether an approved instruction is flagged absent. The
-    seam draws that line as ``UNAVAILABLE`` versus ``MISSING``; this signature
-    predates it and still collapses both to ``None``, because a caller mid-read
-    has the same move either way — skip the page and say so.
+    The scheme in the ref decides which fetcher answers, so a Kaggle
+    competition, a hub model card and a Confluence page all arrive here as the
+    same :class:`Document` and extraction never learns the difference. That is
+    the point: this function used to *be* the Confluence reader, and the reason
+    nothing but Confluence could be tracked as a domain source was that one
+    hardcoded call, not anything about the pipeline downstream of it.
 
-    Going through the seam is what puts extraction in the ledger. These reads
-    were invisible before: ``keel domain extract`` pulled every tracked page
-    from upstream and left no record that it had. They record under
-    ``onboarding``, not ``context`` — a page read to derive instructions was
-    never put in front of an agent, and filing it as context would corrupt the
-    one question the eval feed exists to answer.
+    Returns ``None`` when the source cannot be read: a source that is
+    temporarily unreachable must not look like a source with nothing to say,
+    because the difference decides whether an approved instruction is flagged
+    absent. The seam draws that line as ``UNAVAILABLE`` versus ``MISSING``; this
+    signature collapses both to ``None``, because a caller mid-read has the same
+    move either way — skip the source and say so.
+
+    Reads record under ``onboarding``, not ``context`` — a page read to derive
+    instructions was never put in front of an agent, and filing it as context
+    would corrupt the one question the eval feed exists to answer.
     """
     from agentic_cli import retrieval
 
-    fetched = retrieval.fetch(f"confluence:{page_id}",
-                              source=retrieval.ONBOARDING_SOURCE,
+    fetched = retrieval.fetch(ref, source=retrieval.ONBOARDING_SOURCE,
                               operation_prefix="read")
     if not fetched.resolved:
         return None
+    parsed = retrieval.parse_ref(ref)
     return Document(
         text=fetched.text,
-        citation=Citation("confluence", str(page_id), fetched.version),
+        citation=Citation(parsed.scheme or "confluence", parsed.path,
+                          fetched.version),
         title=fetched.title or title,
     )
+
+
+def fetch_confluence(page_id: str, title: str = "") -> Document | None:
+    """Read one tracked Confluence page. Kept because callers name pages, not refs."""
+    return fetch_source(f"confluence:{page_id}", title)
 
 
 def content_version(text: str) -> str:

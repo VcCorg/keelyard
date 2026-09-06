@@ -29,6 +29,7 @@ from agentic_cli.onboarding import (
     answerability, classify, extract, proposal, provenance, readiness, sources,
 )
 from agentic_cli.tracker import (
+    doc_ref,
     get_domain,
     get_domain_docs,
     get_domain_repos,
@@ -195,7 +196,10 @@ def _extract_intent(slug: str, meta: Path, include_repos: bool,
         console.print(f"[cyan]Reading {len(wanted)} tracked doc(s)...[/cyan]")
     for doc in wanted:
         page_id = str(doc.get("source_page_id"))
-        fetched = sources.fetch_confluence(page_id, doc.get("title") or "")
+        # By ref, not by page id: the scheme decides the reader, so a Kaggle
+        # competition tracked with `domain add-source` extracts exactly like a
+        # Confluence page rather than needing a branch here.
+        fetched = sources.fetch_source(doc_ref(doc), doc.get("title") or "")
         if fetched is None:
             unreachable += 1
             console.print(f"  [yellow]⚠[/yellow] unreachable: {doc.get('title') or page_id}")

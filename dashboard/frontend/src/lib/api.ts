@@ -373,12 +373,21 @@ export interface DevinKnowledgeList {
 /* ---- Integration status ---- */
 export type IntegrationState = "ok" | "warn" | "error" | "unknown";
 
+/** Which shelf an integration sits on — see the backend's Group. Optional
+ *  entries are ones the user chose to connect, kept out of the always-on
+ *  status bar so a hub nobody configured is not a permanent grey dot. */
+export type IntegrationGroup = "platform" | "optional";
+
 export interface IntegrationStatus {
   key: string;
   label: string;
   status: IntegrationState;
   detail: string;
   hint: string;
+  /** Older backends omit this; treat a missing value as "platform". */
+  group?: IntegrationGroup;
+  /** The command that configures this integration, when there is one. */
+  docs_command?: string;
 }
 
 export interface IntegrationsResponse {

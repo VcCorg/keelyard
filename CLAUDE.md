@@ -64,6 +64,10 @@ through `execution.registry`, which is the single build-governance seam.
 content and version behind it. Registered against a scheme (`domain`, `repo`,
 `confluence`, `okf`, `governance`), never branched on.
 
+**Tracked source** — one row in a domain's `domain_docs`, addressed by a
+retrieval *ref* rather than a Confluence page id. The scheme picks the fetcher,
+so a Kaggle competition and a Confluence page reach extraction identically.
+
 **Retriever** — a named search index (FAISS, FTS, KG) an agent binds to and
 queries, registered in `retrievers.py`. Distinct from a fetcher: a retriever
 answers "what is relevant to this question" and returns many hits; a fetcher
@@ -134,8 +138,8 @@ bash scripts/check-no-company-data.sh --all # guardrail; also runs in CI
 
 As of September 2026, on a **pristine checkout of `main`**:
 
-- `agentic-cli` — 1365 pass, **28 fail**
-- `dashboard/backend` — 191 pass, **4 fail** (all `test_neo4j_preflight`, which
+- `agentic-cli` — 1387 pass, **28 fail**
+- `dashboard/backend` — 193 pass, **4 fail** (all `test_neo4j_preflight`, which
   needs a live Neo4j — they pass nowhere without one, including CI, which is why
   that file is excluded there)
 

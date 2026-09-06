@@ -182,6 +182,14 @@ def _build_provider(
         return LocalProvider(model_name=model_name,
                              system_instruction=system_instruction)
 
+    if detected_provider == "huggingface":
+        from agentic_cli.llm.providers.huggingface import HuggingFaceProvider
+
+        # Imported lazily like the other optional backends, though this one
+        # needs no SDK — the router speaks the OpenAI chat API over httpx.
+        return HuggingFaceProvider(model_name=model_name,
+                                   system_instruction=system_instruction)
+
     if detected_provider == "anthropic":
         return AnthropicProvider(
             model_name=model_name or "claude-3-5-sonnet-20241022",
@@ -237,7 +245,7 @@ def _build_provider(
     else:
         raise ProviderNotConfigured(
             f"Unknown provider type: {detected_provider}\n"
-            f"Supported: vertex-ai, anthropic, openai, local, test-mode"
+            f"Supported: vertex-ai, anthropic, openai, huggingface, local, test-mode"
         )
 
 
