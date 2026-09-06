@@ -107,6 +107,14 @@ different words, with nothing having ruled on whether the two still agree. Token
 overlap cannot tell agreement from contradiction, so this asks a human and never
 fast-forwards.
 
+**Fan-out plan** — a dry run of one source's change across every domain drawing
+on it: which domains it lands in unattended, which owe a human a decision, and
+which could not be ruled on. `keel domain plan`.
+
+**Finding** — one statement about one component's own surface (a shared
+credential, model egress), carrying what it does *not* claim. Never composed
+into a session-level judgement; that composition is the governance floor's.
+
 **Readiness score** — the eight-dimension answer to "could a competent new
 teammate ship from this domain?", produced by `keel domain score`.
 
@@ -138,7 +146,7 @@ bash scripts/check-no-company-data.sh --all # guardrail; also runs in CI
 
 As of September 2026, on a **pristine checkout of `main`**:
 
-- `agentic-cli` — 1387 pass, **28 fail**
+- `agentic-cli` — 1415 pass, **28 fail**
 - `dashboard/backend` — 193 pass, **4 fail** (all `test_neo4j_preflight`, which
   needs a live Neo4j — they pass nowhere without one, including CI, which is why
   that file is excluded there)

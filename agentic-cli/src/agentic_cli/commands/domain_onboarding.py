@@ -1203,6 +1203,109 @@ def _warn_unreadable(index) -> None:
                       f"too. Unreadable is not unused.[/yellow]")
 
 
+# ── plan (fan-out dry run) ──────────────────────────────────────────────────
+
+def plan_command(
+    ref: Annotated[str, typer.Argument(
+        help="The source to plan, e.g. repo:svc/CONTRIBUTING.md")],
+    product: Annotated[Optional[str], typer.Option(
+        "--product", "-p", help="Limit to one product's domains")] = None,
+    as_json: Annotated[bool, typer.Option("--json", help="Emit the plan as JSON")] = False,
+) -> None:
+    """What this source's current state would do to every domain drawing on it.
+
+    `sources` says who is affected; this says what would happen to them, and it
+    writes nothing — the plan is the artefact, and applying it stays a decision
+    a human makes with the plan in front of them.
+
+    One fetch and one re-extraction serve every domain, so planning a shared
+    platform doc costs one read rather than one per domain. A fan-out that cost
+    N reads is one nobody would run before pushing.
+
+    Three outcomes, and the third is not a rounding of the other two. A domain
+    whose proposal cannot be read, or whose only tie to this source is a held
+    instruction carrying no text, is one nothing was ruled on. Calling that
+    settled would report a clear run on evidence nobody has.
+    """
+    from agentic_cli.onboarding import plan as planner
+
+    result = planner.build(ref, product=product or "", provider=_diff_judge())
+
+    if as_json:
+        console.print_json(json.dumps(result.to_dict()))
+        raise typer.Exit(0)
+
+    if result.status == planner.UNUSED:
+        console.print(f"[yellow]No domain draws on {ref}.[/yellow]")
+        _warn_unreadable_names(result.unreadable)
+        raise typer.Exit(0)
+
+    if result.status == planner.UNREADABLE:
+        # Deliberately not "no impact": an empty plan and an unaskable source
+        # must never read the same to somebody about to push.
+        console.print(f"[red]✗ Could not read {ref} — no plan.[/red]")
+        console.print(f"[dim]{result.detail}[/dim]")
+        raise typer.Exit(1)
+
+    counts = result.counts
+    console.print(f"[bold]Plan for[/bold] [cyan]{ref}[/cyan]"
+                  + (f" [dim]@{result.version}[/dim]" if result.version else ""))
+
+    table = Table(show_lines=False)
+    table.add_column("Domain", no_wrap=True)
+    table.add_column("Lands", justify="right", no_wrap=True)
+    table.add_column("Needs a human", justify="right", no_wrap=True)
+    table.add_column("Not ruled on", justify="right", no_wrap=True)
+    table.add_column("Outcome", overflow="fold")
+
+    for outcome in sorted(result.outcomes,
+                          key=lambda o: (not o.blocked, o.domain)):
+        unruled = len(outcome.unknown) + outcome.held
+        if not outcome.readable:
+            verdict = "[yellow]unreadable — nothing ruled on[/yellow]"
+        elif outcome.escalating:
+            verdict = "[red]escalate[/red]"
+        elif not outcome.decidable:
+            verdict = "[yellow]cannot tell[/yellow]"
+        else:
+            verdict = "[green]fast-forward[/green]"
+        table.add_row(outcome.domain, str(len(outcome.settled)),
+                      str(len(outcome.escalating)),
+                      str(unruled) if unruled else "[dim]—[/dim]", verdict)
+    console.print(table)
+
+    console.print(
+        f"  [bold]{counts['settled']}[/bold] land unattended  "
+        f"[bold]{counts['blocked']}[/bold] need a look  "
+        f"[bold]{counts['escalations']}[/bold] instruction(s) to re-decide"
+    )
+
+    if result.version_skew:
+        console.print("[yellow]⚠ Version skew[/yellow] [dim]— these domains "
+                      "extracted this source at different times, so this change "
+                      "is not one decision for all of them.[/dim]")
+    if not result.model and any(o.escalating for o in result.outcomes):
+        console.print("[dim]No judge configured: a reworded instruction stays "
+                      "unverified and never fast-forwards. Token overlap cannot "
+                      "tell agreement from contradiction.[/dim]")
+    if counts["held"]:
+        console.print(f"[dim]{counts['held']} held instruction(s) carry no text "
+                      f"by design, so nothing could be ruled on them.[/dim]")
+    _warn_unreadable_names(result.unreadable)
+
+    console.print("[dim](dry run — nothing written)[/dim]")
+    record_activity(command="domain", subcommand="plan",
+                    args={"ref": ref, "domains": counts["domains"],
+                          "blocked": counts["blocked"]})
+
+
+def _warn_unreadable_names(names: list) -> None:
+    """Unreadable is not unused — see `sources`."""
+    if names:
+        console.print(f"[yellow]{len(names)} domain(s) could not be read "
+                      f"({', '.join(names)}). Unreadable is not unused.[/yellow]")
+
+
 def _judge_available() -> bool:
     """True when a model provider is configured for the answerability judge."""
     import os
@@ -1223,9 +1326,10 @@ def register(domain_app: typer.Typer) -> None:
     domain_app.command("diff")(diff_command)
     domain_app.command("usage")(usage_command)
     domain_app.command("sources")(sources_command)
+    domain_app.command("plan")(plan_command)
 
 
 __all__ = ["register", "gather", "stale_repo_entries", "diff_domain",
            "KIND_FILES", "FILE_KINDS", "classify_docs",
            "extract_intent", "review", "finalize", "score", "diff_command",
-           "usage_command", "sources_command"]
+           "usage_command", "sources_command", "plan_command"]

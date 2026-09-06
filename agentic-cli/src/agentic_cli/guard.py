@@ -149,7 +149,8 @@ def collect(domain: str = "", session_id: str = "") -> Inventory:
     inventory = Inventory(domain=domain, session_id=session_id)
 
     for section, gather in (("skills", _skills), ("mcp servers", _mcp),
-                            ("repositories", _repos), ("engine", _engine)):
+                            ("repositories", _repos), ("engine", _engine),
+                            ("model", _model)):
         try:
             inventory.components.extend(gather(domain))
         except Exception as exc:  # noqa: BLE001 - a section we cannot read is named
@@ -240,6 +241,50 @@ def _engine(domain: str) -> list[Component]:
         kind=ENGINE, name="build governance", detail=f"mode: {mode}",
         origin="meta_repo.build_governance"))
     return found
+
+
+def _model(domain: str) -> list[Component]:
+    """The model a session would think with, and where it is served from.
+
+    Resolved from configuration rather than by constructing a provider: building
+    one can prompt, download, or fail on a missing credential, and an inventory
+    that changes the thing it is inventorying is not an inventory.
+
+    ``KIND_ORDER`` has always listed models and nothing collected one, so every
+    inventory reported a session that thinks with nothing. Egress is the verdict
+    that needed it.
+    """
+    import os
+
+    from agentic_cli.llm.models import ModelRegistry
+
+    name = ""
+    for key in ("KEEL_LLM_MODEL", "KEEL_LOCAL_LLM_MODEL"):
+        if os.environ.get(key):
+            name = os.environ[key]
+            if key == "KEEL_LOCAL_LLM_MODEL" and not ModelRegistry.detect_provider(name):
+                # The local runtime's own env holds a bare model name; the
+                # prefix is what carries the routing, so put it back.
+                name = f"local:{name}"
+            break
+    if not name:
+        try:
+            from agentic_cli.kg.config import KGConfig
+
+            name = (KGConfig.load().vertex_ai_model or "").strip()
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("no model config: %s", exc)
+
+    provider = os.environ.get("KEEL_LLM_PROVIDER") or (
+        ModelRegistry.detect_provider(name) if name else "")
+    if not name and not provider:
+        # Named as unknown by the caller rather than reported as "no model",
+        # which would read as "nothing to worry about".
+        raise LookupError("no model configured")
+
+    return [Component(kind=MODEL, name=name or provider,
+                      detail=f"provider: {provider or 'unresolved'}",
+                      origin="llm configuration")]
 
 
 def _mark_reached(inventory: Inventory, session_id: str) -> None:
