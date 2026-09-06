@@ -29,6 +29,7 @@ from agentic_cli.onboarding import (
     answerability, classify, extract, proposal, provenance, readiness, sources,
 )
 from agentic_cli.tracker import (
+    doc_ref,
     get_domain,
     get_domain_docs,
     get_domain_repos,
@@ -195,7 +196,10 @@ def _extract_intent(slug: str, meta: Path, include_repos: bool,
         console.print(f"[cyan]Reading {len(wanted)} tracked doc(s)...[/cyan]")
     for doc in wanted:
         page_id = str(doc.get("source_page_id"))
-        fetched = sources.fetch_confluence(page_id, doc.get("title") or "")
+        # By ref, not by page id: the scheme decides the reader, so a Kaggle
+        # competition tracked with `domain add-source` extracts exactly like a
+        # Confluence page rather than needing a branch here.
+        fetched = sources.fetch_source(doc_ref(doc), doc.get("title") or "")
         if fetched is None:
             unreachable += 1
             console.print(f"  [yellow]⚠[/yellow] unreachable: {doc.get('title') or page_id}")
@@ -1094,6 +1098,111 @@ def _print_cost(slug) -> None:
                       f"rate card — they add nothing to the total.[/yellow]")
 
 
+# ── sources (fan-out reverse index) ─────────────────────────────────────────
+
+def sources_command(
+    ref: Annotated[Optional[str], typer.Argument(
+        help="A source ref, e.g. repo:svc/CONTRIBUTING.md. Omit to list them all.")] = None,
+    product: Annotated[Optional[str], typer.Option(
+        "--product", "-p", help="Limit to one product's domains")] = None,
+    shared: Annotated[bool, typer.Option(
+        "--shared", help="Only sources more than one domain draws on")] = False,
+    as_json: Annotated[bool, typer.Option("--json", help="Emit the index as JSON")] = False,
+) -> None:
+    """Which domains draw instructions from a source — the blast radius of an edit.
+
+    Answer this before changing a shared file. `proposal.merge` decides
+    fast-forward versus escalate for one domain; doing that across N is the
+    merge-queue problem, and nothing could previously say which N.
+
+    Citations live inside each domain's proposal, so this scans rather than
+    reading an index. That is deliberate: proposals are small, domains number in
+    the tens, and a stored index would be one more thing to keep in sync for a
+    query nobody runs in a loop.
+    """
+    from agentic_cli.onboarding import fanout
+
+    index = fanout.build(product=product or "")
+
+    if ref:
+        found = index.by_ref(ref)
+        if found is None:
+            console.print(f"[yellow]No domain cites {ref}.[/yellow]")
+            _warn_unreadable(index)
+            raise typer.Exit(0)
+        if as_json:
+            console.print_json(json.dumps(found.to_dict()))
+            raise typer.Exit(0)
+        _print_one(found)
+        _warn_unreadable(index)
+        raise typer.Exit(0)
+
+    entries = index.shared if shared else sorted(
+        index.sources.values(), key=lambda s: (-len(s.uses), -s.accepted, s.ref))
+    if not entries:
+        console.print("[yellow]No cited sources found"
+                      + (" shared across domains" if shared else "") + ".[/yellow]")
+        _warn_unreadable(index)
+        raise typer.Exit(0)
+
+    if as_json:
+        console.print_json(json.dumps(
+            {"sources": [e.to_dict() for e in entries],
+             "unreadable": index.unreadable}))
+        raise typer.Exit(0)
+
+    table = Table(title="Sources by blast radius"
+                        + (f" — {product}" if product else ""), show_lines=False)
+    table.add_column("Source", overflow="fold")
+    table.add_column("Domains", justify="right", no_wrap=True)
+    table.add_column("Accepted", justify="right", no_wrap=True)
+    table.add_column("Drawn on by", overflow="fold")
+    for entry in entries:
+        table.add_row(
+            entry.ref,
+            f"[bold]{len(entry.uses)}[/bold]" if entry.shared else str(len(entry.uses)),
+            str(entry.accepted),
+            ", ".join(entry.domains)
+            + ("  [yellow]⚠ version skew[/yellow]" if entry.version_skew else ""),
+        )
+    console.print(table)
+    skewed = [e for e in entries if e.version_skew]
+    if skewed:
+        console.print(f"[yellow]{len(skewed)} source(s) are cited at different "
+                      f"versions by different domains[/yellow] [dim]— one "
+                      f"extracted before a change the other absorbed, so they "
+                      f"are not one decision.[/dim]")
+    _warn_unreadable(index)
+
+    record_activity(command="domain", subcommand="sources",
+                    args={"product": product or "*", "sources": len(entries)})
+
+
+def _print_one(found) -> None:
+    table = Table(title=f"Domains drawing on {found.ref}", show_lines=False)
+    table.add_column("Domain", no_wrap=True)
+    table.add_column("Accepted", justify="right", no_wrap=True)
+    table.add_column("Pending", justify="right", no_wrap=True)
+    table.add_column("Cited at", overflow="fold")
+    for use in sorted(found.uses, key=lambda u: (-u.accepted, u.domain)):
+        table.add_row(use.domain, str(use.accepted), str(use.pending),
+                      ", ".join(use.versions) or "[dim]unversioned[/dim]")
+    console.print(table)
+    if found.version_skew:
+        console.print("[yellow]⚠ Cited at different versions[/yellow] [dim]— these "
+                      "domains extracted at different times, so a change to this "
+                      "source is not one decision for all of them.[/dim]")
+
+
+def _warn_unreadable(index) -> None:
+    """Unreadable is not unused, and under-reporting a blast radius is the
+    direction that gets someone hurt."""
+    if index.unreadable:
+        console.print(f"[yellow]{len(index.unreadable)} domain(s) could not be "
+                      f"read ({', '.join(index.unreadable)}) — they may cite this "
+                      f"too. Unreadable is not unused.[/yellow]")
+
+
 def _judge_available() -> bool:
     """True when a model provider is configured for the answerability judge."""
     import os
@@ -1113,9 +1222,10 @@ def register(domain_app: typer.Typer) -> None:
     domain_app.command("score")(score)
     domain_app.command("diff")(diff_command)
     domain_app.command("usage")(usage_command)
+    domain_app.command("sources")(sources_command)
 
 
 __all__ = ["register", "gather", "stale_repo_entries", "diff_domain",
            "KIND_FILES", "FILE_KINDS", "classify_docs",
            "extract_intent", "review", "finalize", "score", "diff_command",
-           "usage_command"]
+           "usage_command", "sources_command"]

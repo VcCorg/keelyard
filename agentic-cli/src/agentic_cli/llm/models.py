@@ -27,6 +27,15 @@ class ModelRegistry:
         "ollama:",
     ]
 
+    # Hugging Face inference router — addressed by hub repo id behind an
+    # explicit prefix, e.g. "hf:meta-llama/Llama-3.1-8B-Instruct". A prefix
+    # rather than a slash heuristic: "org/name" is also how local runtimes name
+    # models, so inferring from the shape would misroute them.
+    HUGGINGFACE_PREFIXES = [
+        "hf:",
+        "huggingface:",
+    ]
+
     # The built-in deterministic fallback (no model at all).
     TEST_MODE_NAMES = ("test-mode", "test")
 
@@ -54,6 +63,10 @@ class ModelRegistry:
         for prefix in cls.LOCAL_PREFIXES:
             if model_lower.startswith(prefix):
                 return "local"
+
+        for prefix in cls.HUGGINGFACE_PREFIXES:
+            if model_lower.startswith(prefix):
+                return "huggingface"
 
         for prefix in cls.ANTHROPIC_PREFIXES:
             if model_lower.startswith(prefix):

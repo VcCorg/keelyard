@@ -1039,6 +1039,107 @@ def add_docs(
 
 
 # ---------------------------------------------------------------------------
+# {CLI_NAME} domain add-source
+# ---------------------------------------------------------------------------
+
+@domain_app.command("add-source")
+def add_source(
+    domain_name: Annotated[str, typer.Argument(help="Domain name (slug)")],
+    ref: Annotated[str, typer.Argument(help="Retrieval ref, e.g. kaggle://competition/titanic")],
+    title: Annotated[str, typer.Option("--title", "-t", help="Title to file it under (default: whatever the source calls it)")] = "",
+    doc_type: Annotated[str, typer.Option("--type", help="onboarding | runbook | adr | reference | requirement | other")] = "",
+) -> None:
+    """
+    Track any addressable source as a domain doc.
+
+    ``add-docs`` browses a Confluence space; this takes one ref of any scheme
+    the retrieval seam knows — ``confluence:``, ``repo:``, ``okf:``,
+    ``kaggle://``, ``hf://`` — resolves it once to confirm it is readable, and
+    records it. From there ``classify``, ``extract``, ``review`` and
+    ``finalize`` run unchanged, because they read a tracked doc by ref.
+
+    A Kaggle competition is the case this was built for, and it comes with a
+    caveat the command prints rather than hides: Kaggle's API serves competition
+    *metadata* — the evaluation metric, the deadline, the category — and not the
+    description, the rules or the data dictionary. Those are the documents a
+    domain actually wants, and they still arrive as tracked docs by another
+    route. Scaffolding a domain from a competition gets you the metric; it does
+    not get you the rules.
+
+    Examples:
+        {CLI_NAME} domain add-source kaggle-titanic kaggle://competition/titanic
+        {CLI_NAME} domain add-source acme hf://model/google/gemma-2-9b --type reference
+    """
+    from agentic_cli import retrieval
+    from agentic_cli.onboarding import classify
+
+    d = get_domain(domain_name)
+    if not d:
+        console.print(f"[red]✗ Domain '{domain_name}' not found.[/red]")
+        console.print(f"[dim]Register it first: {CLI_NAME} domain create <DOMAIN> --product <PRODUCT>[/dim]")
+        raise typer.Exit(1)
+
+    if doc_type and doc_type not in classify.ALL_TYPES:
+        console.print(f"[red]✗ Unknown type '{doc_type}'. One of: {', '.join(classify.ALL_TYPES)}[/red]")
+        raise typer.Exit(1)
+
+    parsed = retrieval.parse_ref(ref)
+    if not parsed.scheme:
+        console.print(f"[red]✗ '{ref}' has no scheme.[/red]")
+        console.print(f"[dim]Known schemes: {', '.join(retrieval.schemes())}[/dim]")
+        raise typer.Exit(1)
+
+    console.print(f"[cyan]Resolving {ref}...[/cyan]")
+    fetched = retrieval.fetch(ref, source=retrieval.ONBOARDING_SOURCE,
+                              operation_prefix="read")
+
+    if not fetched.resolved:
+        # Tracking an unreadable source would put a permanent hole in the
+        # corpus that only shows up at extract time, one command later and with
+        # nothing left to say why.
+        console.print(f"[red]✗ {fetched.status}: {fetched.detail or 'nothing returned'}[/red]")
+        if fetched.status == retrieval.UNAVAILABLE:
+            console.print("[dim]Not tracked — 'could not ask' is not 'nothing there'. "
+                          "Fix the access and re-run.[/dim]")
+        raise typer.Exit(1)
+
+    resolved_title = title or fetched.title or parsed.path
+    verdict = (classify.Classification(doc_type, 1.0, "manual") if doc_type
+               else classify.classify(resolved_title, parsed.scheme))
+
+    ok = add_domain_doc(
+        domain_name=domain_name,
+        # The ref *is* the identity for a non-Confluence source; source_page_id
+        # stays the unique key the table has always been built around.
+        source_page_id=str(parsed),
+        source_space_key=parsed.scheme,
+        title=resolved_title,
+        source_version=0,
+        doc_type=verdict.doc_type,
+        doc_type_confidence=verdict.confidence,
+        source_ref=str(parsed),
+    )
+    if not ok:
+        console.print("[red]✗ Failed to track the source.[/red]")
+        raise typer.Exit(1)
+
+    console.print(f"[green]✓[/green] Tracked [cyan]{resolved_title}[/cyan] "
+                  f"as [bold]{verdict.doc_type}[/bold] "
+                  f"({len(fetched.text):,} chars"
+                  + (f", version {fetched.version}" if fetched.version else "")
+                  + ")")
+    if fetched.detail:
+        console.print(f"[yellow]Note:[/yellow] {fetched.detail}")
+    console.print(f"[dim]Next: {CLI_NAME} domain extract {domain_name}[/dim]")
+
+    record_activity(
+        command="domain", subcommand="add-source",
+        args={"domain": domain_name, "ref": str(parsed),
+              "scheme": parsed.scheme, "type": verdict.doc_type},
+    )
+
+
+# ---------------------------------------------------------------------------
 # {CLI_NAME} domain docs
 # ---------------------------------------------------------------------------
 

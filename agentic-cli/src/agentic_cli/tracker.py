@@ -19,7 +19,7 @@ from typing import Any, Optional
 DB_DIR = Path.home() / ".agent-cli-agentic"
 DB_PATH = DB_DIR / "tracker.db"
 
-_SCHEMA_VERSION = 17
+_SCHEMA_VERSION = 18
 
 _SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -131,7 +131,7 @@ CREATE TABLE IF NOT EXISTS domain_repos (
     UNIQUE(domain_id, repo_slug)
 );
 
--- Confluence doc sources tracked per domain
+-- Document sources tracked per domain, addressed by retrieval ref
 CREATE TABLE IF NOT EXISTS domain_docs (
     id                INTEGER PRIMARY KEY AUTOINCREMENT,
     domain_id         INTEGER NOT NULL REFERENCES domains(id) ON DELETE CASCADE,
@@ -145,6 +145,7 @@ CREATE TABLE IF NOT EXISTS domain_docs (
     doc_type_confidence REAL DEFAULT 0,     -- low confidence escalates to a reviewer
     live_version      INTEGER DEFAULT 0,    -- version upstream at last check (0 = unchecked)
     checked_at        TEXT,
+    source_ref        TEXT,                 -- retrieval ref, e.g. confluence:123
     UNIQUE(domain_id, source_page_id)
 );
 
@@ -388,6 +389,25 @@ _MIGRATION_V17 = """
 CREATE INDEX IF NOT EXISTS idx_activity_phase ON activity_log(domain, phase);
 """
 
+
+_MIGRATION_V18 = """
+-- v18: a tracked doc is addressed by ref, not by an implied Confluence page id.
+--
+-- source_page_id has always been a Confluence page id, and every reader assumed
+-- it. That assumption is the only reason a Kaggle competition, a Hugging Face
+-- model card or an OKF bundle could not be tracked as a domain source: the
+-- extraction path had one hardcoded fetch rather than a scheme it could look up.
+-- source_ref names the scheme, so the retrieval seam resolves it and the doc
+-- pipeline stops caring where a document came from.
+--
+-- Backfilled rather than left null, because a null here is indistinguishable
+-- from "we do not know how to read this", and every existing row is a
+-- Confluence page — we know exactly how to read it.
+UPDATE domain_docs
+   SET source_ref = 'confluence:' || source_page_id
+ WHERE source_ref IS NULL OR source_ref = '';
+"""
+
 _ENSURE_INDEXES = """
 -- Indexes over migration-added columns, created after the migration chain.
 --
@@ -520,6 +540,11 @@ def _ensure_db() -> Path:
                 conn.executescript(_MIGRATION_V17)
                 conn.execute("UPDATE schema_version SET version = 17")
                 current_version = 17
+            if current_version < 18:
+                _add_column_if_missing(conn, "domain_docs", "source_ref", "TEXT")
+                conn.executescript(_MIGRATION_V18)
+                conn.execute("UPDATE schema_version SET version = 18")
+                current_version = 18
         # After the chain, so it covers the fresh-install path too — see
         # _ENSURE_INDEXES.
         conn.executescript(_ENSURE_INDEXES)
@@ -1500,12 +1525,19 @@ def add_domain_doc(
     source_version: int = 0,
     doc_type: str = None,
     doc_type_confidence: float = 0.0,
+    source_ref: str = None,
 ) -> bool:
-    """Track a Confluence doc source for a domain.
+    """Track a doc source for a domain, addressed by retrieval ref.
+
+    ``source_ref`` defaults to ``confluence:<source_page_id>`` because that is
+    what every caller meant before the column existed. Passing it explicitly is
+    how a non-Confluence source — a Kaggle competition, a hub model card —
+    becomes trackable without a second table or a second reader.
 
     ``doc_type`` is left alone on update when not supplied, so re-syncing a doc
     never silently discards a classification a reviewer corrected by hand.
     """
+    source_ref = source_ref or f"confluence:{source_page_id}"
     with _get_conn() as conn:
         dom = conn.execute("SELECT id FROM domains WHERE name = ?", (domain_name,)).fetchone()
         if not dom:
@@ -1515,11 +1547,11 @@ def add_domain_doc(
                 """INSERT INTO domain_docs
                    (domain_id, source_page_id, source_space_key, title,
                     managed_page_id, source_version, synced_at,
-                    doc_type, doc_type_confidence)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    doc_type, doc_type_confidence, source_ref)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (dom["id"], source_page_id, source_space_key, title,
                  managed_page_id, source_version, _now_iso(),
-                 doc_type, doc_type_confidence),
+                 doc_type, doc_type_confidence, source_ref),
             )
             return True
         except sqlite3.IntegrityError:
@@ -1529,14 +1561,25 @@ def add_domain_doc(
                        source_space_key=?, title=?, managed_page_id=?,
                        source_version=?, synced_at=?,
                        doc_type=COALESCE(?, doc_type),
-                       doc_type_confidence=COALESCE(?, doc_type_confidence)
+                       doc_type_confidence=COALESCE(?, doc_type_confidence),
+                       source_ref=?
                    WHERE domain_id=? AND source_page_id=?""",
                 (source_space_key, title, managed_page_id,
                  source_version, _now_iso(),
-                 doc_type, doc_type_confidence or None,
+                 doc_type, doc_type_confidence or None, source_ref,
                  dom["id"], source_page_id),
             )
             return True
+
+
+def doc_ref(doc: dict) -> str:
+    """The retrieval ref for a tracked doc row.
+
+    A row written before v18 and never re-synced can still hold a null, and the
+    migration's backfill is the same rule this applies — kept in code as well so
+    a caller never has to decide what a missing ref means.
+    """
+    return str(doc.get("source_ref") or f"confluence:{doc.get('source_page_id')}")
 
 
 def get_domain_docs(domain_name: str) -> list[dict]:

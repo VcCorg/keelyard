@@ -21,6 +21,14 @@ from pydantic import BaseModel
 
 Status = Literal["ok", "warn", "error", "unknown"]
 
+#: Which shelf an integration sits on. "platform" is what the app needs to work
+#: and belongs in the always-visible status bar; "optional" is something a user
+#: chose to connect, which is a red dot nobody should have to look at all day.
+#:
+#: A field rather than a hardcoded key list in the frontend: a list there means
+#: the next integration added here silently fails to render anywhere.
+Group = Literal["platform", "optional"]
+
 
 class IntegrationStatus(BaseModel):
     key: str
@@ -28,6 +36,8 @@ class IntegrationStatus(BaseModel):
     status: Status = "unknown"
     detail: str = ""
     hint: str = ""
+    group: Group = "platform"
+    docs_command: str = ""
 
 
 class IntegrationsResponse(BaseModel):
@@ -166,6 +176,57 @@ def _mcp_status() -> IntegrationStatus:
         )
 
 
+def _hub_status(hub: str, label: str) -> IntegrationStatus:
+    """Kaggle / Hugging Face, reported as three separable facts.
+
+    A hub is usable when both a credential and its client are present, and the
+    two fail differently: no credential is something the user fixes in a minute,
+    a missing SDK is an install. Collapsing them into one red dot would send
+    people to the wrong fix, so the status names which half is absent.
+
+    Nothing here reads a credential *value* — the CLI detects where the
+    credential lives and never copies it, and a status endpoint is the last
+    place that should be the exception.
+    """
+    command = f"keel init {hub}"
+    try:
+        from agentic_cli import hubs
+
+        credential = (hubs.kaggle_credential() if hub == hubs.KAGGLE
+                      else hubs.huggingface_credential())
+        sdk = hubs.sdk_available(hub)
+    except Exception as exc:  # noqa: BLE001
+        return IntegrationStatus(key=hub, label=label, status="unknown",
+                                 detail=str(exc)[:200], group="optional",
+                                 docs_command=command)
+
+    account = f" · {credential.account}" if credential.account else ""
+    if credential.available and sdk:
+        return IntegrationStatus(key=hub, label=label, status="ok",
+                                 detail=f"Ready{account}", group="optional",
+                                 docs_command=command)
+    if credential.available:
+        return IntegrationStatus(
+            key=hub, label=label, status="warn",
+            detail=f"Client not installed{account}",
+            hint="pip install 'agentic-cli[hubs]' to enable fetches.",
+            group="optional", docs_command="pip install 'agentic-cli[hubs]'",
+        )
+    if sdk:
+        return IntegrationStatus(
+            key=hub, label=label, status="warn",
+            detail="No credential",
+            hint=f"Run `{command}` after authenticating with the hub's own CLI.",
+            group="optional", docs_command=command,
+        )
+    return IntegrationStatus(
+        key=hub, label=label, status="unknown",
+        detail="Not configured",
+        hint=f"Optional. `{command}` reports what is missing.",
+        group="optional", docs_command=command,
+    )
+
+
 def get_integrations() -> IntegrationsResponse:
     """gcloud covers Gemini/Vertex (ADC), so no separate Gemini chip."""
     return IntegrationsResponse(
@@ -174,5 +235,7 @@ def get_integrations() -> IntegrationsResponse:
             _gcloud_status(),
             _devin_status(),
             _mcp_status(),
+            _hub_status("huggingface", "Hugging Face"),
+            _hub_status("kaggle", "Kaggle"),
         ]
     )

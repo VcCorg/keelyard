@@ -232,3 +232,69 @@ def payloads(
             (payload.expires_at or "never")[:19],
         )
     console.print(table)
+
+
+@context_app.command(
+    "fetch",
+    help="Resolve one reference through the retrieval seam and show what came back.",
+)
+def fetch(
+    ref: Annotated[str, typer.Argument(
+        help="A reference, e.g. domain://acme/setup.md, repo:svc/README.md@sha, "
+             "hf://model/openai-community/gpt2, kaggle://competition/titanic")],
+    show: Annotated[bool, typer.Option("--show", help="Print the resolved text")] = False,
+    as_json: Annotated[bool, typer.Option("--json", help="Emit the result as JSON")] = False,
+) -> None:
+    """Ask one source what is at an address, through the seam every read uses.
+
+    The seam had no CLI entry point, so the only way to exercise a scheme was to
+    import it. This is that entry point, and it is uniform by construction: every
+    scheme resolves the same way and reports the same five outcomes, so a new
+    fetcher is demoable the moment it is registered.
+
+    The outcome matters more than the bytes. ``unavailable`` means we could not
+    ask — a missing SDK, an unreachable host, no credential — and never that the
+    thing is absent; ``missing`` is the source answering that nothing is there.
+    Conflating them is what makes an approved instruction get flagged as gone
+    when a checkout simply was not present.
+    """
+    import json as _json
+
+    from rich.markup import escape
+
+    from agentic_cli import retrieval
+
+    result = retrieval.fetch(ref)
+
+    if as_json:
+        payload = result.to_dict()
+        if show:
+            payload["text"] = result.text
+        console.print_json(_json.dumps(payload))
+        raise typer.Exit(0 if result.known else 1)
+
+    style = {"resolved": "green", "missing": "yellow", "refused": "yellow",
+             "unavailable": "red", "unsupported": "dim"}.get(result.status, "")
+    console.print(f"[{style}]{result.status}[/{style}]  [bold]{result.ref}[/bold]")
+    if result.title:
+        console.print(f"  title    {escape(result.title)}")
+    if result.version:
+        console.print(f"  version  {result.version}")
+    if result.origin:
+        console.print(f"  origin   {escape(result.origin)}")
+    if result.text:
+        console.print(f"  size     {len(result.text):,} chars")
+    if result.detail:
+        console.print(f"  [dim]{escape(result.detail)}[/dim]")
+
+    if show and result.text:
+        console.print()
+        console.print(escape(result.text[:4000]))
+        if len(result.text) > 4000:
+            console.print(f"[dim]… {len(result.text) - 4000:,} more chars[/dim]")
+
+    console.print(f"[dim]Available schemes: {', '.join(retrieval.schemes())}[/dim]")
+
+    # Non-zero only when we could not ask. A ref that resolved to nothing is a
+    # real answer and should not fail a script.
+    raise typer.Exit(0 if result.known else 1)

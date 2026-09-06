@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
-import { ShieldCheck, Save, RotateCcw, Loader2, Palette, ListChecks, Lock, AlertTriangle, Trash2, Scale, Cpu, ChevronDown, ChevronRight } from "lucide-react";
+import { ShieldCheck, Save, RotateCcw, Loader2, Palette, ListChecks, Lock, AlertTriangle, Trash2, Scale, Cpu, ChevronDown, ChevronRight, Boxes } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useUser, type UserRole } from "@/context/UserContext";
 import { useAdminSettings } from "@/context/AdminSettingsContext";
 import { buildNavCatalog, UI_ROLES, type NavCatalogNode } from "@/lib/nav";
 import { api, type ResetScope } from "@/lib/api";
+import { HubIntegrationsPanel } from "@/components/HubIntegrationsPanel";
 
 const RESET_CONFIRM = "RESET";
 
@@ -706,6 +707,16 @@ export function Admin() {
             </div>
           ))}
         </div>
+      </AdminSection>
+
+      {/* ── Data and model hubs ──────────────────────────────────────────── */}
+      <AdminSection
+        icon={Boxes}
+        title="Data & model hubs"
+        hint="Hugging Face · Kaggle"
+        defaultOpen={false}
+      >
+        <HubIntegrationsPanel />
       </AdminSection>
 
       {/* ── Danger zone: platform reset ──────────────────────────────────── */}

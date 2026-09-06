@@ -4,6 +4,8 @@ import {
   Cloud,
   Bot,
   Boxes,
+  Brain,
+  Trophy,
   RefreshCw,
   CheckCircle2,
   AlertTriangle,
@@ -18,6 +20,8 @@ const ICONS: Record<string, ComponentType<{ className?: string }>> = {
   gcloud: Cloud,
   devin: Bot,
   mcp: Boxes,
+  huggingface: Brain,
+  kaggle: Trophy,
 };
 
 const STATE_STYLES: Record<IntegrationState, { dot: string; text: string; Icon: ComponentType<{ className?: string }> }> = {
@@ -90,7 +94,13 @@ export function IntegrationStatusBar() {
           Backend unreachable
         </span>
       )}
-      {!error && data?.integrations.map((item) => <StatusChip key={item.key} item={item} />)}
+      {/* Platform only. An optional integration nobody connected would sit here
+          as a permanent grey dot, training people to ignore the bar that is
+          supposed to tell them the backend is down. Those render on Admin. */}
+      {!error &&
+        data?.integrations
+          .filter((item) => (item.group ?? "platform") === "platform")
+          .map((item) => <StatusChip key={item.key} item={item} />)}
       <button
         onClick={refresh}
         title="Refresh integration status"
