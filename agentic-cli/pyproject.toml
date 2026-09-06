@@ -43,6 +43,18 @@ dashboard = [
     "fastapi>=0.109.0",
     "uvicorn>=0.27.0",
 ]
+hubs = [
+    # Kaggle and Hugging Face clients, for the `kaggle://` and `hf://` fetchers.
+    #
+    # An extra, not a core dependency, and deliberately: the desktop app
+    # redistributes its whole dependency tree inside the installers, so every
+    # core package's licence binds the shipped artifact (see NOTICE). Neither
+    # hub is needed to run Keel, and without them the fetchers report
+    # UNAVAILABLE — "we could not ask" — which is the honest answer rather than
+    # a failure.
+    "huggingface-hub>=0.23.0",
+    "kaggle>=1.6.0",
+]
 security = [
     # SkillSpector: security scanner for AI agent skills (LangGraph).
     # Git-only (not published to PyPI). Pin to a tag/commit for reproducibility, e.g.

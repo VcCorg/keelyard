@@ -600,12 +600,31 @@ def governance_fetcher(ref: Ref) -> Fetched:
                    detail=f"No governance document for '{domain}'.")
 
 
+def huggingface_fetcher(ref: Ref) -> Fetched:
+    """``hf://{model|dataset|space}/<org>/<name>`` — a hub card and its sha."""
+    from agentic_cli import hubs
+
+    return hubs.fetch_huggingface(ref)
+
+
+def kaggle_fetcher(ref: Ref) -> Fetched:
+    """``kaggle://{competition|dataset}/<slug>`` — competition or dataset metadata."""
+    from agentic_cli import hubs
+
+    return hubs.fetch_kaggle(ref)
+
+
+# Both delegate rather than being written here: their SDKs are optional extras
+# whose licences bind the desktop installers, so the imports stay behind a lazy
+# call in `hubs` and this module keeps no knowledge of them.
 for _scheme, _fetcher in (
     ("domain", domain_fetcher),
     ("okf", okf_fetcher),
     ("repo", repo_fetcher),
     ("confluence", confluence_fetcher),
     ("governance", governance_fetcher),
+    ("hf", huggingface_fetcher),
+    ("kaggle", kaggle_fetcher),
 ):
     register_fetcher(_scheme, _fetcher)
 

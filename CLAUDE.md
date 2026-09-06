@@ -134,7 +134,7 @@ bash scripts/check-no-company-data.sh --all # guardrail; also runs in CI
 
 As of September 2026, on a **pristine checkout of `main`**:
 
-- `agentic-cli` — 1352 pass, **28 fail**
+- `agentic-cli` — 1365 pass, **28 fail**
 - `dashboard/backend` — 191 pass, **4 fail** (all `test_neo4j_preflight`, which
   needs a live Neo4j — they pass nowhere without one, including CI, which is why
   that file is excluded there)

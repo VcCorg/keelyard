@@ -25,8 +25,13 @@ def check_workspace_config(
     
     If workspaces are not configured, prompt the user to run 'keel init workspace'.
     """
-    # Skip check for show, reset, and workspace commands
-    if ctx.invoked_subcommand in ["show", "reset", "workspace"]:
+    # Skip the check for commands that do not touch a workspace. `kaggle` and
+    # `huggingface` only look at where a credential already lives, so demanding
+    # a workspace first would gate a read-only detection behind an unrelated
+    # setup step — and the prompt aborts non-interactively, which turns it into
+    # a hard failure in CI.
+    if ctx.invoked_subcommand in ["show", "reset", "workspace",
+                                  "kaggle", "huggingface"]:
         return
     
     config = load_config()
@@ -1109,3 +1114,101 @@ def get_google_config() -> dict:
     """Get Google configuration for use in other commands."""
     config = load_config()
     return config.get("google", {})
+
+
+# ── data / model hubs ───────────────────────────────────────────────────────
+#
+# These two differ from the provider commands above on purpose: they record
+# *where* a credential lives, and never copy it. The official Kaggle and Hugging
+# Face tooling already owns a credential file that a user's own scripts read, so
+# a second copy in Keel's config would be a second thing to rotate, a second
+# thing to leak, and a silent divergence the first time someone rotates one and
+# not the other. See `agentic_cli/hubs.py`.
+
+def _report_hub(hub: str, credential, next_steps: str) -> None:
+    """Shared readout: what was found, where, and what is still missing."""
+    from rich.markup import escape
+
+    from agentic_cli import hubs
+
+    sdk = hubs.sdk_available(hub)
+    config = load_config()
+    config.setdefault("hubs", {})[hub] = {
+        # Deliberately no key, no token. `source` is a path or the word
+        # "environment"; `account` is an identifier, not a secret.
+        "configured": bool(credential.available),
+        "source": credential.source,
+        "account": credential.account,
+        "sdk_installed": sdk,
+    }
+    save_config(config)
+    record_activity(command="init", subcommand=hub,
+                    args={"configured": credential.available, "sdk": sdk})
+
+    lines = [
+        f"[bold]Credential:[/bold] "
+        + (f"[green]found[/green] — {escape(credential.source)}"
+           if credential.available else "[yellow]not found[/yellow]"),
+    ]
+    if credential.account:
+        lines.append(f"[bold]Account:[/bold] {escape(credential.account)}")
+    if credential.detail:
+        lines.append(f"[dim]{escape(credential.detail)}[/dim]")
+    lines.append(
+        f"[bold]SDK:[/bold] "
+        + ("[green]installed[/green]" if sdk
+           else "[yellow]not installed[/yellow] — "
+                # The distribution name, not CLI_NAME: `keel` is the console
+                # script, `agentic-cli` is what pip installs.
+                + escape("pip install 'agentic-cli[hubs]'")))
+    lines.append("")
+    lines.append("[dim]Keel records where the credential lives, never its "
+                 "value — the official tooling stays the one place to "
+                 "rotate it.[/dim]")
+    if next_steps:
+        lines.append("")
+        lines.append(next_steps)
+
+    console.print(Panel.fit(
+        "\n".join(lines),
+        title=f"{hub} integration",
+        border_style="green" if (credential.available and sdk) else "yellow"))
+
+
+@init_app.command("kaggle")
+def init_kaggle() -> None:
+    """Detect the Kaggle credential the official client already uses.
+
+    Nothing is prompted for and nothing is stored: this reads
+    ``KAGGLE_USERNAME``/``KAGGLE_KEY`` or ``~/.kaggle/kaggle.json`` and records
+    that they exist. Set them up with Kaggle's own flow — Account → Create New
+    API Token — and this will find them.
+
+    Once configured, ``kaggle://competition/<slug>`` and
+    ``kaggle://dataset/<owner>/<slug>`` resolve through the retrieval seam, so
+    every read is traced, counted and attributed like any other source.
+    """
+    from agentic_cli import hubs
+
+    _report_hub(hubs.KAGGLE, hubs.kaggle_credential(),
+                f"[bold]Try:[/bold] {CLI_NAME} context fetch "
+                f"kaggle://competition/titanic")
+
+
+@init_app.command("huggingface")
+def init_huggingface() -> None:
+    """Detect the Hugging Face token the official client already uses.
+
+    Reads ``HF_TOKEN`` or the token cached by ``huggingface-cli login``, and
+    records that one exists. The value is never read.
+
+    Once configured, ``hf://model/<org>/<name>`` and ``hf://dataset/<org>/<name>``
+    resolve through the retrieval seam — a model card carries intended use and
+    known limitations, and its commit sha makes the card drift-checkable exactly
+    like a repository file.
+    """
+    from agentic_cli import hubs
+
+    _report_hub(hubs.HUGGINGFACE, hubs.huggingface_credential(),
+                f"[bold]Try:[/bold] {CLI_NAME} context fetch "
+                f"hf://model/openai-community/gpt2")
