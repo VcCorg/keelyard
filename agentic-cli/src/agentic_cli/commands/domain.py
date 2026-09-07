@@ -2238,21 +2238,62 @@ def reinstall_skills(
 # {CLI_NAME} domain init-meta
 # ---------------------------------------------------------------------------
 
+def _on_rmtree_error(func, path, _exc):
+    """Clear the read-only bit and retry — the Windows half of a robust delete.
+
+    Git marks everything under ``.git/objects`` read-only, and on Windows
+    ``os.unlink`` refuses a read-only file outright rather than deferring to the
+    directory's permissions as POSIX does. Without this, removing any repository
+    fails with ``[WinError 5] Access is denied`` on the first object file.
+    """
+    import os
+    import stat
+
+    try:
+        os.chmod(path, stat.S_IWRITE)
+        func(path)
+    except OSError:
+        # Genuinely undeletable — let the caller's final, non-ignoring attempt
+        # surface it rather than swallowing it here.
+        pass
+
+
 def _robust_rmtree(path: Path, attempts: int = 5) -> None:
-    """Remove a directory tree, retrying on transient ``ENOTEMPTY`` races.
+    """Remove a directory tree, retrying on transient races and read-only files.
+
+    Two different failures, one per platform:
 
     On macOS, Finder/Spotlight can recreate ``.DS_Store`` files mid-deletion,
     causing ``shutil.rmtree`` to fail with ``[Errno 66] Directory not empty``.
-    Retrying with ``ignore_errors`` clears these transient leftovers.
+    Retrying clears these transient leftovers.
+
+    On Windows, git's object files are read-only and ``unlink`` refuses them, so
+    every attempt failed the same way — ``ignore_errors`` skipped them silently
+    until the final non-ignoring pass raised ``[WinError 5]``. Retrying cannot
+    help when nothing about the file changes between attempts; the read-only bit
+    has to be cleared, which is what the error handler does.
     """
     import shutil
+    import sys
     import time
 
-    for i in range(attempts):
-        shutil.rmtree(path, ignore_errors=(i < attempts - 1))
+    # onexc replaced onerror in 3.12; the project supports 3.10+.
+    handler = ({"onexc": _on_rmtree_error} if sys.version_info >= (3, 12)
+               else {"onerror": _on_rmtree_error})
+
+    # Never combined with ignore_errors: CPython replaces the handler with a
+    # no-op when ignore_errors is set, so passing both would silently disable
+    # the read-only fix on exactly the passes meant to use it.
+    for _ in range(attempts):
+        shutil.rmtree(path, **handler)
         if not path.exists():
             return
         time.sleep(0.1)
+
+    # The handler swallows what it cannot fix, so a surviving tree has produced
+    # no exception yet. One bare attempt turns that into a real error naming the
+    # file that blocked it, instead of a silent no-op the caller trusts.
+    shutil.rmtree(path)
 
 
 @domain_app.command("init-meta", hidden=True, deprecated=True)

@@ -12,8 +12,14 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# Anchored to the repo root. Unanchored, `lib/` matches any directory named
+# lib at any depth, which silently swallowed scripts/lib/ — a sourced helper
+# was written, validated locally, committed by `git add -A` without complaint,
+# and shipped missing, breaking package-mac.sh for everyone who pulled it.
+# dashboard/frontend/src/lib had already hit this and been patched with a
+# path-specific negation; anchoring fixes the rule instead of the symptom.
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -22,10 +28,10 @@ wheels/
 .installed.cfg
 *.egg
 
-# The Python build-artifact rules above (lib/, build/, dist/, ...) are unanchored
-# and would also swallow real frontend SOURCE dirs. Keep those tracked.
-!dashboard/frontend/src/lib/
-!dashboard/frontend/src/lib/**
+# `build/`, `dist/` and friends above stay unanchored deliberately —
+# dashboard/frontend/dist is real build output at a nested path. Only the rules
+# that collide with source directory names were anchored. (desktop/build/ is
+# exempted separately below; it holds electron-builder resources, not output.)
 
 # Virtual environments
 .venv/
