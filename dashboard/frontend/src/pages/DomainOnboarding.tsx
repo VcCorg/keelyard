@@ -37,6 +37,7 @@ import { DomainReviewPanel } from "@/components/DomainReviewPanel";
 import { DomainReadinessPanel } from "@/components/DomainReadinessPanel";
 import { OpenInIdeButton } from "@/components/OpenInIdeButton";
 import { cn } from "@/lib/utils";
+import { parseRepoUrl, sourceFieldFor } from "@/lib/repoUrl";
 
 /* ── Streaming console (handles both `log` and `done` SSE events) ─────────── */
 function StreamConsole({
@@ -891,11 +892,16 @@ function ReposStep({
   const [err, setErr] = useState<string | null>(null);
   const [savingSrc, setSavingSrc] = useState(false);
 
-  // The filter input doubles as a repo-name substring, but users often paste a
-  // full Bitbucket project/repo URL here expecting it to scope the fetch. A URL
-  // is never a repo slug, so it silently matches nothing. Detect that case and
-  // offer to set it as the domain's Bitbucket source instead.
-  const filterIsUrl = /^https?:\/\//i.test(filter.trim());
+  // The filter input doubles as a repo-name substring, but users paste repo URLs
+  // here expecting it to scope the fetch. A URL is never a repo slug, so it
+  // matches nothing. Parse it instead: a repo URL can be linked outright, and a
+  // project/org URL can become the domain's source — filed under the host it
+  // actually belongs to, which is what this got wrong before.
+  const parsedUrl = parseRepoUrl(filter);
+  const filterIsUrl = parsedUrl.kind !== "unknown";
+  const sourceField = sourceFieldFor(parsedUrl);
+  const canLinkPasted = parsedUrl.kind === "repo" && !!parsedUrl.slug;
+  const alreadyLinked = domain.repos.some((r) => r.repo_slug === parsedUrl.slug);
 
   const loadCandidates = async (q: string = filter) => {
     setLoading(true);
@@ -909,11 +915,21 @@ function ReposStep({
     }
   };
 
-  const useAsBitbucketSource = async () => {
+  const useAsSource = async () => {
+    if (!sourceField) return;
     setSavingSrc(true);
     setErr(null);
     try {
-      await api.updateDomain(domain.name, { bitbucket_url: filter.trim(), bitbucket_project: "" });
+      // Route to the field matching the URL's host. The old version always
+      // wrote bitbucket_url, so a GitHub link was stored as a Bitbucket source:
+      // the domain then looked configured while discovery kept failing.
+      // bitbucket_project is cleared only when a Bitbucket URL replaces it —
+      // a GitHub URL has no business touching it.
+      const patch =
+        sourceField === "bitbucket_url"
+          ? { bitbucket_url: parsedUrl.input, bitbucket_project: "" }
+          : { github_url: parsedUrl.input };
+      await api.updateDomain(domain.name, patch);
       onChanged();
       setFilter("");
       setCandidates(null);
@@ -922,6 +938,26 @@ function ReposStep({
       setErr(String(e));
     } finally {
       setSavingSrc(false);
+    }
+  };
+
+  const linkPastedUrl = async () => {
+    setBusy(parsedUrl.slug);
+    setErr(null);
+    try {
+      // Owner and slug come from the path, so this works on any git host —
+      // including the ones Keel has no discovery client for.
+      await api.linkRepo(domain.name, {
+        repo_slug: parsedUrl.slug,
+        repo_name: parsedUrl.slug,
+        clone_url: parsedUrl.cloneUrl,
+      });
+      onChanged();
+      setFilter("");
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setBusy(null);
     }
   };
 
@@ -984,10 +1020,10 @@ function ReposStep({
       </div>
 
       <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-        <h2 className="font-semibold mb-3">Add repos from Bitbucket</h2>
+        <h2 className="font-semibold mb-3">Add repos</h2>
         <div className="flex gap-2 mb-3">
           <Input
-            placeholder="Filter repo names, or paste a Bitbucket project/repo URL"
+            placeholder="Filter repo names, or paste a repo URL (GitHub, Bitbucket, …)"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             aria-invalid={filterIsUrl}
@@ -1002,26 +1038,67 @@ function ReposStep({
             <div className="flex items-start gap-2 text-xs text-amber-700 dark:text-amber-300">
               <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
               <span>
-                That looks like a <strong>URL</strong>, not a repo name. Filtering by a
-                URL never matches, so no repos are found. Set it as this domain's
-                Bitbucket source to fetch repos from that project.
+                That looks like a <strong>URL</strong>, not a repo name — filtering by
+                one never matches.{" "}
+                {canLinkPasted ? (
+                  <>
+                    It points at <strong>{parsedUrl.owner}/{parsedUrl.slug}</strong>, so
+                    it can be linked directly.
+                  </>
+                ) : (
+                  <>Set it as this domain's source to fetch repos from it.</>
+                )}
               </span>
             </div>
-            <Button size="sm" onClick={useAsBitbucketSource} disabled={savingSrc}>
-              {savingSrc ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-1" />
-              ) : (
-                <Check className="h-4 w-4 mr-1" />
+
+            <div className="flex flex-wrap gap-2">
+              {canLinkPasted && (
+                <Button
+                  size="sm"
+                  onClick={linkPastedUrl}
+                  disabled={busy === parsedUrl.slug || alreadyLinked}
+                >
+                  {busy === parsedUrl.slug ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  ) : (
+                    <Check className="h-4 w-4 mr-1" />
+                  )}
+                  {alreadyLinked ? "Already linked" : `Link ${parsedUrl.slug}`}
+                </Button>
               )}
-              Set as Bitbucket source &amp; load
-            </Button>
+              {sourceField && (
+                <Button
+                  size="sm"
+                  variant={canLinkPasted ? "outline" : "default"}
+                  onClick={useAsSource}
+                  disabled={savingSrc}
+                >
+                  {savingSrc ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  ) : (
+                    <Check className="h-4 w-4 mr-1" />
+                  )}
+                  Set as {parsedUrl.host === "github" ? "GitHub" : "Bitbucket"} source
+                </Button>
+              )}
+            </div>
+
+            {!sourceField && (
+              // Linking works on any host; filing it as a source does not, and a
+              // guess here is what put GitHub URLs in the Bitbucket field.
+              <p className="text-[11px] text-amber-700/80 dark:text-amber-300/80">
+                Keel does not recognise this host, so it will not be recorded as the
+                domain's source — linking the repo above still works.
+              </p>
+            )}
           </div>
         )}
         {err && <p className="text-xs text-red-600 mb-2">{err}</p>}
         <div className="space-y-2 max-h-80 overflow-y-auto">
           {candidates === null && (
             <p className="text-sm text-gray-500">
-              Click refresh to preview repos from the domain's Bitbucket project.
+              Click refresh to preview repos from the domain's Bitbucket project, or
+              paste a repo URL above to link one directly.
             </p>
           )}
           {candidates?.length === 0 && !filterIsUrl && (
